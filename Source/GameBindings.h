@@ -6,6 +6,8 @@
 namespace attendance::bindings {
 inline constexpr uintptr_t AudioUpdate=0x28484a0,CrowdQueue=0x3d3fb30;
 inline constexpr uintptr_t AttendanceUpdate=0x3632a50;
+// Read-only placement lookup verified against the native agent*16 position path.
+inline constexpr uintptr_t SceneCrowdVtable=0xb7db448,CrowdRendererVtable=0xb7db228,CrowdPositionKey=0xb222068;
 // GameStates post-update dispatches every active phase, including PreGame.
 inline constexpr uintptr_t PresentationUpdate=0x5d0d530;
 inline constexpr uintptr_t MixerCreate=0x10eb500,MixerRelease=0x10ed380,MixerManager=0xdc462f0;
@@ -42,4 +44,6 @@ inline constexpr uintptr_t MuseLogicEvaluate=0x9134550,MuseComparisonValue=0x913
 inline constexpr uintptr_t MuseLogicVtable=0xbf1bcc8,MuseComparisonVtable=0xbf1bc40;
 inline constexpr uintptr_t MuseConstantVtable=0xb6462d0,MuseFunctionVtable=0xbc7c140,MuseActorFunctionVtable=0xbc7c270;
 inline constexpr uintptr_t GameStatesVtable=0xb479070;
+// Read only. UI IsInSuperSimGameplayMode checks this controller's mode +8.
+inline constexpr uintptr_t SuperSimController=0xf8ce5b8,SuperSimVtable=0xb7d8980,SuperSimModeGetter=0x3754ce0;
 }

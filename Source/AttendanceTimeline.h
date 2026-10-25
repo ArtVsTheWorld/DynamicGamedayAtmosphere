@@ -76,9 +76,10 @@ struct Archive {
     }
 };
 struct Bootstrap {departures::Model departures;arrivals::Model arrivals;arrivals::Halftime halftime;History history;int loss=0,temporary=0;};
-inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,const State& s,const Point* saved=nullptr,int halftimeExtra=10){
+inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,State s,const Point* saved=nullptr,int halftimeExtra=100){
     Bootstrap out;if(!valid(s))return out;float elapsed=elapsedGameTime(s);
     if(saved){
+        s.variationSeed=saved->state.variationSeed;
         out.loss=(std::clamp)(saved->loss,0,100);out.temporary=(std::clamp)(saved->temporary,0,100);out.history=saved->history;
         out.history.elapsed=elapsed;out.history.lastHome=s.homeScore;out.history.lastAway=s.awayScore;
         out.departures.periodStartLoss=(std::clamp)(saved->periodStart,0,out.loss);
@@ -89,6 +90,7 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,const St
         float step=s.quarterSeconds/60.0f;
         for(float t=0;;t=(std::min)(end,t+step)){
             State x=s;x.phase=5;x.quarter=(std::min)(4,1+static_cast<int>(t/s.quarterSeconds));x.seconds=x.quarter*s.quarterSeconds-t;
+            x.offense=x.homeTimeouts=-1;x.toGoal=-1; // The present possession does not describe unrecorded earlier drives.
             float f=end>0?t/end:0;x.homeScore=static_cast<int>(std::lround(s.homeScore*f));x.awayScore=static_cast<int>(std::lround(s.awayScore*f));
             synthetic.observe(c,x);out.departures.observe(c,x,synthetic);out.loss=out.departures.settle(x,out.loss,0,c.quarterCap).loss;
             if(t>=end)break;
@@ -100,13 +102,22 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,const St
     auto& d=out.departures;d.seen=true;d.automatic=c.enabled!=0;d.elapsed=elapsed;d.length=s.quarterSeconds;d.previous=s;d.priorHistory=out.history;
     d.hazard=d.committedHazard=-std::log((std::max)(0.000001,1-out.loss/100.0));d.committedLoss=out.loss;
     d.capPeriod=(std::min)(4,1+static_cast<int>(elapsed/s.quarterSeconds+0.00001f));d.minimumStart=elapsed<2*s.quarterSeconds?(std::max)(elapsed,s.quarterSeconds):-1;
+    d.plannedLoss=out.loss;d.plannedPeriod=d.capPeriod;d.plannedStart=d.periodStartLoss;
     // Restore the current arrival curve without replaying a fictional kickoff.
     auto& ar=out.arrivals;ar.seen=true;ar.startMissing=100-arrivals::openingPercent(a,s);ar.fillSeconds=s.quarterSeconds*arrivals::finishFraction(a,s);
-    ar.elapsed=s.quarterSeconds-s.seconds;ar.missing=a.enabled&&c.enabled&&s.quarter==1?(std::clamp)(static_cast<int>(std::ceil(ar.startMissing*(1-ar.elapsed/ar.fillSeconds))),0,ar.startMissing):0;
+    ar.elapsed=s.quarterSeconds-s.seconds;ar.missing=a.enabled&&c.enabled&&s.quarter==1?arrivals::missingAt(ar.startMissing,ar.elapsed,ar.fillSeconds,s):0;
     if(saved&&a.enabled&&c.enabled&&s.quarter==1)ar.missing=(std::min)(ar.startMissing,out.temporary);
     ar.active=ar.missing>0;ar.done=!ar.active;
-    if(c.enabled&&((s.quarter==2&&s.seconds<s.quarterSeconds/8)||(s.quarter==3&&s.quarterSeconds-s.seconds<s.quarterSeconds/6)))out.halftime.active=true;
+    if(c.enabled&&((s.quarter==2&&s.seconds<s.quarterSeconds/6)||(s.quarter==3&&s.quarterSeconds-s.seconds<s.quarterSeconds/4)))out.halftime.active=true;
     State temp=s;temp.phase=5;int bathroom=c.enabled?out.halftime.observe(temp,out.loss,halftimeExtra):0;
+    if(saved&&s.quarter==3){
+        // A recorded return must not restart the longer new break window or
+        // invent extra absences when loading history from an older version.
+        auto& half=out.halftime;half.seen=true;half.highTime=elapsed;
+        half.lastAbsent=(std::max)(0,out.temporary-out.loss);half.temporary=out.temporary;half.lastQuarter=3;
+        half.breakPercent=context::halftime(s).temporary;
+        half.active=half.lastAbsent>0;half.done=!half.active;
+    }
     if(!saved)out.temporary=(std::max)(ar.missing,bathroom);
     out.history.warningPending=false;out.history.warningDone=s.quarter>=4&&s.seconds<=120;
     for(int q=2;q<=s.quarter&&q<=4;++q)out.history.quarterMask|=1u<<q;
@@ -114,18 +125,19 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,const St
 }
 // Text format with explicit fields and bounded reads; never dumps native structs.
 inline void write(std::ostream& f,const Archive& a){
-    f<<"DGA-HISTORY-1 "<<a.games.size()<<'\n'<<std::setprecision(17);
+    f<<"DGA-HISTORY-2 "<<a.games.size()<<'\n'<<std::setprecision(17);
     for(const auto& g:a.games){
-        const auto& s=g.context;f<<g.id<<' '<<s.team0<<' '<<s.team1<<' '<<s.quarterSeconds<<' '<<s.playoff<<' '<<s.bowl<<' '<<s.rank0<<' '<<s.rank1<<' '<<s.rivalry<<' '<<s.neutral<<' '<<s.precipitation<<' '<<g.points.size()<<'\n';
+        const auto& s=g.context;f<<g.id<<' '<<s.team0<<' '<<s.team1<<' '<<s.quarterSeconds<<' '<<s.playoff<<' '<<s.bowl<<' '<<s.rank0<<' '<<s.rank1<<' '<<s.rivalry<<' '<<s.neutral<<' '<<s.precipitation<<' '<<g.points.size()<<' '<<s.variationSeed<<'\n';
         for(const auto& p:g.points){const auto& h=p.history;
             f<<p.time<<' '<<p.state.quarter<<' '<<p.state.seconds<<' '<<p.state.homeScore<<' '<<p.state.awayScore<<' '<<p.loss<<' '<<p.temporary<<' '<<p.periodStart<<' '
              <<h.comeback<<' '<<h.released<<' '<<h.maxDeficit<<' '<<h.bestDeficit<<' '<<h.watchStage<<' '<<h.comebackSide<<' '<<h.maxAwayDeficit<<' '<<h.deteriorationSince<<'\n';}
     }
 }
 inline bool read(std::istream& f,Archive& target){
-    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||magic!="DGA-HISTORY-1"||games>Archive::MaxGames)return false;
+    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||(magic!="DGA-HISTORY-1"&&magic!="DGA-HISTORY-2")||games>Archive::MaxGames)return false;
     for(size_t i=0;i<games;++i){Game g;size_t count=0;int playoff=0,rivalry=0,neutral=0;
         if(!(f>>g.id>>g.context.team0>>g.context.team1>>g.context.quarterSeconds>>playoff>>g.context.bowl>>g.context.rank0>>g.context.rank1>>rivalry>>neutral>>g.context.precipitation>>count)||!g.id||count>Archive::MaxPoints||g.context.team0<0||g.context.team0>=2047||g.context.team1<0||g.context.team1>=2047||playoff<0||playoff>1||rivalry<0||rivalry>1||neutral<0||neutral>1||g.context.rank0< -1||g.context.rank0>256||g.context.rank1< -1||g.context.rank1>256||g.context.precipitation<0||g.context.precipitation>2||g.context.bowl<0||g.context.bowl>255||!std::isfinite(g.context.quarterSeconds)||g.context.quarterSeconds<60||g.context.quarterSeconds>1200)return false;
+        if(magic=="DGA-HISTORY-2"){uint64_t seed=0;if(!(f>>seed)||seed>0xffffffffull)return false;g.context.variationSeed=static_cast<unsigned>(seed);}
         g.context.playoff=playoff!=0;g.context.rivalry=rivalry!=0;g.context.neutral=neutral!=0;double last=-1;
         for(size_t j=0;j<count;++j){Point p;p.state=g.context;auto& h=p.history;int comeback=0,released=0;
             if(!(f>>p.time>>p.state.quarter>>p.state.seconds>>p.state.homeScore>>p.state.awayScore>>p.loss>>p.temporary>>p.periodStart>>comeback>>released>>h.maxDeficit>>h.bestDeficit>>h.watchStage>>h.comebackSide>>h.maxAwayDeficit>>h.deteriorationSince))return false;

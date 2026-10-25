@@ -41,7 +41,7 @@ try {
         if($LASTEXITCODE -ne 0){throw 'Rule checks build failed'}
         & '.\RulesTests.exe'
         if($LASTEXITCODE -ne 0){throw 'Rule checks failed'}
-        foreach($crowdTest in @('CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests')){
+        foreach($crowdTest in @('CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','AttendanceBalanceTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests','SeatPatternTests','SeatRuntimeTests')){
             & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 @crowdInclude (Join-Path $crowdRoot ('Tests\'+$crowdTest+'.cpp')) ('/Fe:'+$crowdTest+'.exe') /link @crowdLib
             if($LASTEXITCODE -ne 0){throw ($crowdTest+' build failed')}
             & ('.\'+$crowdTest+'.exe')

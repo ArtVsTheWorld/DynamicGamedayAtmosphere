@@ -1,7 +1,9 @@
 #pragma once
 #include "AtmosphereRules.h"
+#include "AttendanceContext.h"
 
 namespace attendance::departures {
+inline double strengthFor(const Settings& c){return (std::clamp)(c.formulaStrength,0,200)*0.01;}
 inline float pressure(const State& s,float timeLeft){
     return (std::clamp)((std::abs(s.homeScore-s.awayScore)-8)/(8+32*timeLeft),0.0f,1.0f);
 }
@@ -9,7 +11,7 @@ inline float rankMultiplier(const State& raw){
     State s=ranked(raw);
     if(s.rank0<1||s.rank1<1||s.homeScore==s.awayScore)return 1;
     bool favoriteLeads=(s.homeScore>s.awayScore&&s.rank0<s.rank1)||(s.awayScore>s.homeScore&&s.rank1<s.rank0);
-    return favoriteLeads?1+0.25f*relativeGap(s):1;
+    return favoriteLeads?1+0.20f*context::separation(s):1;
 }
 inline float stayFactor(const State& s,const History& h){
     if(competitiveOvertime(s))return 0;
@@ -22,6 +24,32 @@ inline bool excellentGame(const State& s,const History& h){
     return inferiorOpponent(s)<1&&margin<=8&&(s.rivalry||(top25(s.rank0)&&top25(s.rank1))||h.upsetWatch||h.comeback||
         (margin<=3&&s.homeScore+s.awayScore>=28));
 }
+inline float homePatience(const State& s,float elapsed){
+    bool homeAhead=!s.neutral&&s.homeScore>s.awayScore;
+    float home=homeAhead?(elapsed<2*s.quarterSeconds?0.375f:elapsed<3*s.quarterSeconds?0.35f:0.405f):1.0f;
+    float inferior=inferiorOpponent(s);
+    return home+0.58f*inferior*(1-home)-0.06f*context::comparableHomeWin(s);
+}
+inline float matchupFactor(const Settings& c,const State& s){
+    Profile profile=profileFor(c,s);
+    return profile==Profile::Reduced?0.75f+inferiorOpponent(s)*(badWeather(s)?0.5f:0.25f):profile==Profile::BadWeather?1.25f:1.0f;
+}
+inline double catchupTarget(const Settings& c,const State& s,const History& h,float elapsed){
+    // Only regular-season Q4 blowouts. This is a pressure target, never a
+    // direct attendance assignment: already-depleted crowds get no extra cut.
+    int margin=std::abs(s.homeScore-s.awayScore);
+    if(!c.enabled||s.playoff||s.quarter!=4||s.phase==7||margin<=16||elapsed<3*s.quarterSeconds)return 0;
+    double severity=std::pow((std::clamp)((margin-8)/27.0,0.0,1.0),0.65);
+    // Rank-based hard floors are enforced by settlement, keeping the pressure
+    // itself continuous across No. 25/26 and across a change of leader.
+    double loss=(75+(badWeather(s)?10:0))*0.01*severity;
+    double progress=(std::clamp)((elapsed-3*s.quarterSeconds)/s.quarterSeconds,0.0f,1.0f);
+    // Ease into moderate/major blowouts without a steep 21-to-24-point jump.
+    float activation=context::smooth((margin-16)/4.0f)*context::smooth((margin-8)/24.0f);
+    return -std::log(1-loss)*(0.5+0.5*progress)*homePatience(s,elapsed)*matchupFactor(c,s)*
+        rankMultiplier(s)*stayFactor(s,h)*activation*context::lateOpportunity(s)*(s.neutral?0.75f:1.0f)*(1+0.05f*context::variation(s))*
+        (std::clamp)(c.formulaStrength,0,200)*0.01;
+}
 inline float rate(const Settings& c,const State& s,const History& h,float elapsed){
     if(!c.enabled||s.quarter>4||s.phase==7)return 0;
     float t=(std::clamp)(1-elapsed/(4*s.quarterSeconds),0.0f,1.0f);
@@ -31,69 +59,141 @@ inline float rate(const Settings& c,const State& s,const History& h,float elapse
         float gate=(std::clamp)((std::abs(s.homeScore-s.awayScore)-8)/27.0f,0.0f,1.0f);
         float postseasonRate=-std::log(1-lossCeiling(s)*0.01f);
         float home=!s.neutral&&s.homeScore>s.awayScore?0.65f+0.35f*inferiorOpponent(s):1.0f;
-        return postseasonRate*p*p*gate*home*keep*strength;
+        float late=elapsed>=2*s.quarterSeconds?1+context::smooth((std::abs(s.homeScore-s.awayScore)-21)/14.0f):1;
+        // Postseason fans stay patient early. Traffic exits build only in a
+        // noncompetitive fourth quarter, with championship patience intact.
+        float fourth=context::smooth((elapsed-3*s.quarterSeconds)/s.quarterSeconds);
+        float decided=context::smooth((std::abs(s.homeScore-s.awayScore)-8)/20.0f);
+        late+=fourth*decided*(championship(s)?3.0f:5.0f);
+        return postseasonRate*p*p*gate*home*keep*strength*late;
     }
     // Preserve the accepted halftime cut, then soften moderate deficits in Q3
     // and let exits build faster in Q4. Severe blowouts retain their full rate.
-    float severity=(std::clamp)((std::abs(s.homeScore-s.awayScore)-21)/14.0f,0.0f,1.0f);
+    float severity=context::smooth((std::abs(s.homeScore-s.awayScore)-21)/14.0f);
     float late=elapsed>2*s.quarterSeconds+0.001f?(elapsed<3*s.quarterSeconds?0.25f:0.50f):1.0f;
     late+=severity*(1-late);
-    bool homeAhead=!s.neutral&&s.homeScore>s.awayScore;
-    float home=homeAhead?(elapsed<2*s.quarterSeconds?0.375f:elapsed<3*s.quarterSeconds?0.35f:0.405f):1.0f;
-    home+=inferiorOpponent(s)*(1-home);
-    Profile profile=profileFor(c,s);
-    float context=profile==Profile::Reduced?0.75f+inferiorOpponent(s)*(badWeather(s)?0.5f:0.25f):profile==Profile::BadWeather?1.25f:1.0f;
     // Routine departures remain small in close games; the extra patience
     // applies to blowout-driven exits rather than switching routine losses off.
-    return (0.08f+2.4f*p*p*home*rankMultiplier(s)*late)*context*keep*strength;
+    float neutral=s.neutral?0.75f:1; // Winning supporters still have a reason to stay.
+    return (0.08f+2.4f*p*p*homePatience(s,elapsed)*rankMultiplier(s)*late)*matchupFactor(c,s)*keep*strength*
+        context::lateOpportunity(s)*neutral*(1+0.05f*context::variation(s));
 }
-struct Result {int loss=0;bool changed=false;};
+struct Result {int loss=0;bool changed=false,catchup=false;};
 // Accrue game-time pressure independently of rendering. settle() is called ONLY
 // at existing verified selection/break windows, never by a running clock alone.
 struct Model {
-    bool seen=false,automatic=false;float elapsed=0,length=0,minimumStart=-1;double hazard=0,committedHazard=0;
+    bool seen=false,automatic=false,catchupQueued=false;float elapsed=0,length=0,minimumStart=-1;double hazard=0,committedHazard=0;
     int committedLoss=0,capPeriod=0,periodStartLoss=0;State previous;History priorHistory;
+    // Earned departures are independent of how often play selection opens.
+    // Rendering follows this bounded target, using its own existing limits.
+    int plannedLoss=0,plannedPeriod=0,plannedStart=0;
+    int windowBudget=100;
+    float windowAt=-1;int windowHome=-1,windowAway=-1;
+    int visibleLow=0,visibleHigh=100,visibleBudget=100;
+    bool visibleBound=false;
+    void anchorVisible(int loss,int temporary){
+        if(visibleBound)return;
+        int base=(std::max)(loss,temporary);
+        visibleLow=(std::max)(0,base-visibleBudget);visibleHigh=(std::min)(100,base+visibleBudget);visibleBound=true;
+    }
+    void openingVisible(){visibleBound=false;visibleLow=0;visibleHigh=100;}
+    int paceTemporary(int loss,int requested)const{
+        int visible=(std::clamp)((std::max)(loss,requested),visibleLow,visibleHigh);
+        return visible>loss?visible:0;
+    }
+    void beginWindow(int limit=100){windowBudget=(std::clamp)(limit,1,100);}
+    void beginWindow(const State& s,int limit){
+        float time=elapsedGameTime(s);
+        if(time==windowAt&&s.homeScore==windowHome&&s.awayScore==windowAway)return;
+        // Four points per 30 reference game seconds, with a bounded catch-up
+        // allowance for long drives. Quarter scaling works at all lengths.
+        float interval=windowAt<0?s.quarterSeconds/24.0f:(std::max)(0.0f,time-windowAt);
+        limit=(std::clamp)(limit,1,100);
+        int allowance=limit>=100?100:(std::clamp)(static_cast<int>(std::ceil(limit*(std::max)(1.0f,interval/(s.quarterSeconds/24.0f)))),limit,(std::max)(16,limit));
+        // Reconcile earned permanent exits at the next hidden opportunity.
+        // Otherwise an identical late score path gets different departures
+        // solely because one player opens play selection more often.
+        if(limit<100)allowance=(std::max)(allowance,(std::max)(0,plannedLoss-committedLoss));
+        windowAt=time;windowHome=s.homeScore;windowAway=s.awayScore;beginWindow(allowance);
+        visibleBudget=allowance;visibleBound=false;visibleLow=0;visibleHigh=100;
+    }
     void reset(){*this=Model{};}
+    void boundPressure(const State& s,float time,int maximumPerQuarter){
+        int period=(std::min)(4,1+static_cast<int>(time/s.quarterSeconds+0.00001f));
+        if(period!=plannedPeriod){plannedPeriod=period;plannedStart=plannedLoss;}
+        int cap=(std::clamp)(maximumPerQuarter,1,50);
+        if(s.playoff)cap=(std::min)(cap,championship(s)?10:20);
+        int allowed=(std::max)(plannedLoss,(std::min)(lossCeiling(s),plannedStart+cap));
+        double ceiling=-std::log((std::max)(0.000001,1-allowed/100.0));
+        hazard=(std::min)(hazard,ceiling);
+        plannedLoss=(std::max)(plannedLoss,static_cast<int>(std::floor(100*(1-std::exp(-hazard))+0.00001)));
+    }
     static float clockWeight(float from,float to,float quarter){
         auto overlap=[&](float start,float end,float budget){
             return budget*(std::max)(0.0f,(std::min)(to,end)-(std::max)(from,start))/(end-start);
         };
-        return overlap(quarter,2*quarter,0.20f)+overlap(2*quarter,3*quarter,0.20f)+overlap(3*quarter,4*quarter,0.20f);
+        return overlap(quarter,2*quarter,0.10f)+overlap(2*quarter,3*quarter,0.20f)+overlap(3*quarter,4*quarter,0.20f);
     }
     bool observe(const Settings& c,const State& s,const History& h,bool enabled=true,bool authoritative=false){
         if(!valid(s)||(!authoritative&&s.phase!=1&&s.phase!=5&&s.phase!=6))return false;
         float now=elapsedGameTime(s);
         if(seen&&(now+0.01f<elapsed||s.homeScore<previous.homeScore||s.awayScore<previous.awayScore||s.quarterSeconds!=length))return false;
         if(!enabled||!c.enabled||!c.formulaStrength||stayFactor(s,h)<=0||s.quarter>4){
-            // Protection cancels departures not yet shown; it cannot bank an
-            // unseen batch to remove as soon as the comeback ends.
-            hazard=(std::min)(hazard,committedHazard);
+            // Protection stops future exits and cancels fractional pressure;
+            // already-earned exits do not depend on the next camera window.
+            // Manual/disabled time instead adopts the actual displayed crowd.
+            bool paused=!enabled||!c.enabled||!c.formulaStrength;
+            if(paused){plannedLoss=committedLoss;plannedStart=periodStartLoss;plannedPeriod=capPeriod;}
+            double earned=-std::log((std::max)(0.000001,1-plannedLoss/100.0));
+            hazard=(std::min)(hazard,paused?committedHazard:earned);
+            catchupQueued=false;
             minimumStart=now<2*s.quarterSeconds?(std::max)(now,s.quarterSeconds):-1;
         }
         if(!seen&&now<2*s.quarterSeconds)minimumStart=(std::max)(now,s.quarterSeconds);
+        if(!plannedPeriod){plannedLoss=committedLoss;plannedStart=periodStartLoss;plannedPeriod=capPeriod;boundPressure(s,seen?elapsed:now,c.quarterCap);}
         bool live=enabled&&c.enabled&&s.phase!=6&&s.quarter<=4;
         if(seen&&live&&(!automatic||stayFactor(previous,priorHistory)<=0))minimumStart=now<2*length?(std::max)(now,length):-1;
         if(seen&&live&&automatic){
             // Integrate in small game-time steps. Both score/history endpoints
             // must permit exits: a new blowout or expired protection is never
             // backdated over an unobserved interval or a Super Sim jump.
-            float step=(std::max)(0.25f,length/180.0f);
+            float step=(std::max)(0.10f,length/900.0f);
             for(float a=elapsed;a<now;){
                 float b=(std::min)(now,a+step),mid=(a+b)*0.5f;
                 float r=(std::min)(rate(c,previous,priorHistory,mid),rate(c,s,h,mid));
-                hazard+=clockWeight(a,b,length)*r;a=b;
+                double ordinary=clockWeight(a,b,length)*r;
+                hazard+=ordinary*0.5;
+                double target=(std::min)(catchupTarget(c,previous,priorHistory,mid),catchupTarget(c,s,h,mid));
+                // A quarter-scaled response (90 game seconds with 12-minute
+                // quarters) closes only the positive gap. Endpoint agreement
+                // prevents charging a new blowout to earlier competitive time.
+                double extra=(std::max)(0.0,target-hazard)*-std::expm1(-(b-a)/(length/8.0));
+                hazard+=extra+ordinary*0.5;catchupQueued=catchupQueued||extra>0.000000001;
+                if(mid>=length&&mid<=2*length&&minimumStart>=0){
+                    auto halfTarget=[&](const State& x,const History& story){
+                        float targetLoss=(context::halftime(x).permanent+0.5f)*0.01f;
+                        float progress=context::smooth((mid-minimumStart)/(2*length-minimumStart));
+                        float protection=stayFactor(x,story);
+                        return -std::log(1-targetLoss*progress*progress)*protection*strengthFor(c);
+                    };
+                    double wanted=(std::min)(halfTarget(previous,priorHistory),halfTarget(s,h));
+                    hazard+=(std::max)(0.0,wanted-hazard)*-std::expm1(-(b-a)/(length/40.0));
+                }
+                // Clip pressure where it is earned, rather than discarding a
+                // different amount at each player's next visual opportunity.
+                State bounds=s;bounds.rank0=previous.rank0;bounds.rank1=previous.rank1;
+                bounds.homeScore=previous.homeScore;bounds.awayScore=previous.awayScore;
+                bounds.precipitation=previous.precipitation;
+                boundPressure(bounds,mid,c.quarterCap);
+                a=b;
             }
             const float points[]={length,2*length,3*length};
-            const float weights[]={0.02f,0.32f,0.04f};
+            const float weights[]={0.01f,0.0f,0.02f};
             for(int i=0;i<3;++i)if(elapsed<points[i]&&now>=points[i])hazard+=weights[i]*rate(c,s,h,points[i]);
             float warning=4*length-120;
             if(c.warningEnabled&&length>120&&elapsed<warning&&now>=warning)hazard+=0.02f*rate(c,s,h,warning);
-            if(!s.playoff&&minimumStart>=0&&elapsed<2*length&&now>minimumStart&&stayFactor(s,h)>0&&!excellentGame(s,h)&&c.formulaStrength>0){
-                double progress=(std::clamp)((now-minimumStart)/(2*length-minimumStart),0.0f,1.0f);
-                double minimum=0.10*progress*(std::clamp)(c.formulaStrength,0,200)/100.0;
-                hazard=(std::max)(hazard,-std::log(1-minimum));
-            }
         }
+        boundPressure(s,now,c.quarterCap);
         // Pregame seeds Q1 without banking departures. Late attaches never
         // invent earlier checkpoints; disabled/manual time is not caught up.
         seen=true;elapsed=now;length=s.quarterSeconds;previous=s;priorHistory=h;
@@ -114,19 +214,24 @@ struct Model {
         double anchor=-std::log(retained);
         if(requested>committedLoss)anchor+=(std::max)(0.0,hazard-committedHazard);
         hazard=(std::max)(hazard,anchor);
+        if(requested>plannedLoss){plannedLoss=requested;plannedStart=(std::max)(plannedStart,periodStartLoss);}
+        boundPressure(s,elapsedGameTime(s),maximumPerQuarter);
         int loss=static_cast<int>(std::floor(100*(1-std::exp(-hazard))+0.00001));
-        r.loss=(std::max)(currentLoss,(std::clamp)(loss,0,allowed));
-        // Discard blocked departures; do not store a catch-up batch for Q3/Q4.
-        if(loss>r.loss)hazard=-std::log((std::max)(0.000001,1-r.loss/100.0));
-        committedHazard=hazard;committedLoss=r.loss;
-        r.changed=r.loss!=before;return r;
+        int bounded=(std::max)(currentLoss,(std::clamp)(loss,0,allowed));
+        r.loss=(std::min)(bounded,currentLoss+windowBudget);
+        windowBudget-=(std::max)(0,r.loss-currentLoss);
+        // The model already discarded pressure blocked by its floors/caps.
+        // A delayed visual update must not rewrite the accumulated pressure.
+        committedHazard=-std::log((std::max)(0.000001,1-r.loss/100.0));committedLoss=r.loss;
+        r.changed=r.loss!=before;r.catchup=r.changed&&catchupQueued;catchupQueued=false;return r;
     }
 };
-inline const char* reason(const Settings& c,const State& s,const History& h){
+inline const char* reason(const Settings& c,const State& s,const History& h,bool catchup=false){
     if(h.comeback&&inferiorOpponent(s)<1)return "comeback protection";
     if(competitiveOvertime(s))return "competitive overtime";
     if(h.watchStage>0)return "upset interest is slowing departures";
-    if(s.playoff)return "patient postseason crowd";
+    if(s.playoff)return s.quarter==4&&std::abs(s.homeScore-s.awayScore)>8?"late postseason traffic departures":"patient postseason crowd";
+    if(catchup)return "late blowout; departures catching up to the score";
     if(std::abs(s.homeScore-s.awayScore)<=8)return "competitive game; routine departures only";
     if(profileFor(c,s)==Profile::BadWeather)return "score, time remaining and bad weather";
     if(!s.neutral&&s.homeScore>s.awayScore&&inferiorOpponent(s)<1)return "home lead is keeping more fans around";

@@ -29,6 +29,7 @@
 #include "GameBindings.h"
 #include "LogFiles.h"
 #include "CrowdVisibility.h"
+#include "SeatMapping.h"
 #include "CrowdDispatch.h"
 #include "CrowdPartResolver.h"
 #include "CrowdAudioRuntime.h"
@@ -36,6 +37,7 @@
 #include "ChantMixerRuntime.h"
 #include "CrowdIntensityRuntime.h"
 #include "CrowdChangeWindow.h"
+#include "SuperSimState.h"
 #include "CoreAtmosphere.h"
 #include "ReactionAudioRuntime.h"
 #include "ResumeBridge.h"
@@ -61,6 +63,7 @@ std::shared_ptr<const attendance::energy::Settings> retentionEventSettings=std::
 std::atomic<float> crowdBoost{0};
 std::atomic<bool> shownPostgameCarry{false},shownEruption{false};
 std::atomic<int> liveDown{-2},liveOffense{-1},liveHomeTimeouts{-1};
+std::atomic<unsigned> attendanceSeed{0};
 std::atomic<bool> playBindingsAvailable{false};
 int pendingLateExits=0;A atmosphereMatch=0;unsigned long long lastAtmosphereTick=0;
 std::atomic<float> chantReduction{50};
@@ -68,11 +71,15 @@ attendance::arrivals::Model arrivalModel;
 attendance::CrowdChangeWindow crowdChangeWindow;
 attendance::arrivals::Halftime halftimeModel;
 attendance::departures::Model departureModel;
-std::atomic<int> arrivalEnabled{1},arrivalStart{65},arrivalLateStart{45},arrivalFinish{25},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{10},shownHalftime{0},shownArriving{0};
+std::atomic<int> arrivalEnabled{1},arrivalStart{70},arrivalLateStart{50},arrivalFinish{25},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{100},shownHalftime{0},shownArriving{0};
 std::atomic<int> arrivalBigBonus{20},arrivalWeatherPenalty{10},arrivalPlayoffStart{65},arrivalChampionshipStart{75},arrivalFcsPenalty{10};
-std::atomic<int> arrivalModerateStart{55},arrivalModerateFinish{50};
+std::atomic<int> arrivalModerateStart{60},arrivalModerateFinish{50};
 std::atomic<bool> arrivalReconcilePending{false};
 std::atomic<bool> visibilityRetry{false},captureArrivalBaseline{false};
+std::atomic<bool> pregameRendererRetry{false};
+std::atomic<bool> postgameRendererRetry{false};
+std::atomic<bool> superSimBinding{false},shownSuperSim{false};
+double simulationRecording=-1;
 unsigned visibilityGeneration=0;
 std::atomic<float> shownAmbienceLift{0},shownOpeningWeight{0},shownAudioLimit{4};
 std::atomic<unsigned long long> shownDecisiveUntil{0};
@@ -103,9 +110,15 @@ thread_local bool reconcilingArrivals=false,capturingBaseline=false;
 thread_local unsigned int removalLimit=0;
 std::atomic<int> activeLoss{0};
 std::atomic<bool> collectingStartingCrowd{true};
-struct StartingCrowd { A masks=0;unsigned short parts=0;std::vector<unsigned short> hidden,temporary,nativeSeen,nativeHidden; };
+struct StartingCrowd {
+    A masks=0;unsigned short parts=0;std::vector<unsigned short> hidden,temporary,nativeSeen,nativeHidden;
+    A scene=0;unsigned captureToken=0;bool baselineComplete=false;attendance::seats::Pattern selection;
+};
 std::mutex crowdMutex;
 std::unordered_map<A,StartingCrowd> startingCrowds;
+std::atomic<bool> seatPatternPending{false};
+std::atomic<unsigned> shownSeatPatterns{0},shownSeatFallbacks{0};
+unsigned captureSequence=0;thread_local unsigned activeCaptureToken=0;
 std::atomic<bool> replayBinding{false},exactVisibility{false},replaySuspendsAtmosphere{false};
 std::atomic<int> replayLoss{-1};
 bool replayWasActive=false,replayRestorePending=false;
@@ -130,6 +143,7 @@ ReplayUpdate originalReplayUpdate=nullptr;
 std::mutex presentationMutex;
 std::atomic<unsigned long long> replayCallbacks{0};
 void __fastcall replayUpdate(A entity);
+bool guardedDecision();
 using MuseLogicEvaluate=bool(__fastcall*)(A,A);
 using MuseComparisonValue=A(__fastcall*)(A,A);
 MuseLogicEvaluate originalMuseLogic=nullptr;
@@ -295,7 +309,7 @@ void log(const char* event,const std::string& message) {
     if(!debugLog&&kind!="starting"&&kind!="ready"&&kind!="inactive"&&kind!="fault"&&kind!="quarter-break"&&
        kind!="two-minute"&&kind!="departures"&&kind!="arrivals"&&kind!="halftime"&&kind!="opening"&&kind!="eruption"&&
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
-       kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&
+       kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&
        kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static std::string previous;static unsigned long long previousAt=0;
@@ -309,6 +323,13 @@ void log(const char* event,const std::string& message) {
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
 template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
+void observeWorldExit(){
+    if(at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3)return;
+    std::lock_guard<std::mutex> guard(historyMutex);
+    // Recheck under the lock so a delayed worker observation cannot mark a
+    // freshly joined game as belonging to the world that was just left.
+    if(at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)matchLifecycle.leave();
+}
 attendance::replaypresentation::View replayPresentationView(){
     using namespace attendance::bindings;
     return {read,{image+MuseLogicVtable,image+MuseComparisonVtable,image+MuseConstantVtable,image+MuseFunctionVtable,image+MuseActorFunctionVtable}};
@@ -391,10 +412,20 @@ void __fastcall attendanceUpdate(A entity){
     // Observe controllers only after their native scene update has completed.
     // This discovers a freshly loaded crowd without waiting for a heap scan.
     if(!enabled||applying||!entityValid(entity))return;
-    std::lock_guard<std::mutex> guard(entityMutex);
-    if(std::find(entities.begin(),entities.end(),entity)==entities.end()&&entities.size()<8){
-        entities.push_back(entity);std::sort(entities.begin(),entities.end());++entityGeneration;
-        visibilityRetry=true;
+    {std::lock_guard<std::mutex> guard(entityMutex);
+        if(std::find(entities.begin(),entities.end(),entity)==entities.end()&&entities.size()<8){
+            entities.push_back(entity);std::sort(entities.begin(),entities.end());++entityGeneration;
+            visibilityRetry=true;
+        }
+    }
+    A states=at<A>(image+attendance::bindings::GameStates);
+    int phase=at<int>(states+0xa0);
+    if(at<A>(states)==image+attendance::bindings::GameStatesVtable&&(visibilityRetry||seatPatternPending)){
+        // The renderer can appear after the intro's one-shot arrival window.
+        // Queue that SAME setup for presentation's existing post-update point.
+        // Never re-enter the scene update while its native caller is unwinding.
+        if(phase==6)pregameRendererRetry=true;
+        else if(phase==7||(phase==8&&at<int>(at<A>(image+attendance::bindings::ClockManager)+8)==6))postgameRendererRetry=true;
     }
 }
 bool option(unsigned key,int width,int& value);
@@ -423,6 +454,9 @@ bool gameState(attendance::State& s,A& match){
         if(!attendance::normalizeUntimedPeriod(s,static_cast<float>(minutes*60)))return false;
     }
     return attendance::valid(s);
+}
+bool offscreenSimulation(const attendance::State& s){
+    return superSimBinding&&attendance::simulation::offscreen(read,image,s.phase);
 }
 bool bytes(A rva,const std::vector<unsigned char>& expected){
     std::vector<unsigned char> got(expected.size());if(!read(image+rva,got.data(),got.size()))return false;
@@ -473,6 +507,43 @@ bool currentMask(A begin,unsigned agent,unsigned short& mask){
     __try {mask=reinterpret_cast<const unsigned short*>(begin)[agent];return true;}
     __except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
+// Runs after the native baseline pass, outside the per-fan callback. Build one
+// immutable order per renderer, then share it across every attendance purpose.
+void prepareSeatPatterns(){
+    std::lock_guard<std::mutex> guard(crowdMutex);bool pending=false;unsigned ready=0,fallback=0;
+    for(auto cursor=startingCrowds.begin();cursor!=startingCrowds.end();){
+        auto& item=*cursor;
+        auto& base=item.second;
+        if(at<A>(base.scene)!=image+attendance::bindings::SceneCrowdVtable||at<A>(base.scene+0x9f0)!=item.first||
+           at<A>(item.first)!=image+attendance::bindings::CrowdRendererVtable||at<A>(item.first+0x188)!=base.masks||
+           at<A>(item.first+0x190)!=base.masks+base.hidden.size()*2){cursor=startingCrowds.erase(cursor);continue;}
+        ++cursor;
+        if(base.selection.policy==attendance::seats::Policy::Pending){
+            // Some native parts belong only to certain fan models. Requiring
+            // every part on every fan would leave those scenes pending forever.
+            if(!base.baselineComplete||!base.parts){
+                // Tiny sideline draws may never be visited by this attendance
+                // controller. Leave their unverified native seats alone, and
+                // do not let them keep a ready seated stadium in retry mode.
+                if(base.hidden.size()>=512)pending=true;
+                continue;
+            }
+            std::vector<attendance::seats::Position> coordinates;
+            try{
+                if(attendance::seats::positions(read,image,base.scene,item.first,base.masks,base.hidden.size(),coordinates))
+                    base.selection=attendance::seats::build(coordinates,base.hidden,base.parts,attendanceSeed.load());
+                else base.selection.policy=attendance::seats::Policy::Scattered;
+            }catch(const std::exception&){base.selection={};base.selection.policy=attendance::seats::Policy::Scattered;}
+            if(base.selection.policy==attendance::seats::Policy::Position)
+                log("seating","Crowd seating pattern ready: fuller near the field, uneven groups and scattered fans farther back.");
+            else if(base.hidden.size()>=512)
+                log("seating","Seat positions could not be verified for this crowd; using the standard scattered pattern.");
+        }
+        if(base.selection.policy==attendance::seats::Policy::Position)++ready;
+        else if(base.selection.policy==attendance::seats::Policy::Scattered)++fallback;
+    }
+    seatPatternPending=pending;shownSeatPatterns=ready;shownSeatFallbacks=fallback;
+}
 void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hidden) {
     if(applying)++calls;
     A renderer=0,begin=0,parts=0;size_t count=0;
@@ -483,15 +554,17 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
             std::lock_guard<std::mutex> guard(crowdMutex);
             auto found=startingCrowds.find(renderer);
             const bool collecting=(collectingStartingCrowd.load()&&!applying)||capturingBaseline;
-            if((applying||collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(found==startingCrowds.end()||found->second.masks!=begin||found->second.hidden.size()!=count)){
-                StartingCrowd baseline;baseline.masks=begin;baseline.hidden.resize(count);baseline.temporary.resize(count);baseline.nativeSeen.resize(count);
+            if((applying||collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(found==startingCrowds.end()||found->second.scene!=crowd||found->second.masks!=begin||found->second.hidden.size()!=count)){
+                StartingCrowd baseline;baseline.masks=begin;baseline.scene=crowd;baseline.hidden.resize(count);baseline.temporary.resize(count);baseline.nativeSeen.resize(count);
                 if(!read(begin,baseline.hidden.data(),count*2)){log("baseline-unavailable","Crowd write skipped");return;}
                 baseline.nativeHidden=baseline.hidden;
                 found=startingCrowds.insert_or_assign(renderer,std::move(baseline)).first;
+                seatPatternPending=true;
                 if(!applying)visibilityRetry=true;
                 log("starting-crowd","renderer="+hex(renderer)+" fans="+std::to_string(count)+" preserved existing empty seats");
             }
             if(found!=startingCrowds.end()&&found->second.masks==begin&&agent<found->second.hidden.size()){
+                if(capturingBaseline)found->second.captureToken=activeCaptureToken;
                 found->second.parts|=static_cast<unsigned short>(1u<<bit);
                 unsigned short flag=static_cast<unsigned short>(1u<<bit);
                 auto& latest=found->second.nativeHidden[agent];
@@ -505,16 +578,17 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
                     found->second.nativeSeen[agent]|=flag;
                 }
                 const bool restore=mode==2||(applying&&!thinning);
-                if(!capturingBaseline&&(!collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(applying||!restore)){
+                const auto& selection=found->second.selection;
+                if(!capturingBaseline&&selection.policy!=attendance::seats::Policy::Pending&&(!collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(applying||!restore)){
                     unsigned short current=0;if(!currentMask(begin,agent,current)){if(applying)return;}
                     bool baseHidden=(found->second.hidden[agent]&(1u<<bit))!=0;
                     bool wasHidden=(current&(1u<<bit))!=0;
-                    bool permanent=attendance::departed(agent,activeLoss.load());
-                    bool withheld=attendance::departed(agent,arrivalMissing.load());
+                    bool permanent=selection.departed(agent,activeLoss.load());
+                    bool withheld=selection.departed(agent,arrivalMissing.load());
                     auto& owned=found->second.temporary[agent];bool wasTemporary=(owned&(1u<<bit))!=0;
                     bool result=attendance::hidePart(hidden,baseHidden,wasHidden,permanent||withheld,restore,reconcilingArrivals,wasTemporary,firstNativeInput);
                     int historical=replayLoss.load();
-                    if(historical>=0||exactVisibility)result=attendance::historicalPart(hidden,baseHidden,agent,historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load()));
+                    if(!restore&&(historical>=0||exactVisibility))result=attendance::historicalSelection(hidden,baseHidden,selection.departed(agent,historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load())));
                     if(withheld&&!permanent&&!baseHidden&&!hidden)owned|=static_cast<unsigned short>(1u<<bit);
                     else if(reconcilingArrivals&&!withheld)owned&=static_cast<unsigned short>(~(1u<<bit));
                     if(applying&&result&&!hidden)++changed;
@@ -528,17 +602,19 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
 }
 void resetMatch(){
     replayLoss=-1;exactVisibility=false;replaySuspendsAtmosphere=false;replayWasActive=false;replayRestorePending=false;bootstrapPending=false;lastRecordingTime=-1;shownResumeSource=0;
-    crowdChangeWindow.reset();
+    crowdChangeWindow.reset();simulationRecording=-1;shownSuperSim=false;
+    attendanceSeed=0;
     {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.active=0;}
     {std::lock_guard<std::mutex> guard(historyMutex);gameHistory.reset();arrivalModel.reset();halftimeModel.reset();departureModel.reset();matchLifecycle.reset();}
     {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();coreAtmosphere.reset();audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
     crowdBoost=0;shownEruption=shownPostgameCarry=false;
-    arrivalMissing=0;arrivalReconcilePending=false;visibilityRetry=false;captureArrivalBaseline=false;shownAmbienceLift=shownOpeningWeight=0;shownAudioLimit=4;shownDecisiveUntil=0;visibilityGeneration=0;
+    arrivalMissing=0;arrivalReconcilePending=false;visibilityRetry=false;captureArrivalBaseline=false;pregameRendererRetry=postgameRendererRetry=false;shownAmbienceLift=shownOpeningWeight=0;shownAudioLimit=4;shownDecisiveUntil=0;visibilityGeneration=0;
     shownHalftime=shownArriving=0;shownNeutral=false;shownTeam0=shownTeam1=-1;
     shownVisibilityCalls=shownVisibilityControllers=0;shownOriginalFans=shownVisibleFans=shownExpectedFans=shownNativeExtra=shownOtherExtra=shownExtraVisible=0;visibilityMeasured=false;
     audioEmphasis=1;shownComeback=shownUpset=false;contextReady=false;
     shownRank0=shownRank1=shownPrecipitation=0;shownRivalry=shownPlayoff=shownFcs=false;
     {std::lock_guard<std::mutex> guard(crowdMutex);startingCrowds.clear();}
+    seatPatternPending=false;shownSeatPatterns=shownSeatFallbacks=0;
     collectingStartingCrowd=true;activeLoss=0;currentLoss=highestTarget=0;lastApplied=0;lastMatch=0;lastQuarter=0;lastClock=0;
     shownCurrent=shownTarget=0;observed.clear();restoreAt=0;refreshEntities=true;
     audioMatch=0;++audioEpoch;
@@ -547,21 +623,28 @@ void resetMatch(){
 void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
     collectingStartingCrowd=false;
     std::vector<A> snapshot;{std::lock_guard<std::mutex> guard(entityMutex);snapshot=entities;}
-    bool needCapture=captureArrivalBaseline&&activeLoss==0;
+    bool needCapture=(captureArrivalBaseline&&activeLoss==0)||seatPatternPending||visibilityGeneration!=entityGeneration.load();
     {std::lock_guard<std::mutex> guard(crowdMutex);needCapture=needCapture||startingCrowds.empty();}
     auto result=attendance::visibility::dispatch(snapshot,captureOnly,needCapture,[&](A entity){
         if(entityValid(entity))return true;refreshEntities=true;return false;
     },[&](A entity,bool baseline){
+        if(!baseline)prepareSeatPatterns();
         calls=changed=verifiedCalls=0;applying=true;capturingBaseline=baseline;
+        activeCaptureToken=baseline?++captureSequence:0;
         thinning=!baseline&&thin;reconcilingArrivals=!baseline&&arrivals;
         // The engine resolves controller -> scene crowds. Renderer readiness
         // is checked on each actual crowd in visibility(), before any write.
         originalAttendanceUpdate(entity);
+        if(baseline){std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)
+            if(item.second.captureToken==activeCaptureToken)item.second.baselineComplete=true;
+        }
+        activeCaptureToken=0;
         applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;
         return attendance::visibility::Pass{calls,verifiedCalls,changed};
     });
     shownVisibilityControllers=result.controllers;shownVisibilityCalls=result.verified;
-    visibilityRetry=result.verified==0;
+    if(captureOnly)prepareSeatPatterns();
+    visibilityRetry=result.verified==0||seatPatternPending;
     if(visibilityRetry)refreshEntities=true;
     else if(captureOnly||arrivalMissing>0)captureArrivalBaseline=false;
     attendance::VisibilityCount population;bool measured=false;
@@ -571,12 +654,13 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         std::lock_guard<std::mutex> guard(crowdMutex);
         for(const auto& item:startingCrowds){
             A renderer=item.first;const auto& base=item.second;
-            if(at<A>(renderer)!=image+0xb7db228||at<A>(renderer+0x188)!=base.masks||
+            if(at<A>(base.scene)!=image+attendance::bindings::SceneCrowdVtable||at<A>(base.scene+0x9f0)!=renderer||at<A>(renderer)!=image+0xb7db228||at<A>(renderer+0x188)!=base.masks||
                at<A>(renderer+0x190)!=base.masks+base.hidden.size()*2||!base.parts)continue;
             std::vector<unsigned short> current(base.hidden.size());if(!read(base.masks,current.data(),current.size()*2))continue;
             measured=true;
             for(size_t i=0;i<current.size();++i){
-                attendance::countFan(population,static_cast<unsigned>(i),base.parts,base.hidden[i],current[i],base.nativeHidden[i],measuredLoss);
+                if(base.selection.policy==attendance::seats::Policy::Pending)continue;
+                attendance::countSelection(population,base.parts,base.hidden[i],current[i],base.nativeHidden[i],base.selection.departed(static_cast<unsigned>(i),measuredLoss));
             }
         }
     }
@@ -625,6 +709,8 @@ bool install() {
        !bytes(0x5d01b70,{0x48,0x63,0xc2,0x48,0x8b,0x4c,0xc1,0x20,0xc5,0xfa,0x10,0x41,0x28,0xc3})||
        !bytes(0x5d01b80,{0x48,0x8b,0x41,0x28,0x8b,0x51,0x08}))return false;
     signatures=true;
+    superSimBinding=bytes(attendance::bindings::SuperSimModeGetter,{0x48,0x8b,0x05,0xd1,0x98,0x17,0x0c,0x48,0x85,0xc0,0x74,0x0d,0x83,0x78,0x08,0x01,0x75,0x07,0xb1,0x01});
+    if(!superSimBinding)log("simulation-unavailable","Super Sim binding differs; crowd changes will wait for ordinary selection and breaks.");
     pauseBinding=bytes(attendance::bindings::PauseCheck,{0x48,0x8b,0x05,0xa9,0x0c,0x9a,0x07,0x48,0x85,0xc0,0x74,0x08,0x80,0x38,0x00,0x74,0x03,0xb0,0x01,0xc3,0x32,0xc0,0xc3});
     replayBinding=bytes(attendance::bindings::ReplayTimeGetter,{0xc5,0xfb,0x10,0x41,0x40,0xc3})&&
         bytes(attendance::bindings::RecordingTimeGetter,{0xc5,0xfb,0x10,0x81,0x30,0x10,0,0,0xc3})&&
@@ -768,13 +854,13 @@ void readSettings(){
     audioReductionStart=number(L"Audio",L"ReductionStartPercent",80,1,100);
     chantStrength=(std::clamp)(static_cast<int>(GetPrivateProfileIntW(L"Audio",L"ChantStrength",100,path.c_str())),0,100);
     chantReduction=percentage(L"Audio",L"ChantReductionPercent",50,100);
-    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",65,10,100);
-    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",45,10,100);
+    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",70,10,100);
+    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",50,10,100);
     arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",25,10,100);
     arrivalLateFinish=number(L"Arrivals",L"LateSchoolFinishPercentOfQuarter",75,10,100);
-    arrivalModerateStart=number(L"Arrivals",L"ModerateStartPercent",55,10,100);
+    arrivalModerateStart=number(L"Arrivals",L"ModerateStartPercent",60,10,100);
     arrivalModerateFinish=number(L"Arrivals",L"ModerateFinishPercentOfQuarter",50,10,100);
-    halftimeExtra=number(L"Arrivals",L"HalftimeSeatBreakPercent",10,0,10);
+    halftimeExtra=number(L"Arrivals",L"HalftimeSeatBreakStrength",100,0,200);
     arrivalBigBonus=number(L"Arrivals",L"BigGameBonus",20,0,20);
     arrivalWeatherPenalty=number(L"Arrivals",L"BadWeatherPenalty",10,0,30);
     arrivalPlayoffStart=number(L"Arrivals",L"PlayoffStartPercent",65,10,100);
@@ -782,11 +868,12 @@ void readSettings(){
     arrivalFcsPenalty=number(L"Arrivals",L"FcsOpponentPenalty",10,0,30);
 
     logLimitMB=number(L"Logging",L"MaxFileMB",2,1,16);debugLog=number(L"Logging",L"Debug",0,0,1)!=0;
-    c->comebackDeficit=number(L"Retention",L"ComebackOriginalDeficit",28,14,100);
+    c->comebackDeficit=number(L"Retention",L"ComebackOriginalDeficit",21,14,100);
     c->comebackRecovered=number(L"Retention",L"ComebackPointsRecovered",14,7,100);
     c->comebackDeteriorationSeconds=number(L"Retention",L"ComebackDeteriorationSeconds",60,0,600);
     c->warningEnabled=number(L"Retention",L"TwoMinuteWarning",1,0,1);
     c->quarterCap=number(L"Retention",L"MaximumDeparturePerQuarter",45,1,50);
+    c->transitionCap=number(L"Retention",L"MaximumDeparturePerTransition",4,1,20);
     c->formulaStrength=number(L"Retention",L"FormulaStrength",100,0,200);
     auto energy=std::make_shared<attendance::energy::Settings>();
     // Legacy event context is retained only for attendance protection; it no longer drives audio.
@@ -934,10 +1021,13 @@ void temporarySeats(attendance::State s,int permanent){
         was=halftimeModel.active;
         // Authoritative quarter changes can report QuarterEnd rather than Preplay.
         s.phase=5;bathroom=halftimeModel.observe(s,permanent,halftimeExtra.load());
-        now=halftimeModel.active;arriving=arrivalModel.missing;missing=(std::max)(arriving,bathroom);
+        now=halftimeModel.active;arriving=arrivalModel.missing;
+        missing=departureModel.paceTemporary(permanent,(std::max)(arriving,bathroom));
+        if(s.quarter==3)halftimeModel.lastAbsent=(std::min)(halftimeModel.lastAbsent,(std::max)(0,missing-permanent));
     }
-    shownArriving=arriving;shownHalftime=bathroom>0?(std::max)(0,bathroom-permanent):0;
-    if(was!=now)log("halftime",now?"A few fans are leaving their seats early for halftime; these temporary seats can fill again after the break.":"Halftime seat break ended; temporarily absent fans may return. Permanent departures stay empty.");
+    shownArriving=s.quarter<3&&bathroom==0?missing:arriving?missing:0;
+    shownHalftime=bathroom>0||s.quarter==3?(std::max)(0,missing-permanent):0;
+    if(was!=now)log("halftime",now?(s.quarter==2?"Fans are leaving their seats early for halftime; these temporary seats can fill again after the break.":"Halftime seat break active; temporarily absent fans will return during Q3."):"Halftime seat break ended; temporarily absent fans may return. Permanent departures stay empty.");
     if(arrivalMissing.exchange(missing)!=missing)arrivalReconcilePending=true;
 }
 void checkpoint(const attendance::Settings& c,const attendance::State& s,bool warning){
@@ -945,7 +1035,7 @@ void checkpoint(const attendance::Settings& c,const attendance::State& s,bool wa
     {std::lock_guard<std::mutex> guard(historyMutex);
         departureModel.observe(c,s,gameHistory,mode==0,true);
         result=departureModel.settle(s,static_cast<int>(currentLoss),0,c.quarterCap);
-        why=attendance::departures::reason(c,s,gameHistory);
+        why=attendance::departures::reason(c,s,gameHistory,result.catchup);
     }
     int before=100-static_cast<int>(currentLoss),after=100-result.loss;
     int margin=s.homeScore-s.awayScore;
@@ -968,9 +1058,15 @@ void checkpoint(const attendance::Settings& c,const attendance::State& s,bool wa
 attendance::arrivals::Settings arrivalSettings(){
     return {arrivalEnabled.load(),arrivalStart.load(),arrivalLateStart.load(),arrivalFinish.load(),arrivalLateFinish.load(),arrivalBigBonus.load(),arrivalWeatherPenalty.load(),arrivalPlayoffStart.load(),arrivalChampionshipStart.load(),arrivalFcsPenalty.load(),arrivalModerateStart.load(),arrivalModerateFinish.load()};
 }
-void beginAttendanceHistory(const attendance::State& s,bool midgame){
+void beginAttendanceHistory(attendance::State& s,bool midgame){
     attendance::timeline::Point saved;bool matched=false;
     if(midgame){std::lock_guard<std::mutex> guard(timelineMutex);matched=attendanceArchive.resume(s,saved);}
+    FILETIME stamp{};GetSystemTimeAsFileTime(&stamp);uint64_t id=(uint64_t(stamp.dwHighDateTime)<<32)|stamp.dwLowDateTime;
+    s.variationSeed=matched?saved.state.variationSeed:static_cast<unsigned>(id^(id>>32));
+    if(attendanceSeed.exchange(s.variationSeed)!=s.variationSeed){
+        std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)item.second.selection={};
+        seatPatternPending=!startingCrowds.empty();visibilityRetry=true;
+    }
     if(midgame&&mode==0){
         auto c=std::atomic_load(&settings);auto seed=attendance::timeline::estimate(*c,arrivalSettings(),s,matched?&saved:nullptr,halftimeExtra.load());
         {std::lock_guard<std::mutex> guard(historyMutex);gameHistory=seed.history;departureModel=seed.departures;arrivalModel=seed.arrivals;halftimeModel=seed.halftime;}
@@ -980,9 +1076,13 @@ void beginAttendanceHistory(const attendance::State& s,bool midgame){
         shownResumeSource=matched?2:1;exactVisibility=true;lastApplied=-1;visibilityRetry=true;
         log("resumed-game",std::string(matched?"Restored recorded attendance":"Estimated attendance; no matching crowd history")+": Q"+std::to_string(s.quarter)+", home "+std::to_string(s.homeScore)+" - away "+std::to_string(s.awayScore)+"; target "+std::to_string(100-(std::max)(seed.loss,seed.temporary))+"% of this game's original crowd. Future departures use this new scenario.");
     }
-    FILETIME stamp{};GetSystemTimeAsFileTime(&stamp);uint64_t id=(uint64_t(stamp.dwHighDateTime)<<32)|stamp.dwLowDateTime;
     {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.begin(id,s);}
     bootstrapPending=false;
+}
+bool ordinaryOpeningAcknowledgement(A match,const attendance::State& s){
+    if(!contextReady||match!=lastMatch||s.quarter!=1||s.homeScore||s.awayScore||s.seconds<s.quarterSeconds*0.95f||
+       (s.phase!=6&&s.phase!=1&&s.phase!=5)||at<int>(image+0xd9f3970)!=shownTeam0||at<int>(image+0xd9f3974)!=shownTeam1)return false;
+    std::lock_guard<std::mutex> guard(historyMutex);return matchLifecycle.keepAtKickoff(match);
 }
 // Runs on presentation and native replay callbacks, including paused viewers.
 // It changes visibility only; the live departure/history/audio models stay put.
@@ -1003,7 +1103,7 @@ bool replayPresentation(){
             int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
             if(team0>0&&team0<2047&&team1>0&&team1<2047&&(team0!=shownTeam0||team1!=shownTeam1))currentSession=false;
             auto signal=std::atomic_load(&resumeSignal);
-            if(resumeTracker.pending(*signal,s,GetTickCount64()))currentSession=false;
+            if(resumeTracker.pending(*signal,s,GetTickCount64(),ordinaryOpeningAcknowledgement(match,s)))currentSession=false;
         }
         if(!attendance::timeline::ownsReplayCrowd(verifiedGame,match,lastMatch,contextReady,currentSession)){
             replayLoss=-1;replaySuspendsAtmosphere=false;replayWasActive=false;replayRestorePending=false;
@@ -1041,6 +1141,15 @@ bool replayPresentation(){
     return false;
 }
 bool guardedReplayPresentation(){__try{return replayPresentation();}__except(EXCEPTION_EXECUTE_HANDLER){replayLoss=-1;replaySuspendsAtmosphere=false;replayWasActive=false;replayRestorePending=true;return false;}}
+bool guardedSimulationDecision(){
+    __try {
+        int phase=at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0);
+        if(phase!=0&&phase!=5)return true;
+        if(!nativeUnpaused())return true;
+        attendance::State s;A match=0;
+        return !gameState(s,match)||!offscreenSimulation(s)||guardedDecision();
+    }__except(EXCEPTION_EXECUTE_HANDLER){return false;}
+}
 void __fastcall replayUpdate(A entity){
     originalReplayUpdate(entity);++replayCallbacks;
     if(!enabled||at<A>(entity)!=image+attendance::bindings::ReplayEntityVtable)return;
@@ -1048,6 +1157,14 @@ void __fastcall replayUpdate(A entity){
     // This callback also runs when gameplay/post-update is suspended. Broadcast
     // clips keep audio intents fresh without feeding replay state to departures.
     bool historical=guardedReplayPresentation();
+    if(!historical){
+        // Normal/Fast Super Sim suspends the main presentation callback, but
+        // this native replay entity still updates. Service only a verified
+        // offscreen simulation, on this same serialized native update thread.
+        if(!guardedSimulationDecision()){
+            enabled=false;log("fault","Super Sim crowd update failed; automatic updates stopped.");
+        }
+    }
     if(historical&&!replaySuspendsAtmosphere&&!guardedAtmosphereTick()){
         playBindingsAvailable=false;crowdBoost=0;log("audio-inactive","Presentation audio update unavailable; attendance history remains active.");
     }
@@ -1056,9 +1173,15 @@ void recordAttendance(){
     static uint64_t last=0;static int loss=-1,missing=-1;auto now=GetTickCount64();
     if(now-last<250&&loss==activeLoss.load()&&missing==arrivalMissing.load())return;
     attendance::State s;A match=0;if(mode!=0||!std::atomic_load(&settings)->enabled||!contextReady||replayWasActive||!gameState(s,match)||match!=lastMatch)return;
+    // Offscreen sim has no new filmed plays. Its frozen recording timestamp
+    // must not overwrite the crowd attached to the last real replay clip.
+    if(offscreenSimulation(s))return;
     if(s.phase!=6&&!nativeUnpaused())return;
     s.team0=shownTeam0;s.team1=shownTeam1;s.rank0=shownRank0;s.rank1=shownRank1;s.rivalry=shownRivalry;s.playoff=shownPlayoff;s.bowl=shownBowl;s.neutral=shownNeutral;s.precipitation=shownPrecipitation;
+    s.variationSeed=attendanceSeed;
     auto replay=replaySnapshot();if(replay.active)return;
+    if(simulationRecording>=0&&replay.valid&&replay.recording<=simulationRecording)return;
+    simulationRecording=-1;
     attendance::timeline::Point p;
     if(!attendance::timeline::recordingTime(replayBinding,replay.valid,replay.recording,attendance::elapsedGameTime(s),p.time))return;
     p.state=s;p.loss=activeLoss;p.temporary=arrivalMissing;
@@ -1068,27 +1191,61 @@ void recordAttendance(){
     last=now;loss=p.loss;missing=p.temporary;
 }
 bool guardedRecordAttendance(){__try{recordAttendance();return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
+bool carryPreparedOpening(A match,const attendance::State& s){
+    int home=at<int>(image+0xd9f3970),away=at<int>(image+0xd9f3974);
+    bool same=contextReady&&home>0&&away>0&&home==shownTeam0&&away==shownTeam1;
+    {std::lock_guard<std::mutex> guard(historyMutex);if(!matchLifecycle.carryOpening(match,s,same))return false;}
+    A previous=lastMatch;lastMatch=match;audioMatch=match;
+    {std::lock_guard<std::mutex> guard(atmosphereMutex);if(atmosphereMatch==previous)atmosphereMatch=match;}
+    return true;
+}
 void decision(){
     const auto now=GetTickCount64();const int pending=request.load();
     attendance::State s;A match=0;if(!gameState(s,match)){
         crowdChangeWindow.reset();
-        if(at<int>(image+0xd9e3818)!=14){std::lock_guard<std::mutex> guard(historyMutex);matchLifecycle.leave();}
+        observeWorldExit();
         lastFrame=now;return;
     }
-    crowdChangeWindow.observe(match,s);
+    if(s.phase==7){
+        // A postgame cutscene can stream a fresh crowd renderer. Rebuild its
+        // selection and reapply the final picture, without advancing rules or
+        // inventing a new session from the final scoreboard.
+        shownSuperSim=false;bool ready=postgameRendererRetry.exchange(false);
+        if(!ready&&now-lastDecision<500)return;
+        lastDecision=now;bool owned=match==lastMatch&&contextReady&&mode==0&&std::atomic_load(&settings)->enabled;
+        {std::lock_guard<std::mutex> guard(historyMutex);owned=owned&&!matchLifecycle.needsReset(match,false);}
+        if(owned){
+            shownQuarter=s.quarter;shownPhase=s.phase;shownSeconds=s.seconds;shownScore0=s.homeScore;shownScore1=s.awayScore;
+            if(visibilityRetry||seatPatternPending||visibilityGeneration!=entityGeneration.load()){
+                if(!guardedApply(activeLoss>0||arrivalMissing>0,true)){enabled=false;log("fault","Postgame crowd renderer could not be refreshed safely.");return;}
+                visibilityGeneration=entityGeneration.load();
+            }
+        }
+        lastFrame=now;return;
+    }
+    const bool sim=offscreenSimulation(s);const auto visualState=s;
+    crowdChangeWindow.observe(match,s,sim);
     // Track short phase transitions before throttling the heavier work.
-    if(!pending&&now-lastDecision<500)return;
     bool pregame=s.phase==6;
-    if(!pregame&&s.phase!=1&&s.phase!=5){lastFrame=now;return;}
+    bool rendererReady=pregame&&pregameRendererRetry.exchange(false);
+    if(!pending&&!rendererReady&&now-lastDecision<500)return;
+    if(!pregame&&s.phase!=1&&s.phase!=5&&!sim){lastFrame=now;return;}
+    // Normalize only our calculation snapshot. Never change a native phase,
+    // clock, replay selector or Super Sim setting.
+    if(sim)s.phase=5;
     lastDecision=now;shownQuarter=s.quarter;shownSeconds=s.seconds;shownScore0=s.homeScore;shownScore1=s.awayScore;shownPhase=s.phase;
     const auto generation=entityGeneration.load();
     bool newMatch=false;
-    {std::lock_guard<std::mutex> guard(historyMutex);newMatch=matchLifecycle.needsReset(match,pregame);}
-    auto signal=std::atomic_load(&resumeSignal);bool nativeResume=resumeTracker.observe(*signal,s,now);
+    auto signal=std::atomic_load(&resumeSignal);bool openingAcknowledgement=ordinaryOpeningAcknowledgement(match,s);int previousResumeGame=resumeTracker.game;
+    bool nativeResume=resumeTracker.observe(*signal,s,now,openingAcknowledgement);
+    if(openingAcknowledgement&&!nativeResume&&previousResumeGame&&resumeTracker.game!=previousResumeGame)
+        log("new-game","Midgame Save confirmed the new game; keeping the prepared opening crowd.");
     int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
     bool changedTeams=contextReady&&team0>0&&team0<2047&&team1>0&&team1<2047&&(team0!=shownTeam0||team1!=shownTeam1);
     auto replay=replaySnapshot();
     bool restartedRecording=attendance::timeline::recordingRestarted(replay.valid,replay.recording,lastRecordingTime,s,departureModel.previous);
+    if(!pregame&&!nativeResume&&!changedTeams&&!restartedRecording)carryPreparedOpening(match,s);
+    {std::lock_guard<std::mutex> guard(historyMutex);newMatch=matchLifecycle.needsReset(match,pregame);}
     newMatch=newMatch||nativeResume||changedTeams||restartedRecording;
     bool newSession=!lastMatch||newMatch||generation!=lastGeneration;
     if(newSession){
@@ -1098,7 +1255,7 @@ void decision(){
             // Midgame Save reuses the resident crowd renderer.
             replayLoss=-1;
             if(!guardedApply(false,true)){enabled=false;log("fault","Previous crowd could not be released safely.");return;}
-            resetMatch();crowdChangeWindow.observe(match,s);
+            resetMatch();crowdChangeWindow.observe(match,visualState,sim);
         }
         bootstrapPending=bootstrapPending||first;
         lastMatch=match;lastGeneration=generation;
@@ -1115,14 +1272,19 @@ void decision(){
     s.neutral=shownNeutral;s.team0=shownTeam0;s.team1=shownTeam1;s.bowl=shownBowl;
     {std::lock_guard<std::mutex> guard(timelineMutex);if(!attendanceArchive.active)bootstrapPending=true;}
     if(bootstrapPending)beginAttendanceHistory(s,!pregame&&((nativeResume&&signal->applied)||s.quarter>1||s.homeScore||s.awayScore||s.seconds<s.quarterSeconds*0.95f));
+    s.variationSeed=attendanceSeed;
+    attendance::energy::Play detail;detail.game=s;
+    if(!sim&&!pregame&&playData(match,detail)){s.offense=detail.offense;s.homeTimeouts=detail.homeTimeouts;s.toGoal=detail.toGoal;}
     const auto liveSettings=std::atomic_load(&settings);bool warning=false,accepted=false,freeze=false,upsetWatch=false;
     {std::lock_guard<std::mutex> guard(historyMutex);accepted=pregame||gameHistory.observe(*liveSettings,s);freeze=gameHistory.comeback&&attendance::inferiorOpponent(s)<1;upsetWatch=gameHistory.upsetWatch;}
     if(!accepted)return;
+    shownSuperSim=sim;
+    if(sim&&replay.valid)simulationRecording=replay.recording;
     if(pregame||nativeUnpaused()){
         std::lock_guard<std::mutex> guard(historyMutex);
         departureModel.observe(*liveSettings,s,gameHistory,mode==0);
     }
-    bool changeWindow=(pregame||nativeUnpaused())&&crowdChangeWindow.take(match,s);
+    bool changeWindow=(pregame||nativeUnpaused())&&crowdChangeWindow.take(match,visualState,sim);
     if(changeWindow&&!pregame){std::lock_guard<std::mutex> guard(historyMutex);warning=gameHistory.takeWarning();}
     if(freeze!=shownComeback.load())log("protection",freeze?"Comeback protection active; crowd departures are reduced or paused.":"Comeback protection ended; future checkpoints may remove more fans.");
     shownComeback=freeze;shownUpset=upsetWatch;
@@ -1140,12 +1302,14 @@ void decision(){
         arrivalMissing=0;shownHalftime=shownArriving=0;
     }
     if(changeWindow){
+    {std::lock_guard<std::mutex> guard(historyMutex);departureModel.beginWindow(s,sim?100:c->transitionCap);departureModel.anchorVisible(static_cast<int>(currentLoss),arrivalMissing.load());}
     attendance::arrivals::Change arriving;
     {std::lock_guard<std::mutex> guard(historyMutex);
         auto arrivals=arrivalSettings();
         arriving=mode==0&&c->enabled?arrivalModel.observe(arrivals,s):arrivalModel.finish();
     }
     if(arriving.starting){
+        {std::lock_guard<std::mutex> guard(historyMutex);departureModel.openingVisible();}
         captureArrivalBaseline=true;
         if(!guardedApply(false,false,true)){enabled=false;log("fault","Starting crowd could not be captured; arrivals stopped.");return;}
         log("arrivals",std::string(pregame?"Pregame":"First-quarter")+" arrival target: starting at "+std::to_string(100-arriving.missing)+"% of the game's original crowd; later arrivals settle at play selection.");
@@ -1169,20 +1333,21 @@ void decision(){
         attendance::departures::Result gradual;std::string why;
         {std::lock_guard<std::mutex> guard(historyMutex);
             gradual=departureModel.settle(s,static_cast<int>(currentLoss),0,c->quarterCap);
-            why=attendance::departures::reason(*c,s,gameHistory);
+            why=attendance::departures::reason(*c,s,gameHistory,gradual.catchup);
         }
         if(gradual.changed){
             int before=static_cast<int>(currentLoss);currentLoss=highestTarget=static_cast<float>(gradual.loss);
-            log("departures","Between-play departures: crowd reduced from "+std::to_string(100-before)+"% to "+std::to_string(100-gradual.loss)+"% ("+why+").");
+            log("departures",std::string(sim?"Super Sim departures: ":"Between-play departures: ")+"crowd reduced from "+std::to_string(100-before)+"% to "+std::to_string(100-gradual.loss)+"% ("+why+").");
             // Recompute temporary absences against the new permanent target.
             temporarySeats(s,gradual.loss);
         }
     }
-    } // Targets settle only on entry to play selection or pregame, never while lined up.
+    } // Settle at selection, pregame or verified offscreen Sim, never while lined up.
     lastFrame=now;shownCurrent=currentLoss;shownTarget=highestTarget;
     int percent=static_cast<int>(currentLoss);
-    bool reconcile=arrivalReconcilePending.exchange(false);
-    if(percent!=lastApplied||reconcile||visibilityGeneration!=generation||visibilityRetry){
+    bool reconcile=arrivalReconcilePending.load();
+    if((percent!=lastApplied||reconcile||visibilityGeneration!=generation||visibilityRetry)&&(!seatPatternPending||pregame||changeWindow||command||exactVisibility||mode!=0||!c->enabled)){
+        reconcile=arrivalReconcilePending.exchange(false);
         removalLimit=static_cast<unsigned int>(percent*65536u/100u);activeLoss=percent;
         if(!guardedApply(percent>0||reconcile||arrivalMissing>0,reconcile)){enabled=false;log("fault","Native crowd update failed; automatic updates stopped");return;}
         lastApplied=percent;
@@ -1196,13 +1361,15 @@ void quarterBreak(int previous,int next){
     attendance::State s;A match=0;if(!gameState(s,match)||s.quarter!=next)return;
     auto c=std::atomic_load(&settings);if(!c->enabled)return;
     if(!guardedContext(s)){log("checkpoint-skipped","Quarter departure skipped because matchup information was unavailable.");return;}
+    s.variationSeed=attendanceSeed;
     showContext(*c,s);
     attendance::arrivals::Change arrivals;
     {std::lock_guard<std::mutex> guard(historyMutex);if(!gameHistory.observe(*c,s,true)||!gameHistory.takeQuarter(previous,next))return;arrivals=arrivalModel.finish();}
-    if(arrivals.changed){arrivalMissing=0;arrivalReconcilePending=true;log("arrivals","First-quarter arrivals complete at the quarter break; normal departures now apply.");}
+    if(arrivals.changed){arrivalReconcilePending=true;log("arrivals","First-quarter arrivals complete at the quarter break; normal departures now apply.");}
     audioEmphasis=1;
     lastMatch=match;lastGeneration=entityGeneration.load();lastQuarter=next;lastClock=s.seconds;lastScore0=s.homeScore;lastScore1=s.awayScore;
     audioMatch=match;
+    {std::lock_guard<std::mutex> guard(historyMutex);departureModel.beginWindow(s,c->transitionCap);departureModel.anchorVisible(static_cast<int>(currentLoss),arrivalMissing.load());}
     checkpoint(*c,s,false);
     shownQuarter=s.quarter;shownSeconds=s.seconds;shownScore0=s.homeScore;shownScore1=s.awayScore;shownPhase=s.phase;
 }
@@ -1212,6 +1379,7 @@ void __fastcall periodChanged(A manager,int next){
     if(enabled&&!replaySnapshot().active&&next==1&&manager==at<A>(image+attendance::bindings::ClockManager)){
         A wrapper=at<A>(image+attendance::bindings::MatchWrapper),match=at<A>(wrapper+16);bool keep=false;
         {std::lock_guard<std::mutex> guard(historyMutex);keep=matchLifecycle.keepAtKickoff(match);}
+        if(!keep){attendance::State opening;A actual=0;if(gameState(opening,actual)&&actual==match)keep=carryPreparedOpening(match,opening);}
         if(!keep){
             if(!guardedApply(false,true)){enabled=false;log("fault","Previous crowd could not be released at kickoff.");}
             resetMatch();log("new-game","Starting crowd and departure history reset");
@@ -1280,6 +1448,9 @@ DWORD WINAPI worker(void*) {
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
     unsigned long long last=0,lastScan=0;bool replayFaultNoted=false;
     while(enabled){
+        // UI/loading may suspend presentation callbacks while quitting a game.
+        // Remember that exit even if the next game reuses the same match object.
+        observeWorldExit();
         std::string command;{std::ifstream f(pluginsFolder/L"DynamicGamedayAtmosphere-control.txt");std::getline(f,command);}
         if(!command.empty()){
             {std::ofstream clear(pluginsFolder/L"DynamicGamedayAtmosphere-control.txt",std::ios::trunc);}
@@ -1299,6 +1470,7 @@ DWORD WINAPI worker(void*) {
               <<"\nGame: Q"<<shownQuarter<<" | "<<shownSeconds<<" seconds remaining | Home "<<shownScore0<<" - Away "<<shownScore1
               <<"\nMode: "<<(mode==0?"automatic":mode==1?"manual test":"restored")
               <<"\nCrowd target: "<<(100-(std::max)(activeLoss.load(),arrivalMissing.load()))<<"% of original attendance"
+              <<"\nSeating pattern: "<<shownSeatPatterns<<" area-based crowd(s), "<<shownSeatFallbacks<<" scattered fallback(s)"<<(seatPatternPending?"; waiting for native seats":"")
               <<"\nReplay crowd: "<<(replayLoss>=0?std::to_string(100-replayLoss.load())+(replaySuspendsAtmosphere?"% (interactive; live target preserved)":"% (automatic; live target preserved)"):"inactive")
               <<"\nExtra post-play replays: "<<(!replayPresentationInstalled?"unavailable":replayPresentationFailed?"stopped after a fault":!extraReplays?"disabled":"enabled")
               <<" | Routine insets: "<<(routineInsets?"on":"off")<<" | Full-screen gains: "<<(bigPlayReplays?std::to_string(replayMinimumYards.load())+"+ yards":"off")
@@ -1307,6 +1479,7 @@ DWORD WINAPI worker(void*) {
               <<"\nCrowd measured: "<<(visibilityMeasured?std::to_string(100.0*static_cast<double>(shownVisibleFans.load())/static_cast<double>((std::max)(1ull,shownOriginalFans.load())))+"%":"waiting for renderer")
               <<"\nCrowd renderer: "<<(visibilityRetry?"waiting for crowd update":visibilityMeasured?"verified":"waiting for first measurement")
               <<"\nPermanent departures: "<<activeLoss<<"% | Still arriving: "<<shownArriving<<"% | Halftime seat break: "<<shownHalftime<<"%"
+              <<"\nSuper Sim crowd updates: "<<(!superSimBinding?"unavailable":shownSuperSim?"offscreen simulation":"waiting for selection, break or simulation")
               <<"\nTeam IDs (home/away): "<<shownTeam0<<" / "<<shownTeam1<<" | Ranks: "<<shownRank0<<" / "<<shownRank1<<" | Rivalry: "<<(shownRivalry?"yes":"no")
               <<"\nDeparture formula: "<<(shownPlayoff?"postseason (blowouts only)":attendance::profileName(static_cast<attendance::Profile>(shownProfile.load())))
               <<"\nComeback protection: "<<(shownComeback?"active":"inactive")<<" | Upset retention: "<<(shownUpset?"active":"inactive")

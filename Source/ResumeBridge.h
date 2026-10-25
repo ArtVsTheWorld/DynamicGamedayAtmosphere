@@ -85,12 +85,15 @@ inline Signal parse(const std::string& text,int pid,uint64_t now){
 }
 struct Tracker {
     int game=0;bool applied=false;
-    bool pending(const Signal& s,const State& live,uint64_t now)const{
-        return s.matches(live,now)&&((game&&game!=s.game)||(s.applied&&(!applied||game!=s.game)));
+    bool pending(const Signal& s,const State& live,uint64_t now,bool preparedOpening=false)const{
+        // Midgame Save announces an ordinary new game's number after pregame.
+        // A verified prepared opening adopts that unarmed number; an applied
+        // resume or a generation change during established play still resets.
+        return s.matches(live,now)&&((game&&game!=s.game&&!(preparedOpening&&!s.applied))||(s.applied&&(!applied||game!=s.game)));
     }
-    bool observe(const Signal& s,const State& live,uint64_t now){
+    bool observe(const Signal& s,const State& live,uint64_t now,bool preparedOpening=false){
         if(!s.matches(live,now))return false;
-        bool changed=pending(s,live,now);
+        bool changed=pending(s,live,now,preparedOpening);
         game=s.game;applied=s.applied;return changed;
     }
 };

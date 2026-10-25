@@ -6,10 +6,10 @@ int main(){
     Settings c;State s;History h;
     s={2,0,28,1,720,720};assert(h.observe(c,s)&&h.maxDeficit==28&&!h.comeback);
     s.quarter=3;s.homeScore=14;assert(h.observe(c,s)&&h.comeback);
-    s.awayScore=35;s.seconds=700;h.observe(c,s);assert(h.comeback); // Seven points worse: no timer.
+    s.awayScore=35;s.seconds=700;h.observe(c,s);assert(h.comeback&&h.deteriorationSince>=0); // A full touchdown starts deterioration.
     s.awayScore=36;s.seconds=680;h.observe(c,s);assert(h.comeback);
     s.seconds=680;for(int i=0;i<500;i++)h.observe(c,s);assert(h.comeback); // Pauses consume no game time.
-    s.seconds=621;h.observe(c,s);assert(h.comeback);s.seconds=620;h.observe(c,s);assert(!h.comeback);
+    s.seconds=641;h.observe(c,s);assert(h.comeback);s.seconds=640;h.observe(c,s);assert(!h.comeback);
     h.observe(c,s);assert(!h.comeback); // Cannot instantly rearm after deterioration.
     s.homeScore=30;s.seconds=610;h.observe(c,s);assert(h.comeback); // Within one possession.
     s.homeScore=0;s.seconds=710;assert(!h.observe(c,s));assert(h.comeback&&h.maxDeficit==28); // Replay rejected.

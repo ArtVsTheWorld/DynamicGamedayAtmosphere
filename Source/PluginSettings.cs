@@ -286,6 +286,29 @@ namespace DynamicGamedayAtmosphere {
             }
             return String.Join(Environment.NewLine,lines);
         }
+        static string RetuneAttendanceBalance4(string existing,string defaults){
+            if(Number(defaults,"General","AttendanceBalanceVersion",0)<4||Number(existing,"General","AttendanceBalanceVersion",0)>=4||
+               Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return existing;
+            var lines=new List<string>();string section="";
+            foreach(string raw in existing.Replace("\r","").Split('\n')){
+                string line=raw;string next=Section(line);if(next!=null)section=next;
+                string key=Key(line);
+                if(String.Equals(section,"General",StringComparison.OrdinalIgnoreCase)&&String.Equals(key,"AttendanceBalanceVersion",StringComparison.OrdinalIgnoreCase))line=key+"=4";
+                if(String.Equals(section,"Arrivals",StringComparison.OrdinalIgnoreCase)){
+                    int old=String.Equals(key,"StartPercent",StringComparison.OrdinalIgnoreCase)?65:
+                        String.Equals(key,"ModerateStartPercent",StringComparison.OrdinalIgnoreCase)?55:
+                        String.Equals(key,"LateSchoolStartPercent",StringComparison.OrdinalIgnoreCase)?45:-1;
+                    if(old>=0&&Number(existing,section,key,-1)==old)line=key+"="+Number(defaults,section,key,old);
+                    if(String.Equals(key,"HalftimeSeatBreakPercent",StringComparison.OrdinalIgnoreCase)){
+                        if(Number(existing,section,"HalftimeSeatBreakStrength",-1)>=0)continue;
+                        line="HalftimeSeatBreakStrength="+Math.Max(0,Math.Min(200,Number(existing,section,key,10)*10));
+                    }
+                }
+                if(String.Equals(section,"Retention",StringComparison.OrdinalIgnoreCase)&&String.Equals(key,"ComebackOriginalDeficit",StringComparison.OrdinalIgnoreCase)&&Number(existing,section,key,-1)==28)line=key+"=21";
+                lines.Add(line);
+            }
+            return String.Join(Environment.NewLine,lines);
+        }
         static string RetuneReplayDefaults(string existing,string defaults){
             if(Number(defaults,"General","ReplayBalanceVersion",0)<1||Number(existing,"General","ReplayBalanceVersion",0)>=1||
                Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return existing;
@@ -336,6 +359,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=RetuneAttendanceDefaults(upgraded,defaults);
             upgraded=RetuneArrivalBaselines(upgraded,defaults);
             upgraded=RetuneQuarterCap(upgraded,defaults);
+            upgraded=RetuneAttendanceBalance4(upgraded,defaults);
             upgraded=RetuneReplayDefaults(upgraded,defaults);
             string result=Merge(upgraded,defaults);
             if(File.Exists(destination)&&File.ReadAllText(destination)==result)return;

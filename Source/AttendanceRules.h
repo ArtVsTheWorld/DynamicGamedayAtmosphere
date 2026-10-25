@@ -5,8 +5,8 @@ namespace attendance {
 enum class Profile { Automatic=0,Default=1,Reduced=2,BadWeather=3 };
 struct Settings {
     int enabled=1; Profile profile=Profile::Automatic;
-    int comebackDeficit=28,comebackRecovered=14,comebackDeteriorationSeconds=60;
-    int warningEnabled=1,formulaStrength=100,quarterCap=45;
+    int comebackDeficit=21,comebackRecovered=14,comebackDeteriorationSeconds=60;
+    int warningEnabled=1,formulaStrength=100,quarterCap=45,transitionCap=4;
 };
 struct State {
     int quarter=0,homeScore=0,awayScore=0,phase=0;float seconds=0,quarterSeconds=0;
@@ -14,6 +14,9 @@ struct State {
     int rank0=0,rank1=0,precipitation=0,bowl=127;
     bool neutral=false;
     int team0=-1,team1=-1;
+    unsigned variationSeed=0;
+    int offense=-1,homeTimeouts=-1;
+    float toGoal=-1;
 };
 inline bool championship(const State& s){return s.playoff&&s.bowl==47;}
 inline bool badWeather(const State& s){return s.precipitation==1||s.precipitation==2;}

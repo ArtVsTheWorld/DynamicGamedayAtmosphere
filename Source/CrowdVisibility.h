@@ -12,17 +12,20 @@ inline bool hidePart(bool nativeHidden,bool startingHidden,bool currentlyHidden,
 inline bool historicalPart(bool nativeHidden,bool startingHidden,unsigned agent,int loss){
     return nativeHidden||startingHidden||departed(agent,loss);
 }
+inline bool historicalSelection(bool nativeHidden,bool startingHidden,bool selected){return nativeHidden||startingHidden||selected;}
 struct VisibilityCount {
     unsigned long long original=0,visible=0,expected=0,nativeExtra=0,otherExtra=0,extraVisible=0;
 };
-inline void countFan(VisibilityCount& c,unsigned agent,unsigned short parts,unsigned short starting,unsigned short current,unsigned short native,int loss){
+inline void countSelection(VisibilityCount& c,unsigned short parts,unsigned short starting,unsigned short current,unsigned short native,bool selected){
     if(!parts||(starting&parts)==parts)return;
     ++c.original;bool visible=(current&parts)!=parts;
     if(visible)++c.visible;
-    bool selected=departed(agent,loss);
     if(!selected){
         ++c.expected;
         if(!visible){if((native&parts)==parts)++c.nativeExtra;else ++c.otherExtra;}
     }else if(visible)++c.extraVisible;
+}
+inline void countFan(VisibilityCount& c,unsigned agent,unsigned short parts,unsigned short starting,unsigned short current,unsigned short native,int loss){
+    countSelection(c,parts,starting,current,native,departed(agent,loss));
 }
 }

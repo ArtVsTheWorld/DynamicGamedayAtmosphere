@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "AttendanceRules.h"
 
 namespace attendance {
 struct MatchLifecycle {
@@ -10,5 +11,11 @@ struct MatchLifecycle {
     void join(uintptr_t next,bool pregame){match=next;prepared=prepared||pregame;leftWorld=false;}
     void live(){played=true;}
     bool keepAtKickoff(uintptr_t next)const{return match==next&&prepared&&!played&&!leftWorld;}
+    bool carryOpening(uintptr_t next,const State& s,bool sameTeams){
+        if(!next||next==match||!match||!prepared||played||leftWorld||!sameTeams||!valid(s)||
+           s.quarter!=1||s.homeScore||s.awayScore||s.seconds<s.quarterSeconds-1||
+           (s.phase!=6&&s.phase!=1&&s.phase!=5))return false;
+        match=next;return true;
+    }
 };
 }

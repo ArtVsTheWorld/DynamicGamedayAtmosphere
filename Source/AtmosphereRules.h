@@ -45,15 +45,25 @@ struct History {
         }
         watchStage=upsetStage(s,watchStage);upsetWatch=watchStage>0;
         maxDeficit=(std::max)(maxDeficit,deficit);
-        bool qualifies=maxDeficit>=c.comebackDeficit&&maxDeficit-deficit>=c.comebackRecovered&&deficit>=-8;
+        bool known=s.offense>=0&&s.offense<=1&&s.homeTimeouts>=0&&s.homeTimeouts<=3;
+        // Two scores still require another possession, even with the ball.
+        // Unknown context stays conservative; neutral labels stay symmetric.
+        float needed=deficit>8?(deficit<=16?60.0f:100.0f):0;
+        if(known&&!s.neutral){
+            needed-=10*s.homeTimeouts;
+            if(s.offense==1)needed+=20;
+            else if(s.toGoal>=0&&s.toGoal<=20)needed-=10;
+        }
+        bool opportunity=s.quarter!=4||deficit<=8||!known||s.seconds>(std::max)(10.0f,needed);
+        bool qualifies=opportunity&&maxDeficit>=c.comebackDeficit&&maxDeficit-deficit>=c.comebackRecovered&&deficit>=-8;
         if(!comeback&&qualifies&&(!released||deficit<bestDeficit||std::abs(deficit)<=8)){
             if(s.neutral&&comebackSide<0)comebackSide=0;
             comeback=true;released=false;bestDeficit=deficit;deteriorationSince=-1;
         }
         if(comeback){
             bestDeficit=(std::min)(bestDeficit,deficit);
-            if(deficit < -8){comeback=false;released=true;deteriorationSince=-1;}
-            else if(std::abs(deficit)<=8||deficit<bestDeficit+8)deteriorationSince=-1;
+            if(deficit < -8||!opportunity){comeback=false;released=true;deteriorationSince=-1;}
+            else if(std::abs(deficit)<=8||deficit<bestDeficit+7)deteriorationSince=-1;
             else {
                 if(deteriorationSince<0)deteriorationSince=now;
                 if(now-deteriorationSince>=c.comebackDeteriorationSeconds*s.quarterSeconds/720.0f){comeback=false;released=true;}

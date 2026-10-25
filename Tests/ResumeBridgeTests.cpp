@@ -14,6 +14,17 @@ int main(){
     auto stale=s;stale.applied=false;stale.game=4;stale.live.homeScore=0;assert(!tracker.observe(stale,live,1002));
     stale.live=live;assert(tracker.observe(stale,live,1003));assert(!tracker.observe(stale,live,1004));
     stale.applied=true;assert(tracker.observe(stale,live,1005));assert(!tracker.observe(stale,live,1006));
+    // An unarmed ordinary-game number arrives after a crowd was prepared.
+    // Adopt it without clearing that opening, but keep actual resumes and
+    // established midgame generation changes authoritative.
+    Tracker opening;auto ordinary=s;ordinary.applied=false;ordinary.game=1;
+    ordinary.live={1,0,0,1,720,720};live=ordinary.live;
+    assert(!opening.observe(ordinary,live,1000,true));ordinary.game=2;
+    assert(!opening.pending(ordinary,live,1001,true)&&opening.pending(ordinary,live,1001));
+    assert(!opening.observe(ordinary,live,1001,true)&&opening.game==2);
+    ordinary.applied=true;assert(opening.pending(ordinary,live,1002,true));
+    assert(opening.observe(ordinary,live,1002,true)&&!opening.pending(ordinary,live,1003,true));
+    ordinary.applied=false;ordinary.game=3;assert(opening.observe(ordinary,live,1004));
     // A previous game's applied marker must not count as this game's resume.
     auto foreign=text;foreign.replace(foreign.find("\"applied_game\":3"),16,"\"applied_game\":2");
     auto wrong=parse(foreign,9716,1000);assert(wrong.valid&&!wrong.applied);

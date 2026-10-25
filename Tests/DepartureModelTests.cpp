@@ -18,11 +18,56 @@ Run simulate(State s,int step=5,Settings c={}){
     }
     r.final=loss;r.hazard=model.hazard;return r;
 }
+Run lateBlowout(State s,bool homeWins,int step=5){
+    Settings c;History h;departures::Model model;Run r;int loss=0;
+    int q=static_cast<int>(s.quarterSeconds);
+    for(int time=0;time<=4*q;time+=step){
+        s.quarter=(std::min)(4,time/q+1);s.seconds=static_cast<float>(s.quarter*q-time);s.phase=5;
+        int added=time<=3*q?0:(std::min)(28,7*static_cast<int>((time-3*q)/(q/8.0)));
+        s.homeScore=14+(homeWins?added:0);s.awayScore=14+(homeWins?0:added);
+        assert(h.observe(c,s));assert(model.observe(c,s,h));
+        int before=loss;loss=model.settle(s,loss,0,c.quarterCap).loss;
+        assert(loss>=before&&loss<=lossCeiling(s));
+        if(time==3*q)r.q4=loss;
+    }
+    r.final=loss;r.hazard=model.hazard;return r;
+}
+struct CadenceRun {int loss=0,planned=0;double hazard=0;};
+CadenceRun variedWindows(int minutes,int interval,bool rally,bool postseason=false){
+    Settings c;History h;departures::Model d;State s{1,0,0,1,minutes*60.0f,minutes*60.0f};int loss=0;
+    s.rank0=50;s.rank1=60;s.playoff=postseason;s.bowl=37;
+    for(int tick=0;tick<=2880;++tick){
+        float time=tick*s.quarterSeconds/720;
+        s.quarter=(std::min)(4,tick/720+1);s.seconds=s.quarter*s.quarterSeconds-time;s.phase=1;
+        if(rally){
+            s.awayScore=tick<360?7:tick<720?21:tick<1000?28:tick<2600?28:42;
+            s.homeScore=tick<1500?0:tick<1800?7:tick<2100?14:21;
+        }else{
+            s.homeScore=14;s.awayScore=tick<2736?14:tick<2780?21:tick<2823?28:tick<2866?35:42;
+        }
+        assert(h.observe(c,s)&&d.observe(c,s,h));
+        if(tick%interval==0||tick%720==0||tick==2880){
+            s.phase=5;d.beginWindow(s,c.transitionCap);int before=loss;
+            loss=d.settle(s,loss,0,c.quarterCap).loss;
+            assert(loss>=before&&loss<=lossCeiling(s)&&loss-d.periodStartLoss<=c.quarterCap);
+        }
+    }
+    return {loss,d.plannedLoss,d.hazard};
+}
 int main(){
+    // Identical score/possession observations with different renderer timing.
+    // Common safe endpoints reconcile earned exits; no camera window can earn
+    // pressure, and the existing integer quarter caps still take precedence.
+    for(int minutes:{1,6,12,20})for(bool rally:{false,true})for(bool post:{false,true}){
+        auto a=variedWindows(minutes,15,rally,post),b=variedWindows(minutes,60,rally,post),d=variedWindows(minutes,120,rally,post);
+        assert(a.planned==b.planned&&a.planned==d.planned);
+        assert(std::abs(a.hazard-b.hazard)<0.000001&&std::abs(a.hazard-d.hazard)<0.000001);
+        assert((std::max)({a.loss,b.loss,d.loss})-(std::min)({a.loss,b.loss,d.loss})<=1);
+    }
     Settings c;State s{1,0,0,5,900,900};History h;departures::Model m;
     // An independent analytical oracle for constant routine pressure.
     Run close=simulate(s);assert(close.hazard>0.10&&close.final>=10);
-    assert(close.q2==0&&close.half>=10);
+    assert(close.q2==0&&close.half>=5&&close.half<=10);
     s.awayScore=70;Run blowout=simulate(s);
     assert(blowout.final==75);
     assert(blowout.half>blowout.q2+20&&blowout.q4>blowout.half);
@@ -30,20 +75,35 @@ int main(){
     for(int kind:{1,2})for(int weather:{0,1,2}){
         s.playoff=true;s.bowl=kind==2?47:37;s.precipitation=weather;
         auto r=simulate(s);assert(r.final<=lossCeiling(s)&&r.final>=lossCeiling(s)-12);
-        s.awayScore=21;assert(simulate(s).final>0&&simulate(s).final<(kind==1?15:10));s.awayScore=70;
+        s.awayScore=21;auto moderate=simulate(s);
+        assert(moderate.half<=5&&moderate.final>moderate.q4&&moderate.final<(kind==1?35:20));
+        s.awayScore=70;
     }
     s={1,0,21,5,720,720};Run ordinary=simulate(s);
-    assert(ordinary.final>=40&&ordinary.final<=60&&ordinary.half>=20&&ordinary.half<=35);
+    assert(ordinary.final>=35&&ordinary.final<=60&&ordinary.half>=10&&ordinary.half<=20);
     assert(ordinary.q4-ordinary.half<10&&ordinary.final-ordinary.q4>ordinary.q4-ordinary.half);
+    State gap=s;int last=ordinary.final;
+    for(int margin=22;margin<=28;++margin){gap.awayScore=margin;int loss=simulate(gap).final;assert(loss>=last&&loss-last<=5);last=loss;}
+    gap.awayScore=24;assert(simulate(gap).final-ordinary.final<=10);
+    // Traffic pressure starts in Q4 and builds smoothly. Close games and OT
+    // are excluded; home winners and national-title crowds remain more patient.
+    History traffic;State post{4,0,21,5,720,720};post.playoff=true;post.bowl=37;
+    float start=departures::rate(Settings{},post,traffic,2160),middle=departures::rate(Settings{},post,traffic,2520),late=departures::rate(Settings{},post,traffic,2820);
+    assert(middle>start&&late>middle);
+    State title=post;title.bowl=47;assert(departures::rate(Settings{},title,traffic,2820)<late);
+    post.homeScore=21;post.awayScore=0;assert(departures::rate(Settings{},post,traffic,2820)<late);
+    post.homeScore=14;post.awayScore=21;assert(departures::rate(Settings{},post,traffic,2820)==0);
+    post.quarter=5;assert(departures::rate(Settings{},post,traffic,2820)==0);
     State homeWin=s;homeWin.homeScore=35;homeWin.awayScore=0;Run winning=simulate(homeWin);
     assert(winning.final<=65&&winning.q4-winning.half<=15);
     homeWin.rank0=1;homeWin.rank1=127;assert(simulate(homeWin).final>=winning.final);
     s.homeScore=21;s.awayScore=0;assert(simulate(s).final<ordinary.final);
     s=reversed(s);s.rivalry=true;Run rival=simulate(s);assert(rival.final<ordinary.final);
-    s.precipitation=1;assert(simulate(s).final==rival.final); // Matchup precedence, while the floor can differ.
+    s.precipitation=1;assert(profileFor(c,s)==Profile::Reduced&&simulate(s).final>=rival.final&&simulate(s).final<=rival.final+5); // Weather comfort/floor can differ; the reduced preset keeps priority.
     s.rivalry=false;assert(simulate(s).final>ordinary.final);
     s.precipitation=0;s.rank0=50;s.rank1=1;Run mismatch=simulate(s);
-    s.rank0=127;assert(simulate(s).final>mismatch.final);
+    float mismatchRate=departures::rankMultiplier(s);s.rank0=127;
+    assert(simulate(s).final>=mismatch.final&&departures::rankMultiplier(s)>mismatchRate); // Whole crowd points can round alike.
     float previous=1;
     for(int rank=2;rank<=255;++rank){s.rank0=rank;float next=departures::rankMultiplier(s);assert(next>previous);previous=next;}
     s.rank0=0;s.team0=1500;assert(departures::rankMultiplier(s)>previous);
@@ -63,7 +123,7 @@ int main(){
     double once=m.hazard;assert(m.observe(c,s,h)&&m.hazard==once);
     // A newly developed blowout cannot charge its higher rate to earlier time.
     m.reset();s={2,0,0,5,900,900};m.observe(c,s,h);s.awayScore=35;s.seconds=450;m.observe(c,s,h);
-    assert(std::abs(m.hazard+std::log(0.95))<0.00001); // Only routine pressure in the preceding half-quarter.
+    assert(m.hazard>0&&m.hazard<0.04&&!m.catchupQueued); // Only the earlier close game's ordinary/halftime pressure.
     double before=m.hazard;s.seconds=400;m.observe(c,s,h);assert(m.hazard>before+0.008);
     // Protection and disabling do not bank exits for a later catch-up.
     for(bool manual:{false,true}){
@@ -74,8 +134,9 @@ int main(){
     }
     m.reset();s={2,0,35,5,900,900};m.observe(c,s,h);
     s.seconds=450;m.observe(c,s,h);assert(m.hazard>0);
-    h.comeback=true;m.observe(c,s,h);assert(m.hazard==0&&m.settle(s,0).loss==0);
-    s.seconds=300;m.observe(c,s,h);h.comeback=false;s.seconds=250;m.observe(c,s,h);assert(m.hazard==0);
+    int earned=m.plannedLoss;assert(earned>0);h.comeback=true;m.observe(c,s,h);
+    assert(m.settle(s,0).loss==earned);double protectedHazard=m.hazard;
+    s.seconds=300;m.observe(c,s,h);h.comeback=false;s.seconds=250;m.observe(c,s,h);assert(m.hazard==protectedHazard);
     // External late-score losses join the accumulated history without refill.
     m.reset();s={4,0,35,5,300,900};m.observe(c,s,h);assert(m.settle(s,40).loss==40);
     assert(m.settle(s,0).loss==40);s.homeScore=35;s.seconds=290;m.observe(c,s,h);assert(m.settle(s,40).loss>=40);
@@ -92,23 +153,24 @@ int main(){
     assert(std::abs(fine.hazard-coarse.hazard)<0.0001&&fine.final==coarse.final);
     for(int minutes=1;minutes<=20;++minutes){
         s.quarterSeconds=static_cast<float>(minutes*60);s.seconds=s.quarterSeconds;s.awayScore=0;
-        auto r=simulate(s,1);assert(std::isfinite(r.hazard)&&r.half>=10&&r.final>=10);
+        auto r=simulate(s,1);assert(std::isfinite(r.hazard)&&r.half>=5&&r.half<=10&&r.final>=10);
         s.awayScore=21;r=simulate(s,1);
-        assert(r.half>=20&&r.half<=35&&r.final>=40&&r.final<=60);
+        assert(r.half>=10&&r.half<=20&&r.final>=35&&r.final<=60);
         assert(r.q4-r.half<10&&r.final-r.q4>r.q4-r.half);
         s.homeScore=35;s.awayScore=0;r=simulate(s,1);assert(r.final<=65);
         s.homeScore=0;
     }
-    c.warningEnabled=0;s={1,0,0,5,900,900};assert(simulate(s,5,c).half>=10);
+    c.warningEnabled=0;s={1,0,0,5,900,900};assert(simulate(s,5,c).half>=5);
     s={1,17,17,5,720,720};assert(simulate(s).half<10);
     s={1,0,0,5,720,720};s.rivalry=true;assert(simulate(s).half<10);
     s.rivalry=false;s.rank0=6;s.rank1=11;assert(simulate(s).half<10);
     // Cap cumulative original-crowd percentage points, including late-score extras.
-    m.reset();h.reset();s={2,0,70,5,720,720};m.observe(c,s,h);int capped=0;
+    m.reset();h.reset();s={2,0,70,5,720,720};c.quarterCap=30;m.observe(c,s,h);int capped=0;
     for(int clock=715;clock>0;clock-=5){s.seconds=static_cast<float>(clock);m.observe(c,s,h);capped=m.settle(s,capped,0,30).loss;assert(capped<=30);}
     auto extra=m.settle(s,capped,5,30);assert(extra.loss<=30);
     s.quarter=3;s.seconds=720;m.observe(c,s,h);int halfLoss=m.settle(s,capped,0,30).loss;assert(halfLoss-capped<=30);
     s.seconds=715;m.observe(c,s,h);assert(m.settle(s,halfLoss).loss-halfLoss<=1); // Blocked debt is discarded.
+    c.quarterCap=45;
     State inferior{3,35,0,5,720,720};inferior.rank0=1;inferior.rank1=127;
     State equal=inferior;equal.rank1=2;assert(inferiorOpponent(inferior)==1&&inferiorOpponent(equal)==0);
     assert(departures::rate(c,inferior,h,1800)>departures::rate(c,equal,h,1800));
@@ -129,6 +191,71 @@ int main(){
         m.observe(c,s,h);m.hazard=10;int limit=kind==0?45:kind==1?20:10;
         auto cap=m.settle(s,0,5);assert(cap.loss==limit&&m.settle(s,cap.loss,5).loss==limit);
     }
+    // Q4 catch-up targets only a confirmed 21+ regular-season margin. It
+    // shares the existing home/rank/weather/protection multipliers and floors.
+    h.reset();s={4,14,42,5,360,720};s.rank0=26;s.rank1=50;
+    double target=departures::catchupTarget(c,s,h,2520);assert(target>0);
+    State win=s;win.homeScore=42;win.awayScore=14;
+    assert(departures::catchupTarget(c,win,h,2520)<target*0.5);
+    double homeTarget=departures::catchupTarget(c,win,h,2520);
+    win.team1=1500;assert(departures::catchupTarget(c,win,h,2520)>homeTarget&&departures::catchupTarget(c,win,h,2520)<target);
+    State context=s;context.rivalry=true;assert(departures::catchupTarget(c,context,h,2520)<target);
+    double rivalTarget=departures::catchupTarget(c,context,h,2520);
+    float rivalFactor=departures::matchupFactor(c,context);
+    context.precipitation=1;assert(departures::matchupFactor(c,context)==rivalFactor);
+    assert(departures::catchupTarget(c,context,h,2520)>rivalTarget); // Only the weather floor changes.
+    context.rivalry=false;assert(departures::catchupTarget(c,context,h,2520)>target);
+    context=s;context.rank0=127;assert(departures::catchupTarget(c,context,h,2520)>target);
+    context=s;context.neutral=true;context.rank0=127;context.rank1=1;
+    assert(departures::catchupTarget(c,context,h,2520)==departures::catchupTarget(c,reversed(context),h,2520));
+    for(int margin:{0,8,14,16}){context=s;context.awayScore=14+margin;assert(departures::catchupTarget(c,context,h,2520)==0);}
+    context=s;context.quarter=3;assert(departures::catchupTarget(c,context,h,1800)==0);
+    context=s;context.phase=7;assert(departures::catchupTarget(c,context,h,2520)==0);
+    context=s;context.quarter=5;assert(departures::catchupTarget(c,context,h,2880)==0);
+    for(int bowl:{37,47}){context=s;context.playoff=true;context.bowl=bowl;assert(departures::catchupTarget(c,context,h,2520)==0);}
+    h.comeback=true;assert(departures::catchupTarget(c,s,h,2520)==0);h.reset();
+    // No score-tick cut, no charge for the earlier competitive time in a Sim
+    // jump, no pause accumulation, and no duplicate settlement.
+    m.reset();s={4,14,14,5,720,720};m.observe(c,s,h);m.settle(s,0);
+    s.seconds=420;s.awayScore=49;m.observe(c,s,h);
+    assert(std::abs(m.hazard-0.08*0.20*300/720)<0.000001&&!m.catchupQueued);
+    double unchanged=m.hazard;m.observe(c,s,h);assert(m.hazard==unchanged);
+    s.seconds=330;m.observe(c,s,h);assert(m.catchupQueued&&m.hazard>unchanged+0.2);
+    auto caught=m.settle(s,0);assert(caught.changed&&caught.catchup);
+    assert(!m.settle(s,caught.loss).catchup&&m.settle(s,caught.loss).loss==caught.loss);
+    s.seconds=320;m.observe(c,s,h);assert(m.catchupQueued);
+    h.comeback=true;m.observe(c,s,h);assert(!m.catchupQueued&&m.hazard==m.committedHazard);
+    h.reset();s.seconds=310;m.observe(c,s,h);assert(!m.catchupQueued); // No backdating the protection's end.
+    s.seconds=300;m.observe(c,s,h);assert(m.catchupQueued);
+    m.observe(c,s,h,false);assert(!m.catchupQueued&&m.hazard==m.committedHazard);
+    // An already-depleted crowd is not charged a second catch-up penalty.
+    m.reset();m.observe(c,s,h);m.settle(s,70);s.seconds=290;m.observe(c,s,h);
+    assert(!m.catchupQueued&&m.settle(s,70).loss>=70);
+    // Late attach seeds only; the rule starts with subsequent live progress.
+    m.reset();m.observe(c,s,h);assert(m.hazard==0&&m.settle(s,0).loss==0);
+    // Compare complete score paths and confirm quarter-length normalization.
+    s={1,0,0,5,720,720};s.rank0=26;s.rank1=50;
+    auto lateLoss=lateBlowout(s,false),lateWin=lateBlowout(s,true);
+    assert(lateLoss.final>=45&&lateLoss.final<=lateLoss.q4+c.quarterCap);
+    assert(lateWin.final+10<lateLoss.final);
+    context=s;context.rivalry=true;assert(lateBlowout(context,false).final<lateLoss.final);
+    auto frequent=lateBlowout(s,false,1),infrequent=lateBlowout(s,false,30);
+    // Coarser score observations deliberately withhold newly discovered
+    // pressure over the uncertain interval. They may be slightly more patient.
+    assert(frequent.final>=infrequent.final&&frequent.final<=infrequent.final+1);
+    auto constantQ4=[&](int interval){
+        departures::Model model;History story;State x{4,0,21,5,720,720};int loss=10;
+        model.observe(c,x,story);model.settle(x,loss);
+        for(int time=interval;time<=720;time+=interval){x.seconds=static_cast<float>(720-time);model.observe(c,x,story);loss=model.settle(x,loss).loss;}
+        Run r;r.final=loss;r.hazard=model.hazard;return r;
+    };
+    auto steadyFine=constantQ4(1),steadyCoarse=constantQ4(30);
+    assert(steadyFine.final==steadyCoarse.final&&std::abs(steadyFine.hazard-steadyCoarse.hazard)<0.0001);
+    for(int minutes=1;minutes<=20;++minutes){
+        context=s;context.quarterSeconds=static_cast<float>(minutes*60);
+        auto r=lateBlowout(context,false,1);assert(r.final>=40&&r.final-r.q4<=c.quarterCap);
+        assert(lateBlowout(context,true,1).final+8<r.final);
+    }
     c.enabled=0;assert(simulate(s,5,c).final==0);
-    std::cout<<"PASS: analytic formula, distributed exits, score/time/home/rank/weather context, FCS ordering, all floors, postseason gating, replay/late attach, protection, OT, no refill and callback invariance.\n";
+    std::cout<<"PASS: analytic formula, Q4 late-blowout catch-up, distributed exits, score/time/home/rank/weather context, FCS ordering, all floors, caps, postseason gating, replay/late attach, protection, OT, no refill and callback invariance.\n";
 }
