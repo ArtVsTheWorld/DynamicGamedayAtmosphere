@@ -25,6 +25,10 @@ int main(){
     ordinary.applied=true;assert(opening.pending(ordinary,live,1002,true));
     assert(opening.observe(ordinary,live,1002,true)&&!opening.pending(ordinary,live,1003,true));
     ordinary.applied=false;ordinary.game=3;assert(opening.observe(ordinary,live,1004));
+    ordinary.game=4;ordinary.live=live={3,14,14,1,595.22f,900};
+    assert(!opening.pending(ordinary,live,1005,true));
+    assert(!opening.observe(ordinary,live,1005,true)&&opening.game==4); // First real snap after simming a half.
+    ordinary.applied=true;assert(opening.observe(ordinary,live,1006,true)); // Explicit scenario still wins.
     // A previous game's applied marker must not count as this game's resume.
     auto foreign=text;foreign.replace(foreign.find("\"applied_game\":3"),16,"\"applied_game\":2");
     auto wrong=parse(foreign,9716,1000);assert(wrong.valid&&!wrong.applied);

@@ -1,0 +1,211 @@
+#pragma once
+#include "ExcitementRules.h"
+#include "SustainedCrowd.h"
+namespace attendance::live {
+enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery};
+inline const char* name(Event e){switch(e){case Event::FumbleRecovery:return "Live defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
+struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
+struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};
+struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
+// Verified native traces: kind 3 / ball 1 / no holder is the pass in flight.
+// Ball 4 can already name the receiver before the stats record becomes kind 1;
+// a non-null holder by itself is therefore NOT proof of a completed catch.
+class PassFlight {
+    uintptr_t match_=0,record_=0;unsigned epoch_=0;int phase_=-1,side_=-1;
+    uint64_t last_=0,snap_=0,began_=0,ended_=0;bool ready_=false,snapped_=false,reset_=false,used_=false,air_=false;
+public:
+    void reset(){*this=PassFlight{};}
+    void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,uintptr_t record,int kind,int ball,bool held){
+        if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
+        if(!allowed||!match||p.simulated||!valid(p.game)||now<last_||(last_&&now-last_>750)){reset();return;}last_=now;
+        if(p.game.phase==1){ready_=energy::normalDown(p);side_=p.offense;snapped_=air_=false;began_=ended_=0;}
+        if(p.game.phase==3&&phase_==1&&ready_){snapped_=true;record_=record;snap_=now;reset_=used_=false;}
+        if(snapped_&&p.game.phase==3&&record&&record==record_&&p.offense==side_&&now>=snap_&&now-snap_<=45000){
+            if(kind==0)reset_=true;
+            bool flight=reset_&&kind==3&&ball==1&&!held;
+            if(flight&&!used_){used_=air_=true;began_=now;}
+            if(air_&&(!flight||now-began_>=8000)){air_=false;ended_=now;}
+        }else if(air_){air_=false;ended_=now;}
+        if(p.game.phase!=1&&p.game.phase!=3)ready_=snapped_=false;
+        phase_=p.game.phase;
+    }
+    float weight(uint64_t now)const{
+        if(!began_||now<last_||now-last_>750||now<began_)return 0;
+        if(air_)return (std::clamp)(static_cast<float>(now-began_)/150.0f,0.0f,1.0f);
+        return ended_&&now>=ended_?1-(std::clamp)(static_cast<float>(now-ended_)/1200.0f,0.0f,1.0f):0;
+    }
+    sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness)const{
+        float w=weight(now);
+        if(!out.active||out.match!=match_||out.epoch!=epoch_||w<=0||out.celebration||out.reason==sustained::Reason::Result||out.reason==sustained::Reason::Eruption)return out;
+        out.intensity=(std::max)(out.intensity,900*w*std::sqrt((std::clamp)(fullness,0.0f,1.0f)));
+        // Reuse an existing roar rather than starting another competing voice.
+        if(out.reason==sustained::Reason::None){out.reason=sustained::Reason::PassFlight;out.priority=2;out.continuous=true;out.size=2;out.attackMs=250;out.releaseMs=1200;out.supporting=false;}
+        return out;
+    }
+};
+// BallControl stores world Z. The native yard-line/catch coordinates can use
+// the opposite axis. Resolve that relationship at the line, never from the
+// gain we are trying to detect, and keep it frozen through the live play.
+class RunnerCoordinates {
+    uintptr_t match_=0;unsigned epoch_=0;int quarter_=0,side_=-1,phase_=-1,axis_=0;
+    int known_[2]{0,0};uint64_t last_=0;
+public:
+    void reset(){*this=RunnerCoordinates{};}
+    int axis()const{return axis_;}
+    float observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,float worldZ){
+        const float unavailable=std::numeric_limits<float>::quiet_NaN();
+        if(match!=match_||epoch!=epoch_||p.game.quarter!=quarter_){reset();match_=match;epoch_=epoch;quarter_=p.game.quarter;}
+        bool stale=now<last_||(last_&&now-last_>750);last_=now;
+        if(stale||!allowed||!match||p.offense<0||p.offense>1){axis_=0;side_=-1;phase_=-1;return unavailable;}
+        bool position=std::isfinite(worldZ)&&std::fabs(worldZ)<=60;
+        if(p.game.phase==1){
+            side_=p.offense;axis_=0;
+            if(position&&std::isfinite(p.fieldSpot)&&std::fabs(p.fieldSpot)<=50.01f){
+                float same=std::fabs(worldZ-p.fieldSpot),opposite=std::fabs(-worldZ-p.fieldSpot);
+                if(same<=.75f&&opposite>=3)known_[side_]=axis_=1;
+                else if(opposite<=.75f&&same>=3)known_[side_]=axis_=-1;
+                // Near midfield either sign may fit. Only reuse an axis
+                // already verified for this team in this quarter/world.
+                else if(known_[side_]&&std::fabs(known_[side_]*worldZ-p.fieldSpot)<=.75f)axis_=known_[side_];
+            }
+        }else if((p.game.phase!=3&&p.game.phase!=4)||side_!=p.offense||
+                 (phase_!=1&&phase_!=3&&phase_!=4))axis_=0;
+        phase_=p.game.phase;
+        return axis_&&position?axis_*worldZ:unavailable;
+    }
+};
+// Return yardage starts at the actual catch/recovery, not the kicking LOS.
+// Flight establishes a world-space direction; no yard-line axis assumption.
+class Returns {
+    uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,serial_=0,began_=0;
+    int phase_=-1,kicker_=-1,type_=0,direction_=0;bool ready_=false,live_=false,flight_=false,caught_=false,used_=false;
+    float launch_=0,catch_=0,best_=0,lastReturnSpot_=0;uint64_t returnAt_=0;
+public:
+    void reset(){*this=Returns{};}
+    float yards()const{return used_&&live_?best_:-1;}
+    Outcome observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,int selectedType,float worldZ,bool held){
+        if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
+        Outcome out;bool stale=now<last_||(last_&&now-last_>750);last_=now;
+        if(stale||!allowed||!match||!valid(p.game)||p.simulated){ready_=live_=false;phase_=-1;return out;}
+        bool position=std::isfinite(worldZ)&&std::fabs(worldZ)<=65;
+        if(p.game.phase==1){ready_=position&&(selectedType==22||selectedType==23||selectedType==24)&&(p.offense==0||p.offense==1);kicker_=p.offense;type_=selectedType;launch_=worldZ;live_=false;}
+        if(p.game.phase==3&&phase_==1&&ready_){live_=true;began_=now;flight_=caught_=used_=false;direction_=0;best_=0;returnAt_=0;}
+        if(live_&&now>=began_&&now-began_>45000)live_=false;
+        if(p.game.phase==3&&live_&&position&&now>=began_&&now-began_<=45000){
+            if(!caught_&&!held&&std::fabs(worldZ-launch_)>=10){flight_=true;direction_=worldZ>launch_?-1:1;}
+            if(flight_&&held&&p.offense==1-kicker_){
+                if(!caught_){caught_=true;catch_=lastReturnSpot_=worldZ;returnAt_=now;}
+                float yards=(worldZ-catch_)*direction_;
+                bool coherent=returnAt_&&now>=returnAt_&&std::fabs(worldZ-lastReturnSpot_)<=3.5f+30.f*static_cast<float>(now-returnAt_)*.001f;
+                if(coherent){if(yards>=0&&yards<=110)best_=(std::max)(best_,yards);lastReturnSpot_=worldZ;returnAt_=now;}
+                if(!used_&&yards>=30&&yards<=110&&(p.offense==0||p.game.neutral)){used_=true;out={type_==22?Event::PuntReturn:Event::KickReturn,++serial_,p.offense,yards};}
+            }
+        }
+        if(p.game.phase!=1&&p.game.phase!=3)ready_=live_=false;
+        phase_=p.game.phase;return out;
+    }
+};
+class Model {
+    uintptr_t match_=0,record_=0;unsigned epoch_=0;int phase_=-1,side_=-1;
+    uint64_t last_=0,began_=0,serial_=0,whistle_=0;bool ready_=false,snapped_=false,reset_=false,flight_=false,used_=false;
+    float spot_=0,line_=0;int direction_=0;bool caught_=false,fourth_=false;
+    RunBuildup buildup_;bool observedRun_=false,afterCatchRun_=false;float catchAirYards_=-1,catchGain_=0;
+    float runnerLast_=0,measuredGain_=0;uint64_t runnerAt_=0;
+public:
+    void reset(){*this=Model{};}
+    void suspend(){ready_=snapped_=reset_=flight_=used_=false;phase_=-1;record_=0;whistle_=0;buildup_={};observedRun_=afterCatchRun_=false;catchAirYards_=-1;catchGain_=0;}
+    RunBuildup runBuildup()const{return buildup_;}
+    void cancelRunBuildup(){buildup_={};}
+    float catchAirYards()const{return catchAirYards_;}
+    float gain()const{return measuredGain_;}bool ranAfterCatch()const{return afterCatchRun_;}
+    Outcome observe(const Settings& c,const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,uintptr_t record,int kind,int ball,float catchSpot,float runnerSpot=std::numeric_limits<float>::quiet_NaN(),bool held=false,bool goingForIt=false,const energy::Outcome* completed=nullptr){
+        if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
+        Outcome out;
+        uint64_t prior=last_;
+        if(last_&&now>=last_&&now-last_>750)suspend();
+        if(!allowed||!c.enabled||!match||!valid(p.game)||p.simulated||now<last_){last_=now;suspend();return out;}last_=now;
+        bool normal=energy::normalDown(p);
+        if(p.game.phase==1){ready_=normal;side_=p.offense;spot_=p.fieldSpot;direction_=p.attackDirection;snapped_=false;whistle_=0;buildup_={};observedRun_=afterCatchRun_=false;catchAirYards_=-1;catchGain_=0;
+            fourth_=p.down==4&&goingForIt&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&std::isfinite(p.toFirst)&&p.toFirst>=0&&p.toFirst<=100;line_=p.toFirst;}
+        if(p.game.phase==3&&phase_==1&&ready_&&normal&&p.offense==side_){
+            snapped_=true;began_=now;record_=record;reset_=flight_=used_=caught_=false;whistle_=0;runnerLast_=spot_;runnerAt_=now;measuredGain_=0;
+        }
+        if(snapped_&&now>=began_&&now-began_>45000){snapped_=false;buildup_={};}
+        bool post=p.game.phase==4||p.game.phase==5;
+        if(post&&phase_==3&&snapped_&&now>=prior&&now-prior<=250)whistle_=now;
+        // The catch/result fields may settle after the first whistle frame.
+        // Retain only the already-observed snap/record for one bounded second;
+        // never reconstruct a snap in replay, simulation or a new lineup.
+        bool settling=post&&whistle_&&now>=whistle_&&now-whistle_<=1000;
+        if((p.game.phase==3||settling)&&snapped_&&now>=began_&&now-began_<=45000&&record&&record==record_){
+            // A quarterback scramble can retain the native pass-record kind.
+            // A held rushing-state ball is sufficient proof of a live runner;
+            // never infer a rush from a loose or airborne ball.
+            bool running=p.game.phase==3&&held&&p.offense==side_&&(ball==9||observedRun_)&&!flight_&&(kind==0||kind==3);
+            if(kind==0||running)reset_=true;
+            observedRun_=observedRun_||running;
+            if(reset_&&(ball==4||(kind==3&&ball==1&&!held)))flight_=true;
+            if(reset_&&!used_&&std::isfinite(spot_)&&std::fabs(spot_)<=50.01f&&(direction_==1||direction_==-1)){
+                bool own=side_==0||p.game.neutral;
+                float catchTolerance=(std::max)(3.5f,prior&&now>=prior?20.f*static_cast<float>(now-prior)*.001f:3.5f);
+                bool catchAgrees=!held||!std::isfinite(runnerSpot)||std::fabs(runnerSpot-catchSpot)<=catchTolerance;
+                if(flight_&&kind==1&&p.offense==side_&&!caught_&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50&&catchAgrees){
+                    caught_=true;
+                    runnerLast_=catchSpot;runnerAt_=now;
+                    float gained=std::round((catchSpot-spot_)*direction_);
+                    catchAirYards_=gained;
+                    catchGain_=(catchSpot-spot_)*direction_;
+                    float minimum=std::isfinite(c.minimumCatchYards)?(std::clamp)(c.minimumCatchYards,10.0f,60.0f):20;
+                    if(own&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50&&gained<=100&&
+                       (gained>=minimum||(fourth_&&gained>=(std::max)(.1f,line_)))){used_=true;out={fourth_&&gained>=(std::max)(.1f,line_)?Event::FourthConversion:Event::LongCatch,++serial_,side_,gained};}
+                }else if(flight_&&kind==2){
+                    // A fresh interception result is already authoritative.
+                    // The global possession label can trail the actual catch.
+                    used_=true;if(side_==1||p.game.neutral)out={Event::Interception,++serial_,1-side_,0};
+                }
+                // Never use an airborne ball, a loose ball or a kicked ball as
+                // a runner. Short completions remain eligible for one later YAC burst.
+                bool carrying=p.game.phase==3&&held&&p.offense==side_&&((kind==1&&caught_)||running);
+                float gain=(runnerSpot-spot_)*direction_;
+                // Reject a transient stale/teleported carrier coordinate rather
+                // than instantly latching a long-gain reaction on a short catch.
+                bool coherent=carrying&&std::isfinite(runnerSpot)&&runnerAt_&&now>=runnerAt_&&
+                    std::fabs(runnerSpot-runnerLast_)<=3.5f+30.f*static_cast<float>(now-runnerAt_)*.001f;
+                if(coherent){runnerLast_=runnerSpot;runnerAt_=now;if(gain>=0&&gain<=110)measuredGain_=(std::max)(measuredGain_,gain);}
+                if(coherent&&caught_&&gain-catchGain_>.5f)afterCatchRun_=true;
+                float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):15;
+                float rampStart=minimum-5;
+                bool runningGain=!caught_||afterCatchRun_;
+                if((!used_||buildup_.id)&&own&&coherent&&runningGain&&std::fabs(runnerSpot)<=60&&gain>=rampStart&&gain<=110){
+                    float progress=(std::clamp)((gain-rampStart)/5.f,.0001f,1.f);
+                    if(progress>=buildup_.progress)buildup_={began_,progress,gain};
+                }
+                if(!used_&&own&&coherent&&std::fabs(runnerSpot)<=60&&gain<=110&&
+                   ((runningGain&&gain>=minimum)||(fourth_&&gain>=(std::max)(.1f,line_)))){
+                    used_=true;out={fourth_&&gain>=(std::max)(.1f,line_)?Event::FourthConversion:caught_?Event::RunAfterCatch:Event::LongRun,++serial_,side_,gain};
+                }
+                // A receiver can be down before a held-runner sample reaches
+                // the cutoff. Use the verified completed-play tracker then,
+                // including whole-yard credit at the configured gain boundary.
+                bool confirmed=settling&&completed&&completed->accepted&&completed->completed&&completed->sequence&&completed->side==side_&&
+                    !completed->takeaway&&!completed->setback&&p.offense==side_&&std::isfinite(completed->yards);
+                float credited=confirmed?std::round(completed->yards):-1000;
+                float passMinimum=afterCatchRun_?minimum:(std::max)(minimum,std::isfinite(c.minimumCatchYards)?(std::clamp)(c.minimumCatchYards,10.f,60.f):20.f);
+                float completedMinimum=kind==1?passMinimum:minimum;
+                if(!used_&&own&&confirmed&&credited>=completedMinimum&&credited<=110&&((kind==1&&flight_&&caught_)||(kind==0&&!flight_)||(kind==3&&observedRun_&&!flight_))){
+                    used_=true;out={kind==1?Event::CompletedPass:Event::LongRun,++serial_,side_,credited};
+                }
+            }
+        }
+        if(p.game.phase!=1&&p.game.phase!=3){ready_=false;if(!settling)snapped_=false;}
+        // Keep the high-water reaction through lateral/backward cuts. A short
+        // carrier-pointer gap is not proof the run ended; real flight, a new
+        // record, an interception or changed possession still cancels it.
+        bool briefCarrierGap=!held&&runnerAt_&&now>=runnerAt_&&now-runnerAt_<=250;
+        if(buildup_.id&&p.game.phase==3&&((!held&&!briefCarrierGap)||p.offense!=side_||record!=record_||
+           !((kind==1&&caught_)||((kind==0||kind==3)&&!flight_&&(ball==9||observedRun_)))))buildup_={};
+        if(p.game.phase!=3)buildup_={};
+        phase_=p.game.phase;return out;
+    }
+};
+}

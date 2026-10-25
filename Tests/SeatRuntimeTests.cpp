@@ -4,6 +4,7 @@
 #include "../Source/NativeRuntime.cpp"
 #include <cassert>
 #include <iostream>
+#include <sstream>
 namespace {
 template<class T>void testPut(A address,T value){std::memcpy(reinterpret_cast<void*>(address),&value,sizeof(value));}
 struct TestScene {
@@ -47,7 +48,9 @@ void checkScene(const TestScene& s,int loss){
     const auto& base=startingCrowds.at(s.render());assert(base.selection.policy!=attendance::seats::Policy::Pending);
     for(unsigned i=0;i<s.masks.size();++i){bool selected=base.selection.departed(i,loss);
         for(unsigned part=0;part<3;++part){if(part==2&&(i&1))continue;auto flag=static_cast<unsigned short>(1u<<part);
-            bool expected=(s.native[i]&flag)||(s.original[i]&flag)||selected;assert(((s.masks[i]&flag)!=0)==expected);
+            bool expected=(s.native[i]&flag)||(s.original[i]&flag)||selected;
+            if(((s.masks[i]&flag)!=0)!=expected)std::cerr<<"Visibility mismatch: loss="<<loss<<" agent="<<i<<" part="<<part<<" active="<<activeLoss<<" arriving="<<arrivalMissing<<" Q="<<shownQuarter<<" phase="<<shownPhase<<" clock="<<shownSeconds<<" expectedHidden="<<expected<<"\n";
+            assert(((s.masks[i]&flag)!=0)==expected);
         }
     }
 }
@@ -80,7 +83,9 @@ struct TestWorld {
         testGlobal(attendance::bindings::MatchWrapper,reinterpret_cast<A>(wrapper.data()));wrapper[2]=reinterpret_cast<A>(match.data());match[0]=image+attendance::bindings::MatchVtable;
         testGlobal(attendance::bindings::ClockManager,reinterpret_cast<A>(manager.data()));manager[0]=image+0xb4787a8;testPut(reinterpret_cast<A>(manager.data())+8,0);manager[5]=reinterpret_cast<A>(clock.data());
         testPut(reinterpret_cast<A>(clock.data())+0x28,900.0f);testPut(reinterpret_cast<A>(clock.data())+0x2c,900.0f);
-        testGlobal(0xd9f3970,1119);testGlobal(0xd9f3974,1503);testGlobal(attendance::bindings::PauseFlag,reinterpret_cast<A>(&paused));pauseBinding=true;
+        // Start with comparable teams so the later severe/FCS game has a different
+        // opening target instead of both hitting the new regular-season floor.
+        testGlobal(0xd9f3970,1119);testGlobal(0xd9f3974,1120);testGlobal(attendance::bindings::PauseFlag,reinterpret_cast<A>(&paused));pauseBinding=true;
         testGlobal(0xf4fe000,reinterpret_cast<A>(weather.data()));weather[0]=image+0xb323ed0;testPut(reinterpret_cast<A>(weather.data())+0xe8,70);
         testGlobal(0xe2dd3e8,reinterpret_cast<A>(service.data()));service[0]=image+0xb298a70;testPage(service[0]);testPut(service[0]+0x68,image+0x90934d0);
         testGlobal(0xfc88ab8,A(0));testFunction(0x90934d0,testOption);testFunction(attendance::bindings::NeutralGetter,testNeutral);testFunction(0xa0ad090,testRank);
@@ -89,7 +94,7 @@ struct TestWorld {
 };
 }
 int main(){
-    image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;
+    image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
     logsFolder=std::filesystem::temp_directory_path()/L"Ace-SeatRuntimeTests";std::filesystem::create_directories(logsFolder);
     // A resolver shim in this executable's own memory supplies the verified
     // native ABI expected by the production part resolver.
@@ -99,16 +104,31 @@ int main(){
     TestScene bowl(1536),deck(1536),sideline(60);for(auto& p:deck.xyz)p.y+=15;testScenes={&bowl,&deck,&sideline};
     assert(guardedApply(false,false,true));assert(shownSeatPatterns==2&&shownSeatFallbacks==1&&!seatPatternPending);
     assert(startingCrowds.at(bowl.render()).selection.policy==attendance::seats::Policy::Position);
+    auto density=std::atomic_load(&renderedOccupancy);
+    assert(density->owns(123,7)&&density->groups==2&&density->seats==3072);
+    assert(density->original==startingCrowds.at(bowl.render()).selection.original+startingCrowds.at(deck.render()).selection.original);
+    float peakDensity=density->peak();
+    auto savedMasks=bowl.masks;std::fill(bowl.masks.begin(),bowl.masks.end(),static_cast<unsigned short>(0xffff));
+    {std::lock_guard<std::mutex> lock(crowdMutex);publishRenderedOccupancyLocked();}
+    assert(std::atomic_load(&renderedOccupancy)->peak()==peakDensity); // Camera/current masks never redefine original seating.
+    std::copy(savedMasks.begin(),savedMasks.end(),bowl.masks.begin());
     // Natural sideline visibility may be observed once even though this
     // attendance controller never visits that small draw in a baseline pass.
     auto& idleSmall=startingCrowds.at(sideline.render());idleSmall.baselineComplete=false;idleSmall.selection={};
     prepareSeatPatterns();assert(!seatPatternPending&&idleSmall.selection.policy==attendance::seats::Policy::Pending);
     idleSmall.baselineComplete=true;prepareSeatPatterns();assert(idleSmall.selection.policy==attendance::seats::Policy::Scattered);
     auto order=startingCrowds.at(bowl.render()).selection.rank;
-    auto settle=[&](int permanent,int temporary){activeLoss=permanent;arrivalMissing=temporary;assert(guardedApply(true,true));for(auto* s:testScenes)checkScene(*s,(std::max)(permanent,temporary));};
+    auto settle=[&](int permanent,int temporary){activeLoss=permanent;arrivalMissing=temporary;assert(guardedApply(true,true));for(auto* s:testScenes)checkScene(*s,(std::max)(permanent,temporary));
+        auto mapped=std::atomic_load(&renderedOccupancy);if(!audioMatch){assert(!mapped->valid());return;}
+        assert(mapped->owns(123,7)&&mapped->peak()==peakDensity);
+        float f=attendance::occupancy::fraction(*mapped,{},123,7,(100-(std::max)(permanent,temporary))*.01f);
+        assert(std::fabs(f-peakDensity*(100-(std::max)(permanent,temporary))*.01f)<.00001f);
+    };
     settle(0,55);settle(0,25);settle(0,0);settle(35,45);settle(35,35);settle(35,0);
     assert(startingCrowds.at(bowl.render()).selection.rank==order);
-    for(int earlier:{5,70,20,0,55,10}){replayLoss=earlier;assert(guardedApply(true,true));for(auto* s:testScenes)checkScene(*s,earlier);}
+    for(int earlier:{5,70,20,0,55,10}){replayLoss=earlier;assert(guardedApply(true,true));for(auto* s:testScenes)checkScene(*s,earlier);
+        assert(std::atomic_load(&renderedOccupancy)->peak()==peakDensity&&activeLoss==35&&arrivalMissing==0);
+    }
     replayLoss=-1;exactVisibility=true;assert(guardedApply(true,true));for(auto* s:testScenes)checkScene(*s,35);exactVisibility=false;
     assert(shownExpectedFans==shownVisibleFans&&shownOtherExtra==0&&shownExtraVisible==0);
     TestScene late(1536);testScenes.push_back(&late);assert(guardedApply(true,true));assert(seatPatternPending);assert(startingCrowds.at(late.render()).selection.policy==attendance::seats::Policy::Pending);
@@ -117,11 +137,21 @@ int main(){
     // never reinterpret old plugin holes as permanent original empties.
     auto old=std::move(bowl.masks);bowl.masks=bowl.native;bowl.buffers();assert(guardedApply(true,true));assert(seatPatternPending);assert(guardedApply(true,true));assert(!seatPatternPending);
     assert(startingCrowds.at(bowl.render()).selection.rank==order);checkScene(bowl,35);
+    // A replacement renderer may supply all-visible masks and inputs. The
+    // identical authored geometry retains the match's original empty positions.
+    auto originalInputs=bowl.native;bowl.native.assign(bowl.native.size(),0);
+    auto replacedMasks=std::move(bowl.masks);bowl.masks=bowl.native;bowl.buffers();
+    assert(guardedApply(true,true));assert(guardedApply(true,true));
+    assert(startingCrowds.at(bowl.render()).selection.rank==order);
+    assert(std::atomic_load(&renderedOccupancy)->peak()==peakDensity);checkScene(bowl,35);
+    bowl.native=originalInputs;
     // Retired crowd cannot keep other renderers perpetually pending.
     testScenes.pop_back();testPut(late.address(),A(0));assert(guardedApply(true,true));assert(startingCrowds.find(late.render())==startingCrowds.end());
     // Scenario cleanup must win over a stale exact/historical replay request.
     mode=2;replayLoss=70;exactVisibility=true;assert(guardedApply(false,true));for(auto* s:testScenes)checkScene(*s,0);
-    resetMatch();assert(startingCrowds.empty()&&!seatPatternPending&&shownSeatPatterns==0);
+    resetMatch();assert(startingCrowds.empty()&&!seatPatternPending&&shownSeatPatterns==0&&!std::atomic_load(&renderedOccupancy)->valid());
+    // A genuine new game's native renderer seeds absent model-part bits too.
+    bowl.masks=bowl.native;bowl.buffers();
     mode=0;assert(guardedApply(false,false,true));assert(startingCrowds.at(bowl.render()).selection.rank==order);settle(60,0);
     mode=2;assert(guardedApply(false,true));
     // Late renderer: the intro's single arrival window was consumed while no
@@ -143,7 +173,7 @@ int main(){
     // Same teams + no snap + full Q1 clock must preserve the prepared picture.
     auto kickoffMatch=world.match;world.wrapper[2]=reinterpret_cast<A>(kickoffMatch.data());
     periodChanged(reinterpret_cast<A>(world.manager.data()),1);
-    assert(lastMatch==world.wrapper[2]&&arrivalMissing==opening&&arrivalModel.active);
+    assert(lastMatch==world.wrapper[2]&&arrivalMissing==opening&&arrivalModel.active&&std::atomic_load(&renderedOccupancy)->owns(lastMatch,audioEpoch.load()));
     assert(startingCrowds.at(intro.render()).selection.rank==openingOrder);checkScene(intro,opening);
     world.phase(1);lastDecision=0;assert(guardedDecision());assert(arrivalMissing==opening);
     auto activeMatch=kickoffMatch;world.wrapper[2]=reinterpret_cast<A>(activeMatch.data());lastDecision=0;
@@ -205,7 +235,7 @@ int main(){
         checkScene(intro,(std::max)(activeLoss.load(),arrivalMissing.load()));
     };
     simulateClock(900);assert(arrivalMissing==0&&arrivalModel.done);int beforeSim=activeLoss;
-    for(float clock:{600.0f,300.0f,160.0f})simulateClock(clock);
+    for(float clock:{600.0f,300.0f,230.0f})simulateClock(clock);
     assert(shownHalftime==0&&activeLoss>beforeSim); // Permanent exits happen during the quarter.
     simulateClock(100);assert(shownQuarter==2&&halftimeModel.active&&shownHalftime>0);
     simulateClock(60);int earlyAbsent=shownHalftime;
@@ -214,6 +244,16 @@ int main(){
     assert(shownHalftime>0&&shownHalftime<=peakAbsent);
     simulateClock(850);assert(shownHalftime>0&&shownHalftime<=peakAbsent);
     simulateClock(800);assert(shownHalftime>0&&shownHalftime<peakAbsent);
+    // Midgame Save's next game number can arrive at the first manually played
+    // snap AFTER a half of Super Sim. This is not an armed scenario load.
+    auto lateNumber=std::make_shared<attendance::resume::Signal>();lateNumber->valid=true;lateNumber->game=12;lateNumber->received=GetTickCount64();
+    lateNumber->live={3,35,0,1,800,900};
+    std::shared_ptr<const attendance::resume::Signal> lateSignal=lateNumber;std::atomic_store(&resumeSignal,lateSignal);
+    auto simEpoch=audioEpoch.load();auto simCaptures=captureSequence;auto simPeak=std::atomic_load(&renderedOccupancy)->peak();
+    auto simArchive=attendanceArchive.active;lastDecision=0;assert(guardedDecision());
+    assert(resumeTracker.game==12&&audioEpoch==simEpoch&&captureSequence==simCaptures&&attendanceArchive.active==simArchive);
+    assert(std::atomic_load(&renderedOccupancy)->peak()==simPeak&&shownHalftime>0);
+    std::atomic_store(&resumeSignal,std::make_shared<const attendance::resume::Signal>());
     simulateClock(650);assert(shownQuarter==3&&shownHalftime==0&&arrivalMissing==0&&halftimeModel.done);
     testPut(reinterpret_cast<A>(world.manager.data())+8,4);simulateClock(900);int q4SimStart=activeLoss;
     testPut(world.wrapper[2]+0x1d8,70);
@@ -261,13 +301,15 @@ int main(){
     lastDecision=0;assert(guardedDecision());lastDecision=0;assert(guardedDecision());
     world.phase(5);testPut(reinterpret_cast<A>(world.manager.data())+8,4);
     testPut(world.wrapper[2]+0x1d8,14);testPut(world.wrapper[2]+0x1dc,14);
-    lastDecision=0;assert(guardedDecision());int q4Opening=activeLoss;
-    assert(!seatPatternPending);checkScene(q4Scene,q4Opening);
+    lastDecision=0;assert(guardedDecision());int q4Opening=activeLoss,q4Visible=(std::max)(q4Opening,arrivalMissing.load());
+    // This synthetic jump goes straight from pregame into Q4; any paced
+    // arrival return still belongs to the visible target until another break.
+    assert(!seatPatternPending);checkScene(q4Scene,q4Visible);
     world.phase(1);testPut(world.wrapper[2]+0x1dc,49);
     testPut(reinterpret_cast<A>(world.clock.data())+0x28,800.0f);lastDecision=0;assert(guardedDecision());
     for(float clock:{700.0f,600.0f,500.0f}){
         testPut(reinterpret_cast<A>(world.clock.data())+0x28,clock);lastDecision=0;assert(guardedDecision());
-        assert(activeLoss==q4Opening);checkScene(q4Scene,q4Opening);
+        assert(activeLoss==q4Opening);checkScene(q4Scene,q4Visible);
     }
     assert(departureModel.catchupQueued);world.phase(5);lastDecision=0;assert(guardedDecision());
     int bounded=(std::min)(departureModel.plannedLoss,departureModel.periodStartLoss+settings->quarterCap);
@@ -277,6 +319,105 @@ int main(){
     lastDecision=0;assert(guardedDecision());assert(activeLoss==caughtUp);
     guardedQuarterBreak(3,4);assert(activeLoss==caughtUp); // A duplicate same-time checkpoint cannot grant another visible batch.
     mode=2;assert(guardedApply(false,true));
+    // The production decision and recorder must carry the new conference flag,
+    // rather than rebuilding a generic playoff snapshot for saved replays.
+    resetMatch();mode=0;conferenceBinding=true;
+    // This tiny synthetic venue needs 90% for its conference-game atmosphere.
+    // Make its real captured baseline full rather than the usual 6/7 fixture.
+    TestScene conferenceScene(1536);for(unsigned i=0;i<1536;++i)conferenceScene.masks[i]=conferenceScene.native[i]=conferenceScene.original[i]=static_cast<unsigned short>((i&1)?4:0);
+    testScenes={&conferenceScene};
+    std::vector<A> visualManager(0x100/8),visualReference(2),visual(8);
+    testGlobal(attendance::bindings::MatchVisualManager,reinterpret_cast<A>(visualManager.data()));
+    visualManager[4]=reinterpret_cast<A>(visualReference.data());visualReference[1]=reinterpret_cast<A>(visual.data());
+    visual[0]=image+attendance::bindings::MatchVisualVtable;testPut(reinterpret_cast<A>(visual.data())+0x27,static_cast<unsigned char>(1));
+    world.phase(6);testPut(reinterpret_cast<A>(world.manager.data())+8,0);
+    testPut(world.wrapper[2]+0x1d8,0);testPut(world.wrapper[2]+0x1dc,0);
+    testPut(reinterpret_cast<A>(world.clock.data())+0x28,900.0f);
+    lastDecision=0;assert(guardedDecision());assert(shownConference&&shownConferenceKnown&&shownPlayoff);
+    assert(!attendanceArchive.games.empty()&&attendanceArchive.games.back().context.conferenceChampionship);
+    world.phase(1);testPut(reinterpret_cast<A>(world.manager.data())+8,1);
+    testPut(reinterpret_cast<A>(replayManager.data())+0x1030,100.2);
+    assert(guardedRecordAttendance());assert(!attendanceArchive.games.back().points.empty());
+    assert(attendanceArchive.games.back().points.back().state.conferenceChampionship);
+    // A live scoreboard/clock correction is rejected by event detection, but
+    // cannot briefly mute an otherwise valid lineup. Pause still wins.
+    activeLoss=0;arrivalMissing=0; // This audio-continuity fixture needs a sufficiently full current crowd.
+    playBindingsAvailable=false;atmosphereMatch=0;world.phase(5);lastAtmosphereTick=0;atmosphereTick();
+    world.phase(1);lastAtmosphereTick=0;atmosphereTick();lineupAtmosphere.began=GetTickCount64()-4000;
+    playTracker.seen=true;playTracker.highHome=1;auto oldCelebration=coreAtmosphere.celebration;
+    lastAtmosphereTick=0;atmosphereTick();auto audibleIntent=std::atomic_load(&sustainedIntent);
+    assert(audibleIntent->active&&audibleIntent->reason==attendance::sustained::Reason::Lineup&&audibleIntent->intensity>0);
+    assert(coreAtmosphere.celebration==oldCelebration); // No score/eruption is invented from the rejected sample.
+    arrivalMissing=81;world.phase(5);lastAtmosphereTick=0;atmosphereTick();world.phase(1);lastAtmosphereTick=0;atmosphereTick();
+    auto smallCrowd=std::atomic_load(&sustainedIntent);assert(smallCrowd->active&&smallCrowd->intensity==0&&smallCrowd->reason==attendance::sustained::Reason::None);
+    assert(std::atomic_load(&cameraCue)->kind==attendance::motion::Kind::None);arrivalMissing=0;
+    world.paused=1;lastAtmosphereTick=0;atmosphereTick();assert(!std::atomic_load(&sustainedIntent)->active&&!lineupAtmosphere.carrying);world.paused=0;
+    // Actual production audio context: paused intro, historical automatic clip,
+    // normalized final cutscene and final-menu cleanup. No native sound is sent.
+    auto oldRendered=std::atomic_load(&renderedOccupancy);
+    std::shared_ptr<const attendance::occupancy::Rendered> fullSeats=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,56099,56099});
+    std::atomic_store(&renderedOccupancy,fullSeats);activeLoss=arrivalMissing=0;audioAudible=true;lastAudibleUpdate=GetTickCount64();
+    coreAtmosphere.reset();presentationAtmosphere.reset();playTracker.reset();
+    world.phase(6);testPut(reinterpret_cast<A>(world.manager.data())+8,0);testPut(world.wrapper[2]+0x1d8,0);testPut(world.wrapper[2]+0x1dc,0);
+    testPut(reinterpret_cast<A>(world.clock.data())+0x28,900.f);world.paused=1;lastAtmosphereTick=0;atmosphereTick();
+    auto introAudio=wantedSwell();assert(introAudio.active&&introAudio.reason==attendance::sustained::Reason::Opening&&!introAudio.shake&&!introAudio.cheers);
+    assert(playTracker.serial==0); // Intro did not invent a play or score.
+    assert(playTracker.openingSeen&&playTracker.openingReliable&&!playTracker.seen); // Fresh intro proof survives until the first gameplay phase.
+    activeLoss=80;auto liveWanted=audioWanted();assert(std::fabs(audibleFullness(liveWanted)-.2f)<.00001f);
+    auto introVolume=audioVolumeWanted();assert(!introVolume.active&&std::fabs(introVolume.remaining-.2f)<.00001f&&introVolume.strength==.25f&&introVolume.reductionStart==.5f);
+    {std::shared_ptr<const attendance::occupancy::Rendered> small=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,12000,12000});
+        std::atomic_store(&renderedOccupancy,small);assert(audioVolumeWanted().active);
+        small=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,12001,12001});std::atomic_store(&renderedOccupancy,small);assert(!audioVolumeWanted().active);
+        std::atomic_store(&renderedOccupancy,fullSeats);}
+    replayLoss=10;assert(std::fabs(audibleFullness(liveWanted)-.9f)<.00001f); // Automatic clip follows recorded crowd.
+    auto clipVolume=audioVolumeWanted();assert(!clipVolume.active&&std::fabs(clipVolume.remaining-.9f)<.00001f);
+    replaySuspendsAtmosphere=true;assert(std::fabs(audibleFullness(liveWanted)-.2f)<.00001f);
+    assert(!audioVolumeWanted().active); // Interactive replay never inherits a category-volume override.
+    replaySuspendsAtmosphere=false;replayLoss=-1;activeLoss=0;
+    world.phase(1);assert(!audioVolumeWanted().active); // Ordinary gameplay pause restores native volume.
+    world.phase(8);testPut(reinterpret_cast<A>(world.manager.data())+8,6);testPut(reinterpret_cast<A>(world.clock.data())+0x28,0.f);
+    testPut(world.wrapper[2]+0x1d8,21);testPut(world.wrapper[2]+0x1dc,14);world.paused=0;lastAtmosphereTick=0;atmosphereTick();
+    assert(audioPresentationPhase()==7&&at<int>(reinterpret_cast<A>(world.states.data())+0xa0)==8);
+    auto outroAudio=wantedSwell();assert(outroAudio.active&&outroAudio.reason==attendance::sustained::Reason::Postgame&&!outroAudio.cheers&&!outroAudio.shake);
+    coreAtmosphere.eruptionAt=GetTickCount64()/1000.0-1;coreAtmosphere.eruptionSeconds=45;coreAtmosphere.eruptionMinimum=.6f;coreAtmosphere.postgameHeld=true;
+    replayLoss=80;lastAtmosphereTick=0;atmosphereTick();assert(coreAtmosphere.erupting&&coreAtmosphere.postgameHeld); // An early sparse clip cannot cancel the earned live celebration.
+    replayLoss=-1;
+    world.paused=1;lastAtmosphereTick=0;atmosphereTick();assert(!wantedSwell().active&&coreAtmosphere.postgameMenu);
+    std::atomic_store(&renderedOccupancy,oldRendered);world.paused=0;
+    mode=2;assert(guardedApply(false,true));
+    // Exercise the actual report with the private world, including separate
+    // live/settings sections and attendance audio when added layers are off.
+    debugLog=false;audioHookInstalled=true;audioSetting=true;
+    auto reportSettings=std::make_shared<attendance::core::Settings>(*std::atomic_load(&coreSettings));reportSettings->enabled=false;
+    std::shared_ptr<const attendance::core::Settings> reportCore=reportSettings;std::atomic_store(&coreSettings,reportCore);
+    std::ostringstream report;writeStatus(report,GetTickCount64());auto text=report.str();
+    size_t previous=0;
+    for(const char* title:{"GAME & MATCHUP","VISIBLE ATTENDANCE","CROWD AUDIO - CURRENT LEVELS","ATMOSPHERE & CAMERA - LIVE EFFECTS","REPLAYS","DYNAMIC GAMEDAY ATTENDANCE - SETTINGS","DYNAMIC GAMEDAY SOUNDSCAPE - SETTINGS","DYNAMIC GAMEDAY BROADCAST - CAMERA","SETTINGS - LOGGING"}){
+        auto next=text.find(std::string("\n\n=== ")+title+" ===\n");assert(next!=std::string::npos&&next>previous);previous=next;
+    }
+    assert(text.find("DEBUG - TECHNICAL COUNTERS")==std::string::npos);
+    auto audioLine=text.substr(text.find("Crowd audio:"),text.find('\n',text.find("Crowd audio:"))-text.find("Crowd audio:"));
+    assert(audioLine.find("enabled")!=std::string::npos); // Layer switch does not disable the common attendance cut.
+    assert(text.find("Crowd measured:")!=std::string::npos&&text.find("Chant volume boost:")!=std::string::npos);
+    {std::ofstream f(logsFolder/"status-preview.txt");f<<text;}
+    debugLog=true;std::ostringstream technical;writeStatus(technical,GetTickCount64());assert(technical.str().find("DEBUG - TECHNICAL COUNTERS")!=std::string::npos);debugLog=false;
+    // Execute the actual native INI reader against mixed legacy/current settings.
+    pluginsFolder=logsFolder/L"SettingsCase";std::filesystem::create_directories(pluginsFolder);
+    {std::ofstream ini(pluginsFolder/L"DynamicGamedayAtmosphere.ini");ini<<"[Attendance]\nEnabled=1\n[Atmosphere]\nMaximumBoostPercent=25\nCriticalShakeStrengthPercent=8\n[Dynamic Gameday Attendance]\nEnabled=0\nArrivalsEnabled=0\nStartPercent=42\n[Dynamic Gameday Soundscape]\nEnabled=0\nLayeredAtmosphereEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=22\nEruptionBoostPercent=35\nChantMaximumBoostPercent=11\nLongCompletionMinimumYards=21\nDuringPlayReactionsEnabled=0\n[Dynamic Gameday Broadcast]\nCameraShake=0\nDuringPlayShakeStrengthPercent=12\nExtraReplaysEnabled=0\n";}
+    readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==42&&!audioSetting&&!extraReplays&&crowdReductionPercent==25);
+    auto nativeConfig=std::atomic_load(&coreSettings);auto liveConfig=std::atomic_load(&liveReactionSettings);auto motionConfig=std::atomic_load(&cameraSettings);
+    assert(!nativeConfig->enabled&&!nativeConfig->cameraShake&&nativeConfig->maximumPercent==17.5f&&nativeConfig->highLeveragePercent==22&&nativeConfig->eruptionPercent==35&&nativeConfig->chantMaximumPercent==11);
+    assert(!liveConfig->enabled&&liveConfig->minimumCatchYards==21&&motionConfig->live==12&&motionConfig->critical==8);
+    // Default (non-debug) reports must retain a useful incompatible-code reason.
+    debugLog=false;assert(!requiredBytes(0x3c,{0xab,0xcd}));
+    log("reaction-audio","Test audit: native cheer dispatched.");log("play-summary","Test audit: play result observed.");log("late-turnover","Test audit: turnover exits queued.");
+    {std::ifstream f(logsFolder/"DynamicGamedayAtmosphere.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Required game-code check failed at RVA 0x3c")!=std::string::npos&&logText.find("not an EXE hash check")!=std::string::npos);}
+    {std::ifstream f(logsFolder/"DynamicGamedayAtmosphere.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Test audit: native cheer dispatched.")!=std::string::npos&&logText.find("Test audit: play result observed.")!=std::string::npos&&logText.find("Test audit: turnover exits queued.")!=std::string::npos);}
+    void* unused=reinterpret_cast<void*>(1);auto patchCount=patches.size();
+    assert(!makePatch(0x64afda0,reinterpret_cast<void*>(testUpdate),&unused,14)); // Incomplete guarded prologue is rejected before allocation.
+    assert(!makePatch(0x64afda0,reinterpret_cast<void*>(testUpdate),&unused,13));
+    assert(!makePatch(0x64afda0,reinterpret_cast<void*>(testUpdate),&unused,33));
+    assert(!makePatch(0x64afda0,nullptr,&unused,15)&&patches.size()==patchCount&&unused==reinterpret_cast<void*>(1));
     for(auto p:worldPages)VirtualFree(p,0,MEM_RELEASE);VirtualFree(allocation,0,MEM_RELEASE);
-    std::cout<<"PASS: production capture/visibility, cached layouts, arrivals/replays, late intro renderers, kickoff/Midgame Save opening preservation, quit/reload, phase0/5 Super Sim Q2 departures, early halftime breaks/Q3 returns, Q4 home/FCS exits, pause isolation and live-play gating.\n";
+    std::cout<<"PASS: production capture/visibility, cached layouts, arrivals/replays, late intro renderers, kickoff/Midgame Save opening preservation, quit/reload, phase0/5 Super Sim Q2 departures, early halftime breaks/Q3 returns, Q4 home/FCS exits, pause isolation, live-play gating, conference classification, paused-intro/final presentation audio and historical clip fullness.\n";
 }

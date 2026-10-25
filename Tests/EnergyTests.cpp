@@ -96,12 +96,12 @@ int main(){
     p.game.phase=3;t.observe(c,p);p.game.phase=7;p.game.seconds=0;p.game.homeScore=23;
     assert(t.observe(c,p).event==Event::GameWinningScore);assert(t.observe(c,p).event==Event::None);
     assert(eventPoints(Event::LastSecondLead,p.game)>eventPoints(Event::HomeScore,p.game));
-    for(float seconds:{0.0f,10.0f,60.0f,89.0f,90.0f,91.0f,120.0f})for(int side:{0,1}){
+    for(float seconds:{0.0f,10.0f,30.0f,31.0f,60.0f,89.0f,90.0f,91.0f,120.0f})for(int side:{0,1}){
         t.reset();p=sample();p.game={4,20,21,1,120,300};p.offense=0;p.down=4;
         if(side==1){p.game=reversed(p.game);p.game.neutral=true;p.offense=1;}
         t.observe(c,p);p.game.phase=3;t.observe(c,p);p.game.phase=4;p.game.seconds=seconds;
         if(side==0)p.game.homeScore+=3;else p.game.awayScore+=3;
-        o=t.observe(c,p);assert(o.event==(seconds<=90?Event::LastSecondLead:Event::LateDrive)&&o.side==side);
+        o=t.observe(c,p);assert(o.event==(seconds<=30?Event::LastSecondLead:Event::LateDrive)&&o.side==side);
         assert(t.observe(c,p).event==Event::None);
     }
     // Neutral venues treat equivalent home and away moments identically.

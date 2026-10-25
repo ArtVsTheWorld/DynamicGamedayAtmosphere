@@ -8,7 +8,7 @@ constexpr Address image=0x140000000;
 template<class T>void put(Address p,T value){memcpy(reinterpret_cast<void*>(p),&value,sizeof(value));}
 template<size_t N>Address address(unsigned char (&p)[N]){return reinterpret_cast<Address>(p);}
 unsigned char owner[0x300]{},resultObject[0x80]{},resultVtable[0x100]{},weak[0x20]{},endpoint[0x100]{},endpointVtable[0x100]{};
-unsigned char descriptions[2][0x60]{},values[2][0x50]{},parameters[2][0x60]{};Address entries[2]{};
+unsigned char descriptions[4][0x60]{},values[2][0x50]{},parameters[2][0x60]{};Address entries[2]{};
 Address manager=0x111111;bool startEvent=false,queryMissing=false,badParameter=false,faultSend=false,reenter=false;
 unsigned queries=0,queryEnds=0,weaks=0,weakEnds=0,arenas=0,arenaEnds=0,events=0,eventEnds=0,starts=0,stops=0;
 struct Message {bool start;int size,attack,release;};std::vector<Message> messages;
@@ -23,8 +23,9 @@ void __fastcall weakGet(Address value,Address* out){assert(value==address(result
 void __fastcall weakEnd(Address value,Address* out){assert(value==address(weak));*out=0;++weakEnds;}
 Address __fastcall managerGet(Address value){assert(value==address(endpoint));return manager;}
 Address __fastcall lookup(Address m,Address,const char* system,const char* name,Address* out){
-    assert(m==manager&&!strcmp(system,"CORE_BG_CRWD_EventSystem"));startEvent=!strcmp(name,"Trigger_AreaPrePlaySwell");
-    assert(startEvent||!strcmp(name,"Stop_AreaPrePlaySwell"));*out=address(descriptions[startEvent?0:1]);return 0;
+    assert(m==manager&&!strcmp(system,"CORE_BG_CRWD_EventSystem"));startEvent=!strcmp(name,"Trigger_AreaPrePlaySwell")||!strcmp(name,"Trigger_AreaSwell");
+    bool gameplay=!strcmp(name,"Trigger_AreaSwell")||!strcmp(name,"Stop_AreaSwell");
+    assert(startEvent||!strcmp(name,"Stop_AreaPrePlaySwell")||!strcmp(name,"Stop_AreaSwell"));*out=address(descriptions[(gameplay?2:0)+(startEvent?0:1)]);return 0;
 }
 Address __fastcall init(Address a){++arenas;assert(at<Address>(a-0x18)==image+attendance::bindings::SwellArenaVtable);return a;}
 void __fastcall arenaEnd(Address){++arenaEnds;assert(events==eventEnds);}
@@ -55,7 +56,8 @@ int main(){
     put(address(owner)+0x30,Address(0x2345));put(address(owner)+0x38,Address(0x3456));
     put(address(resultObject),address(resultVtable));put(address(resultVtable)+0x60,reinterpret_cast<Address>(weakGet));
     put(address(weak),address(endpoint)+8);put(address(endpoint),address(endpointVtable));put(address(endpointVtable)+0xe0,image+attendance::bindings::SwellManagerGetter);
-    for(int i=0;i<2;++i){put<unsigned>(address(descriptions[i])+0x40,205964879);put<unsigned>(address(descriptions[i])+0x44,i?2466082807u:1690946487u);}
+    const unsigned ids[]={1690946487u,2466082807u,3736232244u,3732353268u};
+    for(int i=0;i<4;++i){put<unsigned>(address(descriptions[i])+0x40,205964879);put<unsigned>(address(descriptions[i])+0x44,ids[i]);}
     Api api;api.query=query;api.get=get;api.queryDestroy=queryEnd;api.weakRelease=weakEnd;api.managerGet=managerGet;
     api.lookup=lookup;api.construct=construct;api.eventDestroy=eventEnd;api.set=set;api.send=send;api.arenaInit=init;api.arenaDestroy=arenaEnd;
     Runtime runtime;runtime.configure(image,nullptr,&api);recursive=&runtime;
@@ -87,6 +89,50 @@ int main(){
     request.updated=140000;request.offense=1;continuous.tick(address(owner)+0x40,request,140000);balanced();assert(continuous.playing());
     request.continuous=false;request.reason=Reason::None;request.updated=140100;
     continuous.tick(address(owner)+0x40,request,140100);balanced();assert(!continuous.playing()&&!messages.back().start&&messages.back().release==20000);
+    // A fresh native maximum-size lineup roar is adopted rather than doubled.
+    Runtime adopted;adopted.configure(image,nullptr,&api);
+    unsigned char nativeStart[0xb0]{};startEvent=true;construct(address(nativeStart),0,0);set(entries[0],3);set(entries[1],4000);
+    put(address(nativeStart)+0xa0,address(descriptions[0]));
+    adopted.observeNativeStop(manager,address(nativeStart),150000);eventEnd(address(nativeStart));
+    request={};request.match=789;request.epoch=3;request.updated=150100;request.active=true;request.reason=Reason::Lineup;request.priority=1;request.offense=0;request.size=3;request.releaseMs=8000;
+    unsigned oldStarts=starts,oldStops=stops;
+    adopted.tick(address(owner)+0x40,request,150100);balanced();assert(adopted.playing()&&adopted.adopted()==1&&starts==oldStarts);
+    request.active=false;request.updated=150300;adopted.tick(address(owner)+0x40,request,150300);balanced();assert(stops==oldStops); // Native voice is not stopped by our cleanup.
+    Runtime promoted;promoted.configure(image,nullptr,&api);request.active=true;request.updated=160000;
+    promoted.tick(address(owner)+0x40,request,160000);assert(promoted.playing());
+    request.reason=Reason::Eruption;request.priority=5;request.continuous=true;request.updated=160100;
+    promoted.tick(address(owner)+0x40,request,160100);unsigned carriedStarts=starts;
+    request.updated=195000;promoted.tick(address(owner)+0x40,request,195000);balanced();assert(promoted.playing()&&starts==carriedStarts); // Winning carry outlives the lineup cutoff without a restart.
+    request.active=false;request.updated=195100;promoted.tick(address(owner)+0x40,request,195100);balanced();assert(!promoted.playing());
+    // A new eruption reasserts an already playing smaller native channel once,
+    // with a fast size-3 attack. It does not allocate an extra looping channel.
+    Runtime burst;burst.configure(image,nullptr,&api);request={};request.active=true;request.match=789;request.epoch=3;request.reason=Reason::Lineup;request.continuous=true;request.size=2;request.updated=196000;
+    burst.tick(address(owner)+0x40,request,196000);assert(messages.back().size==2);
+    request.reason=Reason::Eruption;request.priority=6;request.celebration=1;request.size=3;request.attackMs=500;request.releaseMs=20000;request.updated=196100;
+    oldStarts=starts;burst.tick(address(owner)+0x40,request,196100);assert(starts==oldStarts+1&&messages.back().size==3&&messages.back().attack==500);
+    for(uint64_t now=196200;now<199000;now+=100){request.updated=now;burst.tick(address(owner)+0x40,request,now);}assert(starts==oldStarts+1);balanced();
+    request.active=false;request.updated=199100;burst.tick(address(owner)+0x40,request,199100);assert(!burst.playing()&&messages.back().release==4000);balanced();
+    Runtime extra;extra.configure(image,nullptr,&api,true);request.active=true;request.reason=Reason::LateDrive;request.continuous=true;request.attackMs=6000;request.releaseMs=12000;request.updated=200000;
+    extra.tick(address(owner)+0x40,request,200000);balanced();assert(extra.playing()&&messages.back().start&&messages.back().attack==4000);
+    put(address(stockStop)+0xa0,address(descriptions[1]));extra.observeNativeStop(manager,address(stockStop),201000);request.updated=202100;extra.tick(address(owner)+0x40,request,202100);assert(extra.refreshes()==0);
+    put(address(stockStop)+0xa0,address(descriptions[3]));extra.observeNativeStop(manager,address(stockStop),203000);request.updated=204100;extra.tick(address(owner)+0x40,request,204100);balanced();assert(extra.refreshes()==1);
+    request.reason=Reason::None;request.continuous=false;request.updated=205000;extra.tick(address(owner)+0x40,request,205000);balanced();assert(!extra.playing()&&!messages.back().start&&messages.back().release==12000);
+    Runtime resultBridge;resultBridge.configure(image,nullptr,&api);request={};request.active=true;request.match=800;request.epoch=4;request.reason=Reason::Lineup;request.continuous=true;request.priority=1;request.size=2;request.updated=210000;
+    resultBridge.tick(address(owner)+0x40,request,210000);assert(resultBridge.playing());oldStarts=starts;
+    request.reason=Reason::Result;request.priority=5;request.resultCheer=1;request.resultCheerUntil=213000;request.size=3;request.releaseMs=8000;request.updated=210200;
+    resultBridge.tick(address(owner)+0x40,request,210200);assert(starts==oldStarts+1&&messages.back().size==3);
+    request.updated=210300;resultBridge.tick(address(owner)+0x40,request,210300);assert(starts==oldStarts+1); // One result refresh, never per frame.
+    request.reaction=true;request.continuous=false;request.updated=218000;resultBridge.tick(address(owner)+0x40,request,218000);assert(!resultBridge.playing()&&messages.back().release==8000);
+    request.updated=226100;resultBridge.tick(address(owner)+0x40,request,226100);assert(!resultBridge.playing()); // A fading result cannot restart even after its quiet gap.
+    request.reaction=false;request.continuous=true;request.resultCheer=2;request.resultCheerUntil=228700;request.updated=226200;
+    resultBridge.tick(address(owner)+0x40,request,226200);assert(resultBridge.playing());balanced();
+    request.active=false;request.updated=226300;resultBridge.tick(address(owner)+0x40,request,226300);assert(!resultBridge.playing());balanced();
+    Runtime quick;quick.configure(image,nullptr,&api);request={};request.active=true;request.match=900;request.epoch=1;request.reason=Reason::Lineup;request.lineup=42;request.continuous=true;request.updated=300000;
+    quick.tick(address(owner)+0x40,request,300000);oldStarts=starts;
+    put(address(stockStop)+0xa0,address(descriptions[1]));quick.observeNativeStop(manager,address(stockStop),300100);request.updated=300150;
+    quick.tick(address(owner)+0x40,request,300150);assert(starts==oldStarts+1&&messages.back().attack==500); // Quick snap cannot leave the old two-second native-stop hole.
+    quick.observeNativeStop(manager,address(stockStop),300200);request.updated=300300;quick.tick(address(owner)+0x40,request,300300);assert(starts==oldStarts+1); // One fast recovery per play token.
+    request.active=false;request.updated=300400;quick.tick(address(owner)+0x40,request,300400);balanced();
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");
 }

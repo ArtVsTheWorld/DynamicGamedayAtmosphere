@@ -7,6 +7,7 @@ struct Settings {
     int enabled=1; Profile profile=Profile::Automatic;
     int comebackDeficit=21,comebackRecovered=14,comebackDeteriorationSeconds=60;
     int warningEnabled=1,formulaStrength=100,quarterCap=45,transitionCap=4;
+    int lateTraffic=1;
 };
 struct State {
     int quarter=0,homeScore=0,awayScore=0,phase=0;float seconds=0,quarterSeconds=0;
@@ -17,8 +18,10 @@ struct State {
     unsigned variationSeed=0;
     int offense=-1,homeTimeouts=-1;
     float toGoal=-1;
+    bool conferenceChampionship=false,hfaActive=false;
 };
-inline bool championship(const State& s){return s.playoff&&s.bowl==47;}
+inline void postseason(State& s,bool cfp,bool conference){s.conferenceChampionship=conference;s.playoff=cfp||conference;}
+inline bool championship(const State& s){return s.playoff&&!s.conferenceChampionship&&s.bowl==47;}
 inline bool badWeather(const State& s){return s.precipitation==1||s.precipitation==2;}
 inline int lossCeiling(const State& s){
     int ceiling=(championship(s)?20:s.playoff?40:75)+(badWeather(s)?10:0);
@@ -69,11 +72,12 @@ inline bool normalizeUntimedPeriod(State& s,float regulationLength){
 }
 inline float elapsedGameTime(const State& s){return (overtime(s)||s.quarter==6)?4*s.quarterSeconds:(s.quarter-1)*s.quarterSeconds+s.quarterSeconds-s.seconds;}
 inline bool top25(int rank){return rank>=1&&rank<=25;}
+inline bool bigGameMatchup(const State& s){return (top25(s.rank0)&&top25(s.rank1))||s.playoff||s.conferenceChampionship;}
 inline bool playoffBowl(int bowl){return bowl>=37&&bowl<=53;}
 inline Profile profileFor(const Settings& c,const State& s){
     if(c.profile!=Profile::Automatic)return c.profile;
     // Special matchups take priority over rain or snow.
-    if(s.rivalry||(top25(s.rank0)&&top25(s.rank1)))return Profile::Reduced;
+    if(top25(s.rank0)&&top25(s.rank1))return Profile::Reduced;
     if(s.precipitation==1||s.precipitation==2)return Profile::BadWeather;
     return Profile::Default;
 }

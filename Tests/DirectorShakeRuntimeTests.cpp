@@ -1,0 +1,80 @@
+#include "../Source/DirectorShakeRuntime.h"
+#include "../Source/NativePlayCall.h"
+#include "../Source/LineupAtmosphere.h"
+#include <vector>
+#include <cassert>
+#include <cstring>
+#include <iostream>
+using namespace attendance;using namespace attendance::motion;
+using A=uintptr_t;
+template<class T>void put(A address,T value){std::memcpy(reinterpret_cast<void*>(address),&value,sizeof(value));}
+template<class T>A addr(T& object){return reinterpret_cast<A>(&object);}
+bool memoryRead(A p,void* out,size_t n){SIZE_T read=0;return ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&read)&&read==n;}
+int main(){
+    constexpr A image=0x10000000;std::vector<void*> pages;
+    auto global=[&](A rva,A value,bool integer=false){A p=(image+rva)&~A(0xffff);bool exists=false;for(auto v:pages)if(addr(*static_cast<char*>(v))==p)exists=true;if(!exists){auto v=VirtualAlloc(reinterpret_cast<void*>(p),65536,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(reinterpret_cast<A>(v)==p);pages.push_back(v);}if(integer)put(image+rva,static_cast<int>(value));else put(image+rva,value);};
+    std::vector<A> wrapper(4),match(0x200/8),replay(0x80/8),settings(0x500/8),owner(2),data(0x300/8),views(4*0x68/8),view(0x800/8),foreign(0x800/8);
+    unsigned char paused=0;match[0]=image+0xb4781e8;wrapper[2]=addr(match[0]);
+    replay[0]=image+bindings::ReplayVtable;settings[0]=image+bindings::CameraSettingsVtable;
+    put(addr(settings[0])+0x3e6,static_cast<unsigned short>(1));put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
+    owner[0]=addr(data[0]);put(addr(data[0])+0x1f0,addr(views[0]));views[0]=addr(view[0]);view[0]=foreign[0]=image+bindings::CameraVtable;
+    global(bindings::MatchWrapper,addr(wrapper[0]));global(0xd9e3818,14,true);global(0xf3f5d48,3,true);
+    global(bindings::PauseFlag,addr(paused));global(bindings::ReplayManager,addr(replay[0]));global(bindings::CameraSettings,addr(settings[0]));global(bindings::CameraOwner,addr(owner[0]));
+    std::vector<A> selectedService(0x1c00/8);selectedService[0]=image+bindings::PlayCallServiceVtable;global(bindings::PlayCallService,addr(selectedService[0]));
+    for(int side=0;side<2;++side){A team=addr(selectedService[0])+0x10+static_cast<A>(side)*0xde8;
+        put(team,image+bindings::PlayCallTeamVtable);put(team+8,image+bindings::PlayCallSelectedVtable);put(team+16,image+bindings::PlayCallVtable);
+        put(team+16+0x2c,side?22:3);put(team+16+0x30,12);
+    }
+    playcall::View plays(image,memoryRead);assert(plays.type(addr(match[0]),0)==3&&plays.type(addr(match[0]),1)==22);
+    put(addr(selectedService[0])+0x20+0x2c,-1);assert(plays.type(addr(match[0]),0)==12);
+    put(addr(selectedService[0])+0x20,A(0));assert(plays.type(addr(match[0]),0)==-1&&plays.type(addr(match[0]),-1)==-1);
+    core::Settings venueSettings;State venue;venue.rank0=37;venue.rank1=34;
+    assert(!lineup::cameraVenue(venueSettings,venue,.84f,true,26101));assert(lineup::cameraVenue(venueSettings,venue,.85f,true,26101));
+    assert(!lineup::cameraVenue(venueSettings,venue,.90f,false));venue.rivalry=true;
+    assert(!lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
+    venue.rivalry=false;venue.rank0=6;venue.rank1=11;assert(lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
+    Runtime r;r.configure(image);Cue cue{addr(match[0]),2,2000,1000,0,Kind::Ordinary,5,false};
+    std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,4,12,20,1},output=source;
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x274),source.data(),sizeof(source));auto original=view;
+    r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&r.percent()==5);
+    auto skipped=[&](A target,A currentMatch,unsigned epoch,uint64_t now){output=source;auto count=r.changed();r.tick(target,output.data(),cue,currentMatch,epoch,now);assert(output==source&&r.changed()==count&&view==original);};
+    paused=1;skipped(addr(view[0]),cue.match,2,2000);paused=0;
+    put(addr(replay[0])+0x38,static_cast<unsigned char>(1));skipped(addr(view[0]),cue.match,2,2000);put(addr(replay[0])+0x38,static_cast<unsigned char>(0));
+    skipped(addr(view[0]),cue.match,3,2000);skipped(addr(view[0]),cue.match+8,2,2000);skipped(addr(view[0]),cue.match,2,2800);
+    put(addr(settings[0])+0x41a,static_cast<unsigned short>(0));skipped(addr(view[0]),cue.match,2,2000);put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
+    skipped(addr(foreign[0]),cue.match,2,2000);wrapper[2]=0;skipped(addr(view[0]),cue.match,2,2000);wrapper[2]=cue.match;
+    auto count=r.changed();r.tick(addr(view[0]),reinterpret_cast<float*>(addr(view[0])+0x274),cue,cue.match,2,2000);assert(view==original&&count==r.changed());
+    output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());
+    // The projection is read only; close-up celebration motion is reduced.
+    std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
+    Cue celebration=cue;celebration.kind=Kind::Eruption;celebration.percent=22.5f;celebration.impact=30;celebration.until=17000;
+    Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()==30&&view==unchanged);
+    projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));unchanged=view;
+    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()>7&&zoom.percent()<8&&view==unchanged);
+    Cue defensive=cue;defensive.kind=Kind::LivePlay;defensive.impactOnly=true;defensive.percent=10;defensive.began=1000;defensive.until=3400;
+    output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<3&&view==unchanged);
+    // A camera cut swaps the owned render-view pointer; no borrowed camera
+    // reference survives it. The same cue clock follows the new live view.
+    views[0]=addr(foreign[0]);projection[5]=3.1715948f;
+    std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
+    auto nextOriginal=foreign;output=source;zoom.tick(addr(foreign[0]),output.data(),celebration,cue.match,2,2000);
+    assert(output!=source&&zoom.percent()==30&&foreign==nextOriginal);
+    // Live gain reactions also compensate for a suddenly zoomed-in camera.
+    projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));nextOriginal=foreign;
+    Cue running=cue;running.kind=Kind::LivePlay;running.percent=10;
+    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
+    views[0]=addr(view[0]);
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),reinterpret_cast<const unsigned char*>(original.data())+0x2b4,sizeof(projection));
+    r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());
+    // Vtable-pointer ownership: restore only the pointer we installed.
+    auto page=VirtualAlloc(nullptr,4096,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(page);auto slot=reinterpret_cast<A*>(page);*slot=123;
+    DWORD old=0;assert(VirtualProtect(page,4096,PAGE_READONLY,&old));PointerHook h;
+    assert(!h.install(addr(*slot),456,789)&&*slot==123);assert(h.install(addr(*slot),123,789)&&*slot==789);
+    MEMORY_BASIC_INFORMATION info{};assert(VirtualQuery(page,&info,sizeof(info))&&info.Protect==PAGE_READONLY);
+    assert(h.restore()&&*slot==123);assert(h.install(addr(*slot),123,789));
+    assert(VirtualProtect(page,4096,PAGE_READWRITE,&old));*slot=999;assert(VirtualProtect(page,4096,PAGE_READONLY,&old));
+    assert(!h.restore()&&*slot==999);assert(VirtualQuery(page,&info,sizeof(info))&&info.Protect==PAGE_READONLY);
+    VirtualFree(page,0,MEM_RELEASE);for(auto p:pages)VirtualFree(p,0,MEM_RELEASE);
+    std::cout<<"PASS: output-only motion, source/world guards, pause/replay/accessibility, stale cue rejection and owner-safe vtable hook restoration.\n";
+}

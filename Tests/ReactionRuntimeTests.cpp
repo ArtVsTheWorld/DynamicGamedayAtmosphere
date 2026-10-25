@@ -2,9 +2,13 @@
 #include "../Source/ReactionAudioRuntime.h"
 #include <cassert>
 #include <cstdio>
+#include <vector>
 using namespace attendance::sustained;
 constexpr Address image=0x140000000;
-unsigned char entity[0x200]{},asset[0x80]{},systemData[0x60]{},list[0x20]{},description[0x60]{},reactionValue[0x60]{},parameter[0x60]{},instances[16]{};
+unsigned char entity[0x200]{},asset[0x80]{},systemData[0x60]{},list[0x20]{},description[0x60]{},reactionValue[0x60]{},parameter[0x60]{},instances[32]{};
+std::vector<int> received;
+std::vector<attendance::cheer::Delivery> reports;
+void report(attendance::cheer::Source,uint64_t,attendance::cheer::Delivery delivery){reports.push_back(delivery);}
 Address entries[1]{};unsigned arenas=0,arenaEnds=0,events=0,eventEnds=0,sends=0;
 bool badParameter=false,fault=false,reenter=false;attendance::cheer::Runtime* recursive=nullptr;Intent wanted;
 template<size_t N>Address addr(unsigned char (&p)[N]){return reinterpret_cast<Address>(p);}
@@ -18,9 +22,9 @@ Address __fastcall construct(Address e,Address,Address d){
     put(addr(parameter)+0x20,reinterpret_cast<Address>(badParameter?"wrong":"reacType"));return e;
 }
 void __fastcall eventEnd(Address){++eventEnds;}
-void __fastcall set(Address v,int n){assert(n==91);put(v,n);}
+void __fastcall set(Address v,int n){assert(n==91||n==75||n==83||n==59||n==95);put(v,n);}
 Address __fastcall receive(Address target,Address){
-    assert(target==addr(entity)+0x40&&at<int>(addr(reactionValue))==91);++sends;
+    assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(type==91||type==75||type==83||type==59||type==95);received.push_back(type);++sends;
     if(reenter&&recursive)recursive->tick(addr(entity),wanted,wanted.updated);
     if(fault){fault=false;RaiseException(EXCEPTION_ACCESS_VIOLATION,0,0,nullptr);}return 0;
 }
@@ -51,5 +55,80 @@ int main(){
     balanced();assert(!failed.healthy()&&sends==3);badParameter=false;
     attendance::cheer::Runtime faulted;faulted.configure(image,&api,receive);fault=true;faulted.tick(addr(entity),wanted,2000);
     balanced();assert(!faulted.healthy()&&sends==4);faulted.tick(addr(entity),wanted,2000);assert(sends==4);
-    std::puts("PASS: tested native size-3 cheer, event cleanup, once-per-eruption ownership, native duplicate suppression, leases/expiry, reentrancy, asset validation and dispatch faults.");
+    attendance::cheer::Runtime lineup;lineup.configure(image,&api,receive);unsigned initial=sends;
+    wanted={};wanted.active=true;wanted.match=999;wanted.epoch=4;wanted.lineupCheer=1;wanted.lineupCheerBegan=1000;wanted.lineupCheerUntil=5000;wanted.size=3;
+    auto tick=[&](uint64_t now){wanted.updated=now;lineup.tick(addr(entity),wanted,now);balanced();};
+    tick(999);assert(sends==initial);tick(1000);assert(sends==initial+1);
+    for(uint64_t now=3600;now<=28000;now+=100)tick(now);assert(sends==initial+1); // No second late cheer.
+    wanted.lineupCheer=2;wanted.lineupCheerBegan=30000;wanted.lineupCheerUntil=34000;wanted.cheers=false;tick(32500);assert(sends==initial+1);
+    wanted.cheers=true;tick(34500);assert(sends==initial+1); // A snap/missed callback cannot backfill an expired burst.
+    wanted.lineupCheer=3;wanted.lineupCheerBegan=40000;wanted.lineupCheerUntil=44000;wanted.active=false;tick(42500);assert(sends==initial+1);
+    wanted.active=true;wanted.celebration=555;wanted.celebrationUntil=50000;tick(42501);assert(sends==initial+2);
+    attendance::cheer::Runtime varied;varied.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=1001;wanted.epoch=1;wanted.lineupCheer=9;wanted.lineupCheerBegan=100000;wanted.lineupCheerUntil=104500;wanted.size=3;
+    auto variedTick=[&](uint64_t now){wanted.updated=now;varied.tick(addr(entity),wanted,now);balanced();};
+    variedTick(99999);assert(sends==initial);variedTick(100000);assert(sends==initial+1);
+    variedTick(122000);assert(sends==initial+1);
+    wanted.lineupCheer=10;wanted.lineupCheerBegan=104000;wanted.lineupCheerUntil=108500;variedTick(104000);assert(sends==initial+1); // Shared cooldown replaces a generic burst with the recent cheer.
+    variedTick(110000);assert(sends==initial+1);
+    attendance::cheer::Runtime burst;burst.configure(image,&api,receive);initial=sends;received.clear();
+    wanted={};wanted.active=true;wanted.match=2000;wanted.epoch=1;wanted.updated=200000;wanted.celebration=1;wanted.celebrationUntil=206000;wanted.deepCheers=true;
+    reenter=true;recursive=&burst;burst.tick(addr(entity),wanted,200000);reenter=false;
+    assert(sends==initial+2&&received==std::vector<int>({91,75}));balanced();
+    burst.tick(addr(entity),wanted,200000);assert(sends==initial+2); // Both layers belong to one burst, never a delayed barrage.
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),91);
+    wanted.celebration=2;burst.tick(addr(entity),wanted,200000);assert(sends==initial+3&&received.back()==75);balanced();
+    put<int>(addr(instances),75);wanted.celebration=3;burst.tick(addr(entity),wanted,200000);assert(sends==initial+4&&received.back()==91);balanced();
+    put<int>(addr(instances),91);put<int>(addr(instances)+16,75);put(addr(entity)+0x128,addr(instances)+32);
+    wanted.celebration=4;burst.tick(addr(entity),wanted,200000);assert(sends==initial+4); // Native copies count toward the two-family limit.
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    attendance::cheer::Runtime critical;critical.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=2001;wanted.epoch=1;wanted.lineupCheer=1;wanted.lineupCheerBegan=300000;wanted.lineupCheerUntil=303500;wanted.size=3;wanted.deepCheers=true;
+    auto criticalTick=[&](uint64_t now){wanted.updated=now;critical.tick(addr(entity),wanted,now);balanced();};
+    criticalTick(299999);assert(sends==initial);criticalTick(300000);assert(sends==initial+2&&received.back()==75);
+    criticalTick(309000);assert(sends==initial+2); // Both strong accents hit together near lineup, not later.
+    wanted.cheers=false;wanted.deepCheers=false;wanted.resultCheer=1;wanted.resultCheerUntil=313000;criticalTick(311000);assert(sends==initial+3&&received.back()==91);
+    criticalTick(311100);assert(sends==initial+3);wanted.resultCheer=2;criticalTick(313000);assert(sends==initial+3);
+    wanted.deepCheers=true;wanted.celebration=1;wanted.celebrationUntil=320000;criticalTick(314000);assert(sends==initial+5); // Eruption takes priority over any pending result accent.
+    // Use the tested sound family selected by verified gameplay, dedupe it,
+    // and count native copies of every allowed family toward the voice limit.
+    attendance::cheer::Runtime typed;typed.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=3000;wanted.epoch=1;wanted.updated=400000;wanted.resultCheer=1;wanted.resultCheerUntil=403000;wanted.resultType=83;
+    typed.tick(addr(entity),wanted,400000);assert(sends==initial+1&&received.back()==83);balanced();
+    typed.tick(addr(entity),wanted,400000);assert(sends==initial+1);
+    wanted.resultCheer=2;wanted.resultType=59;typed.tick(addr(entity),wanted,400000);assert(sends==initial+2&&received.back()==59);balanced();
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+32);put<int>(addr(instances),83);put<int>(addr(instances)+16,59);
+    wanted.celebration=1;wanted.celebrationUntil=406000;wanted.deepCheers=true;typed.tick(addr(entity),wanted,400000);assert(sends==initial+2);
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    wanted.celebration=0;wanted.resultCheer=3;wanted.resultType=59;wanted.deepCheers=true;typed.tick(addr(entity),wanted,400000);
+    assert(sends==initial+4&&received[received.size()-2]==59&&received.back()==75);balanced();
+    typed.tick(addr(entity),wanted,400000);assert(sends==initial+4); // One layered result, not a repeated cheer sequence.
+    attendance::cheer::Runtime early;early.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=4000;wanted.epoch=1;wanted.lineupCheer=1;wanted.lineupCheerBegan=500000;wanted.lineupCheerUntil=501850;wanted.deepCheers=true;
+    auto earlyTick=[&](uint64_t now){wanted.updated=now;early.tick(addr(entity),wanted,now);balanced();};
+    earlyTick(499999);assert(sends==initial);earlyTick(500000);assert(sends==initial+2);
+    for(uint64_t now=500400;now<=540000;now+=100)earlyTick(now);assert(sends==initial+2); // No additional late cheer during the longer roar.
+    wanted.lineupCheer=2;wanted.lineupCheerBegan=550000;wanted.lineupCheerUntil=551850;wanted.cheers=false;earlyTick(550350);assert(sends==initial+2);
+    wanted.cheers=true;earlyTick(552000);assert(sends==initial+2); // A quick snap cannot create a delayed lineup cheer.
+    for(int unverified:{87,99,107})assert(!attendance::cheer::emit(api,receive,image,addr(entity),unverified));balanced();
+    attendance::cheer::Runtime earlyLive;earlyLive.configure(image,&api,receive,report);unsigned liveBefore=sends;
+    wanted={};wanted.active=true;wanted.match=990;wanted.epoch=1;wanted.updated=600000;wanted.liveCheer=1;wanted.liveCheerUntil=600500;wanted.liveType=83;
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    earlyLive.tick(addr(entity),wanted,600000);balanced();assert(sends==liveBefore+1&&received.back()==83&&earlyLive.liveDelivered(1)&&earlyLive.liveResolved(1)&&reports.back()==attendance::cheer::Delivery::Sent);
+    earlyLive.tick(addr(entity),wanted,600100);assert(sends==liveBefore+1);
+    wanted.liveCheer=2;wanted.liveType=59;wanted.liveCheerUntil=600700;wanted.updated=600200;
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+32);put<int>(addr(instances),91);put<int>(addr(instances)+16,75);
+    earlyLive.tick(addr(entity),wanted,600200);assert(sends==liveBefore+1&&!earlyLive.liveDelivered(2)&&earlyLive.liveResolved(2)&&reports.back()==attendance::cheer::Delivery::VoiceLimit);
+    put<Address>(addr(entity)+0x128,addr(instances)+16);wanted.updated=600300;earlyLive.tick(addr(entity),wanted,600300);balanced();assert(sends==liveBefore+1&&!earlyLive.liveDelivered(2));
+    wanted.liveCheer=3;wanted.updated=600800;earlyLive.tick(addr(entity),wanted,600800);assert(sends==liveBefore+1); // No delayed post-whistle cheer.
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    attendance::cheer::Runtime disappointment;disappointment.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=991;wanted.epoch=1;wanted.updated=700000;wanted.liveCheer=1;wanted.liveCheerUntil=700500;wanted.liveType=95;
+    disappointment.tick(addr(entity),wanted,700000);balanced();assert(sends==initial+1&&received.back()==95&&disappointment.liveDelivered(1));
+    disappointment.tick(addr(entity),wanted,700100);assert(sends==initial+1);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),95);
+    wanted.liveCheer=2;disappointment.tick(addr(entity),wanted,700100);assert(sends==initial+1&&disappointment.liveDelivered(2)); // Native letdown is not duplicated.
+    put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;wanted.liveType=83;
+    disappointment.tick(addr(entity),wanted,700200);assert(sends==initial+1); // Negative families share the same two-voice limit.
+    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, priority, leases, cleanup, reentrancy and faults.");
 }

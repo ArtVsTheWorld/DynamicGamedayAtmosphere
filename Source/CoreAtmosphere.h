@@ -1,120 +1,169 @@
 #pragma once
 #include "SustainedCrowd.h"
 #include "AudioLevels.h"
+#include "AttendanceAudio.h"
+#include "PostPlayAtmosphere.h"
 
 namespace attendance::core {
-inline constexpr float NormalMaximumDb=4, EruptionMaximumDb=6;
-inline constexpr float NormalMaximumPercent=58.48932f,EruptionMaximumPercent=99.52623f;
-inline constexpr double EruptionSeconds=45,RoarHoldSeconds=35,OpeningReleaseSeconds=20;
-struct Settings {bool enabled=true,opening=true,eruptions=true,overtime=true;float maximumPercent=NormalMaximumPercent,eruptionPercent=EruptionMaximumPercent;};
+inline constexpr float NormalMaximumDb=1.9382003f, HighLeverageMaximumDb=2.6066754f,EruptionMaximumDb=3.521825f;
+inline constexpr float NormalMaximumPercent=25,HighLeverageMaximumPercent=35,EruptionMaximumPercent=50;
+inline constexpr double EruptionSeconds=45,RoarHoldSeconds=25,OpeningReleaseSeconds=20;
+// Absolute lower bound. Qualified plays supply their stricter size-based gate.
+inline constexpr float ReactionMinimumFullness=.50f;
+inline float competition(const State& s){float x=(std::clamp)((std::abs(s.homeScore-s.awayScore)-16)/8.0f,0.0f,1.0f);return 1-x*x*(3-2*x);}
+struct Settings {bool enabled=true,opening=true,eruptions=true,overtime=true,lineups=true,cameraShake=true;float maximumPercent=NormalMaximumPercent,eruptionPercent=EruptionMaximumPercent,lineupPercent=50,chantMaximumPercent=15,highLeveragePercent=HighLeverageMaximumPercent;bool packedHouse=true,driveEscalation=true;float bigGameMinimum=.55f;};
 inline float normalLimit(const Settings& c){return c.enabled&&std::isfinite(c.maximumPercent)?c.maximumPercent>=NormalMaximumPercent?NormalMaximumDb:volume::boostDb(c.maximumPercent):0;}
+inline float highLeverageLimit(const Settings& c){return (std::max)(normalLimit(c),std::isfinite(c.highLeveragePercent)?volume::boostDb((std::clamp)(c.highLeveragePercent,0.0f,HighLeverageMaximumPercent)):0);}
 inline float eruptionLimit(const Settings& c){return (std::max)(normalLimit(c),std::isfinite(c.eruptionPercent)?c.eruptionPercent>=EruptionMaximumPercent?EruptionMaximumDb:volume::boostDb(c.eruptionPercent):0);}
-inline float callbackLimit(const Settings& c,float observed,uint64_t now,uint64_t until){
-    float normal=normalLimit(c);if(normal<=0||!c.eruptions||now>=until||!std::isfinite(observed))return normal;
-    return (std::clamp)(observed,normal,eruptionLimit(c));
+inline float callbackLimit(const Settings& c,float observed,uint64_t now,uint64_t until,uint64_t highUntil=0){
+    float normal=normalLimit(c);if(normal<=0||!std::isfinite(observed))return normal;
+    float ceiling=now<highUntil?highLeverageLimit(c):normal;
+    if(c.eruptions&&now<until)ceiling=(std::max)(ceiling,eruptionLimit(c));
+    return (std::clamp)(observed,normal,ceiling);
 }
 inline bool decisive(energy::Event e){return e==energy::Event::LastSecondLead||e==energy::Event::OvertimeWin||e==energy::Event::GameWinningScore;}
+inline bool positiveResult(energy::Event e){
+    using energy::Event;
+    return e==Event::ExplosiveGain||e==Event::ThirdDownConversion||e==Event::FourthDown||e==Event::BackfieldStop||
+        e==Event::ThirdStop||e==Event::FourthStop||e==Event::Turnover||e==Event::FumbleRecovery||e==Event::GoalLine||
+        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety;
+}
+// Listening-tested families: yardage/conversions and defensive stops. The
+// native game retains its own opponent-success reactions.
+inline int resultReaction(const energy::Outcome& r){
+    using energy::Event;
+    if(r.safety)return 91; // Same cheer family as a touchdown, with a shorter profile.
+    switch(r.event){
+    case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
+    case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:return 59;
+    case Event::ExplosiveGain:case Event::ThirdDownConversion:case Event::FourthDown:return 83;
+    default:return r.firstDown?83:91;
+    }
+}
 struct Model {
     energy::OpeningProfile openingProfile;
-    float parent=0,beds=0,limit=4,openingWeight=0,intensity=0,carryDb=0;
+    float parent=0,beds=0,limit=NormalMaximumDb,openingWeight=0,intensity=0,carryDb=0;
     double eruptionAt=-1,postgameAt=-1,openingReleaseAt=-1;energy::Event event=energy::Event::None;
-    uint64_t sequence=0,celebration=0;bool erupting=false,sawLive=false,postgameSeen=false,postgameHeld=false,postgameMenu=false;int winner=0;
+    uint64_t sequence=0,celebration=0;bool erupting=false,highLeverage=false,sawLive=false,postgameSeen=false,postgameHeld=false,postgameMenu=false;int winner=0;
+    double eruptionSeconds=EruptionSeconds,roarHoldSeconds=RoarHoldSeconds;
+    double resultCheerAt=-1000;uint64_t resultCheer=0,resultSequence=0;int resultType=91;
+    postplay::Profile resultProfile;float resultWeight=0;
+    bool resultScoring=false;
+    float eruptionMinimum=ReactionMinimumFullness,resultMinimum=ReactionMinimumFullness;
     void reset(){*this=Model{};}
     float eruptionWeight(double now)const{
         double age=now-eruptionAt;if(postgameMenu||eruptionAt<0||age<0)return 0;
-        if(postgameHeld)return static_cast<float>((std::min)(age,1.0));
-        if(age>=EruptionSeconds)return 0;
-        return age<1?static_cast<float>(age):age<=20?1.0f:static_cast<float>((EruptionSeconds-age)/25);
+        if(postgameHeld)return static_cast<float>((std::min)(age/.25,1.0));
+        if(age>=eruptionSeconds)return 0;
+        return age<.25?static_cast<float>(age/.25):age<=eruptionSeconds-25?1.0f:static_cast<float>((eruptionSeconds-age)/25);
     }
     bool finishPostgame(){
         if(!postgameSeen||postgameMenu)return false;
         bool held=postgameHeld;postgameMenu=true;postgameHeld=erupting=false;parent=beds=intensity=0;return held;
     }
     uint64_t eruptionLease(uint64_t now)const{
-        return !erupting?0:postgameHeld?now+750:static_cast<uint64_t>((eruptionAt+EruptionSeconds)*1000);
+        return !erupting?0:postgameHeld?now+750:static_cast<uint64_t>((eruptionAt+eruptionSeconds)*1000);
     }
-    bool react(const Settings& c,const energy::Outcome& result,double now,const State& s){
-        if(result.accepted&&result.visitorScore&&!s.neutral){eruptionAt=-1;postgameHeld=false;event=energy::Event::None;return false;}
+    bool react(const Settings& c,const energy::Outcome& result,double now,const State& s,bool layeredActive=false,bool reactionsAllowed=true,float minimum=ReactionMinimumFullness,unsigned distanceExtraMs=0,bool durationOwned=false){
+        if(result.accepted&&!s.neutral&&(result.visitorScore||(result.takeaway&&result.side==1))){eruptionAt=-1;postgameHeld=false;resultCheerAt=-1000;event=energy::Event::None;return false;}
+        if(result.accepted&&result.setback&&!s.neutral)resultCheerAt=-1000;
         if(postgameMenu)return false;
-        if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!decisive(result.event)||!std::isfinite(now))return false;
+        if(!reactionsAllowed||!std::isfinite(minimum)||minimum<ReactionMinimumFullness||minimum>1)return false;
+        bool own=result.side==0||(s.neutral&&result.side==1);
+        // Verified big plays receive their own bounded reaction, including at
+        // ordinary matchups. Routine short first downs still need active layers.
+        bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6;
+        if((!durationOwned||scoring)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
+           result.sequence!=resultSequence&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
+           now-resultCheerAt>=4&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
+            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s);resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring;resultMinimum=minimum;++resultCheer;
+        }
+        if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!std::isfinite(now))return false;
         // The verified tracker supplies only home scores, or either side at a neutral venue.
-        if(result.side==1&&!s.neutral)return false;
-        if(result.event==energy::Event::LastSecondLead&&(s.quarter!=4||s.seconds<0||s.seconds>90))return false;
+        if(result.side<0||result.side>1||(result.side==1&&!s.neutral))return false;
+        energy::Event selected=result.event;
+        bool early=result.completed&&result.firstTouchdown&&result.openingPlay>=1&&result.openingPlay<=5&&s.quarter==1&&layeredActive;
+        bool otTakeaway=result.completed&&result.takeaway&&overtime(s);
+        bool lateTakeaway=energy::sealsRegulationTakeaway(result,s);
+        bool longTouchdown=result.completed&&(result.side==0?result.homePoints:result.awayPoints)>=6&&result.touchdownYards>=60&&result.touchdownYards<=110&&result.preSnapMargin>=0&&result.preSnapMargin<=8&&layeredActive;
+        bool hailMary=result.accepted&&result.completed&&result.hailMary&&(result.side==0?result.homePoints:result.awayPoints)>=6&&layeredActive;
+        if(early)selected=energy::Event::EarlyTouchdown;
+        if(longTouchdown)selected=energy::preferred(selected,energy::Event::ExplosiveTouchdown);
+        if(hailMary)selected=energy::preferred(selected,energy::Event::HailMaryTouchdown);
+        if(otTakeaway)selected=energy::preferred(selected,energy::Event::OvertimeTakeaway);
+        if(lateTakeaway)selected=energy::preferred(selected,energy::Event::LateTakeaway);
+        if((selected==energy::Event::EarlyTouchdown&&!early)||(selected==energy::Event::OvertimeTakeaway&&!otTakeaway)||(selected==energy::Event::LateTakeaway&&!lateTakeaway)||(selected==energy::Event::ExplosiveTouchdown&&!longTouchdown)||(selected==energy::Event::HailMaryTouchdown&&!hailMary))return false;
+        if(!decisive(selected)&&selected!=energy::Event::EarlyTouchdown&&selected!=energy::Event::OvertimeTakeaway&&selected!=energy::Event::LateTakeaway&&selected!=energy::Event::ExplosiveTouchdown&&selected!=energy::Event::HailMaryTouchdown)return false;
+        if(selected==energy::Event::LastSecondLead&&(s.quarter!=4||s.seconds<0||s.seconds>30))return false;
         bool same=result.sequence&&result.sequence==sequence;
-        if(same&&energy::priority(result.event)<=energy::priority(event))return false;
+        if(same&&energy::priority(selected)<=energy::priority(event))return false;
         // A postgame confirmation upgrades the existing score; never restart its roar.
-        if(same&&eruptionAt>=0){event=result.event;return false;}
-        if(eruptionAt>=0&&now-eruptionAt<8&&energy::priority(result.event)<=energy::priority(event))return false;
-        eruptionAt=now;event=result.event;sequence=result.sequence;winner=result.side;++celebration;return true;
+        if(same&&eruptionAt>=0){event=selected;if(selected==energy::Event::OvertimeWin){eruptionSeconds=(std::max)(eruptionSeconds,60+(std::min)(distanceExtraMs,8000u)*.001);roarHoldSeconds=eruptionSeconds-20;}return false;}
+        if(eruptionAt>=0&&now-eruptionAt<8&&energy::priority(selected)<=energy::priority(event))return false;
+        eruptionAt=now;event=selected;sequence=result.sequence;winner=result.side;eruptionMinimum=minimum;
+        eruptionSeconds=(selected==energy::Event::OvertimeWin||selected==energy::Event::OvertimeTakeaway?60:45)+(std::min)(distanceExtraMs,8000u)*.001;roarHoldSeconds=eruptionSeconds-20;
+        ++celebration;return true;
     }
-    void update(const Settings& c,const energy::Play& p,double now,float fraction,float permanentFraction){
+    void update(const Settings& c,const energy::Play& p,double now,float fraction,float permanentFraction,float leverage=0,bool reactionsAllowed=true,float reactionMinimum=ReactionMinimumFullness){
         if(!valid(p.game)||!std::isfinite(now)||!std::isfinite(fraction)||!std::isfinite(permanentFraction))return;
         const State& s=p.game;float normal=normalLimit(c);limit=normal;
-        bool ranked=top25(s.rank0)&&top25(s.rank1),big=s.rivalry||ranked||s.playoff||championship(s);
-        float previousOpening=openingWeight,previousIntensity=intensity;
-        openingWeight=openingProfile.observe(s,p.offense,p.down,c.enabled&&c.opening&&normal>0,big);
-        if(previousOpening>0&&openingProfile.fade>=0&&openingReleaseAt<0)openingReleaseAt=now;
+        if(fraction<eruptionMinimum){eruptionAt=-1;postgameHeld=false;event=energy::Event::None;}
+        if(fraction<resultMinimum)resultCheerAt=-1000;
+        (void)permanentFraction;openingWeight=0;
         int margin=std::abs(s.homeScore-s.awayScore);
         if(s.phase!=6&&s.phase!=7)sawLive=true;
         if(s.phase==7&&!postgameSeen){
             postgameSeen=true;State story=energyPerspective(s);
-            bool carrying=eruptionAt>=0&&now>=eruptionAt&&now-eruptionAt<EruptionSeconds;
+            bool carrying=eruptionAt>=0&&now>=eruptionAt&&now-eruptionAt<eruptionSeconds;
             bool upset=story.homeScore>story.awayScore&&margin<=8&&upsetDiscrepancy(s)>=0.45f;
-            if(sawLive&&c.enabled&&c.eruptions&&normal>0&&upset&&!carrying){
-                eruptionAt=now;event=energy::Event::UpsetWin;winner=s.neutral&&s.awayScore>s.homeScore?1:0;++celebration;
+            if(sawLive&&c.enabled&&c.eruptions&&normal>0&&upset&&!carrying&&reactionsAllowed&&std::isfinite(reactionMinimum)&&reactionMinimum>=ReactionMinimumFullness&&fraction>=reactionMinimum){
+                eruptionAt=now;eruptionSeconds=45;roarHoldSeconds=25;event=energy::Event::UpsetWin;winner=s.neutral&&s.awayScore>s.homeScore?1:0;eruptionMinimum=reactionMinimum;++celebration;
             }
             bool winnerMatches=winner==0?s.homeScore>s.awayScore:s.neutral&&s.awayScore>s.homeScore;
-            postgameHeld=c.enabled&&c.eruptions&&normal>0&&winnerMatches&&eruptionAt>=0&&now>=eruptionAt&&now-eruptionAt<EruptionSeconds;
-        }
-        float close=margin<=8?1.0f:margin<=16?0.7f:margin<=24?0.3f:0;
-        float period=s.quarter==2||s.quarter==3?0.85f:1;
-        float crowd=std::sqrt((std::clamp)(fraction,0.0f,1.0f));
-        float identity=championship(s)?normal*(2.0f/3):s.playoff||(s.rivalry&&ranked)?normal*0.5f:big?normal/3:0;
-        float steady=identity*close*period*crowd;
-        beds=big?normal*close*period*crowd:0;
-        if(openingWeight>0){
-            float hype=openingWeight*close*std::sqrt((std::clamp)(permanentFraction,0.0f,1.0f));
-            steady=(std::max)(steady,normal*0.5f*hype);beds=(std::max)(beds,normal*hype);
-        }
-        if(c.overtime&&overtime(s)&&s.phase!=7){
-            steady=(std::max)(steady,normal*0.5f*crowd);beds=(std::max)(beds,normal*crowd);
-        }
-        // Preserve the outgoing ambience when an OT winner jumps straight to postgame.
-        if(s.phase==7){
-            if(postgameAt<0){postgameAt=now;carryDb=parent;}
-            double age=now-postgameAt;float carry=age<0||age>=10?0:age<=4?1.0f:static_cast<float>((10-age)/6);
-            steady=postgameMenu?0:(std::min)(normal,carryDb)*carry;beds=steady;
+            postgameHeld=c.enabled&&c.eruptions&&normal>0&&winnerMatches&&eruptionAt>=0&&now>=eruptionAt&&now-eruptionAt<eruptionSeconds;
         }
         float weight=c.enabled&&c.eruptions?eruptionWeight(now):0;
-        erupting=!postgameMenu&&eruptionAt>=0&&now>=eruptionAt&&(postgameHeld||now-eruptionAt<EruptionSeconds)&&c.enabled&&c.eruptions;
-        if(normal<=0||!c.enabled){parent=beds=intensity=openingWeight=0;erupting=false;return;}
-        limit=normal+(eruptionLimit(c)-normal)*weight;
-        parent=(std::clamp)((std::max)(steady,steady+(eruptionLimit(c)-steady)*weight*crowd),0.0f,limit);
-        beds=(std::clamp)(beds,0.0f,limit);
-        float openingTail=openingReleaseAt>=0?1-(std::clamp)(static_cast<float>((now-openingReleaseAt)/OpeningReleaseSeconds),0.0f,1.0f):0;
-        intensity=erupting?1000*weight*crowd:
-            c.overtime&&overtime(s)&&s.phase!=7?1000*crowd:
-            openingWeight>0&&openingProfile.fade<0?1000*std::sqrt((std::clamp)(permanentFraction,0.0f,1.0f)):
-            1000*openingTail*std::sqrt((std::clamp)(permanentFraction,0.0f,1.0f));
-        if(erupting&&now-eruptionAt<1)intensity=(std::max)(intensity,previousIntensity);
+        erupting=!postgameMenu&&eruptionAt>=0&&now>=eruptionAt&&(postgameHeld||now-eruptionAt<eruptionSeconds)&&c.enabled&&c.eruptions;
+        if(normal<=0||!c.enabled){parent=beds=intensity=openingWeight=resultWeight=0;erupting=highLeverage=false;return;}
+        resultWeight=c.lineups&&s.phase!=7&&s.phase!=6?postplay::envelope(now-resultCheerAt,resultProfile)*competition(s):0;
+        // A new live snap ends an old result. Never cheer yesterday's play
+        // over the next live ball; a fresh completed outcome can start again.
+        if(s.phase==3){resultCheerAt=-1000;resultWeight=0;}
+        leverage=std::isfinite(leverage)?(std::clamp)(leverage,0.0f,1.0f):0;highLeverage=leverage>0;
+        limit=(std::max)(highLeverage?highLeverageLimit(c):normal,normal+(eruptionLimit(c)-normal)*weight);
+        float base=balance::crowdBoost(fraction,c.maximumPercent);
+        float moment=(std::clamp)(c.highLeveragePercent,0.0f,HighLeverageMaximumPercent);
+        base+=((std::max)(base,moment)-base)*leverage*std::sqrt((std::clamp)(fraction,0.0f,1.0f));
+        float peak=(std::clamp)(c.eruptionPercent,0.0f,EruptionMaximumPercent);
+        float percent=base+((std::max)(base,peak)-base)*weight*std::sqrt((std::clamp)(fraction,0.0f,1.0f));
+        parent=(std::min)(volume::boostDb(percent),limit);beds=0;
+        float presence=std::sqrt((std::clamp)(fraction,0.0f,1.0f));
+        intensity=(std::max)(erupting?1000*weight*presence:0,resultWeight*(650+350*resultProfile.strength)*presence);
+
     }
     sustained::Intent intent(const Settings& c,const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed)const{
         sustained::Intent out;out.match=match;out.epoch=epoch;out.updated=now;out.offense=p.offense;
         bool phase=p.game.phase==1||p.game.phase==3||p.game.phase==4||p.game.phase==5||p.game.phase==6||p.game.phase==7;
         if(!allowed||!c.enabled||normalLimit(c)<=0||!phase||postgameMenu)return out;
         out.active=true;out.intensity=intensity;
+        if(c.lineups&&resultWeight>0&&p.game.phase!=3&&p.game.phase!=6&&p.game.phase!=7&&resultCheer&&now/1000.0>=resultCheerAt&&now/1000.0-resultCheerAt<2.5){out.resultType=resultType;out.resultCheer=resultCheer;out.resultCheerUntil=static_cast<uint64_t>((resultCheerAt+2.5)*1000);}
         if(erupting&&c.eruptions){
-            out.celebration=celebration;out.celebrationUntil=static_cast<uint64_t>((eruptionAt+6)*1000);
-            if(postgameHeld||now/1000.0-eruptionAt<RoarHoldSeconds){
-                out.reason=sustained::Reason::Eruption;out.priority=6;out.continuous=true;out.size=3;out.releaseMs=10000;
+            if(postgameHeld||now/1000.0-eruptionAt<roarHoldSeconds){
+                out.celebration=celebration;out.celebrationUntil=static_cast<uint64_t>((eruptionAt+6)*1000);
+                out.resultCheer=0;out.deepCheers=true;
+                out.reason=sustained::Reason::Eruption;out.priority=6;out.continuous=true;out.size=3;out.attackMs=500;out.releaseMs=20000;out.supporting=true;
                 return out;
             }
+            // Keep the volume envelope's final ten seconds, but let a still
+            // eligible OT/drive buildup carry the voice rather than briefly
+            // fading it to quiet before returning to the same atmosphere.
         }
-        if(c.overtime&&overtime(p.game)&&p.game.phase!=7){
-            out.reason=sustained::Reason::Overtime;out.priority=4;out.continuous=true;out.size=3;return out;
-        }
-        if(c.opening&&!erupting&&openingWeight>0.2f&&openingProfile.fade<0&&p.game.phase!=7){
-            out.reason=sustained::Reason::Opening;out.priority=3;out.continuous=true;out.size=3;out.releaseMs=20000;
+        if(!erupting&&resultWeight>0){
+            out.scoringReaction=resultScoring;
+            out.reason=sustained::Reason::Result;out.priority=5;out.continuous=true;out.size=resultProfile.size;
+            out.attackMs=750;out.releaseMs=static_cast<int>(resultProfile.release*1000);out.supporting=resultProfile.strength>=.68f;
+            out.deepCheers=resultProfile.layered;out.cheers=false;
+            if(now/1000.0-resultCheerAt>=resultProfile.hold){out.reaction=true;out.continuous=false;out.supporting=false;}
         }
         return out;
     }

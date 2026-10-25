@@ -8,7 +8,7 @@ int main(){
     assert(profileFor(c,s)==Profile::Default);
     s.precipitation=1;assert(profileFor(c,s)==Profile::BadWeather);
     s.precipitation=2;assert(profileFor(c,s)==Profile::BadWeather);
-    s.rivalry=true;assert(profileFor(c,s)==Profile::Reduced);
+    s.rivalry=true;assert(profileFor(c,s)==Profile::BadWeather);
     s.rivalry=false;s.rank0=1;s.rank1=25;assert(profileFor(c,s)==Profile::Reduced);
     s.rank1=26;assert(profileFor(c,s)==Profile::BadWeather);
     c.profile=Profile::Default;assert(profileFor(c,s)==Profile::Default);c.profile=Profile::Automatic;

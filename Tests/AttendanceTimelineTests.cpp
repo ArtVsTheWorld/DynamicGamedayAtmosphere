@@ -57,14 +57,14 @@ int main(){
     core::Model celebration;core::Settings audio;energy::Play final;
     final.game=game(4,0,24,21);final.game.phase=4;
     energy::Outcome win;win.accepted=true;win.event=energy::Event::LastSecondLead;win.sequence=7;
-    assert(celebration.react(audio,win,0,final.game));celebration.update(audio,final,0,.55f,.55f);
-    final.game.quarter=6;final.game.phase=7;celebration.update(audio,final,1,.55f,.55f);
+    assert(celebration.react(audio,win,0,final.game));celebration.update(audio,final,0,.65f,.65f);
+    final.game.quarter=6;final.game.phase=7;celebration.update(audio,final,1,.65f,.65f);
     assert(celebration.postgameHeld);int liveLoss=45;
     for(auto sample:{std::pair<double,int>{50,25},{1500,25},{101,0},{2100,45},{10,25}}){
         auto policy=timeline::replayPolicy(true,false,false);assert(policy.historical&&!policy.suspendAtmosphere);
         assert(a.replay(sample.first,found)&&found.total()==sample.second);
-        celebration.update(audio,final,80,.55f,.55f);
-        assert(celebration.postgameHeld&&celebration.celebration==1&&std::fabs(celebration.parent-6*std::sqrt(.55f))<.001f);
+        celebration.update(audio,final,80,.65f,.65f);
+    assert(celebration.postgameHeld&&celebration.celebration==1&&std::fabs(volume::boostPercent(celebration.parent)-50*std::sqrt(.65f))<.001f);
         assert(liveLoss==45&&a.games.back().points.back().loss==liveLoss);
     }
     assert(!timeline::replayPolicy(false,false,false).historical);
@@ -81,6 +81,15 @@ int main(){
     for(const char* bad:{"bad","DGA-HISTORY-1 9999","DGA-HISTORY-1 1\n1 1178 1183 720 0 127 999999","DGA-HISTORY-1 0 trailing"}){
         std::stringstream f(bad);assert(!timeline::read(f,loaded));assert(loaded.games.size()==1);
     }
+    // Conference classification survives disk saves and cannot match a CFP
+    // or ordinary game with otherwise identical teams, score and clock.
+    auto ccArchive=a;for(auto& g:ccArchive.games){postseason(g.context,false,true);for(auto& point:g.points)postseason(point.state,false,true);}
+    std::stringstream ccDisk;timeline::write(ccDisk,ccArchive);timeline::Archive restoredConference;assert(timeline::read(ccDisk,restoredConference));
+    auto ccGame=game(4,100,21,42);postseason(ccGame,false,true);assert(restoredConference.resume(ccGame,found));ccGame.conferenceChampionship=false;assert(!restoredConference.resume(ccGame,found));
+    // Previous release archives are still readable; they had no conference flag.
+    std::stringstream oldWrite;timeline::write(oldWrite,a);std::string magic,row;std::getline(oldWrite,magic);std::getline(oldWrite,row);
+    magic.replace(magic.find("DGA-HISTORY-3"),13,"DGA-HISTORY-2");row.erase(row.rfind(' '));
+    std::stringstream legacy(magic+"\n"+row+"\n"+oldWrite.str().substr(static_cast<size_t>(oldWrite.tellg())));timeline::Archive legacyArchive;assert(timeline::read(legacy,legacyArchive)&&!legacyArchive.games.front().context.conferenceChampionship);
     // Native and originally empty seats are never filled by historical overrides.
     for(unsigned agent=0;agent<10000;++agent){assert(historicalPart(true,false,agent,0));assert(historicalPart(false,true,agent,0));assert(!historicalPart(false,false,agent,0));assert(historicalPart(false,false,agent,100));}
     Settings c;arrivals::Settings arrivals;

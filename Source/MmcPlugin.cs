@@ -13,7 +13,7 @@ using FrostySdk.Interfaces;
 [assembly: AssemblyTitle("Dynamic Gameday Atmosphere")]
 [assembly: AssemblyCompany("Ace")]
 [assembly: AssemblyProduct("Dynamic Gameday Atmosphere")]
-[assembly: AssemblyDescription("Dynamic attendance, crowd volume, opening roar and winning eruptions")]
+[assembly: AssemblyDescription("Dynamic attendance, layered crowd sound, play reactions and broadcast effects")]
 [assembly: AssemblyVersion(DynamicGamedayAtmosphere.BuildInfo.AssemblyVersion)]
 [assembly: AssemblyFileVersion(DynamicGamedayAtmosphere.BuildInfo.AssemblyVersion)]
 [assembly: PluginVersion(DynamicGamedayAtmosphere.BuildInfo.Version)]
@@ -27,6 +27,7 @@ namespace DynamicGamedayAtmosphere
     {
         private static int watching;
         private static Mutex watcherMutex;
+        private static ILogger hostLogger;
         private static readonly object noteLock=new object();
         public AttendanceAction()
         {
@@ -41,15 +42,18 @@ namespace DynamicGamedayAtmosphere
         public static string LogsFolder { get { return Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere","Logs"); } }
         private static void Note(ILogger logger,string text)
         {
-            Directory.CreateDirectory(LogsFolder);
+            logger=logger??Interlocked.CompareExchange(ref hostLogger,null,null);
+            string failure=null;
+            try {Directory.CreateDirectory(LogsFolder);
             lock(noteLock){
                 string path=Path.Combine(LogsFolder,"launcher.log");
                 byte[] entry=Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")+" | "+text+Environment.NewLine);
                 const int limit=2*1024*1024;
                 int count=Math.Min(limit,entry.Length);long size=File.Exists(path)?new FileInfo(path).Length:0;
                 using(var file=new FileStream(path,size>=limit||size+count>limit?FileMode.Create:FileMode.Append,FileAccess.Write,FileShare.Read))file.Write(entry,0,count);
-            }
-            if(logger!=null)try{logger.Log("[Gameday] "+text,new object[0]);}catch{}
+            }}catch(Exception error){failure=" Log file unavailable: "+error.Message;}
+            if(logger!=null)try{logger.Log("[Gameday] "+text+(failure??""),new object[0]);}catch{}
+            else if(failure!=null)using(var diagnostic=new DefaultTraceListener())diagnostic.WriteLine("[Gameday] "+text+failure);
         }
         private static void Extract(string name,bool preserve)
         {
@@ -70,6 +74,9 @@ namespace DynamicGamedayAtmosphere
         }
         private static void Start(ILogger logger)
         {
+            // Registration can start the watcher before MMC supplies its logger.
+            // Later launch callbacks must still make that logger available.
+            if(logger!=null)Interlocked.Exchange(ref hostLogger,logger);
             if(Interlocked.CompareExchange(ref watching,1,0)!=0)return;
             bool first=false;watcherMutex=new Mutex(false,"Local\\Ace.DynamicGamedayAtmosphere.MMC."+Process.GetCurrentProcess().Id,out first);
             if(!first)return;

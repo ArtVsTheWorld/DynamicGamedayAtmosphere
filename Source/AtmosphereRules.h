@@ -80,7 +80,7 @@ struct History {
 inline float situationEmphasis(const State& s,int closePercent,int matchupPercent){
     if(!valid(s))return 1;
     int boost=std::abs(s.homeScore-s.awayScore)<=8?closePercent:0;
-    if(s.rivalry||(top25(s.rank0)&&top25(s.rank1)))boost+=matchupPercent;
+    if(top25(s.rank0)&&top25(s.rank1))boost+=matchupPercent;
     return 1+(std::clamp)(boost,0,35)*0.01f;
 }
 }

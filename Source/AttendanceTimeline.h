@@ -65,7 +65,7 @@ struct Archive {
         // Without a stable Midgame Save ID, reuse only a close clock/score match
         // in a recorded game of these teams. Otherwise estimate explicitly.
         for(auto g=games.rbegin();g!=games.rend();++g){
-            if(g->context.team0!=s.team0||g->context.team1!=s.team1||g->context.quarterSeconds!=s.quarterSeconds||g->context.playoff!=s.playoff||g->context.bowl!=s.bowl||
+            if(g->context.team0!=s.team0||g->context.team1!=s.team1||g->context.quarterSeconds!=s.quarterSeconds||g->context.playoff!=s.playoff||g->context.conferenceChampionship!=s.conferenceChampionship||g->context.bowl!=s.bowl||
                 g->context.rank0!=s.rank0||g->context.rank1!=s.rank1||g->context.rivalry!=s.rivalry||g->context.neutral!=s.neutral||g->context.precipitation!=s.precipitation)continue;
             const Point* best=nullptr;float distance=2.01f;
             for(const auto& p:g->points)if(p.state.quarter==s.quarter&&p.state.homeScore==s.homeScore&&p.state.awayScore==s.awayScore){
@@ -125,19 +125,20 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,State s,
 }
 // Text format with explicit fields and bounded reads; never dumps native structs.
 inline void write(std::ostream& f,const Archive& a){
-    f<<"DGA-HISTORY-2 "<<a.games.size()<<'\n'<<std::setprecision(17);
+    f<<"DGA-HISTORY-3 "<<a.games.size()<<'\n'<<std::setprecision(17);
     for(const auto& g:a.games){
-        const auto& s=g.context;f<<g.id<<' '<<s.team0<<' '<<s.team1<<' '<<s.quarterSeconds<<' '<<s.playoff<<' '<<s.bowl<<' '<<s.rank0<<' '<<s.rank1<<' '<<s.rivalry<<' '<<s.neutral<<' '<<s.precipitation<<' '<<g.points.size()<<' '<<s.variationSeed<<'\n';
+        const auto& s=g.context;f<<g.id<<' '<<s.team0<<' '<<s.team1<<' '<<s.quarterSeconds<<' '<<s.playoff<<' '<<s.bowl<<' '<<s.rank0<<' '<<s.rank1<<' '<<s.rivalry<<' '<<s.neutral<<' '<<s.precipitation<<' '<<g.points.size()<<' '<<s.variationSeed<<' '<<s.conferenceChampionship<<'\n';
         for(const auto& p:g.points){const auto& h=p.history;
             f<<p.time<<' '<<p.state.quarter<<' '<<p.state.seconds<<' '<<p.state.homeScore<<' '<<p.state.awayScore<<' '<<p.loss<<' '<<p.temporary<<' '<<p.periodStart<<' '
              <<h.comeback<<' '<<h.released<<' '<<h.maxDeficit<<' '<<h.bestDeficit<<' '<<h.watchStage<<' '<<h.comebackSide<<' '<<h.maxAwayDeficit<<' '<<h.deteriorationSince<<'\n';}
     }
 }
 inline bool read(std::istream& f,Archive& target){
-    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||(magic!="DGA-HISTORY-1"&&magic!="DGA-HISTORY-2")||games>Archive::MaxGames)return false;
+    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||(magic!="DGA-HISTORY-1"&&magic!="DGA-HISTORY-2"&&magic!="DGA-HISTORY-3")||games>Archive::MaxGames)return false;
     for(size_t i=0;i<games;++i){Game g;size_t count=0;int playoff=0,rivalry=0,neutral=0;
         if(!(f>>g.id>>g.context.team0>>g.context.team1>>g.context.quarterSeconds>>playoff>>g.context.bowl>>g.context.rank0>>g.context.rank1>>rivalry>>neutral>>g.context.precipitation>>count)||!g.id||count>Archive::MaxPoints||g.context.team0<0||g.context.team0>=2047||g.context.team1<0||g.context.team1>=2047||playoff<0||playoff>1||rivalry<0||rivalry>1||neutral<0||neutral>1||g.context.rank0< -1||g.context.rank0>256||g.context.rank1< -1||g.context.rank1>256||g.context.precipitation<0||g.context.precipitation>2||g.context.bowl<0||g.context.bowl>255||!std::isfinite(g.context.quarterSeconds)||g.context.quarterSeconds<60||g.context.quarterSeconds>1200)return false;
-        if(magic=="DGA-HISTORY-2"){uint64_t seed=0;if(!(f>>seed)||seed>0xffffffffull)return false;g.context.variationSeed=static_cast<unsigned>(seed);}
+        if(magic=="DGA-HISTORY-2"||magic=="DGA-HISTORY-3"){uint64_t seed=0;if(!(f>>seed)||seed>0xffffffffull)return false;g.context.variationSeed=static_cast<unsigned>(seed);}
+        if(magic=="DGA-HISTORY-3"){int conference=0;if(!(f>>conference)||conference<0||conference>1)return false;g.context.conferenceChampionship=conference!=0;}
         g.context.playoff=playoff!=0;g.context.rivalry=rivalry!=0;g.context.neutral=neutral!=0;double last=-1;
         for(size_t j=0;j<count;++j){Point p;p.state=g.context;auto& h=p.history;int comeback=0,released=0;
             if(!(f>>p.time>>p.state.quarter>>p.state.seconds>>p.state.homeScore>>p.state.awayScore>>p.loss>>p.temporary>>p.periodStart>>comeback>>released>>h.maxDeficit>>h.bestDeficit>>h.watchStage>>h.comebackSide>>h.maxAwayDeficit>>h.deteriorationSince))return false;

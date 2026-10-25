@@ -65,6 +65,8 @@ class Runtime {
                     Address label=at<Address>(group+0x20);std::memset(templates_.name,0,sizeof(templates_.name));
                     for(size_t j=0;j<sizeof(templates_.name)-1;++j){char c=0;if(!read(label+j,c)){result=false;break;}templates_.name[j]=c;if(!c)break;}
                     if(selectedGroup_==13&&(templates_.parent!=9||std::strcmp(templates_.name,"Beds")!=0))result=false;
+                    if(selectedGroup_==15&&(templates_.parent!=9||std::strcmp(templates_.name,"Reactions")!=0))result=false;
+                    if(selectedGroup_==18&&(templates_.parent!=9||std::strcmp(templates_.name,"Swells")!=0))result=false;
                     break;
                 }
             }
@@ -81,6 +83,9 @@ class Runtime {
     }
     void fault(){healthy_=false;if(note_)note_("mixer-fault: owned atmosphere gain layer stopped");}
 public:
+    bool snapshot(Address manager,unsigned short group,Templates& output){
+        selectedGroup_=group;if(!templates(manager))return false;output=templates_;return true;
+    }
     void configure(Address image,Note note=nullptr,Create create=nullptr,Release release=nullptr,Manager source=nullptr,float positiveLimit=0,Clock clock=nullptr,unsigned short positiveGroup=9){
         image_=image;note_=note;create_=create?create:reinterpret_cast<Create>(image+bindings::MixerCreate);
         release_=release?release:reinterpret_cast<Release>(image+bindings::MixerRelease);managerSource_=source;
@@ -98,15 +103,15 @@ public:
         if(!manager)return;
         // Range permits empty-crowd attenuation and stock preplay boost offsets.
         // This is an additive level, not an absolute output target.
-        float ceiling=group==positiveGroup_&&(group==9||group==13)?positiveLimit_:0;
+        float ceiling=group==positiveGroup_&&(group==9||group==13||group==15||group==18)?positiveLimit_:0;
         float desired=active?std::round((std::fmax)(-160.0f,(std::fmin)(ceiling,requestedDb))*4)*0.25f:0;
         bool wanted=active&&(desired!=0||forceNeutral||mute);
         auto time=clock_?clock_():GetTickCount64();
         // Native presets ease for 250 ms. Let each positive-gain transition
         // finish before replacing it again, rather than accumulating fades.
         // Disable, zero gain, group changes and owner teardown remain immediate.
-        if(handle_&&(group==9||group==13)&&selectedGroup_==group&&desired>0&&db_>0&&wanted&&mute==muted_&&
-           std::fabs(desired-db_.load())>=0.125f&&time-lastPositiveChange_<300&&!(group==13&&desired<db_)&&!(immediateReduction&&desired<db_))return;
+        if(handle_&&(group==9||group==13||group==15||group==18)&&selectedGroup_==group&&desired>0&&db_>0&&wanted&&mute==muted_&&
+           std::fabs(desired-db_.load())>=0.125f&&time-lastPositiveChange_<300&&!(group!=9&&desired<db_)&&!(immediateReduction&&desired<db_))return;
         if(handle_&&(!wanted||std::fabs(desired-db_.load())>=0.125f||group!=selectedGroup_||mute!=muted_)){
             if(at<Address>(handle_)!=image_+0xaefb4b8||ref(handle_+8)!=asset_||!guardedRelease(manager,handle_)){fault();return;}
             ++releases_;handle_=asset_=0;db_=0;
@@ -120,7 +125,7 @@ public:
         if(!guardedCreate(manager,asset,handle)){fault();return;}
         if(at<Address>(handle)!=image_+0xaefb4b8||ref(handle+8)!=asset){fault();return;}
         handle_=handle;asset_=asset;db_=desired;muted_=mute;++creations_;
-        if((group==9||group==13)&&desired>0)lastPositiveChange_=time;
+        if((group==9||group==13||group==15||group==18)&&desired>0)lastPositiveChange_=time;
         if(note_)note_("group-mixer: owned layer created for the selected group only");
     }
     bool healthy()const{return healthy_.load();}

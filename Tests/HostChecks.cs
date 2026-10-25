@@ -46,7 +46,26 @@ class HostChecks {
             File.WriteAllBytes(log,new byte[2*1024*1024]);
             action.GetMethod("Note",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{null,"After size reset"});
             if(new FileInfo(log).Length>1024||!File.ReadAllText(log).Contains("After size reset")||File.Exists(log+".1"))throw new Exception("Launcher log cap failed");
-            Console.WriteLine("PASS: MMC ABI, metadata, resources, extraction, nested launcher log and size reset");return 0;
+            // MMC's logger must still receive errors when the private file is
+            // locked, including a watcher started earlier by registration.
+            CheckLoggerFallback(action,log);
+            Console.WriteLine("PASS: MMC ABI, metadata, resources, extraction, nested launcher log, size reset and locked-file MMC logger fallback");return 0;
         }catch(Exception e){Console.Error.WriteLine(e);return 1;}
     }
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static void CheckLoggerFallback(Type action,string log){
+        // Load the typed SDK interface only after Main installs the selected
+        // MMC host's AssemblyResolve handler.
+        var logger=new CapturedLogger();
+        action.GetField("hostLogger",BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,logger);
+        using(var held=new FileStream(log,FileMode.Open,FileAccess.Read,FileShare.Read))
+            action.GetMethod("Note",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{null,"Blocked log fallback"});
+        if(logger.Last==null||!logger.Last.Contains("Blocked log fallback")||!logger.Last.Contains("Log file unavailable"))throw new Exception("MMC logger fallback lost when private log failed");
+    }
+}
+sealed class CapturedLogger : FrostySdk.Interfaces.ILogger {
+    public string Last;
+    public void Log(string text,params object[] args){Last=text;}
+    public void LogWarning(string text,params object[] args){Last=text;}
+    public void LogError(string text,params object[] args){Last=text;}
 }

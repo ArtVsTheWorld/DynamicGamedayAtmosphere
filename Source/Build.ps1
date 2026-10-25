@@ -41,11 +41,17 @@ try {
         if($LASTEXITCODE -ne 0){throw 'Rule checks build failed'}
         & '.\RulesTests.exe'
         if($LASTEXITCODE -ne 0){throw 'Rule checks failed'}
-        foreach($crowdTest in @('CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','AttendanceBalanceTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests','SeatPatternTests','SeatRuntimeTests')){
+        foreach($crowdTest in @('AttendanceMixerTests','NativeAtmosphereContextTests','AttendanceAudioTests','PresentationCameraTests','HandoffCameraTests','DirectorShakeTests','DirectorShakeRuntimeTests','LiveReactionsTests','RunBuildupTests','RunSoundscapeTests','CatchImpactTests','VenueVolumeTests','LateTrafficTests','QuarterBreakGroupTests','SituationalReactionsTests','LateHalfAtmosphereTests','LiveFumbleReturnTests','FinalFeedbackTests','OpeningKickoffTests','KickoffSoundscapeTests','CameraCutContinuityTests','SealingTakeawayTests','SafetyReactionTests','PlayReactionTimingTests','DefensiveStopEligibilityTests','ImmediateCatchTests','LineupAtmosphereTests','BigGameEnergyTests','LineupSustainTests','ReactionVarietyTests','ReactiveDepthTests','PostPlayAtmosphereTests','StadiumOccupancyTests','RenderedOccupancyTests','DrivePackedHouseTests','PackedHouseTests','SizeAtmosphereTests','CameraAdmissionTests','PassFlightTests','CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','AttendanceBalanceTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SettingsPollTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdQuietingTests','PresentationAtmosphereTests','SparseHfaCameraTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests','SeatPatternTests','SeatBaselineTests','SeatRuntimeTests','GamedayFlowTests')){
             & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 @crowdInclude (Join-Path $crowdRoot ('Tests\'+$crowdTest+'.cpp')) ('/Fe:'+$crowdTest+'.exe') /link @crowdLib
             if($LASTEXITCODE -ne 0){throw ($crowdTest+' build failed')}
             & ('.\'+$crowdTest+'.exe')
             if($LASTEXITCODE -ne 0){throw ($crowdTest+' failed')}
+        }
+        foreach($auditTest in @('ConfigurationAuditTests')){
+            & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 @crowdInclude (Join-Path $crowdRoot ('Tests\'+$auditTest+'.cpp')) ('/Fe:'+$auditTest+'.exe') /link @crowdLib
+            if($LASTEXITCODE -ne 0){throw ($auditTest+' build failed')}
+            & ('.\'+$auditTest+'.exe')
+            if($LASTEXITCODE -ne 0){throw ($auditTest+' failed')}
         }
         & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /DUNICODE /D_UNICODE @crowdInclude (Join-Path $PSScriptRoot 'LoadRuntime.cpp') /Fe:LoadDynamicGamedayAtmosphere.exe /link @crowdLib
         if($LASTEXITCODE -ne 0){throw 'Loader build failed'}

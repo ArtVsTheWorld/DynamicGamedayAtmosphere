@@ -84,7 +84,7 @@ int main(){
     for(int i=81;i<400;++i){winner.update(c,p,10.05+i*0.05,1);float db=winner.gainDb(c);assert(db<=8&&previous-db<0.2f);previous=db;}
     winner.reset();assert(winner.victoryAt<0&&winner.victoryDb==0);
     // Gentler attendance reduction: 20 softens the old 35 curve without compounding.
-    audio::Gain soft,old;soft.attendance(0.5f,0.2f);old.attendance(0.5f,0.35f);
+    audio::Gain soft,old;soft.attendance(0.2f,0.2f);old.attendance(0.2f,0.35f);
     soft.advance(2);old.advance(2);assert(soft.value()>old.value()&&soft.value()<1);
     std::cout<<"PASS: matchup/ambience table, steady-bed priority and 6 dB normal cap, competitive scoring pace, bounded continuity, OT winner handoff and gentler attendance audio.\n";
 }

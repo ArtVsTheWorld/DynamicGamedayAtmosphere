@@ -5,11 +5,14 @@
 #include <limits>
 static void near(float a,float b){assert(std::fabs(a-b)<0.00001f);}
 int main(){
-    using attendance::audio::Gain;
+    using BaseGain=attendance::audio::Gain;
+    struct Gain:BaseGain {void attendance(float fraction,float strength=.2f,float emphasis=1,float arrivals=1,float start=.8f){BaseGain::attendance(fraction,strength,emphasis,arrivals,start);}};
+    // Retain the configurable 80-percent curve's transport/round-trip coverage.
+    // AttendanceAudioTests covers the new production default at40 percent.
     // Independent acceptance table: percentage of the native signal retained.
     const float attendance[]={1,.9f,.8f,.7f,.6f,.5f,.4f,.35f,.3f,.2f,.15f,.1f};
     const float levels[]={1,1,1,.975f,.95f,.925f,.9f,.8875f,.875f,.85f,.8375f,.825f};
-    for(int i=0;i<12;++i){Gain row;row.attendance(attendance[i]);near(row.target(),levels[i]);row.advance(6);near(row.value(),levels[i]);}
+    for(int i=0;i<12;++i){Gain row;row.attendance(attendance[i],.2f,1,1,.8f);near(row.target(),levels[i]);row.advance(6);near(row.value(),levels[i]);}
     Gain gain;near(gain.linear(.8f),.8f);gain.attendance(.4f);
     near(gain.advance(3),.95f);gain.attendance(.4f);near(gain.advance(3),.9f); // Identical callbacks do not restart the fade.
     near(gain.linear(0),0);near(gain.linear(.8f),.72f);near(gain.linear(1.6f),1.44f);
@@ -34,5 +37,13 @@ int main(){
     Gain custom;custom.attendance(.8f,.2f,1,1,.9f);near(custom.target(),.9777778f);
     Gain boost;boost.attendance(.1f,.2f,1.35f);near(boost.target(),1); // Attenuation never exceeds native slider.
     Gain calibrated;calibrated.attendance(.1f);calibrated.advance(6);near(calibrated.decibels(0),-1.670921f);
+    for(int fullness=0;fullness<=100;++fullness){
+        Gain bounded;bounded.sparse(fullness*.01f,.99f,.5f);bounded.advance(6);
+        float expected=fullness>=50?1:.75f+fullness*.005f;near(bounded.value(),expected);
+        near(bounded.linear(0),0);near(bounded.linear(.8f),expected*.8f);
+    }
+    Gain smooth;smooth.sparse(.1f);near(smooth.advance(3),.9f);smooth.sparse(.1f);near(smooth.advance(3),.8f);
+    smooth.sparse(.4f);near(smooth.advance(6),.95f); // Current density can recover with arrivals or a historical clip.
+    smooth.sparse(0,0);near(smooth.advance(6),1);
     std::puts("PASS: 80% threshold, percentage acceptance table, six-second fades, no compounding/refill, arrivals, silent empty crowd and native slider preservation.");
 }

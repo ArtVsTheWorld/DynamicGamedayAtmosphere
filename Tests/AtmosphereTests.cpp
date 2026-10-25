@@ -21,7 +21,7 @@ int main(){
     assert(h.takeQuarter(2,3)&&!h.takeQuarter(2,3));s.quarter=4;assert(h.observe(c,s,true)&&h.takeQuarter(3,4));
     s.quarter=3;assert(!h.observe(c,s,true)); // Rewound native period event also rejected.
     s={4,24,21,1,180,300};s.rivalry=true;
-    assert(situationEmphasis(s,15,10)==1.25f);s.awayScore=42;assert(situationEmphasis(s,15,10)==1.1f);
+    assert(situationEmphasis(s,15,10)==1.15f);s.awayScore=42;assert(situationEmphasis(s,15,10)==1.0f);
     s.rivalry=false;s.rank0=1;s.rank1=25;assert(situationEmphasis(s,15,10)==1.1f);
     s={2,14,21,1,180,300};s.rank0=132;s.rank1=10;h.reset();h.observe(c,s);
     assert(h.watchStage==1&&upsetDiscrepancy(s)>0.7f);

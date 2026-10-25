@@ -9,7 +9,7 @@
 
 namespace attendance::audio {
 using Address=uintptr_t;
-struct Wanted {Address match=0;unsigned epoch=0;bool active=false;float remaining=1,strength=0.20f,emphasis=1,arrivalFraction=1,reductionStart=0.80f;};
+struct Wanted {Address match=0;unsigned epoch=0;bool active=false;float remaining=1,strength=1.0f,emphasis=1,arrivalFraction=1,reductionStart=0.35f;};
 struct alignas(16) Parameter {uint32_t id,padding[3];float value;uint32_t tail[3];};
 static_assert(sizeof(Parameter)==32);
 using Update=Address(__fastcall*)(Address,Address,Address,Address);
@@ -27,6 +27,7 @@ class Runtime {
     };
     Address image_=0;Update original_=nullptr;Post post_=nullptr;Request request_=nullptr;Note note_=nullptr;Clock clock_=nullptr;
     std::mutex mutex_;std::unordered_map<Address,Entry> entries_;
+    bool legacyCuts_=false; // Production is bounded to 25%; legacy behavior is research-only.
     std::atomic<bool> healthy_{true};
     std::atomic<unsigned long long> callbacks_{0},writes_{0};
     std::atomic<float> shownGain_{1},shownTarget_{1};
@@ -50,6 +51,7 @@ class Runtime {
         if(!healthy_)return;
         Address primary=0;int volume=0;if(!owner(tickThis,primary,volume))return;
         Wanted wanted=request_();
+        if(!legacyCuts_)wanted.strength=(std::clamp)(wanted.strength,0.f,.25f);
         if(!std::isfinite(wanted.remaining)||!std::isfinite(wanted.strength)||!std::isfinite(wanted.emphasis)||!std::isfinite(wanted.arrivalFraction)||!std::isfinite(wanted.reductionStart))wanted.active=false;
         const auto time=clock_();
         std::lock_guard<std::mutex> lock(mutex_);
@@ -59,7 +61,7 @@ class Runtime {
             // to call or read a controller on a later callback.
             if(entries_.size()>=32)entries_.clear();
             Entry e;e.match=wanted.match;e.epoch=wanted.epoch;e.tick=time;
-            if(wanted.active){e.gain.attendance(wanted.remaining,wanted.strength,wanted.emphasis,wanted.arrivalFraction,wanted.reductionStart);e.gain.advance(6);}
+            if(wanted.active){if(legacyCuts_)e.gain.attendance(wanted.remaining,wanted.strength,wanted.emphasis,wanted.arrivalFraction,wanted.reductionStart);else e.gain.sparse((std::min)(wanted.remaining,wanted.arrivalFraction),wanted.strength,wanted.reductionStart);e.gain.advance(6);}
             found=entries_.emplace(primary,e).first;
             if(note_)note_("audio-controller: native mixer update observed");
         }
@@ -67,7 +69,10 @@ class Runtime {
         if(e.epoch!=wanted.epoch||e.match!=wanted.match){
             e.gain.reset();e.epoch=wanted.epoch;e.match=wanted.match;
         }
-        if(wanted.active)e.gain.attendance(wanted.remaining,wanted.strength,wanted.emphasis,wanted.arrivalFraction,wanted.reductionStart);else e.gain.restore();
+        if(wanted.active){
+            if(legacyCuts_)e.gain.attendance(wanted.remaining,wanted.strength,wanted.emphasis,wanted.arrivalFraction,wanted.reductionStart);
+            else e.gain.sparse((std::min)(wanted.remaining,wanted.arrivalFraction),wanted.strength,wanted.reductionStart);
+        }else if(legacyCuts_)e.gain.restore();else e.gain.reset();
         float dt=static_cast<float>(time-e.tick)*0.001f;e.tick=time;
         e.gain.advance((std::min)(dt,0.1f));
         const float gain=e.gain.value(),output=e.gain.linear(volume*0.01f);
@@ -84,8 +89,8 @@ class Runtime {
         }
     }
 public:
-    void configure(Address image,Update original,Request request,Note note=nullptr,Post post=nullptr,Clock clock=nullptr){
-        image_=image;original_=original;request_=request;note_=note;
+    void configure(Address image,Update original,Request request,Note note=nullptr,Post post=nullptr,Clock clock=nullptr,bool legacyCuts=false){
+        image_=image;original_=original;request_=request;note_=note;legacyCuts_=legacyCuts;
         post_=post?post:reinterpret_cast<Post>(image+bindings::CrowdQueue);clock_=clock?clock:now;
     }
     Address tick(Address tickThis,Address a,Address b,Address c){

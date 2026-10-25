@@ -23,10 +23,13 @@ struct Play {
     float toGoal=-1,toFirst=-1;
     float fieldSpot=std::numeric_limits<float>::quiet_NaN();int attackDirection=0;
     uint64_t resultStamp=0;
-    bool interception=false,firstDown=false;
+    bool interception=false,firstDown=false,fumble=false,simulated=false,resumed=false;
+    bool sack=false,forcedFumble=false;
+    int awayTimeouts=-1;
+    bool specialTeams=false;
 };
 enum class Event { None,FourthDown,GoalLine,PickSix,LateDrive,HomeScore,UpsetWin,
-    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore };
+    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety };
 inline const char* name(Event e){
     switch(e){
     case Event::FourthDown:return "Fourth-down conversion";
@@ -34,15 +37,25 @@ inline const char* name(Event e){
     case Event::PickSix:return "Interception return touchdown";
     case Event::LateDrive:return "Late go-ahead score";
     case Event::HomeScore:return "Touchdown";
+    case Event::Safety:return "Safety";
     case Event::UpsetWin:return "Major upset completed";
     case Event::OpeningReturn:return "Opening kickoff return touchdown";
     case Event::OpeningTouchdown:return "First offensive snap touchdown";
-    case Event::LastSecondLead:return "Final-90-seconds go-ahead score";
+    case Event::LastSecondLead:return "Final-30-seconds go-ahead score";
+    case Event::EarlyTouchdown:return "First touchdown within the opening five plays";
+    case Event::OvertimeTakeaway:return "Overtime takeaway";
+    case Event::LateTakeaway:return "Game-sealing late takeaway";
+    case Event::FumbleRecovery:return "Defensive fumble recovery";
+    case Event::Sack:return "Defensive sack";
+    case Event::ForcedFumble:return "Forced fumble";
+    case Event::HailMaryTouchdown:return "Last-gasp Hail Mary touchdown";
+    case Event::MadeFieldGoal:return "Made field goal in a close game";
     case Event::Turnover:return "Defensive interception";
     case Event::FourthStop:return "Fourth-down defensive stop";
     case Event::TakeLead:return "Lead-changing score";
     case Event::TieScore:return "Fourth-quarter tying score";
     case Event::LongTouchdown:return "Long touchdown";
+    case Event::ExplosiveTouchdown:return "60+ yard touchdown in a close game";
     case Event::BackfieldStop:return "Backfield stop";
     case Event::ThirdStop:return "Third-down defensive stop";
     case Event::ExplosiveGain:return "10+ yard first down";
@@ -57,12 +70,14 @@ inline const char* name(Event e){
 inline int priority(Event e){
     switch(e){
     case Event::OvertimeWin:return 100;case Event::GameWinningScore:return 99;case Event::LastSecondLead:return 95;case Event::PickSix:return 90;
+    case Event::OvertimeTakeaway:return 94;case Event::LateTakeaway:return 93;case Event::HailMaryTouchdown:return 92;case Event::EarlyTouchdown:return 86;case Event::ExplosiveTouchdown:return 84;case Event::FumbleRecovery:return 75;
     case Event::UpsetWin:return 88;case Event::OpeningReturn:return 85;case Event::OpeningTouchdown:return 82;
     case Event::OvertimeConversion:return 81;case Event::ConversionStop:return 78;
     case Event::LateDrive:return 80;case Event::Turnover:return 75;case Event::GoalLine:return 72;
     case Event::FourthStop:return 70;case Event::FourthDown:return 68;case Event::TakeLead:return 65;
-    case Event::TieScore:return 62;case Event::LongTouchdown:return 60;case Event::HomeScore:return 55;
-    case Event::ThirdDownConversion:return 50;case Event::ThirdStop:return 45;case Event::ExplosiveGain:return 40;case Event::BackfieldStop:return 35;
+    case Event::TieScore:return 62;case Event::LongTouchdown:return 60;case Event::HomeScore:case Event::Safety:return 55;
+    case Event::ThirdDownConversion:return 50;case Event::Sack:return 47;case Event::ForcedFumble:return 74;case Event::ThirdStop:return 45;case Event::ExplosiveGain:return 40;case Event::BackfieldStop:return 35;
+    case Event::MadeFieldGoal:return 40;
     default:return 0;
     }
 }
@@ -87,15 +102,35 @@ inline bool earnedFirstDown(const Play& before,const Play& after,bool sawFlag){
     return sawFlag||(before.toFirst>0&&gain+0.01f>=before.toFirst);
 }
 inline bool overtimeTry(const Play& p){return overtime(p.game)&&p.down==-1&&(p.offense==0||p.offense==1);}
-inline bool eligibleSnap(const Play& p){return normalDown(p)||(p.down==0&&(p.offense==0||p.offense==1))||overtimeTry(p);}
+inline bool conversionTry(const Play& p){return p.down==-1&&(p.offense==0||p.offense==1);}
+inline bool eligibleSnap(const Play& p){return normalDown(p)||(p.down==0&&(p.offense==0||p.offense==1))||conversionTry(p);}
 inline bool primaryScore(int delta){return delta==2||delta==3||(delta>=6&&delta<=8);}
+inline bool scoringDelta(int delta,const Play& snap){return primaryScore(delta)||(conversionTry(snap)&&delta==1);}
 inline bool lateExit(const Settings& c,const Play& before,const Play& after){
     const State& s=after.game;
     return c.lateScoreDepartures>0&&!s.neutral&&s.quarter==4&&s.seconds<=120&&s.seconds>=0&&!s.playoff&&
         before.down!=-1&&primaryScore(s.awayScore-before.game.awayScore)&&s.homeScore==before.game.homeScore&&
         s.awayScore-s.homeScore>=9&&after.homeTimeouts>=0&&after.homeTimeouts<=1;
 }
-struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,visitorScore=false;int side=0;bool completed=false,setback=false;uint64_t sequence=0;int homePoints=0,awayPoints=0;};
+struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,visitorScore=false;int side=0;bool completed=false,setback=false;uint64_t sequence=0;int homePoints=0,awayPoints=0;
+    bool firstTouchdown=false,takeaway=false;unsigned openingPlay=0;int defendingLead=0;float opponentToGoal=-1;
+    int preSnapMargin=-1;float touchdownYards=-1;
+    bool firstDown=false;float yards=-1000;
+    bool sack=false,forcedFumble=false,goalLineStop=false;
+    bool highLeverageStop=false,hailMary=false;
+    int opponentTimeouts=-1;
+    bool safety=false;
+};
+inline bool sealsRegulationTakeaway(const Outcome& result,const State& s){
+    if(!result.accepted||!result.completed||!result.takeaway||!valid(s)||s.quarter!=4||s.seconds>60||result.defendingLead<=0||result.defendingLead>8)return false;
+    if(s.seconds==0)return true; // No remaining clock can be preserved.
+    if(result.opponentTimeouts<0||result.opponentTimeouts>3)return false;
+    // A fresh possession has three safe kneels before fourth down. Each
+    // opponent timeout removes one opportunity to drain a 40-second clock.
+    // Ignore time spent taking the knees: this is deliberately conservative.
+    int runningClocks=3-result.opponentTimeouts;
+    return runningClocks>0&&s.seconds<=runningClocks*40.f;
+}
 // Only a preplay -> live snap -> completed play sequence can produce events.
 // Clock/score high-water marks remain after replay rejection. Attaching during
 // a replay, a score correction, or Super Sim does not invent a live snap.
@@ -105,15 +140,30 @@ struct Tracker {
     float highTime=0;uint64_t startStamp=0;
     bool openingSeen=false,openingKickUsed=false,scrimmageUsed=false,openingKick=false,openingSnap=false,wasOvertime=false;
     uint64_t serial=0,lastResultStamp=0;
+    bool openingReliable=false,firstTouchdownSeen=false,hadTouchdownAtSnap=false,sawPick=false,sawFumble=false;
+    bool sawSack=false,sawForcedFumble=false;
+    uint64_t countedPlay=0;unsigned verifiedPlays=0;
     void reset(){*this=Tracker{};}
+    void primeOpeningIntro(const Play& p){
+        // Presentation can reach a selection/transition phase before the first
+        // gameplay observation. Preserve only a verified fresh intro, without
+        // feeding it into score detection or inventing a played snap.
+        const State& s=p.game;
+        if(!seen&&!played&&!serial&&!p.resumed&&!p.simulated&&valid(s)&&s.phase==6&&
+           s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1)
+            openingSeen=openingReliable=true;
+    }
     Outcome observe(const Settings& c,const Play& p){
         Outcome o;const State& s=p.game;if(!valid(s))return o;
         float t=elapsedGameTime(s);
         if(seen&&(t+0.01f<highTime||s.homeScore<highHome||s.awayScore<highAway)){
             haveReady=inPlay=false;lastPhase=-1;return o;
         }
-        if(!seen)openingSeen=s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&(s.phase==1||s.phase==6);
+        if(!seen){openingSeen=openingSeen||(s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&(s.phase==1||s.phase==6));openingReliable=openingSeen;}
+        if(s.homeScore-highHome>=6||s.awayScore-highAway>=6)firstTouchdownSeen=true;
         o.accepted=true;seen=true;highTime=t;highHome=s.homeScore;highAway=s.awayScore;
+        if(p.resumed)openingSeen=openingReliable=false;
+        if(p.simulated){openingSeen=openingReliable=false;haveReady=inPlay=false;lastPhase=s.phase;return o;}
         State story=energyPerspective(s);
         wasOvertime=wasOvertime||overtime(s);
         if((c.eruptions||c.momentum)&&!winUsed&&played&&s.phase==7&&s.quarter>=4){
@@ -127,7 +177,8 @@ struct Tracker {
         if(s.phase==3&&lastPhase!=3){
             if(haveReady&&eligibleSnap(ready)&&ready.game.quarter==s.quarter&&
                ready.game.homeScore==s.homeScore&&ready.game.awayScore==s.awayScore){
-                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=false;++serial;
+                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=false;++serial;
+                hadTouchdownAtSnap=firstTouchdownSeen;
                 openingKick=openingSeen&&!openingKickUsed&&ready.down==0&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1;
                 openingSnap=openingSeen&&!scrimmageUsed&&normalDown(ready)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0;
                 if(ready.down==0)openingKickUsed=true;
@@ -138,17 +189,31 @@ struct Tracker {
         bool finished=s.phase==4||s.phase==5||s.phase==1||s.phase==7;
         if(inPlay&&finished){
             sawFirstDown=sawFirstDown||p.firstDown;
+            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawSack=sawSack||p.sack;sawForcedFumble=sawForcedFumble||p.forcedFumble;}
             int home=s.homeScore-start.game.homeScore,away=s.awayScore-start.game.awayScore;
-            if(!scoreUsed&&(primaryScore(home)||primaryScore(away))){
+            if(!scoreUsed&&(scoringDelta(home,start)||scoringDelta(away,start))){
                 o.lateDeparture=lateExit(c,start,p);scoreUsed=true;o.completed=true;o.sequence=serial;
                 o.homePoints=(std::max)(0,home);o.awayPoints=(std::max)(0,away);
-                o.visitorScore=!s.neutral&&primaryScore(away)&&home==0;
-                int side=primaryScore(home)&&away==0?0:primaryScore(away)&&home==0?1:-1;
+                o.visitorScore=!s.neutral&&scoringDelta(away,start)&&home==0;
+                int side=scoringDelta(home,start)&&away==0?0:scoringDelta(away,start)&&home==0?1:-1;
+                if(side>=0){
+                    o.side=side;o.firstTouchdown=!hadTouchdownAtSnap&&(side==0?home:away)>=6;
+                    o.preSnapMargin=std::abs(start.game.homeScore-start.game.awayScore);
+                    // An offensive touchdown travels from the verified pre-snap
+                    // line to the goal. Return distance is not the original LOS.
+                    if((side==0?home:away)>=6&&normalDown(start)&&start.offense==side&&start.toGoal>=0&&start.toGoal<=100)o.touchdownYards=start.toGoal;
+                    // Two points on an ordinary down or kickoff are a safety.
+                    // Conversion tries also award two, so keep them separate.
+                    o.safety=(side==0?home:away)==2&&!conversionTry(start);
+                    o.takeaway=!o.safety&&normalDown(start)&&start.offense!=side&&(sawPick||sawFumble);
+                    if(o.takeaway){o.defendingLead=side==0?start.game.homeScore-start.game.awayScore:start.game.awayScore-start.game.homeScore;o.opponentToGoal=start.toGoal;}
+                }
                 if((c.eruptions||c.momentum)&&side>=0&&(side==0||s.neutral)){
                     State before=side==1?reversed(start.game):start.game,after=side==1?reversed(s):s;
                     int points=after.homeScore-before.homeScore;o.side=side;
                     bool ahead=before.homeScore<=before.awayScore&&after.homeScore>after.awayScore;
-                    Event selected=points>=6?Event::HomeScore:overtimeTry(start)&&points==2?Event::OvertimeConversion:Event::None;
+                    Event selected=points>=6?Event::HomeScore:o.safety?Event::Safety:overtimeTry(start)&&points==2?Event::OvertimeConversion:Event::None;
+                    if(points==3&&std::abs(after.homeScore-after.awayScore)<=8)selected=Event::MadeFieldGoal;
                     if(points>=6&&start.toGoal>=40&&start.offense==side)selected=preferred(selected,Event::LongTouchdown);
                     if(s.quarter==4&&before.homeScore<before.awayScore&&after.homeScore==after.awayScore)selected=preferred(selected,Event::TieScore);
                     if(ahead&&before.homeScore<before.awayScore)selected=preferred(selected,Event::TakeLead);
@@ -156,38 +221,62 @@ struct Tracker {
                     if(points>=6&&start.offense!=side&&normalDown(start)&&p.interception&&p.resultStamp&&p.resultStamp!=startStamp)selected=preferred(selected,Event::PickSix);
                     if(points>=6&&openingSnap&&start.offense==side)selected=preferred(selected,Event::OpeningTouchdown);
                     if(points>=6&&openingKick)selected=preferred(selected,Event::OpeningReturn);
-                    if(s.quarter==4&&s.seconds<=90&&ahead)selected=preferred(selected,Event::LastSecondLead);
+                    if(s.quarter==4&&s.seconds<=30&&ahead)selected=preferred(selected,Event::LastSecondLead);
                     if(s.phase==7&&start.game.quarter>=4&&ahead)selected=preferred(selected,Event::GameWinningScore);
                     o.event=preferred(o.event,selected);
                 }
             }
             // Wait for the next live possession/down; postplay still contains
             // the old offense on some plays. Scores are already handled above.
-            bool settled=s.phase==1||(s.phase==5&&(p.down!=start.down||p.offense!=start.offense));
-            if(!resultUsed&&settled&&(normalDown(p)||overtimeTry(p))){
+            // An interception can end the game before that next lineup exists.
+            // Fresh interception proof plus the defending team's final victory
+            // is sufficient; a generic fumble still needs possession proof.
+            bool terminalPick=s.phase==7&&normalDown(start)&&sawPick&&
+                (start.offense==1?s.homeScore>s.awayScore:s.awayScore>s.homeScore);
+            // Some results are authoritative at the whistle. A fresh native
+            // result stamp AND updated down/possession or measured first-down
+            // proof lets reactions begin there. Unsettled results still wait.
+            bool freshResult=p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp;
+            bool measuredFirstDown=start.toFirst>0&&gainedYards(start,p)+.01f>=start.toFirst&&earnedFirstDown(start,p,sawFirstDown);
+            bool whistleResult=s.phase==4&&freshResult&&normalDown(p)&&
+                (p.down!=start.down||p.offense!=start.offense||measuredFirstDown);
+            bool settled=s.phase==1||s.phase==7||whistleResult||(s.phase==5&&(p.down!=start.down||p.offense!=start.offense));
+            if(!resultUsed&&settled&&(normalDown(p)||conversionTry(p)||terminalPick)){
                 bool offenseSupported=start.offense==0||s.neutral,defenseSupported=start.offense==1||s.neutral;
                 bool fresh=!overtime(s)||(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp);
                 if(!scoreUsed&&fresh){
                     o.completed=true;o.sequence=serial;
+                    if(normalDown(start)&&normalDown(p)&&start.offense==p.offense){o.side=start.offense;o.firstDown=earnedFirstDown(start,p,sawFirstDown);o.yards=gainedYards(start,p);}
+                    if(normalDown(start)&&(p.offense!=start.offense||terminalPick)&&(sawPick||sawFumble)){
+                        o.takeaway=true;o.side=1-start.offense;o.defendingLead=o.side==0?start.game.homeScore-start.game.awayScore:start.game.awayScore-start.game.homeScore;o.opponentToGoal=start.toGoal;
+                    }
                     o.setback=!s.neutral&&((start.offense==0&&p.offense==1)||(start.offense==1&&p.offense==1&&p.down==1&&sawFirstDown));
                     if((c.eruptions||c.momentum)&&normalDown(start)){
                         if(offenseSupported&&earnedFirstDown(start,p,sawFirstDown)){
                             if(gainedYards(start,p)>=9.99f){o.event=preferred(o.event,Event::ExplosiveGain);o.side=start.offense;}
                             if(start.down==3){o.event=preferred(o.event,Event::ThirdDownConversion);o.side=start.offense;}
-                            if(start.down==4){o.event=preferred(o.event,Event::FourthDown);o.side=start.offense;}
+                            if(start.down==4&&!start.specialTeams){o.event=preferred(o.event,Event::FourthDown);o.side=start.offense;}
                         }
                         if(defenseSupported){
                             Event defensive=Event::None;
+                            if(sawSack&&gainedYards(start,p)<=0.01f&&gainedYards(start,p)>-1000){defensive=Event::Sack;o.sack=true;}
+                            // A fumble during an interception return may belong
+                            // to the other defense; do not guess its team.
+                            if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}
                             if(p.offense==start.offense&&p.down>start.down&&start.toFirst>=0&&p.toFirst>=start.toFirst+1.5f)
-                                defensive=Event::BackfieldStop;
-                            if(start.down==3&&((p.offense==start.offense&&p.down==4)||p.offense!=start.offense))defensive=preferred(defensive,Event::ThirdStop);
-                            if(p.offense!=start.offense){
-                                bool pick=p.interception&&p.resultStamp&&p.resultStamp!=startStamp;
-                                if(start.down==4)defensive=preferred(defensive,Event::FourthStop);
+                                defensive=preferred(defensive,Event::BackfieldStop);
+                            if(!start.specialTeams&&start.down==3&&((p.offense==start.offense&&p.down==4)||p.offense!=start.offense))defensive=preferred(defensive,Event::ThirdStop);
+                            if(p.offense!=start.offense||terminalPick){
+                                bool pick=sawPick,fumble=sawFumble;
+                                if(start.down==4&&!start.specialTeams){defensive=preferred(defensive,Event::FourthStop);o.goalLineStop=start.toGoal>=0&&start.toGoal<=5;}
                                 if(pick)defensive=preferred(defensive,Event::Turnover);
-                                if(start.toGoal>=0&&start.toGoal<=5&&(start.down==4||pick))defensive=preferred(defensive,Event::GoalLine);
+                                if(fumble)defensive=preferred(defensive,Event::FumbleRecovery);
+                                if(start.toGoal>=0&&start.toGoal<=5&&((start.down==4&&!start.specialTeams)||pick))defensive=preferred(defensive,Event::GoalLine);
                             }
                             if(priority(defensive)>priority(o.event)){o.event=defensive;o.side=1-start.offense;}
+                            bool stopped=!start.specialTeams&&((start.down==3&&((p.offense==start.offense&&p.down==4)||p.offense!=start.offense))||(start.down==4&&p.offense!=start.offense));
+                            o.highLeverageStop=stopped&&std::abs(start.game.homeScore-start.game.awayScore)<=8&&
+                                (start.game.quarter==2||start.game.quarter==4)&&start.game.seconds>=0&&start.game.seconds<=120;
                         }
                     }
                     if((c.eruptions||c.momentum)&&overtimeTry(start)&&p.offense!=start.offense&&(start.offense==1||s.neutral)){
@@ -198,6 +287,11 @@ struct Tracker {
                 resultUsed=true;inPlay=false;
             }
         }
+        if(o.completed&&o.takeaway)o.opponentTimeouts=o.side==0?p.awayTimeouts:p.homeTimeouts;
+        if(o.completed&&o.sequence&&o.sequence!=countedPlay){
+            countedPlay=o.sequence;if(verifiedPlays<6)++verifiedPlays;
+        }
+        if(o.completed&&openingReliable&&s.quarter==1&&verifiedPlays<=5)o.openingPlay=verifiedPlays;
         if(s.phase==1&&eligibleSnap(p)){ready=p;haveReady=true;}
         if(s.phase!=1&&s.phase!=3&&s.phase!=4&&s.phase!=5&&s.phase!=7){haveReady=inPlay=false;}
         lastPhase=s.phase;return o;

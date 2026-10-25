@@ -15,7 +15,14 @@ inline constexpr uintptr_t MatchWrapper=0xf8576b0,ClockManager=0xf8572b8,GameSta
 inline constexpr uintptr_t CurrentDownGetter=0x61fa610,CurrentOffenseGetter=0x61fba90;
 inline constexpr uintptr_t TimeoutGetter=0x5d7b540,FirstDownGetter=0x61fb3a0;
 inline constexpr uintptr_t FirstDownLine=0x5d4eda0,TurnoverGetter=0x2e91820;
+inline constexpr uintptr_t FumblePredicate=0x61fc570;
+inline constexpr uintptr_t SackPredicate=0x61fcc30,ForcedFumblePredicate=0x61fd360;
+inline constexpr uintptr_t LiveFootballEvent=0xe34f548,LiveFootballEventVtable=0xc292c60,LiveFootballEventType=0x275bbe0;
 inline constexpr uintptr_t PlayStats=0xf3d1fe0,SelectedPlayer=0xd9ce380,PlayerContexts=0xe3405a0;
+// Same stadium DB capacity reader and attendance option used by
+// FootballMatchConditionsConstData. Reads only; no attendance/HFA mutation.
+inline constexpr uintptr_t StadiumCapacity=0x38bff60,OptionQuery=0x90934d0;
+inline constexpr unsigned AttendanceOption=0x9e1d2500;
 inline constexpr uintptr_t MatchVtable=0xb4781e8,RulesVtable=0xb4776f0;
 // Native IsNeutralStadium, also used by HFA suppression at 0x2e1f5b4.
 inline constexpr uintptr_t NeutralGetter=0x61faea0;
@@ -29,6 +36,17 @@ inline constexpr uintptr_t SwellArenaInit=0x113a630,SwellArenaDestroy=0x113a9f0,
 // Output-only native excitement; never writes the native envelope or HFA.
 inline constexpr uintptr_t IntensityUpdate=0x28414c0,IntensityVtable=0xb221680;
 inline constexpr uintptr_t IntensityLock=0x114dba0,IntensityUnlock=0x114ea00,IntensityPublish=0x5b2d020;
+// Presentation camera interfaces and read-only accessibility settings.
+inline constexpr uintptr_t CameraViewCopy=0x809c3e0,CameraViewSlot=0xbd0a7c0;
+inline constexpr uintptr_t PlayCallService=0xe2cb918,PlayCallServiceVtable=0xb32c170,PlayCallTeamVtable=0xb2e2330,PlayCallSelectedVtable=0xb2e1f80,PlayCallVtable=0xb1dcf80;
+inline constexpr uintptr_t OffensivePlayType=0x61fbb30,PlayCallTeamGet=0x2f23fd0,PlayCallSelectedGet=0x2b0f570,PlayCallGet=0x2b0f410,PlayCallType=0x27b4f80,PlayCallFallbackType=0x27b4e10;
+inline constexpr uintptr_t BallControl=0xf8575f8,BallStateGetter=0x5d1fe50,CatchPosition=0x6208b90;
+inline constexpr uintptr_t CameraOwner=0xfcd2a00,CameraGet=0xa17b3b0,CameraFind=0x809a3e0,CameraSet=0x80a6960,CameraVtable=0xbd0a6b0;
+inline constexpr uintptr_t CameraEffectsGetter=0x61fdf50,CameraSettingGetter=0x5cf6180;
+inline constexpr uintptr_t CameraSettings=0xe2c73f0,CameraSettingsVtable=0xb7d3180;
+inline constexpr uintptr_t MatchVisualManager=0xe375d90,MatchVisualGetter=0x29f0a20,MatchVisualVtable=0xb265868;
+inline constexpr uintptr_t HfaSelection=0xf3c7af8,HfaMeter=0xf3c7fd8,HfaMeterVtable=0xb2fa7e8,HfaDisabledGetter=0x2575ec0;
+inline constexpr uintptr_t HfaSelectionVtable=0xb2fa030;
 inline constexpr uintptr_t ReactionUpdate=0x2841720,ReactionReceive=0x2840d70,ReactionVtable=0xb221830;
 // IsPaused UI accessor reads this same flag; only read it after verification.
 inline constexpr uintptr_t PauseCheck=0x7ba6d50,PauseFlag=0xf547a00;

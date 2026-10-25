@@ -74,14 +74,14 @@ public:
     }
 };
 #pragma warning(pop)
-inline bool emit(const Api& api,Address image,Address manager,bool start,int size=3,bool* dispatchAttempted=nullptr,bool* notReady=nullptr,int attackMs=4000,int releaseMs=4000){
+inline bool emit(const Api& api,Address image,Address manager,bool start,int size=3,bool* dispatchAttempted=nullptr,bool* notReady=nullptr,int attackMs=4000,int releaseMs=4000,bool gameplay=false){
     if(dispatchAttempted)*dispatchAttempted=false;
     if(notReady)*notReady=false;
     alignas(32) unsigned char result[64]{},event[0xb0]{},arena[0x48]{};Address description=0,unused=0;
-    const char* eventName=start?"Trigger_AreaPrePlaySwell":"Stop_AreaPrePlaySwell";
+    const char* eventName=gameplay?(start?"Trigger_AreaSwell":"Stop_AreaSwell"):(start?"Trigger_AreaPrePlaySwell":"Stop_AreaPrePlaySwell");
     if(!obtain(unused,api.lookup,manager,reinterpret_cast<Address>(result),"CORE_BG_CRWD_EventSystem",eventName,&description))return false;
     if(!description){if(notReady)*notReady=true;return false;}
-    if(at<unsigned>(description+0x40)!=205964879||at<unsigned>(description+0x44)!=(start?1690946487u:2466082807u))return false;
+    if(at<unsigned>(description+0x40)!=205964879||at<unsigned>(description+0x44)!=(gameplay?(start?3736232244u:3732353268u):(start?1690946487u:2466082807u)))return false;
     *reinterpret_cast<Address*>(arena)=image+bindings::SwellArenaVtable;
     *reinterpret_cast<unsigned*>(arena+8)=1;*reinterpret_cast<unsigned*>(arena+12)=1;
     if(!obtain(unused,api.arenaInit,reinterpret_cast<Address>(arena+0x18)))return false;
@@ -111,12 +111,15 @@ inline bool emit(const Api& api,Address image,Address manager,bool start,int siz
 using Note=void(*)(const char*);
 class Runtime {
     Address image_=0,manager_=0,world_=0,asset_=0,owner_=0;Api api_{};Note note_=nullptr;
-    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0;unsigned failures_=0;
+    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0;unsigned failures_=0;
     std::atomic<bool> healthy_{true},playing_{false};std::atomic<unsigned> starts_{0},stops_{0};
     std::atomic<int> reason_{0};
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
+    std::atomic<Address> nativeManager_{0};std::atomic<uint64_t> nativeStart_{0},nativeStop_{0};std::atomic<int> nativeSize_{0};
+    Address quickMatch_=0;unsigned quickEpoch_=0;uint64_t quickToken_=0;
+    std::atomic<unsigned> adopted_{0};bool ownsVoice_=false,gameplay_=false;
 public:
-    void configure(Address image,Note note=nullptr,const Api* api=nullptr){image_=image;api_=api?*api:Api::native(image);note_=note;}
+    void configure(Address image,Note note=nullptr,const Api* api=nullptr,bool gameplay=false){image_=image;api_=api?*api:Api::native(image);note_=note;gameplay_=gameplay;}
     void tick(Address owner,Intent wanted,uint64_t now){
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& flag;explicit Guard(bool& value):flag(value){flag=true;}~Guard(){flag=false;}} executingGuard(executing);
@@ -125,9 +128,22 @@ public:
         if(!fresh(wanted,wanted.match,wanted.epoch,now))wanted.active=false;
         if(episode_.playing&&wanted.active&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);
+            episode_.continuous=wanted.continuous;
+            if(wanted.continuous&&wanted.reason==Reason::Opening&&(episode_.openingMatch!=wanted.match||episode_.openingEpoch!=wanted.epoch)){
+                episode_.openingBegan=now;episode_.openingMatch=wanted.match;episode_.openingEpoch=wanted.epoch;
+            }
         }
         bool stop=episode_.mustStop(wanted,now)||(!healthy_&&episode_.playing);
-        bool refresh=episode_.playing&&episode_.continuous&&nativeStops_.load()!=handledStop_&&now>=lastRefresh_&&now-lastRefresh_>=2000;
+        bool eruptionHit=wanted.active&&wanted.reason==Reason::Eruption&&wanted.celebration&&wanted.celebration!=lastCelebration_;
+        bool resultHit=wanted.active&&wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil&&wanted.resultCheer!=lastResult_;
+        if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickToken_=0;}
+        uint64_t token=wanted.reason==Reason::Lineup?wanted.lineup:wanted.reason==Reason::Result?wanted.liveCheer:0;
+        bool nativeInterrupted=(episode_.continuous||episode_.reason==Reason::Lineup)&&nativeStops_.load()!=handledStop_;
+        // Native HFA stops its lineup channel at the snap. Recover once promptly
+        // for this play instead of leaving a two-second hole. Repeated stop
+        // messages keep the existing slower bound; this is not a restart loop.
+        bool quickRecovery=nativeInterrupted&&token&&token!=quickToken_&&now>=lastRefresh_&&now-lastRefresh_>=100;
+        bool refresh=episode_.playing&&(eruptionHit||resultHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
         if(!stop&&!refresh&&!episode_.canStart(wanted,now))return;
         if(now<retryUntil_||now-lastResolve_<100)return;lastResolve_=now;
         Endpoint endpoint(api_);
@@ -135,36 +151,41 @@ public:
         if(episode_.playing&&(endpoint.manager!=manager_||endpoint.world!=world_||endpoint.asset!=asset_||owner!=owner_)){
             // Retired worlds own their retired voices. Never send through a
             // replacement endpoint to stop a sound belonging to another world.
-            episode_.stopped(now);playing_=false;reason_=0;openingManager_=0;
+            episode_.stopped(now);playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
             if(note_)note_("Anticipation released after the crowd scene changed.");return;
         }
         if(stop){
             int release=wanted.active&&healthy_?releaseMs_:4000;
-            if(!emit(api_,image_,endpoint.manager,false,3,nullptr,nullptr,4000,release)){retryUntil_=now+1000;healthy_=false;if(note_)note_("Anticipation stop failed; no further swell starts will be sent.");return;}
-            ++stops_;episode_.stopped(now,static_cast<unsigned>(release));playing_=false;reason_=0;openingManager_=0;
-            if(note_)note_("Anticipation roar fading out; normal game reactions continue.");return;
+            if(ownsVoice_&&!emit(api_,image_,endpoint.manager,false,3,nullptr,nullptr,4000,release,gameplay_)){retryUntil_=now+1000;healthy_=false;if(note_)note_("Anticipation stop failed; no further swell starts will be sent.");return;}
+            bool owned=ownsVoice_;if(owned)++stops_;episode_.stopped(now,static_cast<unsigned>(release));playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
+            if(note_)note_(owned?"Anticipation roar fading out; normal game reactions continue.":"Native lineup roar returned to game control.");return;
         }
         if(refresh){
             handledStop_=nativeStops_.load();
             // Stock stop messages still run normally. Reassert the same native
             // looping channel during opening hype, before its release completes.
             bool attempted=false;
-            if(!emit(api_,image_,endpoint.manager,true,3,&attempted,nullptr,500)){
+            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,500,4000,gameplay_)){
                 healthy_=false;retryUntil_=now+1000;return;
             }
-            lastRefresh_=now;++refreshes_;return;
+            if(quickRecovery)quickToken_=token;
+            ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;++refreshes_;return;
         }
         if(episode_.canStart(wanted,now)){
+            uint64_t nativeAt=nativeStart_.load();
+            bool adopt=wanted.reason==Reason::Lineup&&nativeManager_.load()==endpoint.manager&&nativeAt&&now>=nativeAt&&now-nativeAt<4000&&nativeStop_.load()<nativeAt&&nativeSize_.load()>=wanted.size;
             bool attempted=false,notReady=false;
-            bool sent=emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,&notReady);
+            bool sent=adopt||emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,&notReady,wanted.attackMs,4000,gameplay_);
             if(!sent){
                 retryUntil_=now+2000;
                 if(attempted||(!notReady&&++failures_>=3)){healthy_=false;if(note_)note_("Anticipation start unavailable; further starts disabled for this session.");}
                 if(!attempted)return;
             }
             episode_.started(wanted,now);releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);manager_=endpoint.manager;world_=endpoint.world;asset_=endpoint.asset;owner_=owner;
-            playing_=true;reason_=static_cast<int>(wanted.reason);++starts_;
-            handledStop_=nativeStops_.load();openingManager_=wanted.continuous?manager_:0;
+            lastCelebration_=wanted.celebration;
+            lastResult_=wanted.resultCheer;
+            playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
+            handledStop_=nativeStops_.load();openingManager_=wanted.continuous||wanted.reason==Reason::Lineup?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));
         }
     }
@@ -172,12 +193,21 @@ public:
     Reason reason()const{return static_cast<Reason>(reason_.load());}
     unsigned starts()const{return starts_;}unsigned stops()const{return stops_;}
     unsigned refreshes()const{return refreshes_;}
-    void observeNativeStop(Address manager,Address event){
+    unsigned adopted()const{return adopted_;}
+    void observeNativeStop(Address manager,Address event,uint64_t now=GetTickCount64()){
         // This runs inside the native send callback. Atomics only: the send
         // path may be nested under our audio mutex. No borrowed event survives.
-        if(!manager||openingManager_.load()!=manager||at<unsigned char>(event+0xac)!=1)return;
+        if(!manager||at<unsigned char>(event+0xac)!=1)return;
         Address description=at<Address>(event+0xa0);
-        if(at<unsigned>(description+0x40)==205964879&&at<unsigned>(description+0x44)==2466082807)++nativeStops_;
+        if(at<unsigned>(description+0x40)!=205964879)return;
+        unsigned id=at<unsigned>(description+0x44);
+        if(id==(gameplay_?3732353268u:2466082807u)){nativeStop_=now;if(openingManager_.load()==manager)++nativeStops_;}
+        else if(id==(gameplay_?3736232244u:1690946487u)){
+            int size=0;unsigned n=at<unsigned>(event+0x18);Address values=at<Address>(event+0x20);
+            if(n!=2)return;
+            for(unsigned i=0;i<n;++i){Address value=at<Address>(values+i*8),d=at<Address>(value+0x30);if(at<int>(d+0x40)==1&&named(at<Address>(d+0x20),"reacSize"))size=at<int>(value);}
+            if(size<0||size>3)return;nativeManager_=manager;nativeSize_=size;nativeStart_=now;
+        }
     }
     void fail(){healthy_=false;}
 };

@@ -76,8 +76,8 @@ int main(){
     assert(created==stableCreated&&released==stableReleased&&runtime.db()==-6);
     runtime.tick(second.owner+0x40,false,mixerLevel(0.22f));assert(released==stableReleased+1&&runtime.db()==0);
     runtime.tick(second.owner+0x40,true,mixerLevel(1));assert(created==stableCreated);
-    // Positive gain is an explicit opt-in confined to Crowd (9). Chants and
-    // every other group keep their attenuation-only ceiling.
+    // Positive gain is an explicit opt-in for a specific crowd group. Chants
+    // and unrelated groups keep their attenuation-only ceiling.
     Runtime boost;boost.configure(image,nullptr,create,release,source,12,clockSource);
     put(second.stock.group.address()+0x28,static_cast<unsigned short>(9));
     boost.tick(second.owner+0x40,true,3,false,false,9);assert(boost.db()==3);
@@ -104,6 +104,14 @@ int main(){
     bed.tick(second.owner+0x40,false,0,false,false,13);assert(bed.db()==0);
     bed.tick(second.owner+0x40,true,3,false,false,9);assert(bed.db()==0); // Cannot boost a second group.
     bed.tick(second.owner+0x40,true,3,false,false,31);assert(bed.db()==0);
+    for(auto spec:{std::pair<unsigned short,const char*>{static_cast<unsigned short>(15),"Reactions"},{static_cast<unsigned short>(18),"Swells"}}){
+        put(second.stock.group.address()+0x28,spec.first);std::memset(second.stock.groupName,0,sizeof(second.stock.groupName));std::memcpy(second.stock.groupName,spec.second,std::strlen(spec.second)+1);
+        Runtime layer;layer.configure(image,nullptr,create,release,source,4,clockSource,spec.first);
+        gainTime+=300;layer.tick(second.owner+0x40,true,3.5f,false,false,spec.first);assert(layer.db()==3.5f);
+        gainTime+=10;layer.tick(second.owner+0x40,true,.5f,false,false,spec.first);assert(layer.db()==.5f); // Shared headroom shrinks without waiting on a fade cooldown.
+        layer.tick(second.owner+0x40,false,0,false,false,spec.first);assert(layer.db()==0);
+        layer.tick(second.owner+0x40,true,3,false,false,31);assert(layer.db()==0);
+    }
     put(second.stock.group.address()+0x28,static_cast<unsigned short>(14));
     Runtime failed;failed.configure(image,nullptr,create,release,source);failCreate=true;
     failed.tick(second.owner+0x40,true,-6);assert(!failed.healthy());unsigned attempts=created;
