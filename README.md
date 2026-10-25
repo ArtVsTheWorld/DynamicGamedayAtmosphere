@@ -1,35 +1,36 @@
 # Dynamic Gameday Atmosphere
 
-By Ace — Update 2 (build 1.54.0)
+By Ace. A College Football 27 plugin for MMC.
 
-Fans arrive, leave and take halftime seat breaks as the game unfolds. Fuller stadiums get more involved sound, play reactions and camera effects. Big moments get bigger celebrations.
+Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
+
+**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** · [Full feature list](FEATURES.md)
 
 ## Install or update
 
-1. Close both the game and MMC.
-2. Copy `DynamicGamedayAtmosphere.dll` into MMC's `Plugins` folder, replacing your previous copy.
-3. Open MMC and launch the game through it.
+1. Close the game and MMC.
+2. Download the ZIP from Releases.
+3. Copy `DynamicGamedayAtmosphere.dll` from its `Plugins` folder into MMC's `Plugins` folder.
+4. Start MMC and launch the game through it.
 
-Keep your settings file. Supported settings update automatically. Restart both programs after every DLL update.
+Keep your existing INI when updating. Settings migrate automatically. Restart both programs after replacing the DLL.
 
 ## Settings
 
-Open `Plugins/DynamicGamedayAtmosphere.ini`. Every option explains its default, range and what turning it up or down does.
+Edit `Plugins/DynamicGamedayAtmosphere.ini`. Each option explains its default, range and what it changes.
 
-- **Dynamic Gameday Attendance:** arrivals, permanent departures, halftime breaks and seating patterns.
-- **Dynamic Gameday Soundscape:** crowd sound, buildup, play reactions and celebrations.
-- **Dynamic Gameday Broadcast:** camera movement and extra replay opportunities.
+- **Attendance:** arrivals, departures, halftime seat breaks and seating patterns.
+- **Soundscape:** crowd sound, anticipation, play reactions and celebrations.
+- **Broadcast:** camera movement and extra replay opportunities.
 
-Leave the four General update markers alone. Audio fullness is how full the mapped stands are; attendance is the share of this game's original crowd still present. They can differ.
+The game still chooses the original peak attendance. Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
 
-Read `FEATURES.md` for the full feature list and important setting combinations. The game still decides the original peak crowd; this mod never creates a sellout the game did not plan.
+## Problems?
 
-## Troubleshooting
+[Open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose) with your plugin/game/MMC versions, matchup, settings and logs. Logs are in `Plugins/DynamicGamedayAtmosphere/Logs/`.
 
-Check `Plugins/DynamicGamedayAtmosphere/Logs/status.txt` for the loaded version, game process and active features. Logs are in the same folder. The main log clears at its configured size; status is replaced each second.
+For missing audio, disable Soundscape's `Enabled` option and restart MMC and the game. Re-enabling it also needs a restart. There is no EXE hash requirement, but an EA update may still require new game bindings.
 
-For missing audio, turn off **Enabled** under **Dynamic Gameday Soundscape**, then restart MMC and the game. This skips the mod's audio hooks; attendance and extra replays remain available. Added atmosphere motion depends on Soundscape. Restart again when re-enabling Soundscape.
+## Source and updates
 
-For a bug report, include the matchup/stadium, game mode, quarter/clock, what happened, your INI, `status.txt`, the main log and `launcher.log`. Include a crash dump if one was created.
-
-The plugin has no EXE hash requirement. It verifies the game functions it uses; a game update or another hook can make a particular control unavailable. Added motion changes presentation, not gameplay home-field advantage.
+[Build instructions](docs/BUILDING.md) · [Updating after an EA patch](docs/UPDATING-THE-GAME.md) · [Release history](RELEASES.md)

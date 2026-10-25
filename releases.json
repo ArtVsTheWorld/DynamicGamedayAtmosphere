@@ -1,0 +1,31 @@
+{
+  "releases": [
+    {
+      "name": "Release",
+      "workingVersion": "1.20.1",
+      "tag": "v1.20.1",
+      "asset": "DynamicGamedayAtmosphere-Release.zip",
+      "sha256": "214a7e5a47d33c07f52dd79b9ad4ddd180cfd3763763779382c06b379e800dc7",
+      "notes": "docs/releases/Release.md",
+      "latest": false
+    },
+    {
+      "name": "Update 1",
+      "workingVersion": "1.26.1",
+      "tag": "v1.26.1",
+      "asset": "DynamicGamedayAtmosphere-Update1.zip",
+      "sha256": "1f0118d362411e3e6cc7df55d014495e4b6b89a779836e0abd3831b402386b89",
+      "notes": "docs/releases/Update1.md",
+      "latest": false
+    },
+    {
+      "name": "Update 2",
+      "workingVersion": "1.54.0",
+      "tag": "v1.54.0",
+      "asset": "DynamicGamedayAtmosphere-Update2.zip",
+      "sha256": "919ff8002db4f918130a2975d1c1af31d7c2253468a0f96ae60205d98578b0cb",
+      "notes": "docs/releases/Update2.md",
+      "latest": true
+    }
+  ]
+}

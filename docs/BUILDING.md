@@ -1,0 +1,36 @@
+# Building the plugin
+
+Use Windows 10 or 11 with Git, Visual Studio 2022 or newer Build Tools (**Desktop development with C++** and a Windows SDK), and the .NET Framework C# compiler included with Windows. Building the final adapter also needs your local MMC installation.
+
+From the repository folder:
+
+```powershell
+.\Source\Build.ps1 -Automatic
+```
+
+This builds the native runtime and loader and runs all 74 build checks. Output goes to `Build/Release1540` for build 1.54.0. The number comes from `Source/Product.json`. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+
+To compile the MMC adapter and make a download:
+
+```powershell
+.\Source\Package.ps1 -MmcRoot 'C:\Your\MMC' -ReleaseName 'Update 3'
+```
+
+Set the working version in `Source/Product.json` and build it first. Use the actual public update name; the command above is an example for a future release. `MmcRoot` must contain `FrostyCore.dll` and `FrostySdk.dll`. Those files belong to MMC and are not included here. Packaging does not install anything unless you add `-Install`.
+
+The ZIP contains only the adapter DLL, README and feature list. The native runtime, loader and default INI are embedded in the adapter. Do not upload game files, MMC assemblies, dumps, saves or local runtime history.
+
+## Extra checks
+
+```powershell
+python -m unittest discover -s Tests -p 'test_*.py'
+.\Tools\VerifyRelease.ps1 -Archive '.\Release\DynamicGamedayAtmosphere-Update3.zip'
+```
+
+`Tests/HostChecks.cs` checks an adapter against an installed MMC SDK. `Tests/InstallTests.ps1` exercises installation/rollback in a disposable folder under Build. Neither replaces a live game test. The GitHub Windows workflow builds native code and runs tests without a game or MMC installation; it does not create or publish releases.
+
+## Historical tags
+
+`v1.20.1` and `v1.26.1` were imported from preserved source snapshots. Their original build scripts retain the original local tooling paths. The portable build setup is on `main`; actual game code at each tag is preserved for comparisons. Release archives are the original files, not rebuilds.
+
+The first Git commits record the import date. They are not an invented history of every development session. Public names are Release, Update 1, Update 2, etc.; numbered builds identify source, runtime payloads and bug reports.

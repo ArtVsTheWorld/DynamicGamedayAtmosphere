@@ -7,9 +7,13 @@ if($Version -notmatch '^[A-Za-z0-9-]+$'){throw 'Invalid build name'}
 $crowdRoot=Split-Path -Parent $PSScriptRoot
 $crowdOut=Join-Path $crowdRoot ('Build\'+$Version)
 New-Item -ItemType Directory -Path $crowdOut -Force | Out-Null
-$crowdVs=& 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe' -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$crowdVsWhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if(-not(Test-Path -LiteralPath $crowdVsWhere)){throw 'Install Visual Studio Build Tools with Desktop development with C++ and a Windows SDK.'}
+$crowdVs=& $crowdVsWhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if(-not $crowdVs){throw 'Visual Studio C++ tools were not found. Add Desktop development with C++ in Visual Studio Installer.'}
 $crowdTool=Get-ChildItem -LiteralPath (Join-Path $crowdVs 'VC\Tools\MSVC') -Directory | Sort-Object Name -Descending | Select-Object -First 1
-$crowdKits='C:\Program Files (x86)\Windows Kits\10'
+$crowdKits=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10'
+if(-not(Test-Path -LiteralPath (Join-Path $crowdKits 'Include'))){throw 'A Windows 10/11 SDK is required.'}
 $crowdSdk=Get-ChildItem -LiteralPath (Join-Path $crowdKits 'Include') -Directory | Sort-Object Name -Descending | Select-Object -First 1
 $crowdCl=Join-Path $crowdTool.FullName 'bin\Hostx64\x64\cl.exe'
 $crowdMl=Join-Path $crowdTool.FullName 'bin\Hostx64\x64\ml64.exe'
@@ -20,11 +24,8 @@ Set-Content -LiteralPath (Join-Path $crowdOut 'ProductVersion.h') -Value $produc
 $buildInfo='namespace DynamicGamedayAtmosphere { internal static class BuildInfo { public const string Version="'+$product.version+'"; public const string AssemblyVersion="'+$product.version+'.0"; public const string NativeFile="DynamicGamedayAtmosphereNative-'+$product.version+'.dll"; } }'
 Set-Content -LiteralPath (Join-Path $crowdOut 'BuildInfo.cs') -Value $buildInfo -Encoding ascii
 $crowdInclude+=('/I'+$crowdOut)
-$crowdVendor=Join-Path $crowdRoot '..\WeeklyEvents\Vendor\minhook\src'
 Push-Location $crowdOut
 try {
-    & $crowdCl /nologo /O2 /MT /W3 @crowdInclude /c (Join-Path $crowdVendor 'buffer.c') (Join-Path $crowdVendor 'hook.c') (Join-Path $crowdVendor 'trampoline.c') (Join-Path $crowdVendor 'hde\hde64.c')
-    if($LASTEXITCODE -ne 0){throw 'MinHook build failed'}
     $crowdObjects=@()
     if(-not $Automatic){
         & $crowdMl /nologo /c (Join-Path $PSScriptRoot 'TickGate.asm')
@@ -55,7 +56,7 @@ try {
         }
         & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /DUNICODE /D_UNICODE @crowdInclude (Join-Path $PSScriptRoot 'LoadRuntime.cpp') /Fe:LoadDynamicGamedayAtmosphere.exe /link @crowdLib
         if($LASTEXITCODE -ne 0){throw 'Loader build failed'}
-        & 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe' /nologo /out:SettingsTests.exe (Join-Path $crowdRoot 'Tests\SettingsTests.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs')
+        & (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') /nologo /out:SettingsTests.exe (Join-Path $crowdRoot 'Tests\SettingsTests.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs')
         if($LASTEXITCODE -ne 0){throw 'Settings tests build failed'}
         & '.\SettingsTests.exe'
         if($LASTEXITCODE -ne 0){throw 'Settings tests failed'}
