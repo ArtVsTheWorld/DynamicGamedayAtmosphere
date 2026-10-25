@@ -20,6 +20,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & .\Source\Build.ps1 -Automatic *>&1 | Tee-Object -FilePath build-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check SDK discovery
+        shell: pwsh
+        run: .\Tests\BuildToolsTests.ps1
       - name: Test the offline inspection tool
         shell: pwsh
         run: python -m unittest discover -s Tests -p 'test_*.py'

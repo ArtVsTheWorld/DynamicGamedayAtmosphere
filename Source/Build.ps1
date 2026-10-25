@@ -13,8 +13,9 @@ $crowdVs=& $crowdVsWhere -latest -products '*' -requires Microsoft.VisualStudio.
 if(-not $crowdVs){throw 'Visual Studio C++ tools were not found. Add Desktop development with C++ in Visual Studio Installer.'}
 $crowdTool=Get-ChildItem -LiteralPath (Join-Path $crowdVs 'VC\Tools\MSVC') -Directory | Sort-Object Name -Descending | Select-Object -First 1
 $crowdKits=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10'
-if(-not(Test-Path -LiteralPath (Join-Path $crowdKits 'Include'))){throw 'A Windows 10/11 SDK is required.'}
-$crowdSdk=Get-ChildItem -LiteralPath (Join-Path $crowdKits 'Include') -Directory | Sort-Object Name -Descending | Select-Object -First 1
+. (Join-Path $PSScriptRoot 'BuildTools.ps1')
+$crowdSdk=Get-DgaWindowsSdk -KitsRoot $crowdKits
+Write-Output ('Using MSVC '+$crowdTool.Name+' and Windows SDK '+$crowdSdk.Name)
 $crowdCl=Join-Path $crowdTool.FullName 'bin\Hostx64\x64\cl.exe'
 $crowdMl=Join-Path $crowdTool.FullName 'bin\Hostx64\x64\ml64.exe'
 $crowdInclude=@(('/I'+(Join-Path $crowdTool.FullName 'include')),('/I'+(Join-Path $crowdSdk.FullName 'ucrt')),('/I'+(Join-Path $crowdSdk.FullName 'shared')),('/I'+(Join-Path $crowdSdk.FullName 'um')))
