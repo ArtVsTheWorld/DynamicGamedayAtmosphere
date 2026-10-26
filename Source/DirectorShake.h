@@ -31,6 +31,8 @@ struct Cue {
     unsigned distanceExtraMs=0;
     float hostileOpening=0;
     bool confirmedRun=false;
+    bool cancelled=false;
+    float rampFloor=0;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
@@ -64,6 +66,7 @@ struct Input {
     uint64_t safety=0;
     unsigned distanceExtraMs=0;
     float hostileOpening=0;uint64_t blockedFieldGoal=0;
+    bool cancelLive=false;
 };
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0;int phase_=0;
@@ -98,14 +101,23 @@ public:
         // Retain the earned impact/tail until its original expiry; a fresh
         // snap, pause/replay suspension or world change cancels the old cue.
         if(newSnap){liveCue_={};ramp_=0;}
+        if(x.cancelLive&&liveCue_.kind!=Kind::None&&!liveCue_.cancelled){
+            float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+500;liveCue_.percent=value;
+            liveCue_.tail=liveCue_.cancelled=true;liveCue_.impactOnly=liveCue_.confirmedRun=false;ramp_=0;
+        }
         if(!x.duringAllowed&&liveCue_.kind!=Kind::None&&!liveCue_.tail&&!liveCue_.impactOnly){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade;liveCue_.percent=value;liveCue_.tail=true;liveCue_.confirmedRun=false;
         }
-        bool ramp=x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
-        if(ramp&&(liveCue_.kind==Kind::None||ramp_!=x.runBuildup)){liveCue_={x.match,x.epoch,x.now,x.now,x.now+45000,Kind::LivePlay,0,false,0,x.now,false};liveCue_.runBuildup=true;ramp_=x.runBuildup;join(liveCue_);}
+        bool ramp=!x.cancelLive&&x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
+        if(ramp&&(liveCue_.kind==Kind::None||ramp_!=x.runBuildup)){
+            float inherited=liveCue_.kind==Kind::LivePlay&&liveCue_.impactOnly?previousLevel:0;
+            liveCue_={x.match,x.epoch,x.now,x.now,x.now+45000,Kind::LivePlay,0,false,0,x.now,false};
+            liveCue_.rampFloor=(std::min)(inherited,configured(settings,Kind::LivePlay));
+            liveCue_.runBuildup=true;ramp_=x.runBuildup;join(liveCue_);
+        }
         // Crossing the configured gain confirms the cheer without restarting
         // the shake that builds over the preceding five yards.
-        if(live&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){bool impact=x.phase!=3||x.duringImpact;liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?reactionFade+400+(std::min)(settings.impactExtraMs,5000u):45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};liveCue_.catchReaction=x.duringCatch;join(liveCue_);}
+        if(live&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){bool impact=x.phase!=3||x.duringImpact;liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?reactionFade+400+(std::min)(settings.impactExtraMs,5000u):45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};liveCue_.catchReaction=x.duringCatch;join(liveCue_);}
         if(live&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay)liveCue_.confirmedRun=true;
         if(liveCue_.kind!=Kind::None){
             if(!liveCue_.tail&&!liveCue_.impactOnly)liveCue_.distanceExtraMs=(std::max)(liveCue_.distanceExtraMs,(std::min)(x.distanceExtraMs,8000u));
@@ -114,7 +126,7 @@ public:
             }
             if(liveCue_.runBuildup&&!liveCue_.confirmedRun&&!ramp&&x.phase==3&&!liveCue_.tail){float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
             if(!liveCue_.impactOnly&&x.phase!=3&&!liveCue_.tail){float value=(std::max)(strength(liveCue_,x.now),liveCue_.percent*.7f);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
-            liveCue_.updated=x.now;if(!liveCue_.tail)liveCue_.percent=liveCue_.impactOnly&&liveCue_.catchReaction?limit(settings.catchImpact):ramp?(std::min)(configured(settings,Kind::LivePlay),1.f+(configured(settings,Kind::LivePlay)-1.f)*(std::clamp)((x.runProgress-.0001f)/.9999f,0.f,1.f)):configured(settings,Kind::LivePlay);
+            liveCue_.updated=x.now;if(!liveCue_.tail)liveCue_.percent=liveCue_.impactOnly&&liveCue_.catchReaction?limit(settings.catchImpact):ramp?(std::max)(liveCue_.rampFloor,(std::min)(configured(settings,Kind::LivePlay),1.f+(configured(settings,Kind::LivePlay)-1.f)*(std::clamp)((x.runProgress-.0001f)/.9999f,0.f,1.f))):configured(settings,Kind::LivePlay);
             if(x.now>=liveCue_.until)liveCue_={};
         }
         if(pulse_.kind!=Kind::None&&(x.now>=pulse_.until||newSnap||(pulse_.kind==Kind::Eruption&&!x.eruptionAlive)))pulse_={};
@@ -151,7 +163,10 @@ inline float projectionScale(const std::array<float,16>& p,Kind kind){
     valid=valid&&p[0]>.1f&&p[0]<10000&&p[5]>.1f&&p[5]<10000&&std::fabs(p[15])<.001f&&std::fabs(std::fabs(p[11])-1)<.01f;
     if(!valid)return .35f;
     constexpr float reference=3.1715948f; // 35-degree vertical field of view.
-    return (std::clamp)(reference/p[5],0.0f,1.0f);
+    // Preserve perceived movement on wide views as well as reducing closeups.
+    // The two-times ceiling prevents extreme/ultrawide projections from
+    // requesting an unbounded physical rotation. Configured envelopes stay intact.
+    return (std::clamp)(reference/p[5],0.0f,2.0f);
 }
 inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;

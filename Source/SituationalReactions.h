@@ -6,7 +6,7 @@ inline const char* name(Event e){switch(e){case Event::FailedConversion:return "
 struct Outcome {uint64_t id=0;int type=95;Event event=Event::None;};
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t sequence_=0,last_=0,serial_=0;
-    bool flight_=false,caught_=false,sent_=false,ready_=false,fieldGoal_=false;int phase_=-1,readyType_=-1;float air_=0;
+    bool flight_=false,caught_=false,sent_=false,ready_=false,fieldGoal_=false,passReset_=false;int phase_=-1,readyType_=-1;float air_=0;
 public:
     void reset(){*this=Model{};}
     Outcome observe(const energy::Play& p,const energy::Play& snap,const energy::Outcome& result,
@@ -14,7 +14,7 @@ public:
                     int kind,int ball,float catchSpot,float ballSpot,bool held,int selectedType=3){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
         if(!allowed||!match||p.simulated||!valid(p.game)||now<last_||(last_&&now-last_>750)){
-            sequence_=0;last_=now;flight_=caught_=sent_=ready_=false;phase_=-1;air_=0;return {};
+            sequence_=0;last_=now;flight_=caught_=sent_=ready_=passReset_=false;phase_=-1;air_=0;return {};
         }
         last_=now;
         bool snapSeen=p.game.phase==3&&phase_==1&&ready_&&energy::normalDown(snap);
@@ -23,7 +23,7 @@ public:
         if(!sequence)return {};
         if(sequence_!=sequence){
             if(!snapSeen)return {};
-            sequence_=sequence;flight_=caught_=sent_=false;air_=0;fieldGoal_=readyType_==21;
+            sequence_=sequence;flight_=caught_=sent_=passReset_=false;air_=0;fieldGoal_=readyType_==21;
         }
         auto emit=[&](int type,Event event){sent_=true;return Outcome{++serial_,type,event};};
         bool live=p.game.phase==3,post=p.game.phase==4||p.game.phase==5||p.game.phase==1||p.game.phase==7;
@@ -33,11 +33,13 @@ public:
             return snap.offense==0&&!p.game.neutral?emit(95,Event::MissedHomeFieldGoal):emit(59,Event::MissedVisitorFieldGoal);
         }
         bool axis=std::isfinite(snap.fieldSpot)&&std::fabs(snap.fieldSpot)<=50&&(snap.attackDirection==1||snap.attackDirection==-1);
-        if(live&&kind==3&&ball==1&&!held){
+        if(live&&kind==0)passReset_=true;
+        if(live&&(kind==3||(passReset_&&kind==1))&&ball==1&&!held){
             flight_=true;
             if(axis&&std::isfinite(ballSpot)&&std::fabs(ballSpot)<=60)air_=(std::max)(air_,(ballSpot-snap.fieldSpot)*snap.attackDirection);
         }
-        if(live&&flight_&&kind==1&&!caught_&&axis&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50){
+        if(live&&passReset_&&kind==1&&ball==3&&held)flight_=true;
+        if(live&&flight_&&kind==1&&ball!=1&&!caught_&&axis&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50){
             caught_=true;float yards=std::round((catchSpot-snap.fieldSpot)*snap.attackDirection);
             if(!sent_&&!p.game.neutral&&snap.offense==1&&p.offense==1&&yards>=15&&yards<=100)return emit(95,Event::DeepVisitorCatch);
         }

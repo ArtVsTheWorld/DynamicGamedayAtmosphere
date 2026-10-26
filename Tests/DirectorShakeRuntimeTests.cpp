@@ -82,6 +82,18 @@ int main(){
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));nextOriginal=foreign;
     Cue running=cue;running.kind=Kind::LivePlay;running.percent=10;
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
+    // Exercise the real renderer for every category, not just its pure scale
+    // helper. Close/wide compensation leaves source data and cue timing intact.
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})for(float focal:{12.f,1.5857974f}){
+        auto tested=cue;tested.kind=kind;tested.until=17000;projection[5]=focal;
+        std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
+        output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000);
+        assert(output!=source&&view==saved&&zoom.playing(tested,2000));
+        assert(std::fabs(zoom.unscaled()-5)<.001f&&std::fabs(zoom.zoomScale()-(focal==12?3.1715948f/12:2))<.001f);
+        assert(std::fabs(zoom.percent()-5*zoom.zoomScale())<.001f);
+        auto other=tested;++other.began;assert(!zoom.playing(other,2000));
+        assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
+    }
     views[0]=addr(view[0]);
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),reinterpret_cast<const unsigned char*>(original.data())+0x2b4,sizeof(projection));
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());

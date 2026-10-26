@@ -21,6 +21,7 @@ struct Intent {
     // Reaction lifetime, independent of the short one-shot cheer request.
     uint64_t reactionId=0;
     bool hostileOpening=false;int lineupType=91;
+    bool motionCompanion=false,supportingOnly=false;
 };
 inline Intent select(const energy::Settings& c,const energy::Play& p,const energy::Model& model,
                      uintptr_t match,unsigned epoch,uint64_t now,bool allowed,float permanentFraction=1){

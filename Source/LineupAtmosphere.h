@@ -166,7 +166,7 @@ struct Model {
         float competition=competitive(s);
         bool bigQualified=big&&fraction>=bigThreshold;
         bool special=ot||late>0,regular=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
-        hostileOpening=regular&&c.opening&&!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
+        hostileOpening=regular&&c.opening&&((s.neutral&&openingDrive.firstOpeningPlay())||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
         packedHouse=regular&&!big&&!special&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
@@ -260,7 +260,7 @@ struct Model {
         out.lineupCheerUntil=cheerBegan+1500;
         out.cheers=cheerMoment&&p.game.phase==1;out.deepCheers=false;
         if(hostileOpening){
-            out.hostileOpening=true;out.lineupType=59;out.lineupCheer=hostileCheer;out.lineupCheerBegan=hostileCheerBegan;out.lineupCheerUntil=hostileCheerBegan+1500;
+            out.hostileOpening=true;out.lineupType=p.game.neutral?91:59;out.lineupCheer=hostileCheer;out.lineupCheerBegan=hostileCheerBegan;out.lineupCheerUntil=hostileCheerBegan+1500;
             out.cheers=p.game.phase==1;out.deepCheers=true;out.intensity=(std::max)(out.intensity,excitement(now,fraction));
         }
         if(weight<=0)return out;

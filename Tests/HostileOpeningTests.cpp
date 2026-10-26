@@ -38,7 +38,7 @@ int main(){
         p.game.phase=3;tick(4700);p.offense=1;p.game.phase=5;p.down=1;tick(4800);p.game.phase=1;tick(4900);assert(!layers.hostileOpening);
     }
     for(int blocked=0;blocked<7;++blocked){auto p=opening(1,720);lineup::Model m;auto c=config;
-        if(blocked==0)c.opening=false;if(blocked==1)c.lineups=false;if(blocked==2)p.game.neutral=true;
+        if(blocked==0)c.opening=false;if(blocked==1)c.lineups=false;if(blocked==2)c.enabled=false;
         if(blocked==3)p.resumed=true;if(blocked==4)p.simulated=true;if(blocked==5)p.game.seconds-=10;
         m.observe(c,p,123,1,1000,true,.9f,true,nullptr,6060);p.game.phase=1;p.down=1;
         m.observe(c,p,123,1,2000,true,blocked==6?.89f:.9f,true,nullptr,6060);assert(!m.hostileOpening);

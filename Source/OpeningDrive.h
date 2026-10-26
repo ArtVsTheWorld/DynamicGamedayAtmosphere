@@ -8,7 +8,8 @@ struct OpeningDrive {
     bool seen=false,armed=false,started=false,closed=false,finishing=false;
     int offense=-1,home=0,away=0;float highTime=0;
     int firstOffense=-1;bool firstSnapSeen=false,firstSnapEnded=false;
-    bool awayOpeningPlay()const{return armed&&!closed&&firstOffense==1&&!firstSnapEnded;}
+    bool firstOpeningPlay()const{return armed&&!closed&&firstOffense>=0&&!firstSnapEnded;}
+    bool awayOpeningPlay()const{return firstOpeningPlay()&&firstOffense==1;}
     bool observe(const energy::Play& p,const energy::Outcome* result=nullptr){
         const auto& s=p.game;
         if(!valid(s))return false;
