@@ -91,7 +91,7 @@ public:
             // One early opportunity, never a delayed cheer after waiting at the
             // line. A result accent or native cheer can replace this burst.
             if(now>=wanted.lineupCheerUntil||age>=1500){lineup_=wanted.lineupCheer;report(Source::Lineup,lineup_,Delivery::Expired);return;}
-            if(lastLineupCheer_&&now>=lastLineupCheer_&&now-lastLineupCheer_<6000){lineup_=wanted.lineupCheer;report(Source::Lineup,lineup_,Delivery::Cooldown);return;}
+            if(!wanted.hostileOpening&&lastLineupCheer_&&now>=lastLineupCheer_&&now-lastLineupCheer_<6000){lineup_=wanted.lineupCheer;report(Source::Lineup,lineup_,Delivery::Cooldown);return;}
             lineup=true;
         }
         if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
@@ -112,7 +112,7 @@ public:
             if(positives>=2){limited=true;return;}
             if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else healthy_=false;
         };
-        send(result?wanted.resultType:91);
+        send(result?wanted.resultType:lineup?wanted.lineupType:91);
         // Hit together. Sustained roar/swell channels supply the aftermath;
         // no delayed or repeated cheer barrage follows the initial eruption.
         if((victory||lineup||result)&&wanted.deepCheers&&healthy_)send(75);

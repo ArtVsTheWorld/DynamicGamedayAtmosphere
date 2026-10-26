@@ -42,7 +42,7 @@ public:
         auto address=reinterpret_cast<uintptr_t>(destination);
         if(address<view+0x800&&address+sizeof(float)*16>view)return;
         std::array<float,16> projection{},output{};Cue adjusted=cue;
-        Kind projectionKind=cue.kind==Kind::LivePlay||cue.kind==Kind::Safety?Kind::Touchdown:cue.kind;
+        Kind projectionKind=cue.kind==Kind::LivePlay||cue.kind==Kind::Safety||cue.hostileOpening>0?Kind::Touchdown:cue.kind;
         if(projectionKind==Kind::Touchdown||projectionKind==Kind::Eruption)read(view+0x2b4,projection.data(),sizeof(projection));
         float scale=projectionScale(projection,projectionKind);adjusted.percent*=scale;adjusted.impact*=scale;adjusted.transitionFrom*=scale;
         if(!read(address,output.data(),sizeof(output))||!apply(output,adjusted,now))return;

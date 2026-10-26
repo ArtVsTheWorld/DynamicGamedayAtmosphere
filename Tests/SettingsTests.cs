@@ -24,6 +24,7 @@ class SettingsTests {
    string defaults=File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","Source","DynamicGamedayAtmosphere.ini"));
    SettingsMigration.Ensure(next,old,defaults);string fresh=File.ReadAllText(next);
    Check(GetPrivateProfileInt("Dynamic Gameday Broadcast","PauseMenuFullness",0,next)==1);
+   Check(Level("Dynamic Gameday Broadcast","HostileOpeningShakeMaximumPercent",next)==15);
    Check(fresh.Contains("Ordinary opening drives use critical-down fullness"));
    Check(Math.Abs(Level("Atmosphere","MaximumBoostPercent",next)-25)<.001&&Math.Abs(Level("Atmosphere","EruptionBoostPercent",next)-50)<.001);
    Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==39&&!fresh.Contains("[Energy]")&&!fresh.Contains("Momentum="));
@@ -247,6 +248,9 @@ class SettingsTests {
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=36\n[Dynamic Gameday Broadcast]\nCatchImpactShakeStrengthPercent=7.5\n[Dynamic Gameday Attendance]\nLateTrafficEnabled=0\nLateTurnoverExtraMax=4\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Dynamic Gameday Broadcast","CatchImpactShakeStrengthPercent",next)==7.5&&Level("Dynamic Gameday Attendance","LateTrafficEnabled",next)==0&&Level("Dynamic Gameday Attendance","LateTurnoverExtraMax",next)==4);
    string trafficCustom=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(trafficCustom==File.ReadAllText(next));
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=39\n[Dynamic Gameday Broadcast]\nHostileOpeningShakeMaximumPercent=0\n");SettingsMigration.Ensure(next,old,defaults);
+   Check(Level("Dynamic Gameday Broadcast","HostileOpeningShakeMaximumPercent",next)==0);
+   string hostileCustom=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(hostileCustom==File.ReadAllText(next));
    Console.WriteLine("PASS: clean/legacy settings, native quieting migration, 3-5/5-10 randomized lineup ceilings, 20-yard defaults/pass-flight option, 11-second TD, firm fullness floor, reaction-fade/halftime controls, preserved custom settings/comments, idempotence and future schemas.");return 0;
   }catch(Exception e){Console.Error.WriteLine(e);return 1;}
   finally{foreach(string file in Directory.GetFiles(dir))File.Delete(file);Directory.Delete(dir);}

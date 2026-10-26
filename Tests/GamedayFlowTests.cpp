@@ -40,7 +40,8 @@ int main(){
     motion::Settings camera;assert(camera.ordinary==5&&camera.critical==10&&camera.lineupCheer==5&&camera.touchdownMs==11000);
     for(int n=0;n<4;++n){motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.lineup=x.venueEligible=true;x.lineupId=1;x.phase=1;x.now=1000;x.lineupScale=n/3.f;
         m.observe(camera,x);x.now=2000;assert(std::fabs(motion::strength(m.observe(camera,x),2000)-(3+2*n/3.f))<.001f);
-        x.lineupCheer=true;x.now=2100;assert(motion::strength(m.observe(camera,x),2100)==5);
+        x.lineupCheer=true;x.now=2100;assert(std::fabs(motion::strength(m.observe(camera,x),2100)-(3+2*n/3.f))<.001f);
+        x.now=2300;assert(motion::strength(m.observe(camera,x),2300)==5); // Smooth transition to a cheer's stronger target.
     }
     // Defensive impacts can arrive at postplay, without sustained live shake.
     motion::Model impact;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=5;x.now=10000;x.duringPlay=1;x.duringImpact=true;

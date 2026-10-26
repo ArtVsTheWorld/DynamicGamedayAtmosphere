@@ -141,5 +141,15 @@ int main(){
     wanted.liveCheer=2;explosive.tick(addr(entity),wanted,800100);assert(sends==initial+1&&explosive.liveDelivered(2));
     put<int>(addr(instances),83);put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;
     explosive.tick(addr(entity),wanted,800100);assert(sends==initial+1&&explosive.liveResolved(3)&&!explosive.liveDelivered(3));
-    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, explosive live cheers, priority, leases, cleanup, reentrancy and faults.");
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    attendance::cheer::Runtime hostile;hostile.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=993;wanted.epoch=1;wanted.updated=900000;wanted.lineupCheer=1;wanted.lineupCheerBegan=900000;wanted.lineupCheerUntil=901500;
+    wanted.cheers=wanted.deepCheers=wanted.hostileOpening=true;wanted.lineupType=59;
+    hostile.tick(addr(entity),wanted,900000);assert(sends==initial+2&&received[received.size()-2]==59&&received.back()==75);balanced();
+    hostile.tick(addr(entity),wanted,900100);assert(sends==initial+2); // No delayed or repeated opening accents.
+    wanted.lineupCheer=2;wanted.updated=wanted.lineupCheerBegan=900200;wanted.lineupCheerUntil=901700;
+    hostile.tick(addr(entity),wanted,900200);assert(sends==initial+4); // Opener is not suppressed by the kickoff's recent cheer.
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+32);put<int>(addr(instances),83);put<int>(addr(instances)+16,91);
+    wanted.lineupCheer=3;hostile.tick(addr(entity),wanted,900200);assert(sends==initial+4); // Existing two-voice limit remains authoritative.
+    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, hostile defensive opener, explosive live cheers, priority, leases, cleanup, reentrancy and faults.");
 }

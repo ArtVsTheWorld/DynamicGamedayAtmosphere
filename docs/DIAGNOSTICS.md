@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.6**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.55.7**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.6/
+    Runtime-1.55.7/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -60,6 +60,16 @@ Live timeout observation preserved native excitement. Penalty-specific one-shot 
 
 A fresh completed offensive play losing five or more yards can trigger the existing defensive cheer and 10% impact without a native sack flag. Confirmed shorter sacks still work. The play must already have qualifying atmosphere/fullness; unavailable yardage, stale results, special teams and unproved fourth-down field flips do not create a TFL. The play summary explicitly reports five-yard loss confirmation. Check an exactly five-yard loss, a larger loss and a four-yard loss without sack proof. Include a timeout/selection handoff to verify the existing fade.
 
+A fresh native sack confirmation can also identify a fourth-down sack after possession has already flipped, even if yardage is unavailable. This does not guess the loss or treat a turnover on downs as a sack. Test a fourth-down sack without a takeaway, then an ordinary incomplete fourth-down pass. The sack should receive its eligible impact; the incompletion keeps only its normal defensive-stop rules.
+
+## Opening visitors and earlier camera buildup
+
+Use a fresh home-stadium game with qualifying atmosphere, receive the opening kickoff as the visitors, then select the first offensive play. Expect the defensive cheer and alternative large cheer together, a quick-building anticipation roar and supporting swell, and stronger opening motion. The default strength is 5% at 6,060 or fewer valid mapped positions, scaling smoothly to 15% at 61,888 or more. HostileOpeningShakeMaximumPercent changes the large-venue ceiling; smaller venues use one third. Zero removes the extra strength while ordinary qualified motion remains. The +35% high-leverage sound cap is unchanged.
+
+The opening log reports when this one-time cheer opportunity is requested. Native duplicates or the two-family voice limit can still cover or suppress a cheer. After the first offensive play, the special welcome must not repeat. Reverse who receives: if the home team opens, the visitors' later first possession must not get it. Also check a neutral venue and a resumed scenario. OpeningAtmosphere=0 disables this extra sequence.
+
+On ordinary qualified calls, watch for motion easing in before the lineup instead of appearing at full strength. The selection and lineup keep one ramp and one random choice. An existing earned impact/celebration remains in charge. Check a snap, timeout, camera cut and recorded replay; the replay must stay steady. These visual/timing changes need a fresh-process live check even after automated tests pass.
+
 ## Later live check
 
 For bug reports, check the current session's startup lines first. `Activation: INACTIVE` or `Required native bytes differ; no hooks installed` means DGA did not activate. A version/startup line alone does not mean its features are running. Keep the full log so earlier sessions are distinguishable from the reported one. A required game-code mismatch must be investigated; turning off individual settings will not make that layout compatible.
@@ -69,7 +79,7 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 - In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
-- For the 1.55.6 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
+- For the 1.55.7 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
 
 Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining integrated live checks are resolved.

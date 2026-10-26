@@ -19,7 +19,7 @@ int main(){
         assert(lineup::reactionEligible(p.game,gate,true,m.playContextActive(),m.qualifiedMinimum));
         sustained::Intent base;base.active=true;base.match=123;base.epoch=1;base.updated=7000;
         auto sound=m.merge(base,c,p,7000,gate);assert(sound.lineup&&sound.continuous&&sound.shakeTier==1);
-        core::Model gain;gain.update(c,p,7,gate,gate,m.momentWeight());assert(volume::boostPercent(gain.parent)<=25.01f);
+        core::Model gain;gain.update(c,p,7,gate,gate,m.momentWeight());assert(volume::boostPercent(gain.parent)<=(side==1?35.01f:25.01f)); // Hostile away opener uses the existing leverage ceiling.
         p.game.phase=3;p.game.seconds-=5;tick(7100,gate);p.game.phase=4;tick(7200,gate);
         assert(m.openingDriveQualified&&m.playContextActive());
         p.game.phase=5;p.down=2;tick(7300,gate);p.game.phase=1;tick(7400,gate);assert(m.playContextActive());

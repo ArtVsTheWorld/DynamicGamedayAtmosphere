@@ -46,6 +46,7 @@ inline NumericOption options[]={
 {L"Dynamic Gameday Broadcast",L"PlayImpactExtraSeconds",1.0,0,5.0,1000,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->impactExtraMs);}},
 {L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",8.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->catchImpact);}},
 {L"Dynamic Gameday Broadcast",L"LineupCheerShakeStrengthPercent",5.0,0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->lineupCheer);}},
+{L"Dynamic Gameday Broadcast",L"HostileOpeningShakeMaximumPercent",15.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->hostileOpeningMaximum);}},
 {L"Dynamic Gameday Broadcast",L"TouchdownShakeStrengthPercent",15.0,0.0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->touchdown);}},
 {L"Dynamic Gameday Broadcast",L"EruptionShakeStrengthPercent",22.5,0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->eruption);}},
 {L"Dynamic Gameday Broadcast",L"TouchdownShakeImpactPercent",20.0,0.0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->touchdownImpact);}},

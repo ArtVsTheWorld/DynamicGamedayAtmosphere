@@ -8,7 +8,12 @@
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety };
 inline const char* name(Kind k){switch(k){case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
-struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=4500,impactExtraMs=1000;};
+struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=4500,impactExtraMs=1000;float hostileOpeningMaximum=15;};
+inline float hostileOpeningStrength(uint64_t positions,float maximum=15){
+    if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
+    float size=static_cast<float>((std::clamp)((static_cast<double>(positions)-6060)/55828.0,0.0,1.0));
+    return (std::clamp)(maximum,0.f,30.f)*(1.f/3+2.f/3*size);
+}
 inline float limit(float x){return std::isfinite(x)?(std::clamp)(x,0.0f,100.0f):0;}
 inline float configured(const Settings& s,Kind k){switch(k){case Kind::Ordinary:return limit(s.ordinary);case Kind::Critical:return limit(s.critical);case Kind::Touchdown:case Kind::Safety:return limit(s.touchdown);case Kind::Eruption:return limit(s.eruption);case Kind::LivePlay:return limit(s.live);default:return 0;}}
 inline unsigned safetyDuration(const Settings& s){return (std::clamp)(s.touchdownMs,3000u,30000u)*7/10;}
@@ -24,6 +29,7 @@ struct Cue {
     bool runBuildup=false;
     bool catchReaction=false;
     unsigned distanceExtraMs=0;
+    float hostileOpening=0;
     bool confirmedRun=false;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
@@ -57,6 +63,7 @@ struct Input {
     uint64_t runBuildup=0;float runProgress=0;
     uint64_t safety=0;
     unsigned distanceExtraMs=0;
+    float hostileOpening=0;
 };
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0;int phase_=0;
@@ -74,10 +81,12 @@ public:
         bool newSnap=x.phase==3&&phase_!=3;phase_=x.phase;
         Cue previous=output_;float previousLevel=strength(previous,x.now);
         auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;}};
-        if(x.lineup&&x.venueEligible&&x.lineupId&&x.phase==1){
+        if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
             if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;}
+            float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening):x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(settings,x.critical,x.lineupScale);
+            if(std::fabs(target-lineupCue_.percent)>.01f){lineupCue_.transitionFrom=prior;lineupCue_.transitionAt=x.now;}
             lineupCue_.kind=x.critical?Kind::Critical:Kind::Ordinary;
-            lineupCue_.percent=x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(settings,x.critical,x.lineupScale);lineupCue_.updated=x.now;
+            lineupCue_.percent=target;lineupCue_.hostileOpening=x.hostileOpening;lineupCue_.updated=x.now;
             lineupCue_.carryPlay=x.openingKickoff;
         }else if(lineupCue_.kind!=Kind::None){
             bool carry=lineupCue_.carryPlay&&x.phase==3&&x.now>=lineupCue_.began&&x.now-lineupCue_.began<45000;
@@ -116,7 +125,10 @@ public:
         }else if(td&&x.phase!=1&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
         else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=configured(settings,pulse_.kind);pulse_.impact=limit(pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact);output_=pulse_;}
-        else if(liveCue_.kind!=Kind::None)output_=liveCue_;else output_=lineupCue_;
+        else if(liveCue_.kind!=Kind::None)output_=liveCue_;else{
+            if(lineupCue_.kind!=Kind::None&&previous.kind!=Kind::None&&previous.kind!=Kind::Ordinary&&previous.kind!=Kind::Critical){lineupCue_.transitionFrom=previousLevel;lineupCue_.transitionAt=x.now;}
+            output_=lineupCue_;
+        }
         return output_;
     }
 };

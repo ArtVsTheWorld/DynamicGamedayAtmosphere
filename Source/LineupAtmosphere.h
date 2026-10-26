@@ -97,9 +97,12 @@ struct Model {
     sustained::Reason reason=sustained::Reason::None;
     drive::Model drive;bool packedHouse=false,qualifiedPlay=false;float qualifiedMinimum=1.01f;
     OpeningDrive openingDrive;bool openingDriveQualified=false;
+    bool hostileOpening=false;uint64_t hostileCheer=0,hostileCheerBegan=0;
     void reset(){*this=Model{};}
     void handOffResult(){if(carrying&&!continuousMode){carrying=running=false;liveAt=postAt=tailAt=0;weight=0;reason=sustained::Reason::None;}}
-    void suspend(){qualifiedPlay=openingDriveQualified=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
+    void suspend(){qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
+    uint64_t cameraLineupId()const{return phase==5?cheerSerial+1:cheerSerial;}
+    float cameraChoice()const{return phase==5?static_cast<float>(variety::mix(variationSeed^(cheerSerial+1)^0x5348414b45ull)%1001)/1000.0f:shakeChoice;}
     float momentWeight()const{return leverage&&strength>0?(std::clamp)(weight/strength,0.0f,1.0f):0;}
     bool layeredActive()const{return weight>0&&reason!=sustained::Reason::None;}
     // The sound may settle before the snap. A verified result still belongs
@@ -119,6 +122,7 @@ struct Model {
         if(owner!=match||generation!=epoch){reset();match=owner;epoch=generation;}
         bool start=false;const auto& s=p.game;
         bool firstDrive=openingDrive.observe(p,result);openingDriveQualified=false;
+        hostileOpening=false;
         if(valid(s)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&!p.resumed)openingObserved=true;
         if(p.resumed)openingObserved=false;
         if(previousHome>=0&&(s.homeScore!=previousHome||s.awayScore!=previousAway))drivePending=true;
@@ -162,6 +166,7 @@ struct Model {
         float competition=competitive(s);
         bool bigQualified=big&&fraction>=bigThreshold;
         bool special=ot||late>0,regular=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
+        hostileOpening=regular&&c.opening&&!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
         packedHouse=regular&&!big&&!special&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
@@ -189,6 +194,7 @@ struct Model {
         if(big)importance=(std::max)({importance+bigGamePremium(s,fraction,close),.22f*close,openingWeight});
         importance=(std::min)(1.0f,importance+.35f*drive.heat*close);
         importance=(std::max)(importance,goal);
+        if(hostileOpening)importance=1;
         if((s.phase==1||s.phase==5)&&critical)importance=(std::max)(importance,p.down==4?1.0f:.95f);
         importance*=competition;
         if(special){
@@ -198,9 +204,9 @@ struct Model {
             continuousMode=true;running=true;tailAt=0;weight=ot?1.0f:late;strength=weight;
             reason=ot?sustained::Reason::Overtime:sustained::Reason::LateDrive;
         }else{
-            if(s.phase==1)leverage=critical||goal>=.525f;
+            if(s.phase==1)leverage=critical||goal>=.525f||hostileOpening;
             if(continuousMode){continuousMode=false;running=false;tailAt=now;tailWeight=weight;}
-            if(enterLineup){began=now;++serial;profile=variety::choose(variationSeed,serial);running=true;carrying=false;liveAt=postAt=0;tailAt=0;start=true;}
+            if(enterLineup){began=now;++serial;profile=variety::choose(variationSeed,serial);if(hostileOpening){profile.attackMs=800;profile.envelopeAttackMs=900;profile.supportDelayMs=0;}running=true;carrying=false;liveAt=postAt=0;tailAt=0;start=true;}
             // Carry an existing buildup through the live ball, then bridge the
             // whistle to the native result reaction. No extra gain or cheer is
             // introduced here, and a stuck live phase has a strict time limit.
@@ -229,6 +235,7 @@ struct Model {
         }
         if(enterLineup){
             ++cheerSerial;cheerBegan=now;
+            if(hostileOpening&&!hostileCheer){hostileCheer=cheerSerial;hostileCheerBegan=now;}
             shakeChoice=static_cast<float>(variety::mix(variationSeed^cheerSerial^0x5348414b45ull)%1001)/1000.0f;
         }
         shakeTier=0;
@@ -252,6 +259,10 @@ struct Model {
         out.lineupCheer=cheerMoment?cheerSerial:0;out.lineupCheerBegan=cheerBegan;
         out.lineupCheerUntil=cheerBegan+1500;
         out.cheers=cheerMoment&&p.game.phase==1;out.deepCheers=false;
+        if(hostileOpening){
+            out.hostileOpening=true;out.lineupType=59;out.lineupCheer=hostileCheer;out.lineupCheerBegan=hostileCheerBegan;out.lineupCheerUntil=hostileCheerBegan+1500;
+            out.cheers=p.game.phase==1;out.deepCheers=true;out.intensity=(std::max)(out.intensity,excitement(now,fraction));
+        }
         if(weight<=0)return out;
         float level=excitement(now,fraction);
         out.intensity=(std::max)(out.intensity,level);

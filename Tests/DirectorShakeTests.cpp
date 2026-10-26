@@ -15,10 +15,11 @@ int main(){
     x.critical=true;x.now=1100;c=m.observe(s,x);assert(c.kind==Kind::None);
     x.venueEligible=true;x.critical=false;x.now=2000;c=m.observe(s,x);assert(strength(c,2000)==0);
     x.now=3000;c=m.observe(s,x);assert(strength(c,3000)==5);
-    x.critical=true;c=m.observe(s,x);assert(strength(c,3000)==10);
-    x.lineup=false;x.phase=3;x.now=3100;c=m.observe(s,x);assert(c.tail&&strength(c,3100)==10);
-    x.now=3550;c=m.observe(s,x);assert(std::fabs(strength(c,3550)-5)<.001);
-    x.now=4000;c=m.observe(s,x);assert(c.kind==Kind::None);
+    x.critical=true;c=m.observe(s,x);assert(strength(c,3000)==5); // Ease up rather than jumping to the new target.
+    x.now=3200;c=m.observe(s,x);assert(strength(c,3200)==10);
+    x.lineup=false;x.phase=3;c=m.observe(s,x);assert(c.tail&&strength(c,3200)==10);
+    x.now=3650;c=m.observe(s,x);assert(std::fabs(strength(c,3650)-5)<.001);
+    x.now=4100;c=m.observe(s,x);assert(c.kind==Kind::None);
     x.phase=4;x.now=4100;x.touchdown=1;c=m.observe(s,x);assert(c.kind==Kind::Touchdown&&c.until==13100);
     x.now=4300;c=m.observe(s,x);assert(strength(c,4300)==20);
     x.now=5100;c=m.observe(s,x);assert(std::fabs(strength(c,5100)-20)<.001);

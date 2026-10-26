@@ -271,8 +271,9 @@ struct Tracker {
                             // position does. Missing yardage is not a positive
                             // gain; keep the native proof rather than dropping
                             // the impact permanently at this first result.
-                            // Possession changes and contradictory gains still
-                            // need their own result, never a guessed sack.
+                            // A fresh fourth-down sack can flip ownership
+                            // before yardage settles. Require native proof;
+                            // a generic possession change is never a sack.
                             float gain=gainedYards(start,p);
                             bool measuredLoss=std::isfinite(gain)&&gain>=-100&&gain<=-4.99f&&p.offense==start.offense&&p.down>start.down;
                             bool fourthLoss=start.down==4&&p.offense!=start.offense&&defensiveLoss>=-100&&defensiveLoss<=-4.99f;
@@ -280,7 +281,8 @@ struct Tracker {
                             if(o.fiveYardLoss){defensive=Event::BackfieldStop;if(fourthLoss)o.yards=defensiveLoss;}
                             bool sackPosition=p.offense==start.offense&&
                                 (gain==-1000||(std::isfinite(gain)&&gain<=0.01f&&gain>-1000));
-                            if(sawSack&&!sawPick&&sackPosition){defensive=preferred(defensive,Event::Sack);o.sack=true;}
+                            bool sackOnDowns=freshResult&&start.down==4&&!start.specialTeams&&p.offense==1-start.offense&&p.down==1&&!sawPick&&!sawFumble;
+                            if(sawSack&&!sawPick&&(sackPosition||sackOnDowns)){defensive=preferred(defensive,Event::Sack);o.sack=true;}
                             // A fumble during an interception return may belong
                             // to the other defense; do not guess its team.
                             if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}
