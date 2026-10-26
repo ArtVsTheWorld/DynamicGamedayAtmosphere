@@ -21,13 +21,13 @@ int main(){
     auto beforeFresh=m.serial;p.game.phase=1;auto fresh=tick(126000);assert(m.serial==beforeFresh+1&&!m.carrying&&fresh.shakeTier==3); // Fresh lineup resets the carry and starts its own attack.
     tick(130000);p.game.phase=3;tick(131000);m.suspend();assert(!tick(132000).lineup&&!m.carrying); // Pause/replay cannot retain the result bridge.
     for(int kind=0;kind<6;++kind){
-        auto q=play();q.game.rivalry=false;q.game.rank0=q.game.rank1=0;q.game.phase=1;
+        auto q=play();q.game.rivalry=false;q.game.rank0=q.game.rank1=0;q.game.phase=1;q.game.quarter=2;
         if(kind==0)q.game.rivalry=true;if(kind==1){q.game.rank0=6;q.game.rank1=11;}if(kind==2)q.game.playoff=true;
         if(kind==3)postseason(q.game,false,true);if(kind==4)q.game.hfaActive=true;
         lineup::Model x;x.observe(c,q,555,1,1000,true,.8f,true,nullptr,26101);sustained::Intent b;b.active=true;b.match=555;b.epoch=1;b.updated=5000;x.observe(c,q,555,1,5000,true,.8f,true,nullptr,26101);
         assert((x.merge(b,c,q,5000,.8f).lineup!=0)==(kind!=5&&kind!=4&&kind!=0));
     }
-    auto ordinary=play();ordinary.game.rivalry=false;ordinary.game.rank0=ordinary.game.rank1=0;ordinary.game.phase=1;lineup::Model x;
+    auto ordinary=play();ordinary.game.rivalry=false;ordinary.game.rank0=ordinary.game.rank1=0;ordinary.game.phase=1;ordinary.game.quarter=2;lineup::Model x;
     ordinary.game.hfaActive=true;x.observe(c,ordinary,777,1,1000,true,.8f,true,nullptr,26101);ordinary.game.hfaActive=false;ordinary.game.phase=5;x.observe(c,ordinary,777,1,2000,true,.8f,true,nullptr,26101);ordinary.game.phase=1;assert(!x.observe(c,ordinary,777,1,3000,true,.8f,true,nullptr,26101));
     assert(!x.observe(c,ordinary,778,2,4000,true,.8f,true,nullptr,26101)); // HFA cannot leak into the next matchup.
     auto q=play();q.game={5,20,20,1,0,720};q.game.rivalry=false;q.toGoal=8;lineup::Model ot;

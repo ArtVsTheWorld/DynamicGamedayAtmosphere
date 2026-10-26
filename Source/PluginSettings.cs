@@ -779,6 +779,9 @@ namespace DynamicGamedayAtmosphere {
             upgraded=Retune1470(upgraded,defaults,existing);
             upgraded=Retune1500(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,39);
+            upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
+                "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
+                "; Ends with the opening possession. Later ordinary drives use their normal requirements.");
             string result=Merge(upgraded,defaults);
             if(refreshHelp)result=RefreshHelp(result,defaults);
             if(categorized){

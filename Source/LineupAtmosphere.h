@@ -5,6 +5,7 @@
 #include "DriveEscalation.h"
 #include "AttendanceContext.h"
 #include "PackedHouse.h"
+#include "OpeningDrive.h"
 namespace attendance::lineup {
 inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
@@ -73,7 +74,7 @@ inline float bigGamePremium(const State& s,float fraction,float close){
     return (.20f+(s.playoff||s.conferenceChampionship?.05f:0)+.10f*finish)*close*presence;
 }
 struct CameraAdmission {bool allowed=false,critical=false;};
-inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Play& p,float fraction,bool known,uint64_t positions,int selectedType,bool openingKickoff=false){
+inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Play& p,float fraction,bool known,uint64_t positions,int selectedType,bool openingKickoff=false,bool openingDrive=false){
     CameraAdmission out;
     if(!known||!std::isfinite(fraction)||fraction<0||fraction>1||!c.enabled||!c.lineups||!c.cameraShake||core::normalLimit(c)<=0||!valid(p.game)||p.simulated||
        (p.game.phase!=1&&p.game.phase!=5)||competitive(p.game)<=0||selectedType<=0||!shakePlay(p,selectedType,openingKickoff))return out;
@@ -81,7 +82,7 @@ inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Pla
     bool special=fraction>=packed::specialMinimum(positions)&&((c.overtime&&competitiveOvertime(p.game))||lateDrive(p)>0);
     bool important=energy::normalDown(p)&&p.down>=3&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&offensivePlay(selectedType)&&criticalCamera(p,selectedType);
     out.critical=important&&(fraction>=packed::standardMinimum(positions)||special);
-    out.allowed=venue||special||out.critical;
+    out.allowed=venue||special||out.critical||(c.opening&&openingDrive&&fraction>=packed::standardMinimum(positions));
     return out;
 }
 struct Model {
@@ -95,9 +96,10 @@ struct Model {
     bool carrying=false,leverage=false;uint64_t liveAt=0,postAt=0;float carryWeight=0,carryCompetition=1;
     sustained::Reason reason=sustained::Reason::None;
     drive::Model drive;bool packedHouse=false,qualifiedPlay=false;float qualifiedMinimum=1.01f;
+    OpeningDrive openingDrive;bool openingDriveQualified=false;
     void reset(){*this=Model{};}
     void handOffResult(){if(carrying&&!continuousMode){carrying=running=false;liveAt=postAt=tailAt=0;weight=0;reason=sustained::Reason::None;}}
-    void suspend(){qualifiedPlay=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
+    void suspend(){qualifiedPlay=openingDriveQualified=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
     float momentWeight()const{return leverage&&strength>0?(std::clamp)(weight/strength,0.0f,1.0f):0;}
     bool layeredActive()const{return weight>0&&reason!=sustained::Reason::None;}
     // The sound may settle before the snap. A verified result still belongs
@@ -116,6 +118,7 @@ struct Model {
     bool observe(const core::Settings& c,const energy::Play& p,uintptr_t owner,unsigned generation,uint64_t now,bool allowed,float fraction=1,bool fullnessKnown=true,const energy::Outcome* result=nullptr,uint64_t positions=0){
         if(owner!=match||generation!=epoch){reset();match=owner;epoch=generation;}
         bool start=false;const auto& s=p.game;
+        bool firstDrive=openingDrive.observe(p,result);openingDriveQualified=false;
         if(valid(s)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&!p.resumed)openingObserved=true;
         if(p.resumed)openingObserved=false;
         if(previousHome>=0&&(s.homeScore!=previousHome||s.awayScore!=previousAway))drivePending=true;
@@ -149,6 +152,7 @@ struct Model {
             phase=s.phase;return false;
         }
         float standard=attendance::packed::standardMinimum(positions),specialMinimum=attendance::packed::specialMinimum(positions);
+        openingDriveQualified=supported&&c.opening&&firstDrive&&fraction>=standard&&competitive(s)>0;
         bool ot=supported&&c.overtime&&overtime(s)&&fraction>=specialMinimum;
         float late=supported&&fraction>=specialMinimum?lateDrive(p):0;
         bool big=bigGame(s),packed=c.packedHouse&&attendance::packed::qualifies(positions,fraction,fullnessKnown);
@@ -157,12 +161,12 @@ struct Model {
         float bigThreshold=bigRequirement(c,s,positions);
         float competition=competitive(s);
         bool bigQualified=big&&fraction>=bigThreshold;
-        bool special=ot||late>0,regular=supported&&competition>0&&(bigQualified||packed||critical||goal>0);
+        bool special=ot||late>0,regular=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
         packedHouse=regular&&!big&&!special&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
             qualifiedPlay=regular||special;qualifiedMinimum=1.01f;
-            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);}
+            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0||openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);}
             if(special)qualifiedMinimum=(std::min)(qualifiedMinimum,specialMinimum);
         }
         if(!supported){suspend();phase=s.phase;return false;}

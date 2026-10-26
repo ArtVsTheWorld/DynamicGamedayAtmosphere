@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.2**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.55.3**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.2/
+    Runtime-1.55.3/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -56,6 +56,7 @@ For bug reports, check the current session's startup lines first. `Activation: I
 
 Play summaries distinguish missing native sack proof, unsupported defensive ownership and contradictory yardage. Unavailable yardage is reported as unavailable, rather than as a negative yardage value. Include the summary around a missed reaction, along with status; fullness alone does not show that every event requirement passed.
 
+- In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
 - For the 1.55.1 hold fixes, finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
