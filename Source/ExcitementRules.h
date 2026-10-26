@@ -120,6 +120,7 @@ struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,
     bool highLeverageStop=false,hailMary=false;
     int opponentTimeouts=-1;
     bool safety=false;
+    bool fiveYardLoss=false;
 };
 inline bool sealsRegulationTakeaway(const Outcome& result,const State& s){
     if(!result.accepted||!result.completed||!result.takeaway||!valid(s)||s.quarter!=4||s.seconds>60||result.defendingLead<=0||result.defendingLead>8)return false;
@@ -141,7 +142,7 @@ struct Tracker {
     bool openingSeen=false,openingKickUsed=false,scrimmageUsed=false,openingKick=false,openingSnap=false,wasOvertime=false;
     uint64_t serial=0,lastResultStamp=0;
     bool openingReliable=false,firstTouchdownSeen=false,hadTouchdownAtSnap=false,sawPick=false,sawFumble=false;
-    bool sawSack=false,sawForcedFumble=false;
+    bool sawSack=false,sawForcedFumble=false;float defensiveLoss=-1000;
     uint64_t countedPlay=0;unsigned verifiedPlays=0;
     void reset(){*this=Tracker{};}
     void primeOpeningIntro(const Play& p){
@@ -177,7 +178,7 @@ struct Tracker {
         if(s.phase==3&&lastPhase!=3){
             if(haveReady&&eligibleSnap(ready)&&ready.game.quarter==s.quarter&&
                ready.game.homeScore==s.homeScore&&ready.game.awayScore==s.awayScore){
-                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=false;++serial;
+                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=false;defensiveLoss=-1000;++serial;
                 hadTouchdownAtSnap=firstTouchdownSeen;
                 openingKick=openingSeen&&!openingKickUsed&&ready.down==0&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1;
                 openingSnap=openingSeen&&!scrimmageUsed&&normalDown(ready)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0;
@@ -190,6 +191,13 @@ struct Tracker {
         if(inPlay&&finished){
             sawFirstDown=sawFirstDown||p.firstDown;
             if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawSack=sawSack||p.sack;sawForcedFumble=sawForcedFumble||p.forcedFumble;}
+            // Save fresh loss proof before a fourth-down result flips the
+            // field-position perspective. Stale result snapshots and
+            // kicking plays cannot manufacture this defensive impact.
+            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp&&normalDown(start)&&!start.specialTeams&&p.offense==start.offense){
+                float loss=gainedYards(start,p);
+                if(std::isfinite(loss)&&loss>=-100&&loss<=-4.99f)defensiveLoss=loss;
+            }
             int home=s.homeScore-start.game.homeScore,away=s.awayScore-start.game.awayScore;
             if(!scoreUsed&&(scoringDelta(home,start)||scoringDelta(away,start))){
                 o.lateDeparture=lateExit(c,start,p);scoreUsed=true;o.completed=true;o.sequence=serial;
@@ -266,9 +274,13 @@ struct Tracker {
                             // Possession changes and contradictory gains still
                             // need their own result, never a guessed sack.
                             float gain=gainedYards(start,p);
+                            bool measuredLoss=std::isfinite(gain)&&gain>=-100&&gain<=-4.99f&&p.offense==start.offense&&p.down>start.down;
+                            bool fourthLoss=start.down==4&&p.offense!=start.offense&&defensiveLoss>=-100&&defensiveLoss<=-4.99f;
+                            o.fiveYardLoss=freshResult&&!start.specialTeams&&!sawPick&&!sawFumble&&(measuredLoss||fourthLoss);
+                            if(o.fiveYardLoss){defensive=Event::BackfieldStop;if(fourthLoss)o.yards=defensiveLoss;}
                             bool sackPosition=p.offense==start.offense&&
                                 (gain==-1000||(std::isfinite(gain)&&gain<=0.01f&&gain>-1000));
-                            if(sawSack&&!sawPick&&sackPosition){defensive=Event::Sack;o.sack=true;}
+                            if(sawSack&&!sawPick&&sackPosition){defensive=preferred(defensive,Event::Sack);o.sack=true;}
                             // A fumble during an interception return may belong
                             // to the other defense; do not guess its team.
                             if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}

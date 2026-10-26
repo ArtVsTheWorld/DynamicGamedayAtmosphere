@@ -20,6 +20,7 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     default:break;
     }
     if(result.safety)strength=.92f;
+    if(result.fiveYardLoss)strength=(std::max)(strength,.72f);
     if(result.yards>=20)strength=(std::max)(strength,result.yards>=40?.85f:.70f);
     if(result.highLeverageStop)strength=(std::max)(strength,.95f);
     int margin=std::abs(s.homeScore-s.awayScore);

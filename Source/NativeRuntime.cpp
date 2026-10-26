@@ -1074,7 +1074,7 @@ bool install() {
     liveFumbleBinding=liveReactionBindings&&defensiveReactionBindings&&
         bytes(0x276aad9,{0x48,0x8b,0x0d,0x68,0x4a,0xbe,0x0b})&&bytes(attendance::bindings::LiveFootballEventType,{0x8b,0x41,0x1c,0xc3})&&
         at<A>(image+attendance::bindings::LiveFootballEventVtable+0x40)==image+attendance::bindings::LiveFootballEventType;
-    if(!defensiveReactionBindings)log("defensive-reactions-unavailable","Native sack/forced-fumble checks differ; those added reaction shakes stay inactive.");
+    if(!defensiveReactionBindings)log("defensive-reactions-unavailable","Native sack/forced-fumble checks differ; their flag-based reactions stay inactive. The measured five-yard loss rule does not require these checks.");
     if(!runnerPositionBinding)log("runner-position-unavailable","Live runner position differs; long catches and interceptions remain available.");
     if(!liveReactionBindings)log("live-reactions-unavailable","Live catch/interception bindings differ; completed-play reactions remain active.");
     findEntities();
@@ -1381,7 +1381,7 @@ bool playData(A match,attendance::energy::Play& p){
             unsigned generation=audioEpoch.load();
             if(cachedMatch!=match||cachedEpoch!=generation||cachedStamp!=stamp||cachedPhase!=p.game.phase){
                 cachedMatch=match;cachedEpoch=generation;cachedStamp=stamp;cachedPhase=p.game.phase;
-                if(!defensiveFacts(cachedSack,cachedForced)){defensiveReactionBindings=false;log("defensive-reactions-unavailable","Native result check failed; added sack/fumble shakes disabled, other effects preserved.");}
+                if(!defensiveFacts(cachedSack,cachedForced)){defensiveReactionBindings=false;log("defensive-reactions-unavailable","Native result check failed; flag-based sack/fumble reactions disabled. Measured five-yard losses and other effects remain supported.");}
             }
             p.sack=cachedSack;p.forcedFumble=cachedForced&&p.fumble;
         }
@@ -1508,9 +1508,9 @@ void atmosphereTick(){
     hailMaryPass.observe(playTracker.serial,liveReactions.catchAirYards());
     result.hailMary=hailMaryPass.scored(result,playTracker.start);
     if(!liveResult.id)liveResult=returnResult;
-    bool defensiveImpact=liveAllowed&&liveSettings->enabled&&result.accepted&&result.completed&&result.sequence&&(result.sequence!=liveSourceSequence||liveReactionType==95)&&
-        (p.game.phase==4||p.game.phase==5||p.game.phase==1)&&(result.side==0||p.game.neutral)&&(result.sack||result.forcedFumble||result.goalLineStop||result.highLeverageStop);
-    if(!liveResult.id&&defensiveImpact)liveResult={result.goalLineStop?attendance::live::Event::GoalLineStop:result.forcedFumble?attendance::live::Event::ForcedFumble:result.sack?attendance::live::Event::Sack:attendance::live::Event::CriticalStop,1,result.side,0};
+    auto confirmedImpact=attendance::live::completedImpact(result,p.game,liveAllowed&&liveSettings->enabled,liveSourceSequence,liveReactionType);
+    bool defensiveImpact=confirmedImpact.id!=0;
+    if(!liveResult.id&&defensiveImpact)liveResult=confirmedImpact;
     auto situation=situationalReactions.observe(p,playTracker.start,result,match,epoch,playTracker.serial,now,
         liveAllowed&&liveSettings->enabled&&situationalReactionsEnabled&&(attendance::lineup::offensivePlay(selectedPlayType)||selectedPlayType==21),liveKind,ballState,catchSpot,runnerSpot,ballHeld,selectedPlayType);
     if(liveResult.id){
@@ -1521,7 +1521,7 @@ void atmosphereTick(){
         // with the smaller one-family early live-play accent.
         if(defensiveImpact&&result.highLeverageStop)liveReactionUntil=0;
         liveReactionPost=p.game.phase!=3;
-        bool defensive=liveResult.event==attendance::live::Event::Interception||liveResult.event==attendance::live::Event::Sack||liveResult.event==attendance::live::Event::ForcedFumble||liveResult.event==attendance::live::Event::GoalLineStop||liveResult.event==attendance::live::Event::CriticalStop||liveResult.event==attendance::live::Event::FumbleRecovery;
+        bool defensive=attendance::live::cheerType(liveResult)==59;
         liveReactionType=attendance::live::cheerType(liveResult);
         if(liveResult.event==attendance::live::Event::Interception)++shownLivePicks;else if(!defensive)++shownLiveCatches;
         if(liveReactionUntil>now){liveAuditId=liveReactionId;liveAuditUntil=liveReactionUntil;}
@@ -1620,7 +1620,7 @@ void atmosphereTick(){
             playTracker.sawPick?"interception result takes precedence":p.offense!=playTracker.start.offense?"possession changed; sack ownership not established":
             attendance::energy::gainedYards(playTracker.start,p)>0.01f?"contradictory positive yardage":"not selected; check scoring and event settings";
         std::string yards=std::isfinite(result.yards)&&result.yards>-1000?std::to_string(static_cast<int>(std::lround(result.yards)))+" yards":"yardage unavailable";
-        log("play-summary","Play #"+std::to_string(result.sequence)+": "+attendance::energy::name(result.event)+"; "+yards+"; home/away points "+std::to_string(result.homePoints)+"/"+std::to_string(result.awayPoints)+"; added reactions "+admitted+(result.safety?"; safety confirmed":"")+"; snap offense "+(playTracker.start.offense==0?"home":playTracker.start.offense==1?"away":"unknown")+"; sack "+sackReason+"; result phase "+std::to_string(p.game.phase)+(result.takeaway?"; opponent timeouts "+std::to_string(result.opponentTimeouts)+"; seals regulation "+(attendance::energy::sealsRegulationTakeaway(result,p.game)?"yes":"no"):"")+"; measured reaction distance "+std::to_string(static_cast<int>(std::lround(reactionDistance.yards())))+" yards; extra settling "+std::to_string(scoreExtra)+" ms; camera cue "+attendance::motion::name(nextCamera->kind)+".");
+        log("play-summary","Play #"+std::to_string(result.sequence)+": "+attendance::energy::name(result.event)+"; "+yards+"; home/away points "+std::to_string(result.homePoints)+"/"+std::to_string(result.awayPoints)+"; added reactions "+admitted+(result.safety?"; safety confirmed":"")+(result.fiveYardLoss?"; 5+ yard defensive loss confirmed":"")+"; snap offense "+(playTracker.start.offense==0?"home":playTracker.start.offense==1?"away":"unknown")+"; sack "+sackReason+"; result phase "+std::to_string(p.game.phase)+(result.takeaway?"; opponent timeouts "+std::to_string(result.opponentTimeouts)+"; seals regulation "+(attendance::energy::sealsRegulationTakeaway(result,p.game)?"yes":"no"):"")+"; measured reaction distance "+std::to_string(static_cast<int>(std::lround(reactionDistance.yards())))+" yards; extra settling "+std::to_string(scoreExtra)+" ms; camera cue "+attendance::motion::name(nextCamera->kind)+".");
     }
     if((p.game.phase==4||p.game.phase==5)&&playTracker.played&&playTracker.serial&&playAuditEndSequence!=playTracker.serial){
         playAuditEndSequence=playTracker.serial;
@@ -2144,7 +2144,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Live forced-fumble detection")<<(liveFumbleBinding?"enabled; fresh native forced-fumble event":"unavailable; completed-play fallback retained")<<"\n";
     report.field("Live long catches / picks")<<shownLiveCatches<<" / "<<shownLivePicks<<"\n";
     report.field("Drive escalation")<<100*shownDrive.load()<<"% (excitement, no separate volume bonus)\n";
-    report.field("Native sack/fumble checks")<<(defensiveReactionBindings?"verified":"unavailable; added defensive impacts disabled")<<"\n";
+    report.field("Native sack/fumble checks")<<(defensiveReactionBindings?"verified":"unavailable; measured five-yard loss fallback independent")<<"\n";
     report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged":sparseNativeCamera.active()?"shake suppressed for sparse crowd":"normal; sparse-crowd filter ready")<<" (gameplay HFA unchanged)\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.percent()<<"%\n";

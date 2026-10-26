@@ -2,16 +2,24 @@
 #include "ExcitementRules.h"
 #include "SustainedCrowd.h"
 namespace attendance::live {
-enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery};
-inline const char* name(Event e){switch(e){case Event::FumbleRecovery:return "Live defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
+enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss};
+inline const char* name(Event e){switch(e){case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Live defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
 inline int cheerType(const Outcome& event){
     switch(event.event){
-    case Event::Interception:case Event::Sack:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
+    case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
     // Use the already listening-tested large cheer for explosive completions
     // and gains; ordinary threshold plays keep the conversion family.
     default:return std::isfinite(event.yards)&&event.yards>=40?91:83;
     }
+}
+inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType){
+    bool phase=state.phase==4||state.phase==5||state.phase==1;
+    bool loss=result.fiveYardLoss&&std::isfinite(result.yards)&&result.yards>=-100&&result.yards<=-4.99f;
+    if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
+       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.highLeverageStop))return {};
+    Event selected=result.goalLineStop?Event::GoalLineStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:Event::CriticalStop;
+    return {selected,result.sequence,result.side,loss?result.yards:0};
 }
 struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};
 struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
