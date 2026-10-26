@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.55.7 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.55.8 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -202,7 +202,7 @@ Most eligible play calls use an anticipation roar and supporting swell, without 
 
 When the visitors receive the opening possession at a home stadium, their first qualifying offensive call gets a stronger hostile welcome: two tested cheer families hit together over the anticipation roar and supporting swell. The roar builds quickly, then follows the usual 40-second sequence and snap/whistle bridge. Opening shake scales from 5% in the smallest mapped venues to 15% in the largest, with an adjustable ceiling. This uses the existing high-leverage volume limit of +35%; it does not add another boost. Native duplicate checks and the two-cheer limit still apply. It never repeats on a later visitors' drive if the home team started with the ball. Neutral sites, resumed scenarios, simulation and crowds below the qualifying threshold do not receive this hostile opener. Disabling OpeningAtmosphere removes this extra sequence.
 
-Play-call motion begins easing in during play selection and keeps the same ramp when the lineup appears. A change to stronger motion also eases into its target. An earned play reaction or celebration keeps priority; returning to ordinary motion does not abruptly jump to full strength. Recorded replays remain steady.
+Play-call motion begins easing in during play selection and keeps the same ramp when the lineup appears. It applies only to the gameplay camera, so separate quarterback, sideline and other presentation cutaways do not receive the next play's buildup shake. A change to stronger motion also eases into its target. An earned play reaction or celebration keeps priority and can still follow live camera cuts; returning to ordinary motion does not abruptly jump to full strength. Recorded replays remain steady.
 
 A qualifying big game's opening kickoff has its own immediate lineup cheer, followed by a roar and supporting swell throughout the kick and return. The layers fade over about four seconds after the whistle. A qualifying long return or eruption takes priority. Both kicking and receiving formations are supported, including neutral sites. This needs a verified fresh opening and the opening fullness requirement; resumed scenarios, later kickoffs and simulation cannot invent it. It does not add another volume bonus.
 
@@ -229,32 +229,18 @@ These reactions need a play that qualified for layered atmosphere and enough ful
 - Passes in flight can lift anticipation on an eligible layered play. This reuses the roar/swell, adds no pre-catch cheer or camera shake, and settles when the ball is caught or the pass ends. A catch still needs the game's confirmation; the intended receiver alone is not treated as a completion.
 - Kickoff and punt returns can react at 30 return yards, measured from the returner's catch/recovery. Kick flight must be observed, so a touchback or the kick's flight distance cannot count as a long return.
 - Confirmed sacks, forced fumbles and fourth-down goal-line stops inside the five get a short reaction impact after the play. Verified five-yard losses also receive the defensive cheer and impact, even when the game supplies no sack flag. Missing yardage, stale results, kicking plays and unverified possession changes cannot supply that loss proof. A lost fumble is not required for a forced-fumble impact.
+- A confirmed defensive fumble recovery can still receive one short impact after the whistle if the loose ball and pickup happened too quickly for the live detector. A recovery already covered by the play's defensive reaction is not repeated. This fallback does not invent a return or treat an offense recovering its own fumble as a defensive takeaway.
+- A verified home blocked field goal gets a defensive cheer and impact. When home is tied or leading by one to three points before the kick, it uses the touchdown-style 20% opening hit and 15% sustained motion by default. Wider margins use the regular defensive impact. Existing fullness/atmosphere requirements still apply. Ordinary misses and blocked punts do not count as blocked field goals. A return touchdown or eruption takes over.
 
-Qualifying live gains and returns use 10% movement, followed by a gradual 4.5-second base settling fade after the whistle by default; verified longer plays can add the distance-based time described below. The fade is adjustable from one to eight seconds. Interceptions, defensive fumble recoveries and qualifying long kickoff/punt returns keep excited roar/swell layers through the return. The initial cheer is not repeatedly restarted. Immediately tackled long catches use their own adjustable 8% impact. The whistle must already have happened or follow within 0.35 seconds of the catch; catches with a longer run keep the normal live-play motion. Sacks and other defensive impacts keep their separate 10% strength. These short impacts rise quickly, hold their initial strength for up to a second, then ease out. They last about 5.9 seconds total by default. This is one second longer than the earlier impact profile and is adjustable separately. A fresh native forced-fumble event can react while the ball is loose; a defensive recovery adds a return reaction, with shake building over about 1.5 seconds. If the optional live forced-fumble signal cannot be verified, the confirmed post-play fallback remains. Movement softens on zoomed post-play cameras. A touchdown or eruption takes priority, without stacking a second shake or volume bonus. Native voice limits and duplicate checks remain in place; pause, replay, simulation and stale play data cannot create new reactions.
+Qualifying live gains and returns use 10% movement, followed by a five-second settling fade after the whistle by default, with no extra time for longer plays. The fade is adjustable from one to eight seconds. Interceptions, defensive fumble recoveries and qualifying long kickoff/punt returns keep excited roar/swell layers through the return. The initial cheer is not repeatedly restarted. Immediately tackled long catches use their own adjustable 8% impact. The whistle must already have happened or follow within 0.35 seconds of the catch; catches with a longer run keep the normal live-play motion. Sacks and other defensive impacts keep their separate 10% strength. These short impacts rise quickly, hold their initial strength for up to a second, then ease out. They last about 6.4 seconds total by default. The extra short-impact time is adjustable separately. A fresh native forced-fumble event can react while the ball is loose; a defensive recovery adds a return reaction, with shake building over about 1.5 seconds. If the optional live forced-fumble signal cannot be verified, the confirmed post-play fallback remains. Movement softens on zoomed post-play cameras. A touchdown or eruption takes priority, without stacking a second shake or volume bonus. Native voice limits and duplicate checks remain in place; pause, replay, simulation and stale play data cannot create new reactions.
 
 The game's own Stadium Pulse camera shake is also suppressed below 50% actual seating fullness. This changes the HFA camera event only; the meter and gameplay advantage remain under game control. Fuller crowds keep native shake, and the original camera event is restored when the filter no longer applies. The threshold is adjustable, and setting it to zero disables this filter. DGA's added motion remains subject to its own eligibility and strength settings.
 
-### Longer plays settle for longer
+### Fixed post-whistle settling
 
-Duration-based runs, catch-and-runs, interception/fumble returns and qualifying long kick/punt returns keep a short settling fade after the whistle. At the activation distance they keep the existing base timing. Longer verified gains add time smoothly, reaching four extra real seconds at 99 yards with the default setting. Gains beyond 99 yards receive the same maximum.
+Runs, catch-and-runs, interception/fumble returns and qualifying kick/punt returns use the same five-second settling period after the whistle by default. Play length never adds time. Sound and camera hold briefly, then fade together. The shared fade remains adjustable from one to eight real seconds in the INI; the old distance-extension setting is removed.
 
-For a normal run or short catch-and-run at the default 15-yard threshold:
-
-| Play distance | Extra settling time | Base 4.5-second return fade becomes |
-| --- | --- | --- |
-| 15 yards | None | 4.5 seconds |
-| 30 yards | About 0.7 seconds | About 5.2 seconds |
-| 57 yards | 2 seconds | 6.5 seconds |
-| 75 yards | About 2.9 seconds | About 7.4 seconds |
-| 99 yards | 4 seconds | 8.5 seconds |
-
-The distance starts from the relevant point: total gain for runs/catch-and-runs, the interception or recovery for turnover returns, and the catch for kick/punt returns. An interception that is immediately downed keeps its base timing. Immediately tackled long catches retain their separate short impact; they are not treated as long running returns. Actual run-after-catch movement can earn the longer tail.
-
-Touchdowns use their confirmed offensive distance or a verified return distance. Long touchdowns and qualifying eruptions receive the same one-time extra settling allowance. Their opening hit and base hold are unchanged; short scores do not automatically receive a longer celebration. Safeties keep their separate shorter touchdown-style profile. An earned winning postgame roar still follows its existing menu-based ending.
-
-Sound and shake use the same bounded extra time. Confirmed runs and returns hold briefly after the whistle, then ease down together. This hold uses the first quarter of their existing settling time, up to 1.2 seconds; it does not add time to the deadline. The native roar and supporting swell receive one release after the hold, rather than starting another fade when the reaction expires. Touchdown/eruption sound takes over from a running-return layer. There is no repeated extra cheer or timer added every frame. A new snap, replay interruption, disabled feature, invalid context or new game cannot inherit an old reaction. Recorded replay footage remains steady.
-
-`ReactionDistanceExtraSeconds` controls the shared maximum, from 0 to 8 real seconds; default 4. Higher means a longer long-play fade, lower means shorter. Zero keeps base timing. It does not change activation yardage, volume caps or the separate base fade settings. Missing/unreliable position data keeps the base timing rather than guessing a long return.
+Touchdowns, eruptions and short impacts retain their separate profiles. Camera cuts and live timeout presentation keep an earned reaction on its original timer. A new snap, recorded replay, regular pause menu or game change cannot restart an old reaction.
 
 ### Reactions after successful plays
 
@@ -403,7 +389,7 @@ Important combinations:
 - `CameraShake=0` stops the mod's added motion. The visual-only sparse native-Stadium-Pulse filter has its own threshold; zero disables that filter. Gameplay HFA stays unchanged.
 - Long-play extra time is shared by sound and camera. Base reaction fade, short-impact extra time and touchdown/eruption base durations remain separately adjustable. Changes do not keep extending a reaction already earned.
 
-Logs use readable categories such as `[play-summary]`, `[reaction-audio]`, `[departures]` and `[configuration]`. Play summaries show qualification, native sack confirmation, result phase, takeover/timeout context when relevant and the selected camera cue. Status shows the measured reaction distance and additional settling allowance. Repeated identical failures are throttled even if other messages appear between them. The diagnostic cache, crowd history and log sizes are bounded.
+Logs use readable categories such as `[play-summary]`, `[reaction-audio]`, `[departures]` and `[configuration]`. Play summaries show qualification, native sack confirmation, result phase, takeover/timeout context when relevant and the selected camera cue. Status shows the measured reaction distance and shared settling time. Repeated identical failures are throttled even if other messages appear between them. The diagnostic cache, crowd history and log sizes are bounded.
 
 Disappointment requests can be subtle in the game's native mix. Offline Dynasty is the verified mode; other offline modes require their own live compatibility check rather than an assumed guarantee.
 

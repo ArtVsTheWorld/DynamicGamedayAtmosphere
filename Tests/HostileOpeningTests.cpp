@@ -58,8 +58,8 @@ int main(){
     // expiry blends into that lineup, rather than jumping to a mature target.
     motion::Model priority;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.venueEligible=x.lineup=true;x.lineupId=1;x.now=1000;x.phase=5;
     x.duringPlay=1;x.duringImpact=true;auto cue=priority.observe(settings,x);assert(cue.kind==motion::Kind::LivePlay);
-    x.now=1200;priority.observe(settings,x);x.now=6900;cue=priority.observe(settings,x);assert(cue.kind==motion::Kind::Ordinary&&motion::strength(cue,x.now)==0);
-    x.now=7100;cue=priority.observe(settings,x);assert(motion::strength(cue,x.now)==5);
-    x.allowed=false;x.now=7200;assert(priority.observe(settings,x).kind==motion::Kind::None);
+    x.now=1200;priority.observe(settings,x);x.now=7400;cue=priority.observe(settings,x);assert(cue.kind==motion::Kind::Ordinary&&motion::strength(cue,x.now)==0);
+    x.now=7600;cue=priority.observe(settings,x);assert(motion::strength(cue,x.now)==5);
+    x.allowed=false;x.now=7700;assert(priority.observe(settings,x).kind==motion::Kind::None);
     std::puts("PASS: earlier selection ramp, preserved lineup identity/priority, first-away-snap-only hostile profile, 5-15% venue scaling, gates/false starts/quarter lengths and fresh fourth-down sack ownership proof.");
 }

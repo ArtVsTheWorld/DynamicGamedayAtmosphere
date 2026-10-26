@@ -27,9 +27,10 @@ struct Play {
     bool sack=false,forcedFumble=false;
     int awayTimeouts=-1;
     bool specialTeams=false;
+    int selectedType=-1;bool blockedFieldGoal=false;
 };
 enum class Event { None,FourthDown,GoalLine,PickSix,LateDrive,HomeScore,UpsetWin,
-    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety };
+    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety,BlockedFieldGoal };
 inline const char* name(Event e){
     switch(e){
     case Event::FourthDown:return "Fourth-down conversion";
@@ -37,7 +38,7 @@ inline const char* name(Event e){
     case Event::PickSix:return "Interception return touchdown";
     case Event::LateDrive:return "Late go-ahead score";
     case Event::HomeScore:return "Touchdown";
-    case Event::Safety:return "Safety";
+    case Event::Safety:return "Safety";case Event::BlockedFieldGoal:return "Blocked field goal";
     case Event::UpsetWin:return "Major upset completed";
     case Event::OpeningReturn:return "Opening kickoff return touchdown";
     case Event::OpeningTouchdown:return "First offensive snap touchdown";
@@ -77,7 +78,7 @@ inline int priority(Event e){
     case Event::FourthStop:return 70;case Event::FourthDown:return 68;case Event::TakeLead:return 65;
     case Event::TieScore:return 62;case Event::LongTouchdown:return 60;case Event::HomeScore:case Event::Safety:return 55;
     case Event::ThirdDownConversion:return 50;case Event::Sack:return 47;case Event::ForcedFumble:return 74;case Event::ThirdStop:return 45;case Event::ExplosiveGain:return 40;case Event::BackfieldStop:return 35;
-    case Event::MadeFieldGoal:return 40;
+    case Event::MadeFieldGoal:return 40;case Event::BlockedFieldGoal:return 73;
     default:return 0;
     }
 }
@@ -120,7 +121,7 @@ struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,
     bool highLeverageStop=false,hailMary=false;
     int opponentTimeouts=-1;
     bool safety=false;
-    bool fiveYardLoss=false;
+    bool fiveYardLoss=false,blockedFieldGoal=false;
 };
 inline bool sealsRegulationTakeaway(const Outcome& result,const State& s){
     if(!result.accepted||!result.completed||!result.takeaway||!valid(s)||s.quarter!=4||s.seconds>60||result.defendingLead<=0||result.defendingLead>8)return false;
@@ -142,7 +143,8 @@ struct Tracker {
     bool openingSeen=false,openingKickUsed=false,scrimmageUsed=false,openingKick=false,openingSnap=false,wasOvertime=false;
     uint64_t serial=0,lastResultStamp=0;
     bool openingReliable=false,firstTouchdownSeen=false,hadTouchdownAtSnap=false,sawPick=false,sawFumble=false;
-    bool sawSack=false,sawForcedFumble=false;float defensiveLoss=-1000;
+    bool sawSack=false,sawForcedFumble=false,sawBlockedFieldGoal=false;float defensiveLoss=-1000;
+    bool scorePending=false;float scorePendingAt=0;
     uint64_t countedPlay=0;unsigned verifiedPlays=0;
     void reset(){*this=Tracker{};}
     void primeOpeningIntro(const Play& p){
@@ -158,13 +160,14 @@ struct Tracker {
         Outcome o;const State& s=p.game;if(!valid(s))return o;
         float t=elapsedGameTime(s);
         if(seen&&(t+0.01f<highTime||s.homeScore<highHome||s.awayScore<highAway)){
-            haveReady=inPlay=false;lastPhase=-1;return o;
+            haveReady=inPlay=scorePending=false;lastPhase=-1;return o;
         }
         if(!seen){openingSeen=openingSeen||(s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&(s.phase==1||s.phase==6));openingReliable=openingSeen;}
         if(s.homeScore-highHome>=6||s.awayScore-highAway>=6)firstTouchdownSeen=true;
         o.accepted=true;seen=true;highTime=t;highHome=s.homeScore;highAway=s.awayScore;
         if(p.resumed)openingSeen=openingReliable=false;
-        if(p.simulated){openingSeen=openingReliable=false;haveReady=inPlay=false;lastPhase=s.phase;return o;}
+        if(p.simulated){openingSeen=openingReliable=false;haveReady=inPlay=scorePending=false;lastPhase=s.phase;return o;}
+        if(scorePending&&(t-scorePendingAt>5||t<scorePendingAt))scorePending=false;
         State story=energyPerspective(s);
         wasOvertime=wasOvertime||overtime(s);
         if((c.eruptions||c.momentum)&&!winUsed&&played&&s.phase==7&&s.quarter>=4){
@@ -176,9 +179,10 @@ struct Tracker {
             if(o.event!=Event::None)o.sequence=serial;
         }
         if(s.phase==3&&lastPhase!=3){
+            scorePending=false;
             if(haveReady&&eligibleSnap(ready)&&ready.game.quarter==s.quarter&&
                ready.game.homeScore==s.homeScore&&ready.game.awayScore==s.awayScore){
-                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=false;defensiveLoss=-1000;++serial;
+                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=sawBlockedFieldGoal=false;defensiveLoss=-1000;++serial;
                 hadTouchdownAtSnap=firstTouchdownSeen;
                 openingKick=openingSeen&&!openingKickUsed&&ready.down==0&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1;
                 openingSnap=openingSeen&&!scrimmageUsed&&normalDown(ready)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0;
@@ -188,9 +192,9 @@ struct Tracker {
             haveReady=false;
         }
         bool finished=s.phase==4||s.phase==5||s.phase==1||s.phase==7;
-        if(inPlay&&finished){
+        if((inPlay||scorePending)&&finished){
             sawFirstDown=sawFirstDown||p.firstDown;
-            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawSack=sawSack||p.sack;sawForcedFumble=sawForcedFumble||p.forcedFumble;}
+            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawBlockedFieldGoal=sawBlockedFieldGoal||p.blockedFieldGoal;sawSack=sawSack||p.sack;sawForcedFumble=sawForcedFumble||p.forcedFumble;}
             // Save fresh loss proof before a fourth-down result flips the
             // field-position perspective. Stale result snapshots and
             // kicking plays cannot manufacture this defensive impact.
@@ -200,7 +204,7 @@ struct Tracker {
             }
             int home=s.homeScore-start.game.homeScore,away=s.awayScore-start.game.awayScore;
             if(!scoreUsed&&(scoringDelta(home,start)||scoringDelta(away,start))){
-                o.lateDeparture=lateExit(c,start,p);scoreUsed=true;o.completed=true;o.sequence=serial;
+                o.lateDeparture=lateExit(c,start,p);scoreUsed=true;scorePending=false;o.completed=true;o.sequence=serial;
                 o.homePoints=(std::max)(0,home);o.awayPoints=(std::max)(0,away);
                 o.visitorScore=!s.neutral&&scoringDelta(away,start)&&home==0;
                 int side=scoringDelta(home,start)&&away==0?0:scoringDelta(away,start)&&home==0?1:-1;
@@ -267,6 +271,7 @@ struct Tracker {
                         }
                         if(defenseSupported){
                             Event defensive=Event::None;
+                            if(freshResult&&sawBlockedFieldGoal&&start.selectedType==21){o.blockedFieldGoal=true;defensive=Event::BlockedFieldGoal;}
                             // A fresh native sack can settle before its field
                             // position does. Missing yardage is not a positive
                             // gain; keep the native proof rather than dropping
@@ -307,6 +312,7 @@ struct Tracker {
                     }
                     lastResultStamp=p.resultStamp;
                 }
+                if(o.completed&&!scoreUsed){scorePending=true;scorePendingAt=t;}
                 resultUsed=true;inPlay=false;
             }
         }

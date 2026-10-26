@@ -14,7 +14,7 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     case Event::BackfieldStop:strength=.62f;break;
     case Event::Sack:strength=.72f;break;
     case Event::MadeFieldGoal:strength=.65f;break;
-    case Event::ForcedFumble:strength=.90f;break;
+    case Event::ForcedFumble:case Event::BlockedFieldGoal:strength=.90f;break;
     case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:strength=.95f;break;
     case Event::HomeScore:case Event::LongTouchdown:case Event::TakeLead:case Event::TieScore:case Event::PickSix:case Event::Safety:strength=.92f;break;
     default:break;

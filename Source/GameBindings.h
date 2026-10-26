@@ -18,6 +18,7 @@ inline constexpr uintptr_t TimeoutGetter=0x5d7b540,FirstDownGetter=0x61fb3a0;
 inline constexpr uintptr_t FirstDownLine=0x5d4eda0,TurnoverGetter=0x2e91820;
 inline constexpr uintptr_t FumblePredicate=0x61fc570;
 inline constexpr uintptr_t SackPredicate=0x61fcc30,ForcedFumblePredicate=0x61fd360;
+inline constexpr uintptr_t FieldGoalBlockedPredicate=0x61fb890; // Broadcast key 32: match flags bit 8.
 inline constexpr uintptr_t LiveFootballEvent=0xe34f548,LiveFootballEventVtable=0xc292c60,LiveFootballEventType=0x275bbe0;
 inline constexpr uintptr_t PlayStats=0xf3d1fe0,SelectedPlayer=0xd9ce380,PlayerContexts=0xe3405a0;
 // Same stadium DB capacity reader and attendance option used by

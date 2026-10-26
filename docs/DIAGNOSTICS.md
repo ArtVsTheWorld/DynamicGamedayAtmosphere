@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.7**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.55.8**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.7/
+    Runtime-1.55.8/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -68,9 +68,17 @@ Use a fresh home-stadium game with qualifying atmosphere, receive the opening ki
 
 The opening log reports when this one-time cheer opportunity is requested. Native duplicates or the two-family voice limit can still cover or suppress a cheer. After the first offensive play, the special welcome must not repeat. Reverse who receives: if the home team opens, the visitors' later first possession must not get it. Also check a neutral venue and a resumed scenario. OpeningAtmosphere=0 disables this extra sequence.
 
-On ordinary qualified calls, watch for motion easing in before the lineup instead of appearing at full strength. The selection and lineup keep one ramp and one random choice. An existing earned impact/celebration remains in charge. Check a snap, timeout, camera cut and recorded replay; the replay must stay steady. These visual/timing changes need a fresh-process live check even after automated tests pass.
+On ordinary qualified calls, watch for motion easing in before the lineup instead of appearing at full strength. The selection and lineup keep one ramp and one random choice. Buildup motion uses only the native gameplay camera context (1), including the hostile opener and critical downs; separate presentation views stay steady unless an earned play reaction/celebration is still finishing. This filter reads the current camera table without acquiring or retaining camera references or changing camera events. Check a short unsuccessful play followed by a quarterback cutaway, then a big play with a timeout/cutaway while its earned fade is still active. The former must not acquire the next lineup's shake; the latter should retain its original reaction clock. Check a recorded replay too; it must stay steady. These visual/timing changes need a fresh-process live check even after automated tests pass.
+
+## Fast fumble recoveries
+
+If the game confirms a defensive fumble recovery after the live detector missed the loose ball/pickup, the existing qualified play now receives one 10% settling impact. The log marks this as a fumble-reaction confirmed after the live pickup window. This is a post-whistle fallback, not proof that the immediate forced-fumble event was observed. It keeps the normal atmosphere/fullness rules and the native cheer duplicate/voice limits. If that play already received its live reaction motion, it is not replayed. Sound-only accents no longer count as proof of prior camera motion when a later authoritative defensive impact settles. Own-team recoveries do not qualify as defensive takeaways. Touchdowns and eruptions keep priority. Test both an immediate recovery/tackle and a recovery with a return, including a camera cut and timeout before the fade ends.
 
 ## Later live check
+
+Working 1.55.8 also recognizes the captured kind-1 airborne pass to held ball-3 receiver sequence and held ball-2 running states, without treating an airborne provisional record as a completed catch. Fresh reset, possession, coordinate and yardage checks remain. A non-scoring result can receive one bounded score upgrade before the next snap if the game publishes its touchdown late; the same play ID is retained and scoring sound/motion takes over. All added shake types now compensate for zoom, including ordinary/critical buildup and blocked-kick impacts.
+
+The shared live post-whistle fade defaults to five seconds at every play distance. The distance-extension setting is retired; old stock 4.5-second settings migrate to five, while other custom fade values remain. Touchdown/eruption profiles retain their own durations. A qualifying home FG block uses the native blocked-FG flag and the original selected FG play, rather than guessing from a missed kick. A tie or 1–3-point home lead receives the touchdown-style impact; other qualifying margins use the regular impact. Test a real block, a normal miss, both lead bands, a possible return/TD takeover and zoomed cutaways. The optional binding was checked read-only in the running game; the integrated blocked-kick reaction still needs a live block.
 
 For bug reports, check the current session's startup lines first. `Activation: INACTIVE` or `Required native bytes differ; no hooks installed` means DGA did not activate. A version/startup line alone does not mean its features are running. Keep the full log so earlier sessions are distinguishable from the reported one. A required game-code mismatch must be investigated; turning off individual settings will not make that layout compatible.
 
@@ -79,7 +87,7 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 - In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
-- For the 1.55.7 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
+- For the 1.55.8 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
 
 Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining integrated live checks are resolved.

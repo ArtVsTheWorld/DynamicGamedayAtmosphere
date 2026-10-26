@@ -81,7 +81,7 @@ int main(){
     std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
     assert(projectionScale(projection,Kind::Eruption)==1);projection[5]=12;
     assert(projectionScale(projection,Kind::Eruption)<.27f&&projectionScale(projection,Kind::Touchdown)<.27f);
-    assert(projectionScale(projection,Kind::Ordinary)==1&&projectionScale(projection,Kind::LivePlay)==1);
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})assert(projectionScale(projection,kind)<.27f);
     projection[5]=500;assert(projectionScale(projection,Kind::Eruption)<.007f);
     projection[5]=NAN;assert(projectionScale(projection,Kind::Eruption)==.35f);
     std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,12,-30,90,1};

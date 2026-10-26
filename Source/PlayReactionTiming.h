@@ -1,10 +1,9 @@
 #pragma once
 #include "LiveReactions.h"
 namespace attendance::timing {
-inline unsigned extraMs(float yards,float minimum,unsigned maximum=4000){
-    if(!std::isfinite(yards)||yards<0||yards>110||!std::isfinite(minimum)||minimum<0||minimum>=99)return 0;
-    return static_cast<unsigned>(std::lround((std::clamp)((yards-minimum)/(99-minimum),0.f,1.f)*(std::min)(maximum,8000u)));
-}
+// Distance remains useful for verified play ownership and diagnostics, but
+// no longer lengthens sound or camera effects. All live tails share one fade.
+inline unsigned extraMs(float,float,unsigned=0){return 0;}
 // One high-water distance per verified play. Sound and motion consume the
 // same frozen extension; neither consumer adds elapsed-frame increments.
 class Distance {

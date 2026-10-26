@@ -142,14 +142,14 @@ int main(){
         Runtime shaped;shaped.configure(image,nullptr,&api,gameplay);
         attendance::live::ReturnAtmosphere sound;attendance::energy::Play play;play.game={1,14,7,3,400,720};play.offense=0;
         unsigned beforeStarts=starts,beforeStops=stops;
-        for(uint64_t now=400000;now<=404700;now+=25){
+        for(uint64_t now=400000;now<=405200;now+=25){
             play.game.phase=now<400200?3:4;
             sound.observe(play,901,1,now,true,now==400000?attendance::live::Outcome{attendance::live::Event::LongRun,1,0,20}:attendance::live::Outcome{},now<400200,false);
             Intent base;base.active=true;base.match=901;base.epoch=1;base.updated=now;
             auto voice=sound.merge(base,now,1);shaped.tick(address(owner)+0x40,voice,now);
             assert(starts==beforeStarts+1);
-            if(now<401325)assert(shaped.playing()&&stops==beforeStops);
-            else assert(!shaped.playing()&&stops==beforeStops+1&&messages.back().release==3375);
+            if(now<401400)assert(shaped.playing()&&stops==beforeStops);
+            else assert(!shaped.playing()&&stops==beforeStops+1&&messages.back().release==3800);
             balanced();
         }
     }

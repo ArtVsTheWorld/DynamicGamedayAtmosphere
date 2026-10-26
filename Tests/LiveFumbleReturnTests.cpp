@@ -25,9 +25,9 @@ int main(){
     returnSound.observe(p,123,1,1000,true,trigger,true,false);
     for(uint64_t now=1000;now<=11000;now+=100){returnSound.observe(p,123,1,now,true,{},true,false);base.updated=now;auto sound=returnSound.merge(base,now,.9f);assert(sound.reason==sustained::Reason::Result&&sound.continuous&&sound.supporting&&sound.size==3&&sound.intensity>900);}
     p.game.phase=4;returnSound.observe(p,123,1,11100,true,{},false,false);base.updated=11100;assert(returnSound.merge(base,11100,.9f).reason==sustained::Reason::Result);
-    returnSound.observe(p,123,1,15600,true,{},false,false);assert(returnSound.merge(base,15600,.9f).reason==sustained::Reason::None);
-    p.game.phase=3;returnSound.observe(p,123,1,16000,true,trigger,true,false);base.celebration=1;assert(returnSound.merge(base,16000,.9f).reason==sustained::Reason::None);base.celebration=0;
-    returnSound.observe(p,123,1,16100,true,{},true,true);assert(returnSound.merge(base,16100,.9f).reason==sustained::Reason::None);
+    returnSound.observe(p,123,1,16100,true,{},false,false);assert(returnSound.merge(base,16100,.9f).reason==sustained::Reason::None);
+    p.game.phase=3;returnSound.observe(p,123,1,16200,true,trigger,true,false);base.celebration=1;assert(returnSound.merge(base,16200,.9f).reason==sustained::Reason::None);base.celebration=0;
+    returnSound.observe(p,123,1,16300,true,{},true,true);assert(returnSound.merge(base,16300,.9f).reason==sustained::Reason::None);
     for(int side:{0,1})for(bool neutral:{false,true}){
         situational::Model kicks;energy::Play snap;snap.game={2,7,7,1,400,720};snap.game.neutral=neutral;snap.down=4;snap.offense=side;
         auto play=snap;energy::Outcome result;

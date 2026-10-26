@@ -6,7 +6,7 @@
 #include <cstdio>
 using namespace attendance;
 int main(){
-    core::Settings settings;motion::Settings cameraSettings;
+    core::Settings settings;motion::Settings cameraSettings;cameraSettings.reactionFadeMs=4500; // Explicit custom sound/motion duration below.
     energy::Play p;p.game={2,14,14,1,300,720};p.down=1;p.offense=0;p.toGoal=60;p.toFirst=10;
     lineup::Model lineup;core::Model core;live::ReturnAtmosphere sound;motion::Model camera;
     const uintptr_t match=123;const unsigned epoch=1;
@@ -67,14 +67,14 @@ int main(){
     {live::ReturnAtmosphere tackle;motion::Model shake;p.game.phase=3;p.offense=0;
         motion::Input hit;hit.match=match;hit.epoch=epoch;hit.allowed=hit.duringAllowed=true;hit.phase=3;hit.now=12000;
         hit.runBuildup=1;hit.runProgress=1;hit.duringPlay=1;shake.observe(cameraSettings,hit);
-        tackle.observe(p,match,epoch,12000,true,{live::Event::LongRun,3,0,25},true,false);
+        tackle.observe(p,match,epoch,12000,true,{live::Event::LongRun,3,0,25},true,false,4500);
         sustained::Intent base;base.active=true;base.match=match;base.epoch=epoch;
         for(uint64_t now=12100;now<=13000;now+=100){
             hit.now=now;hit.runBuildup=hit.duringPlay=0;auto before=shake.observe(cameraSettings,hit);assert(!before.tail);
-            tackle.observe(p,match,epoch,now,true,{},false,false);assert(tackle.merge(base,now,1).continuous);
+            tackle.observe(p,match,epoch,now,true,{},false,false,4500);assert(tackle.merge(base,now,1).continuous);
         }
         p.game.phase=4;hit.phase=4;hit.now=13100;auto after=shake.observe(cameraSettings,hit);assert(after.tail&&after.until==17600);
-        tackle.observe(p,match,epoch,13100,true,{},false,false);auto fading=tackle.merge(base,13100,1);assert(fading.continuous&&!fading.reaction&&fading.releaseMs==3375);
+        tackle.observe(p,match,epoch,13100,true,{},false,false,4500);auto fading=tackle.merge(base,13100,1);assert(fading.continuous&&!fading.reaction&&fading.releaseMs==3375);
     }
     // A short catch may be measured for possible future YAC, but it cannot
     // start a long-play roar/hold before reaching an activation threshold.
@@ -85,7 +85,7 @@ int main(){
     // distance extension when a new live snap is already visible.
     timing::Distance distance;live::Settings liveSettings;p.game.phase=3;
     distance.observe(p,match,epoch,1,20000,true,{live::Event::LongRun,3,0,60},0,60,false,1,true,{},-1,liveSettings,4000);
-    assert(distance.ownsDuration()&&distance.extension()>0);
+    assert(distance.ownsDuration()&&distance.extension()==0);
     p.game.phase=4;distance.observe(p,match,epoch,1,20200,true,{},0,60,false,1,false,{},-1,liveSettings,4000);
     p.game.phase=1;distance.observe(p,match,epoch,1,20400,true,{},0,60,false,1,false,{},-1,liveSettings,4000);
     p.game.phase=3;distance.observe(p,match,epoch,1,20600,true,{},0,0,false,1,true,{},-1,liveSettings,4000);
@@ -93,7 +93,7 @@ int main(){
     distance.observe(p,match,epoch,1,20800,true,{},0,60,true,1,true,{},-1,liveSettings,4000);
     assert(!distance.ownsDuration()&&!distance.extension());
     distance.observe(p,match,epoch,2,21000,true,{live::Event::LongRun,4,0,25},0,25,false,1,true,{},-1,liveSettings,4000);
-    assert(distance.ownsDuration()&&distance.extension()>0);
+    assert(distance.ownsDuration()&&distance.extension()==0);
     // Custom short celebrations must retire the earlier, longer run shake;
     // finishing the celebration cannot expose that lower-priority cue again.
     for(int scoring=0;scoring<3;++scoring){

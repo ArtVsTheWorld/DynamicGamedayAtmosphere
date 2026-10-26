@@ -26,7 +26,7 @@ inline bool positiveResult(energy::Event e){
     using energy::Event;
     return e==Event::ExplosiveGain||e==Event::ThirdDownConversion||e==Event::FourthDown||e==Event::BackfieldStop||
         e==Event::ThirdStop||e==Event::FourthStop||e==Event::Turnover||e==Event::FumbleRecovery||e==Event::GoalLine||
-        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety;
+        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety||e==Event::BlockedFieldGoal;
 }
 // Listening-tested families: yardage/conversions and defensive stops. The
 // native game retains its own opponent-success reactions.
@@ -35,7 +35,7 @@ inline int resultReaction(const energy::Outcome& r){
     if(r.safety)return 91; // Same cheer family as a touchdown, with a shorter profile.
     switch(r.event){
     case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
-    case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:return 59;
+    case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:case Event::BlockedFieldGoal:return 59;
     case Event::ExplosiveGain:return r.yards>=40?91:83;
     case Event::ThirdDownConversion:case Event::FourthDown:return 83;
     default:return r.firstDown?83:91;
@@ -74,9 +74,10 @@ struct Model {
         // Verified big plays receive their own bounded reaction, including at
         // ordinary matchups. Routine short first downs still need active layers.
         bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6;
+        bool scoreUpgrade=scoring&&result.sequence==resultSequence&&!resultScoring;
         if((!durationOwned||scoring)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
-           result.sequence!=resultSequence&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
-           now-resultCheerAt>=4&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
+           (result.sequence!=resultSequence||scoreUpgrade)&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
+           (now-resultCheerAt>=4||scoreUpgrade)&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
             resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s);resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring;resultMinimum=minimum;++resultCheer;
         }
         if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!std::isfinite(now))return false;

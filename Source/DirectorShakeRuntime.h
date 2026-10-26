@@ -31,6 +31,11 @@ class Runtime {
         auto settings=at<uintptr_t>(image_+bindings::CameraSettings);
         if(at<uintptr_t>(settings)!=image_+bindings::CameraSettingsVtable||!at<unsigned short>(settings+0x3e6)||!at<unsigned short>(settings+0x41a))return false;
         auto owner=at<uintptr_t>(image_+bindings::CameraOwner),views=at<uintptr_t>(at<uintptr_t>(owner)+0x1f0);
+        // Native CameraGet(context=1) selects this gameplay view directly.
+        // Prepare the lineup envelope early, but never apply its movement to
+        // the separate presentation views behind the play-selection menu.
+        // Earned reactions below still follow all current live render views.
+        if(c.kind==Kind::Ordinary||c.kind==Kind::Critical)return views&&at<uintptr_t>(views+0x68)==view;
         // Current render views only. No retained scene or camera references.
         for(unsigned i=0;views&&i<4;++i)if(at<uintptr_t>(views+i*0x68)==view)return true;
         return false;
@@ -42,9 +47,9 @@ public:
         auto address=reinterpret_cast<uintptr_t>(destination);
         if(address<view+0x800&&address+sizeof(float)*16>view)return;
         std::array<float,16> projection{},output{};Cue adjusted=cue;
-        Kind projectionKind=cue.kind==Kind::LivePlay||cue.kind==Kind::Safety||cue.hostileOpening>0?Kind::Touchdown:cue.kind;
-        if(projectionKind==Kind::Touchdown||projectionKind==Kind::Eruption)read(view+0x2b4,projection.data(),sizeof(projection));
-        float scale=projectionScale(projection,projectionKind);adjusted.percent*=scale;adjusted.impact*=scale;adjusted.transitionFrom*=scale;
+        // Every added motion type softens on a zoomed view, not just scores.
+        read(view+0x2b4,projection.data(),sizeof(projection));
+        float scale=projectionScale(projection,cue.kind);adjusted.percent*=scale;adjusted.impact*=scale;adjusted.transitionFrom*=scale;
         if(!read(address,output.data(),sizeof(output))||!apply(output,adjusted,now))return;
         SIZE_T n=0;if(!WriteProcessMemory(GetCurrentProcess(),destination,output.data(),sizeof(output),&n)||n!=sizeof(output))return;
         ++changed_;last_=now;percent_=strength(adjusted,now);kind_=cue.kind;

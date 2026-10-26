@@ -63,6 +63,6 @@ int main(){
     auto cue=camera.observe(settings,x);assert(cue.impactOnly&&cue.kind==motion::Kind::LivePlay);
     x.now=5200;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>9);
     x.now=8150;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>0&&motion::strength(cue,x.now)<7);
-    x.now=10900;assert(camera.observe(settings,x).kind==motion::Kind::None);
+    x.now=11400;assert(camera.observe(settings,x).kind==motion::Kind::None);
     std::cout<<"PASS: late whistle/selection completions, exact 20-yard credited pass/run, mirrored coordinates, one-second proof window, no stale/sim/away/new-world duplicate, and short postplay impact/fade.\n";
 }

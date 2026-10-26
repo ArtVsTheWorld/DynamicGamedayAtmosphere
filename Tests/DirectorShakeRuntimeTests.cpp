@@ -17,7 +17,7 @@ int main(){
     unsigned char paused=0;match[0]=image+0xb4781e8;wrapper[2]=addr(match[0]);
     replay[0]=image+bindings::ReplayVtable;settings[0]=image+bindings::CameraSettingsVtable;
     put(addr(settings[0])+0x3e6,static_cast<unsigned short>(1));put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
-    owner[0]=addr(data[0]);put(addr(data[0])+0x1f0,addr(views[0]));views[0]=addr(view[0]);view[0]=foreign[0]=image+bindings::CameraVtable;
+    owner[0]=addr(data[0]);put(addr(data[0])+0x1f0,addr(views[0]));views[0]=addr(foreign[0]);views[0x68/8]=addr(view[0]);view[0]=foreign[0]=image+bindings::CameraVtable;
     global(bindings::MatchWrapper,addr(wrapper[0]));global(0xd9e3818,14,true);global(0xf3f5d48,3,true);
     global(bindings::PauseFlag,addr(paused));global(bindings::ReplayManager,addr(replay[0]));global(bindings::CameraSettings,addr(settings[0]));global(bindings::CameraOwner,addr(owner[0]));
     std::vector<A> selectedService(0x1c00/8);selectedService[0]=image+bindings::PlayCallServiceVtable;global(bindings::PlayCallService,addr(selectedService[0]));
@@ -35,8 +35,19 @@ int main(){
     venue.rivalry=false;venue.rank0=6;venue.rank1=11;assert(lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
     Runtime r;r.configure(image);Cue cue{addr(match[0]),2,2000,1000,0,Kind::Ordinary,5,false};
     std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,4,12,20,1},output=source;
+    std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x274),source.data(),sizeof(source));auto original=view;
     r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&r.percent()==5);
+    // The selection prelude is already building, but only its gameplay view
+    // receives motion. All three presentation slots stay still for both
+    // ordinary and critical buildup, including the new hostile opener.
+    for(auto kind:{Kind::Ordinary,Kind::Critical})for(unsigned slot:{0u,2u,3u}){
+        views[slot*0x68/8]=addr(foreign[0]);Cue next=cue;next.kind=kind;next.hostileOpening=15;
+        output=source;auto before=r.changed();r.tick(addr(foreign[0]),output.data(),next,cue.match,2,2000);assert(output==source&&r.changed()==before);
+    }
+    // A missing gameplay view does not fall back to a presentation cutaway.
+    views[0x68/8]=0;output=source;auto before=r.changed();r.tick(addr(foreign[0]),output.data(),cue,cue.match,2,2000);assert(output==source&&r.changed()==before);views[0x68/8]=addr(view[0]);
     auto skipped=[&](A target,A currentMatch,unsigned epoch,uint64_t now){output=source;auto count=r.changed();r.tick(target,output.data(),cue,currentMatch,epoch,now);assert(output==source&&r.changed()==count&&view==original);};
     paused=1;skipped(addr(view[0]),cue.match,2,2000);paused=0;
     put(addr(replay[0])+0x38,static_cast<unsigned char>(1));skipped(addr(view[0]),cue.match,2,2000);put(addr(replay[0])+0x38,static_cast<unsigned char>(0));
@@ -46,11 +57,18 @@ int main(){
     auto count=r.changed();r.tick(addr(view[0]),reinterpret_cast<float*>(addr(view[0])+0x274),cue,cue.match,2,2000);assert(view==original&&count==r.changed());
     output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());
     // The projection is read only; close-up celebration motion is reduced.
-    std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
+    std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
+    for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})for(unsigned slot:{0u,2u,3u}){
+        views[slot*0x68/8]=addr(foreign[0]);Cue earned=cue;earned.kind=kind;earned.until=17000;
+        output=source;auto countBefore=r.changed();r.tick(addr(foreign[0]),output.data(),earned,cue.match,2,2000);assert(output!=source&&r.changed()==countBefore+1);
+        assert(earned.began==cue.began&&earned.updated==cue.updated); // Filtering never rewrites an earned cue's clock.
+    }
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     Cue celebration=cue;celebration.kind=Kind::Eruption;celebration.percent=22.5f;celebration.impact=30;celebration.until=17000;
     Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()==30&&view==unchanged);
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));unchanged=view;
+    for(auto kind:{Kind::Ordinary,Kind::Critical}){Cue buildup=cue;buildup.kind=kind;
+        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&r.percent()>1&&r.percent()<1.4f&&view==unchanged);}
     output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()>7&&zoom.percent()<8&&view==unchanged);
     Cue defensive=cue;defensive.kind=Kind::LivePlay;defensive.impactOnly=true;defensive.percent=10;defensive.began=1000;defensive.until=3400;
     output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<3&&view==unchanged);
@@ -76,5 +94,5 @@ int main(){
     assert(VirtualProtect(page,4096,PAGE_READWRITE,&old));*slot=999;assert(VirtualProtect(page,4096,PAGE_READONLY,&old));
     assert(!h.restore()&&*slot==999);assert(VirtualQuery(page,&info,sizeof(info))&&info.Protect==PAGE_READONLY);
     VirtualFree(page,0,MEM_RELEASE);for(auto p:pages)VirtualFree(p,0,MEM_RELEASE);
-    std::cout<<"PASS: output-only motion, source/world guards, pause/replay/accessibility, stale cue rejection and owner-safe vtable hook restoration.\n";
+    std::cout<<"PASS: gameplay-only ordinary/critical/hostile buildup, earned reaction continuity across presentation views, output-only motion, source/world guards, pause/replay/accessibility, stale cue rejection and owner-safe vtable hook restoration.\n";
 }

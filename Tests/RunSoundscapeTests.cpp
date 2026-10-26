@@ -35,6 +35,6 @@ int main(){
         step(1,0,2,0,0,false);step(3,0,2,0,0,false);step(3,3,1,0,0,false);assert(step(4,1,4,20,20,false).event==live::Event::LongCatch);
     }
     {motion::Model camera;motion::Settings s;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
-        auto cue=camera.observe(s,x);assert(cue.until==6900);x.now=6900;assert(camera.observe(s,x).kind==motion::Kind::None);}
-    std::puts("PASS: default 10-to-15-yard runs/YAC, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 5.9-second impacts.");
+        auto cue=camera.observe(s,x);assert(cue.until==7400);x.now=7400;assert(camera.observe(s,x).kind==motion::Kind::None);}
+    std::puts("PASS: default 10-to-15-yard runs/YAC, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 6.4-second impacts.");
 }

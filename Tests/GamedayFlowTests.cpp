@@ -46,7 +46,7 @@ int main(){
     // Defensive impacts can arrive at postplay, without sustained live shake.
     motion::Model impact;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=5;x.now=10000;x.duringPlay=1;x.duringImpact=true;
     auto hit=impact.observe(camera,x);assert(hit.kind==motion::Kind::LivePlay&&hit.impactOnly);x.now=10200;assert(motion::strength(impact.observe(camera,x),x.now)>0);
-    x.now=15900;assert(impact.observe(camera,x).kind==motion::Kind::None);
+    x.now=16400;assert(impact.observe(camera,x).kind==motion::Kind::None);
     // Native confirmed flags, not an arbitrary loss, select sack/strip accents.
     for(bool strip:{false,true}){energy::Tracker tracker;energy::Settings c;auto play=fixture();play.offense=1;play.game.phase=1;play.toFirst=10;play.resultStamp=1;
         tracker.observe(c,play);play.game.phase=3;tracker.observe(c,play);play.game.phase=4;play.down=2;play.toFirst=15;play.resultStamp=2;play.sack=!strip;play.forcedFumble=play.fumble=strip;

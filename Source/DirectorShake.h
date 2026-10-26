@@ -6,16 +6,16 @@
 #include "ReactionShape.h"
 
 namespace attendance::motion {
-enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety };
-inline const char* name(Kind k){switch(k){case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
-struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=4500,impactExtraMs=1000;float hostileOpeningMaximum=15;};
+enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick };
+inline const char* name(Kind k){switch(k){case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
+struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=15;};
 inline float hostileOpeningStrength(uint64_t positions,float maximum=15){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
     float size=static_cast<float>((std::clamp)((static_cast<double>(positions)-6060)/55828.0,0.0,1.0));
     return (std::clamp)(maximum,0.f,30.f)*(1.f/3+2.f/3*size);
 }
 inline float limit(float x){return std::isfinite(x)?(std::clamp)(x,0.0f,100.0f):0;}
-inline float configured(const Settings& s,Kind k){switch(k){case Kind::Ordinary:return limit(s.ordinary);case Kind::Critical:return limit(s.critical);case Kind::Touchdown:case Kind::Safety:return limit(s.touchdown);case Kind::Eruption:return limit(s.eruption);case Kind::LivePlay:return limit(s.live);default:return 0;}}
+inline float configured(const Settings& s,Kind k){switch(k){case Kind::Ordinary:return limit(s.ordinary);case Kind::Critical:return limit(s.critical);case Kind::Touchdown:case Kind::Safety:case Kind::BlockedKick:return limit(s.touchdown);case Kind::Eruption:return limit(s.eruption);case Kind::LivePlay:return limit(s.live);default:return 0;}}
 inline unsigned safetyDuration(const Settings& s){return (std::clamp)(s.touchdownMs,3000u,30000u)*7/10;}
 inline float lineupStrength(const Settings& s,bool critical,float choice){
     float maximum=configured(s,critical?Kind::Critical:Kind::Ordinary),minimum=(std::min)(maximum,critical?5.0f:3.0f);
@@ -41,7 +41,7 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
     if(c.kind==Kind::Ordinary||c.kind==Kind::Critical||c.kind==Kind::LivePlay)return limit(c.percent)*smooth(age/(c.kind==Kind::LivePlay?200.0f:c.kind==Kind::Critical?600.0f:1000.0f));
     if(now>=c.until||c.until<=c.began||limit(c.percent)<=0)return 0;
     float duration=static_cast<float>(c.until-c.began),baseDuration=(std::max)(1.f,duration-c.distanceExtraMs),progress=age/baseDuration;
-    bool td=c.kind==Kind::Touchdown||c.kind==Kind::Safety;
+    bool td=c.kind==Kind::Touchdown||c.kind==Kind::Safety||c.kind==Kind::BlockedKick;
     float peakEnd=td?1.0f/9:1.25f/16,settleEnd=td?1.5f/9:2.0f/16,holdEnd=td?5.0f/9:8.0f/16;
     float peak=(std::max)(limit(c.percent),limit(c.impact));
     if(progress<peakEnd)return peak*smooth(age/(td?80.0f:60.0f));
@@ -63,10 +63,10 @@ struct Input {
     uint64_t runBuildup=0;float runProgress=0;
     uint64_t safety=0;
     unsigned distanceExtraMs=0;
-    float hostileOpening=0;
+    float hostileOpening=0;uint64_t blockedFieldGoal=0;
 };
 class Model {
-    uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0;int phase_=0;
+    uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0;int phase_=0;
     Cue lineupCue_,pulse_,liveCue_,output_;
 public:
     void reset(){*this=Model{};}
@@ -75,6 +75,7 @@ public:
         unsigned reactionFade=(std::clamp)(settings.reactionFadeMs,1000u,8000u);
         if(x.match!=match_||x.epoch!=epoch_){reset();match_=x.match;epoch_=x.epoch;}
         bool td=x.touchdown&&x.touchdown!=seenTd_,eruption=x.eruption&&x.eruption!=seenEruption_,safety=x.safety&&x.safety!=seenSafety_;
+        bool blocked=x.blockedFieldGoal&&x.blockedFieldGoal!=seenBlockedKick_;if(x.blockedFieldGoal)seenBlockedKick_=x.blockedFieldGoal;
         bool live=x.duringPlay&&x.duringPlay!=seenLive_;if(x.duringPlay)seenLive_=x.duringPlay;
         if(x.touchdown)seenTd_=x.touchdown;if(x.eruption)seenEruption_=x.eruption;if(x.safety)seenSafety_=x.safety;
         if(!x.allowed||!x.match||x.now<last_){last_=x.now;return suspend(x.now);}last_=x.now;
@@ -117,12 +118,13 @@ public:
             if(x.now>=liveCue_.until)liveCue_={};
         }
         if(pulse_.kind!=Kind::None&&(x.now>=pulse_.until||newSnap||(pulse_.kind==Kind::Eruption&&!x.eruptionAlive)))pulse_={};
-        if(eruption&&x.phase!=1&&x.phase!=3){
+        if(eruption&&x.phase!=3){
             bool upgrade=(pulse_.kind==Kind::Touchdown||pulse_.kind==Kind::Safety)&&x.now>=pulse_.began&&x.now-pulse_.began<750;
             auto start=upgrade?pulse_.began:x.now;pulse_={x.match,x.epoch,x.now,start,start+(std::clamp)(settings.eruptionMs,5000u,60000u),Kind::Eruption,configured(settings,Kind::Eruption),false,limit(settings.eruptionImpact)};
             pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;
             join(pulse_);liveCue_={};ramp_=0;
-        }else if(td&&x.phase!=1&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
+        }else if(td&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
+        else if(blocked&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::BlockedKick,configured(settings,Kind::BlockedKick),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=configured(settings,pulse_.kind);pulse_.impact=limit(pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact);output_=pulse_;}
         else if(liveCue_.kind!=Kind::None)output_=liveCue_;else{
@@ -142,7 +144,7 @@ inline void rotate(std::array<float,16>& m,int a,int b,float radians){
     float c=std::cos(radians),s=std::sin(radians);for(int row=0;row<4;++row){float x=m[row*4+a],y=m[row*4+b];m[row*4+a]=c*x+s*y;m[row*4+b]=-s*x+c*y;}
 }
 inline float projectionScale(const std::array<float,16>& p,Kind kind){
-    if(kind!=Kind::Touchdown&&kind!=Kind::Eruption&&kind!=Kind::Safety)return 1;
+    if(kind==Kind::None)return 1;
     // The native projection getter exposes this separate perspective matrix.
     // Focal length magnifies angular motion; compensate without changing zoom.
     bool valid=true;for(float v:p)valid=valid&&std::isfinite(v);

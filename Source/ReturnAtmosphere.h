@@ -4,12 +4,12 @@
 namespace attendance::live {
 class ReturnAtmosphere {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t began_=0,last_=0,tail_=0,heldAt_=0,ramp_=0;
-    int side_=-1;bool active_=false,rampOnly_=false;float level_=1;unsigned release_=4500,hold_=0;
+    int side_=-1;bool active_=false,rampOnly_=false;float level_=1;unsigned release_=5000,hold_=0;
     int phase_=-1;
     uint64_t liveBegan_=0;bool exhausted_=false;
 public:
     void reset(){*this=ReturnAtmosphere{};}
-    void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,const Outcome& event,bool held,bool fumble,unsigned release=4500,RunBuildup buildup={},unsigned distanceExtra=0,bool durationCarry=false){
+    void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,const Outcome& event,bool held,bool fumble,unsigned release=5000,RunBuildup buildup={},unsigned distanceExtra=0,bool durationCarry=false){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
         if(!allowed||!match||p.simulated||!valid(p.game)||fumble||now<last_||(last_&&now-last_>750)){active_=false;last_=now;return;}last_=now;
         bool newSnap=p.game.phase==3&&phase_!=3;phase_=p.game.phase;

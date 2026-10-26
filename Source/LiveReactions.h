@@ -2,12 +2,12 @@
 #include "ExcitementRules.h"
 #include "SustainedCrowd.h"
 namespace attendance::live {
-enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss};
-inline const char* name(Event e){switch(e){case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Live defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
+enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss,BlockedFieldGoal};
+inline const char* name(Event e){switch(e){case Event::BlockedFieldGoal:return "Blocked field goal";case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
 inline int cheerType(const Outcome& event){
     switch(event.event){
-    case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
+    case Event::BlockedFieldGoal:case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
     // Use the already listening-tested large cheer for explosive completions
     // and gains; ordinary threshold plays keep the conversion family.
     default:return std::isfinite(event.yards)&&event.yards>=40?91:83;
@@ -16,9 +16,13 @@ inline int cheerType(const Outcome& event){
 inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType){
     bool phase=state.phase==4||state.phase==5||state.phase==1;
     bool loss=result.fiveYardLoss&&std::isfinite(result.yards)&&result.yards>=-100&&result.yards<=-4.99f;
+    // A fast recovery/tackle can skip the live loose-ball/holder samples.
+    // The settled turnover is still proof of a defensive recovery; do not
+    // infer a forced-fumble instant or a return that was never observed.
+    bool recovery=result.takeaway&&result.event==energy::Event::FumbleRecovery;
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
-       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.highLeverageStop))return {};
-    Event selected=result.goalLineStop?Event::GoalLineStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:Event::CriticalStop;
+       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.highLeverageStop||recovery||result.blockedFieldGoal))return {};
+    Event selected=result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:recovery?Event::FumbleRecovery:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
 struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};
@@ -38,7 +42,7 @@ public:
         if(p.game.phase==3&&phase_==1&&ready_){snapped_=true;record_=record;snap_=now;reset_=used_=false;}
         if(snapped_&&p.game.phase==3&&record&&record==record_&&p.offense==side_&&now>=snap_&&now-snap_<=45000){
             if(kind==0)reset_=true;
-            bool flight=reset_&&kind==3&&ball==1&&!held;
+            bool flight=reset_&&(kind==3||kind==1)&&ball==1&&!held;
             if(flight&&!used_){used_=air_=true;began_=now;}
             if(air_&&(!flight||now-began_>=8000)){air_=false;ended_=now;}
         }else if(air_){air_=false;ended_=now;}
@@ -157,15 +161,18 @@ public:
             // A quarterback scramble can retain the native pass-record kind.
             // A held rushing-state ball is sufficient proof of a live runner;
             // never infer a rush from a loose or airborne ball.
-            bool running=p.game.phase==3&&held&&p.offense==side_&&(ball==9||observedRun_)&&!flight_&&(kind==0||kind==3);
+            bool running=p.game.phase==3&&held&&p.offense==side_&&(ball==2||ball==9||observedRun_)&&!flight_&&(kind==0||kind==3);
             if(kind==0||running)reset_=true;
             observedRun_=observedRun_||running;
-            if(reset_&&(ball==4||(kind==3&&ball==1&&!held)))flight_=true;
+            // A fresh pass record also uses kind 1 while its ball is in flight,
+            // followed by a held ball-3 receiver. The preceding kind-0 reset
+            // prevents last play's completion or the snap from proving flight.
+            if(reset_&&(ball==4||((kind==3||kind==1)&&ball==1&&!held)||(kind==1&&ball==3&&held)))flight_=true;
             if(reset_&&!used_&&std::isfinite(spot_)&&std::fabs(spot_)<=50.01f&&(direction_==1||direction_==-1)){
                 bool own=side_==0||p.game.neutral;
                 float catchTolerance=(std::max)(3.5f,prior&&now>=prior?20.f*static_cast<float>(now-prior)*.001f:3.5f);
                 bool catchAgrees=!held||!std::isfinite(runnerSpot)||std::fabs(runnerSpot-catchSpot)<=catchTolerance;
-                if(flight_&&kind==1&&p.offense==side_&&!caught_&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50&&catchAgrees){
+                if(flight_&&kind==1&&ball!=1&&p.offense==side_&&!caught_&&std::isfinite(catchSpot)&&std::fabs(catchSpot)<=50&&catchAgrees){
                     caught_=true;
                     runnerLast_=catchSpot;runnerAt_=now;
                     float gained=std::round((catchSpot-spot_)*direction_);

@@ -34,7 +34,7 @@ int main(){
     assert(runner(1,4,5).event==live::Event::RunAfterCatch);assert(!runner(1,4,20).id);
     // A rushing play needs no pass/catch, but must have a held live ball.
     tick(1,0,1,0,0);tick(3,0,9,0,0);assert(!runner(0,9,5,false).id);
-    assert(!runner(3,2,10).id);assert(!runner(0,2,10).id);assert(runner(0,9,5).event==live::Event::LongRun);
+    assert(runner(3,2,10).event==live::Event::LongRun);assert(!runner(0,2,10).id);assert(!runner(0,9,5).id); // Held state 2 is a verified live runner; the same gain cannot repeat.
     begin(0);assert(!runner(3,4,30).id); // A long airborne pass is not a long run.
     begin(0);assert(!tick(3,1,4,0,-18).id);allowed=false;assert(!runner(1,4,5).id);allowed=true;
     p.fieldSpot=20;p.attackDirection=-1;begin(0);assert(!tick(3,1,4,0,18).id);assert(!runner(1,4,0).id);assert(runner(1,4,-10).event==live::Event::RunAfterCatch);

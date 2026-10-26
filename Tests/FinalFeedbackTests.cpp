@@ -38,18 +38,18 @@ int main(){
         assert(!f.observe(p,123,1,1200,true,none,3,5,false,true).id);p.offense=0;
         assert(f.observe(p,123,1,1300,true,none,4,9,true,true).event==live::Event::FumbleRecovery);
     }
-    {motion::Model m;motion::Settings s;assert(s.reactionFadeMs==4500);motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
+    {motion::Model m;motion::Settings s;assert(s.reactionFadeMs==5000);motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
         m.observe(s,x);x.now=1200;assert(motion::strength(m.observe(s,x),1200)==10);
-        x.now=1900;m.observe(s,x);x.phase=4;x.now=2000;x.duringPlay=0;auto tail=m.observe(s,x);assert(tail.tail&&tail.until==6500);
-        x.now=4250;tail=m.observe(s,x);assert(motion::strength(tail,4250)>7.4f&&motion::strength(tail,4250)<7.5f);
-        x.now=6500;assert(m.observe(s,x).kind==motion::Kind::None);
+        x.now=1900;m.observe(s,x);x.phase=4;x.now=2000;x.duringPlay=0;auto tail=m.observe(s,x);assert(tail.tail&&tail.until==7000);
+        x.now=4500;tail=m.observe(s,x);assert(motion::strength(tail,4500)>7&&motion::strength(tail,4500)<8);
+        x.now=7000;assert(m.observe(s,x).kind==motion::Kind::None);
     }
     {live::ReturnAtmosphere r;energy::Play p;p.game={2,7,7,3,300,720};p.down=1;p.offense=1;
         live::Outcome pick{live::Event::Interception,1,0,0};r.observe(p,123,1,1000,true,pick,true,false);
         sustained::Intent sound;sound.active=true;sound.match=123;sound.epoch=1;
         assert(r.merge(sound,1000,.9f).continuous);
         p.offense=0;r.observe(p,123,1,1200,true,{},true,false);assert(r.merge(sound,1200,.9f).continuous);
-        p.game.phase=4;r.observe(p,123,1,1500,true,{},false,false);auto tail=r.merge(sound,1500,.9f);assert(tail.continuous&&!tail.reaction&&tail.supporting&&tail.intensity>0&&tail.releaseMs==3375);
+        p.game.phase=4;r.observe(p,123,1,1500,true,{},false,false);auto tail=r.merge(sound,1500,.9f);assert(tail.continuous&&!tail.reaction&&tail.supporting&&tail.intensity>0&&tail.releaseMs==3800);
     }
     State half{3,0,18,5,720,720};halftime::ExitConversion conversion;
     assert(conversion.request(half,5,30)==5&&!conversion.request(half,5,30));
@@ -60,5 +60,5 @@ int main(){
     seats.convert(half,5,10,30,100);assert(seats.observe(half,10)==30); // The already-empty seats do not empty a second time.
     half.seconds=630;int returning=seats.observe(half,10);assert(returning<30&&returning>10);
     departures::Model departures;departures.beginWindow(1);auto changed=departures.convertSeatBreakers(half,5,5,1);assert(changed.loss<=6&&departures.windowBudget==1);
-    std::puts("PASS: regulation winning PAT/two-point scores, native limits/dedupe, critical-down snap continuity, live fumble/recovery ramp, 4.5-second whistle fade and once-only smooth halftime permanent conversion with caps and no double removal.");
+    std::puts("PASS: regulation winning PAT/two-point scores, native limits/dedupe, critical-down snap continuity, live fumble/recovery ramp, five-second whistle fade and once-only smooth halftime permanent conversion with caps and no double removal.");
 }

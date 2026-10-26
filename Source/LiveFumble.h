@@ -31,12 +31,13 @@ public:
             if(fumbleState&&!held&&ball==5&&lastHeld_>=0){pending_=sawLoose_=true;fumbler_=lastHeld_;}
             if(pending_&&!held)sawLoose_=true;
             if(kind==2&&!forced_&&!sawLoose_){pending_=false;recoveryUsed_=true;} // An interception alone is not fumble proof.
-            if(pending_&&!recoveryUsed_&&held&&ball==9&&p.offense==1-fumbler_&&(forced_||sawLoose_)){
+            bool groundedHeld=held&&(ball==2||ball==3||ball==9);
+            if(pending_&&!recoveryUsed_&&groundedHeld&&p.offense==1-fumbler_&&(forced_||sawLoose_)){
                 recoveryUsed_=true;
                 if(p.offense==0||p.game.neutral){recoveredAt_=now;recoverySide_=p.offense;out={Event::FumbleRecovery,++serial_,p.offense,0};}
             }else if(pending_&&sawLoose_&&held&&p.offense==fumbler_){pending_=false;recoveryUsed_=true;}
             if(recoveredAt_&&(!held||p.offense!=recoverySide_))recoveredAt_=0;
-            if(held&&(ball==9||kind==1)&&(p.offense==0||p.offense==1))lastHeld_=p.offense;
+            if(held&&(groundedHeld||kind==1)&&(p.offense==0||p.offense==1))lastHeld_=p.offense;
         }
         if(p.game.phase!=1&&p.game.phase!=3)ready_=live_=false;
         phase_=p.game.phase;return out;
