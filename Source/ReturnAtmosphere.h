@@ -54,6 +54,7 @@ public:
         bool releasing=tail_&&now-tail_>=hold_;
         float weight=level_*(tail_?shape::tail(static_cast<float>(now-tail_),static_cast<float>(release_),static_cast<float>(hold_)):1.f);
         out.reason=sustained::Reason::Result;out.continuous=!releasing;out.reaction=releasing;out.priority=(std::max)(out.priority,4);
+        out.reactionId=began_;
         out.size=(std::max)(out.size,rampOnly_?2:3);out.supporting=!releasing;out.attackMs=500;out.releaseMs=static_cast<int>(release_-shape::tailHold(release_));
         if(rampOnly_)out.releaseMs=static_cast<int>(release_);
         out.intensity=950*std::sqrt((std::clamp)(fullness,0.f,1.f))*weight;

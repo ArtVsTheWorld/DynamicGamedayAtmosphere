@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.4**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.55.5**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.4/
+    Runtime-1.55.5/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -50,6 +50,12 @@ The JSON file is saved in DGA's `Diagnostics` folder. It contains game build met
 
 The report is evidence for checking a layout difference, not a compatibility certificate. Protected on-disk EXEs can differ from their running code, and a generic Windows file-version label may not identify the actual game build. An older PE timestamp alone does not prove that a Steam installation is out of date.
 
+## Native crowd continuity
+
+The working build retains a reaction ID after its one-shot cheer window ends or is deduplicated against the game. A native presentation stop can then recover the existing roar/swell promptly instead of waiting up to two seconds. The loop recovery leaves native stops and cleanup in place, does not repeat a cheer, and does not extend the original timer. DGA-authored start/stop messages are excluded from native-interruption detection. A new verified result can start its response even when the previous response is still in its quiet gap and its cheer is already playing natively.
+
+Live timeout observation preserved native excitement. Penalty-specific one-shot cancellation versus a missing native trigger still needs an observed native-voice capture; an intensity value alone does not prove that a particular cheer played. For a repeat case, enable Logging Debug=1 temporarily. The native-reactions entries record changes in engine crowd voice types/handles, alongside phase and pause state. Compare these with reaction-audio to distinguish an observed engine instance from DGA dispatch. This is observation only; a listed instance still does not prove audible output. Disable Debug afterward. Normal logging does not scan these arrays. The game already reacts at the penalty announcement. That timing is intentionally unchanged; no extra acceptance/decline cheer or boo is added.
+
 ## Later live check
 
 For bug reports, check the current session's startup lines first. `Activation: INACTIVE` or `Required native bytes differ; no hooks installed` means DGA did not activate. A version/startup line alone does not mean its features are running. Keep the full log so earlier sessions are distinguishable from the reported one. A required game-code mismatch must be investigated; turning off individual settings will not make that layout compatible.
@@ -59,7 +65,7 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 - In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
-- For the 1.55.4 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
+- For the 1.55.5 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
 
 Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining integrated live checks are resolved.

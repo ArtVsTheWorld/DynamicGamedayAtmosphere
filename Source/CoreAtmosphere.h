@@ -163,6 +163,7 @@ struct Model {
         }
         if(!erupting&&resultWeight>0){
             out.scoringReaction=resultScoring;
+            out.reactionId=resultSequence;
             out.reason=sustained::Reason::Result;out.priority=5;out.continuous=true;out.size=resultProfile.size;
             out.attackMs=500;out.releaseMs=static_cast<int>(resultProfile.release*1000);out.supporting=resultProfile.strength>=.68f;
             out.deepCheers=resultProfile.layered;out.cheers=false;

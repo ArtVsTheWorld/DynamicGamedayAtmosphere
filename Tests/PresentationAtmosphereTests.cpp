@@ -27,5 +27,7 @@ int main(){
     auto fresh=m.observe(c,s,124,2,425000,true,true,.9f,56099,false);assert(fresh.active);
     assert(quiet::audiblePhase(6,false,false)&&quiet::audiblePhase(7,false,false));
     assert(!quiet::audiblePhase(7,false,true)); // Interactive replay retains native control.
+    assert(quiet::audiblePhase(2,true,false)); // Live timeout transitions keep crowd quieting consistent.
+    assert(!quiet::audiblePhase(2,false,false)&&!quiet::audiblePhase(2,true,true));
     std::puts("PASS: fullness-qualified intro/outro atmosphere, paused presentation quieting, original gates/volume caps, no fabricated play/cheer/shake, home/neutral winners, blowout/menu/context guards and bounded scene lifetimes.");
 }

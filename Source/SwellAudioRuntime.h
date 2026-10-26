@@ -8,6 +8,9 @@
 
 namespace attendance::sustained {
 using Address=uintptr_t;
+// Native sends can call our observer synchronously. Our own stop/refresh
+// messages are not evidence that the game interrupted the reaction.
+inline thread_local bool ownedSwellDispatch=false;
 struct Api {
     using Query=Address(__fastcall*)(Address,Address,Address,Address,Address);
     using Get=Address(__fastcall*)(Address,bool);
@@ -106,6 +109,7 @@ inline bool emit(const Api& api,Address image,Address manager,bool start,int siz
     }
     if(seen!=(start?3u:4u))return false;
     if(dispatchAttempted)*dispatchAttempted=true;
+    struct Dispatch {bool previous=ownedSwellDispatch;Dispatch(){ownedSwellDispatch=true;}~Dispatch(){ownedSwellDispatch=previous;}} dispatch;
     return obtain(unused,api.send,manager,reinterpret_cast<Address>(result),cleanup.event);
 }
 using Note=void(*)(const char*);
@@ -116,7 +120,7 @@ class Runtime {
     std::atomic<int> reason_{0};
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
     std::atomic<Address> nativeManager_{0};std::atomic<uint64_t> nativeStart_{0},nativeStop_{0};std::atomic<int> nativeSize_{0};
-    Address quickMatch_=0;unsigned quickEpoch_=0;uint64_t quickToken_=0;
+    Address quickMatch_=0;unsigned quickEpoch_=0;uint64_t quickToken_=0;Reason quickReason_=Reason::None;
     std::atomic<unsigned> adopted_{0};bool ownsVoice_=false,gameplay_=false;
 public:
     void configure(Address image,Note note=nullptr,const Api* api=nullptr,bool gameplay=false){image_=image;api_=api?*api:Api::native(image);note_=note;gameplay_=gameplay;}
@@ -129,6 +133,7 @@ public:
         if(episode_.playing&&wanted.active&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);
             episode_.continuous=wanted.continuous;
+            if(wanted.reason==Reason::Result&&wanted.reactionId)episode_.reactionId=wanted.reactionId;
             if(wanted.continuous&&wanted.reason==Reason::Opening&&(episode_.openingMatch!=wanted.match||episode_.openingEpoch!=wanted.epoch)){
                 episode_.openingBegan=now;episode_.openingMatch=wanted.match;episode_.openingEpoch=wanted.epoch;
             }
@@ -136,12 +141,12 @@ public:
         bool stop=episode_.mustStop(wanted,now)||(!healthy_&&episode_.playing);
         bool eruptionHit=wanted.active&&wanted.reason==Reason::Eruption&&wanted.celebration&&wanted.celebration!=lastCelebration_;
         bool resultHit=wanted.active&&wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil&&wanted.resultCheer!=lastResult_;
-        if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickToken_=0;}
-        uint64_t token=wanted.reason==Reason::Lineup?wanted.lineup:wanted.reason==Reason::Result?wanted.liveCheer:0;
+        if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch||quickReason_!=wanted.reason){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickReason_=wanted.reason;quickToken_=0;}
+        uint64_t token=wanted.reason==Reason::Lineup?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
         bool nativeInterrupted=(episode_.continuous||episode_.reason==Reason::Lineup)&&nativeStops_.load()!=handledStop_;
-        // Native HFA stops its lineup channel at the snap. Recover once promptly
-        // for this play instead of leaving a two-second hole. Repeated stop
-        // messages keep the existing slower bound; this is not a restart loop.
+        // A native snap/timeout/penalty stop can affect the same crowd channel.
+        // Recover once promptly per earned reaction, even after its one-shot
+        // cheer was deduped or expired. Repeated stops keep the slower bound.
         bool quickRecovery=nativeInterrupted&&token&&token!=quickToken_&&now>=lastRefresh_&&now-lastRefresh_>=100;
         bool diagnosticHit=wanted.active&&wanted.diagnosticToken&&wanted.diagnosticToken!=lastDiagnostic_;
         bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
@@ -170,6 +175,7 @@ public:
                 healthy_=false;retryUntil_=now+1000;return;
             }
             if(quickRecovery)quickToken_=token;
+            if(quickRecovery&&wanted.reason==Reason::Result&&note_)note_("Earned crowd reaction resumed after a native presentation stop; original play timing retained.");
             ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;lastDiagnostic_=wanted.diagnosticToken;++refreshes_;return;
         }
         if(episode_.canStart(wanted,now)){
@@ -195,11 +201,12 @@ public:
     Reason reason()const{return static_cast<Reason>(reason_.load());}
     unsigned starts()const{return starts_;}unsigned stops()const{return stops_;}
     unsigned refreshes()const{return refreshes_;}
+    unsigned nativeStops()const{return nativeStops_;}
     unsigned adopted()const{return adopted_;}
     void observeNativeStop(Address manager,Address event,uint64_t now=GetTickCount64()){
         // This runs inside the native send callback. Atomics only: the send
         // path may be nested under our audio mutex. No borrowed event survives.
-        if(!manager||at<unsigned char>(event+0xac)!=1)return;
+        if(ownedSwellDispatch||!manager||at<unsigned char>(event+0xac)!=1)return;
         Address description=at<Address>(event+0xa0);
         if(at<unsigned>(description+0x40)!=205964879)return;
         unsigned id=at<unsigned>(description+0x44);

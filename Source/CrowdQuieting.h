@@ -16,7 +16,7 @@ inline bool audiblePhase(int phase,bool unpaused,bool interactiveReplay){
     if(interactiveReplay)return false;
     // Intros/final presentation can report the world as paused while their
     // own audio continues. Match ownership is checked separately by the caller.
-    return phase==6||phase==7||(unpaused&&(phase==1||phase==3||phase==4||phase==5));
+    return phase==6||phase==7||(unpaused&&(phase>=1&&phase<=5));
 }
 inline bool knownSize(uint64_t positions){return positions>=512&&positions<=12800000;}
 inline float sizeWeight(uint64_t positions){

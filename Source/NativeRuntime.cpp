@@ -41,6 +41,7 @@
 #include "ChantAudioModel.h"
 #include "ChantMixerRuntime.h"
 #include "CrowdIntensityRuntime.h"
+#include "NativeReactionTrace.h"
 #include "CrowdChangeWindow.h"
 #include "SuperSimState.h"
 #include "CoreAtmosphere.h"
@@ -207,6 +208,7 @@ std::atomic<A> audioMatch{0};
 std::atomic<unsigned> audioEpoch{1};
 attendance::sustained::Runtime sustainedAudio,supportingSwell;
 attendance::cheer::Runtime positiveCheer;
+attendance::nativevoices::Trace nativeVoiceTrace;std::mutex nativeVoiceTraceMutex;
 std::atomic<bool> cheerAvailable{false};
 using ReactionUpdate=void(__fastcall*)(A,A);ReactionUpdate originalReactionUpdate=nullptr;
 attendance::sustained::IntensityRuntime crowdIntensity;
@@ -261,6 +263,7 @@ attendance::sustained::Api::Send originalCrowdSend=nullptr;
 attendance::audio::Wanted audioWanted();
 attendance::audio::Wanted audioVolumeWanted();
 void audioNote(const char* message);
+void log(const char* event,const std::string& message);
 void sustainedNote(const char* message);
 bool nativeUnpaused(){
     A pause=0;unsigned char paused=1;SIZE_T copied=0;
@@ -316,6 +319,19 @@ void __fastcall intensityUpdate(A entity){
 }
 void __fastcall reactionUpdate(A entity,A frame){
     originalReactionUpdate(entity,frame);
+    // Observation only, using this callback's borrowed live entity. Debug=0
+    // adds no reads, scanning, allocation or locks to the normal path.
+    try {if(debugLog&&attendance::sustained::at<A>(entity)==image+attendance::bindings::ReactionVtable){
+        auto wanted=audioWanted();A begin=attendance::sustained::at<A>(entity+0x120),end=attendance::sustained::at<A>(entity+0x128);
+        if(wanted.active&&end>=begin&&(end-begin)%16==0&&end-begin<=16*16){
+            attendance::nativevoices::Snapshot voices;voices.count=static_cast<unsigned>((end-begin)/16);
+            for(unsigned i=0;i<voices.count;++i)voices.voices[i]={attendance::sustained::at<int>(begin+i*16),attendance::sustained::at<int>(begin+i*16+4)};
+            bool voicesChanged=false;{std::lock_guard<std::mutex> guard(nativeVoiceTraceMutex);voicesChanged=nativeVoiceTrace.observe(entity,attendance::sustained::at<A>(entity+0x38),wanted.match,wanted.epoch,GetTickCount64(),voices);}
+            if(voicesChanged){std::ostringstream text;text<<"Engine crowd voices: "<<voices.count<<"; phase "<<audioPresentationPhase()<<"; world paused "<<(nativeUnpaused()?"no":"yes")<<"; types/handles";
+                for(unsigned i=0;i<voices.count;++i)text<<" "<<voices.voices[i].type<<"/"<<voices.voices[i].handle;
+                text<<". Includes game and DGA requests; compare reaction-audio entries. A listed instance does not prove audible playback.";log("native-reactions",text.str());}
+        }
+    }}catch(...){/* Optional observation must never interrupt the native or added cheer callback. */}
     try {positiveCheer.tick(entity,wantedSwell(),GetTickCount64());}
     catch(...){positiveCheer.fail();audioNote("cheer-fault: further added cheers disabled");}
 }
@@ -1560,6 +1576,7 @@ void atmosphereTick(){
     auto gainBuildup=liveReactions.runBuildup();
     returnAtmosphere.observe(p,match,epoch,now,liveAllowed&&liveSettings->enabled,liveResult,ballHeld,forcedLive.id&&forcedLive.event==attendance::live::Event::ForcedFumble,std::atomic_load(&cameraSettings)->reactionFadeMs,gainBuildup,reactionDistance.extension(),reactionDistance.ownsDuration());
     wanted=returnAtmosphere.merge(wanted,now,remaining);
+    if(wanted.reason==attendance::sustained::Reason::Result)wanted.reactionId=playTracker.serial;
     wanted=openingKickoffAtmosphere.merge(wanted,now);
     auto presentation=presentationAtmosphere.observe(*audio,p.game,match,epoch,now,active&&enabled&&audioSetting,
         fullnessReady,fullnessReady?audibleFullness(audioWanted()):remaining,fullnessReady?rendered->seats:0,coreAtmosphere.postgameMenu);

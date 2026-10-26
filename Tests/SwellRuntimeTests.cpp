@@ -13,7 +13,7 @@ unsigned char descriptions[4][0x60]{},values[2][0x50]{},parameters[2][0x60]{};Ad
 Address manager=0x111111;bool startEvent=false,queryMissing=false,badParameter=false,faultSend=false,reenter=false;
 unsigned queries=0,queryEnds=0,weaks=0,weakEnds=0,arenas=0,arenaEnds=0,events=0,eventEnds=0,starts=0,stops=0;
 struct Message {bool start;int size,attack,release;};std::vector<Message> messages;
-Runtime* recursive=nullptr;Intent request;uint64_t timeValue=1000;
+Runtime* recursive=nullptr;Runtime* observer=nullptr;Intent request;uint64_t timeValue=1000;
 Address __fastcall query(Address q,Address allocator,Address target,Address type,Address world){
     assert(q&&allocator==0x1234&&type==image+attendance::bindings::SwellQueryType&&world==0x2345);
     assert(at<unsigned>(target+8)==0x243a8b25);++queries;return q;
@@ -30,7 +30,8 @@ Address __fastcall lookup(Address m,Address,const char* system,const char* name,
 }
 Address __fastcall init(Address a){++arenas;assert(at<Address>(a-0x18)==image+attendance::bindings::SwellArenaVtable);return a;}
 void __fastcall arenaEnd(Address){++arenaEnds;assert(events==eventEnds);}
-Address __fastcall construct(Address e,Address,Address){
+Address __fastcall construct(Address e,Address,Address description){
+    put(e+0xa0,description);
     ++events;put<unsigned char>(e+0xac,1);put<unsigned>(e+0x18,startEvent?2u:1u);put(e+0x20,reinterpret_cast<Address>(entries));
     for(unsigned i=0;i<(startEvent?2u:1u);++i){
         entries[i]=address(values[i]);put(entries[i]+0x30,address(parameters[i]));
@@ -40,11 +41,12 @@ Address __fastcall construct(Address e,Address,Address){
 }
 void __fastcall eventEnd(Address){++eventEnds;}
 void __fastcall set(Address v,int value){put(v,value);}
-Address __fastcall send(Address m,Address,Address){
+Address __fastcall send(Address m,Address,Address event){
     assert(m==manager);Message message{startEvent,0,0,0};
     if(startEvent){++starts;message.size=at<int>(entries[0]);message.attack=at<int>(entries[1]);}
     else {++stops;message.release=at<int>(entries[0]);}
     messages.push_back(message);
+    if(observer)observer->observeNativeStop(m,event,timeValue);
     if(reenter&&recursive)recursive->tick(address(owner)+0x40,request,timeValue);
     if(faultSend){faultSend=false;RaiseException(EXCEPTION_ACCESS_VIOLATION,0,0,nullptr);}return 0;
 }
@@ -151,6 +153,25 @@ int main(){
             balanced();
         }
     }
+    // A timeout/penalty stop gets prompt recovery even if the matching native
+    // cheer caused the one-shot request to be deduped. Result identity outlives
+    // that request and does not collide with the previous lineup's token.
+    Runtime interrupted;interrupted.configure(image,nullptr,&api);observer=&interrupted;
+    request={};request.active=true;request.match=902;request.epoch=1;request.reason=Reason::Lineup;request.lineup=77;request.continuous=true;request.updated=500000;
+    timeValue=500000;interrupted.tick(address(owner)+0x40,request,timeValue);oldStarts=starts;
+    put(address(stockStop)+0xa0,address(descriptions[1]));interrupted.observeNativeStop(manager,address(stockStop),500100);
+    request.reason=Reason::Result;request.priority=5;request.lineup=0;request.reactionId=77;request.resultCheer=request.liveCheer=0;request.updated=timeValue=500150;
+    interrupted.tick(address(owner)+0x40,request,timeValue);assert(starts==oldStarts+1&&messages.back().attack==500);
+    interrupted.observeNativeStop(manager,address(stockStop),500200);request.updated=timeValue=500250;
+    interrupted.tick(address(owner)+0x40,request,timeValue);assert(starts==oldStarts+1); // Repeated stops cannot cause an event storm.
+    auto nativeCount=interrupted.nativeStops();request.active=false;request.updated=timeValue=500350;
+    interrupted.tick(address(owner)+0x40,request,timeValue);assert(!interrupted.playing()&&interrupted.nativeStops()==nativeCount); // Our own release is not a native interruption.
+    request.active=true;request.reaction=true;request.continuous=false;request.updated=timeValue=500450;
+    interrupted.tick(address(owner)+0x40,request,timeValue);assert(starts==oldStarts+1); // No replay of an already fading response.
+    request.reaction=false;request.continuous=true;request.reactionId=78;request.updated=timeValue=500550;
+    interrupted.tick(address(owner)+0x40,request,timeValue);assert(starts==oldStarts+2); // A new earned response may bypass the previous quiet gap without another cheer.
+    request.active=false;request.updated=timeValue=500650;interrupted.tick(address(owner)+0x40,request,timeValue);observer=nullptr;balanced();
+    assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");
 }

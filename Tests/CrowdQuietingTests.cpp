@@ -26,9 +26,9 @@ int main(){
         assert(apply(350,factor)==350*factor); // Ordinary bed remains as tested.
     }
     assert(apply(1000,.25f)<200&&apply(1000,.25f)>180);
-    for(int phase:{1,3,4,5})assert(audiblePhase(phase,true,false)&&!audiblePhase(phase,false,false));
+    for(int phase:{1,2,3,4,5})assert(audiblePhase(phase,true,false)&&!audiblePhase(phase,false,false));
     for(int phase:{6,7})assert(audiblePhase(phase,false,false)&&audiblePhase(phase,true,false)&&!audiblePhase(phase,true,true));
-    for(int phase:{0,2,8,9})assert(!audiblePhase(phase,true,false));
+    for(int phase:{0,8,9})assert(!audiblePhase(phase,true,false));
     c.fullness=.15f;assert(std::fabs(apply(350,target(c))-57.5109f)<.02f);
     c.fullness=.5f;assert(target(c)==1);c.fullness=.50001f;assert(target(c)==1);
     c.fullness=.49999f;assert(target(c)<1&&target(c)>.999f);

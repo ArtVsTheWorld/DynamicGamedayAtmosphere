@@ -18,6 +18,8 @@ struct Intent {
     uint64_t liveCheer=0,liveCheerUntil=0;int liveType=83;
     bool deepCheers=false;uint64_t resultCheer=0,resultCheerUntil=0;int resultType=91;
     bool scoringReaction=false;uint64_t diagnosticToken=0;
+    // Reaction lifetime, independent of the short one-shot cheer request.
+    uint64_t reactionId=0;
 };
 inline Intent select(const energy::Settings& c,const energy::Play& p,const energy::Model& model,
                      uintptr_t match,unsigned epoch,uint64_t now,bool allowed,float permanentFraction=1){
@@ -74,7 +76,7 @@ inline bool fresh(const Intent& intent,uintptr_t match,unsigned epoch,uint64_t n
 // can take over an existing voice without sending another start event.
 struct Episode {
     bool playing=false,continuous=false;Reason reason=Reason::None;int priority=0,offense=-1;
-    uint64_t began=0,quietUntil=0,lineup=0;uintptr_t match=0;unsigned epoch=0;
+    uint64_t began=0,quietUntil=0,lineup=0,reactionId=0;uintptr_t match=0;unsigned epoch=0;
     uint64_t openingBegan=0;uintptr_t openingMatch=0;unsigned openingEpoch=0;
     bool openingExpired(const Intent& wanted,uint64_t now)const{
         return wanted.reason==Reason::Opening&&wanted.continuous&&openingMatch==wanted.match&&openingEpoch==wanted.epoch&&
@@ -86,11 +88,11 @@ struct Episode {
                 ((wanted.offense>=0&&offense>=0&&wanted.offense!=offense)||now<began||now-began>=(reason==Reason::Lineup?28000u:20000u))));
     }
     bool canStart(const Intent& wanted,uint64_t now)const{
-        bool freshResult=wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil;
+        bool freshResult=wanted.reason==Reason::Result&&((wanted.reactionId&&wanted.reactionId!=reactionId)||(wanted.resultCheer&&now<wanted.resultCheerUntil));
         return !playing&&(now>=quietUntil||wanted.reason==Reason::Eruption||freshResult||(wanted.lineup&&wanted.lineup!=lineup))&&fresh(wanted,wanted.match,wanted.epoch,now)&&wanted.reason!=Reason::None&&!wanted.reaction&&!openingExpired(wanted,now);
     }
     void started(const Intent& wanted,uint64_t now){
-        playing=true;continuous=wanted.continuous;reason=wanted.reason;priority=wanted.priority;offense=wanted.offense;began=now;match=wanted.match;epoch=wanted.epoch;lineup=wanted.lineup;
+        playing=true;continuous=wanted.continuous;reason=wanted.reason;priority=wanted.priority;offense=wanted.offense;began=now;match=wanted.match;epoch=wanted.epoch;lineup=wanted.lineup;reactionId=wanted.reactionId;
         if(continuous&&wanted.reason==Reason::Opening&&(openingMatch!=match||openingEpoch!=epoch)){openingBegan=now;openingMatch=match;openingEpoch=epoch;}
     }
     void stopped(uint64_t now,unsigned release=4000){quietUntil=now+(continuous?release:(std::max)(8000u,release));playing=continuous=false;reason=Reason::None;priority=0;}

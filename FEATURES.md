@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.55.4 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.55.5 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -263,6 +263,8 @@ The response scales with the play and score. A long gain, fourth-down stop or ta
 A close made field goal gets a positive home-crowd cheer, or a cheer for either side at a neutral venue. Existing late winning kicks keep their eruption. A close missed home field goal requests disappointment; an opponent miss gets a defensive cheer.
 
 In a one-score game during the final two minutes of Q2 or Q4, a confirmed third/fourth-down defensive stop gets the larger layered cheer profile and a 10% settling impact. The qualifying atmosphere and fullness rules still apply. An earlier disappointed response to a deep catch cannot cancel the later defensive-stop celebration.
+
+Earned roar/swell responses recover promptly if a native presentation stop interrupts their shared channel during a timeout or penalty scene. Recovery uses the existing play timer, even when a matching native cheer meant no extra cheer was needed. It does not replay the cheer or extend the response. Repeated stops remain rate-limited, and normal pause, replay, scene-retirement and new-snap cleanup still apply. This protects the shared looping layers; it cannot create a specific native cheer that the game never requested.
 
 The game keeps its own reactions. The mod never lowers the game's native crowd intensity to make room for an added sound, skips matching cheers already playing, and limits competing native reaction families to two at once. Extra reactions favor the home team, or either team at a neutral venue. Repeated checks of the same play cannot repeat its cheer. Separate reactions are at least four seconds apart, and a new live snap ends the previous result's extra excitement. Eruptions take priority.
 
