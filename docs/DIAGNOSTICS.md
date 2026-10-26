@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu fullness label is not implemented yet; its live UI trace was deferred.
+Working build **1.55.1**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu fullness label is not implemented yet; its live UI trace was deferred.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.0/
+    Runtime-1.55.1/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -58,6 +58,7 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
+- For the 1.55.1 hold fixes, finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - For the separate pause-menu work, leave the regular pause menu open. The next step is to identify its live text/data owner and lifetime. Reflected pause/UI class names alone are not a verified text injection route.
 
 Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining live checks and pause-menu work are resolved.

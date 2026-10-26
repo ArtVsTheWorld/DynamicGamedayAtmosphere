@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.55.0 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.55.1 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -326,6 +326,8 @@ At base duration, a touchdown opens at 20%, settles to 15%, holds through about 
 A safety uses the touchdown's configured opening and sustained strengths, but 70% of its camera duration: about 7.7 seconds at the default settings. Its movement follows the same camera-cut, timeout, replay and zoom rules.
 
 Long gains, interceptions and returns use the separate 10% reaction strength. Sacks, forced fumbles and fourth-down goal-line stops use a short impact/fade at that strength. The strongest applicable effect wins; a live reaction can blend smoothly into a touchdown or eruption. Live camera cuts, timeout scenes and play selection retain an earned reaction's original timer and movement phase. They do not restart or extend it. Each new view gets its own zoom compensation, including during live gain reactions. A new snap clears the previous play's remaining movement. Recorded replays, including the play-selection inset replay, receive no added shake. Pause, interactive replay, a new game or disabled accessibility effects stop added motion.
+
+Confirmed runs and returns keep their full settling time after the whistle, including when the game changes views during a tackle. The official post-play crowd response takes priority over the shorter during-play fade. A touchdown, safety or eruption replaces the previous play shake; the older shake stays retired when that celebration ends, even with custom shorter durations.
 
 Camera controls are under Dynamic Gameday Broadcast in the INI. OrdinaryShakeStrengthPercent and CriticalShakeStrengthPercent set the random range ceilings. LineupCheerShakeStrengthPercent controls special cheer calls; DuringPlayShakeStrengthPercent controls live gains and defensive impacts; CatchImpactShakeStrengthPercent controls immediately tackled long catches. PlayReactionFadeSeconds controls their settling time after the whistle; PlayImpactExtraSeconds adds time to the short impact reactions. Touchdown and eruption settings control their sustained strengths, opening impacts and total durations. CameraShake=0 disables all added movement.
 

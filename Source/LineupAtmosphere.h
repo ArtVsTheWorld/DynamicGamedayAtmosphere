@@ -138,6 +138,16 @@ struct Model {
         if(c.enabled&&c.lineups&&c.driveEscalation)drive.observe(p,result);else drive.reset();packedHouse=false;
         variationSeed=s.variationSeed?s.variationSeed:static_cast<uint64_t>(owner)^generation;
         bool supported=allowed&&fullnessKnown&&std::isfinite(fraction)&&fraction>=core::ReactionMinimumFullness&&c.enabled&&c.lineups&&core::normalLimit(c)>0&&valid(s)&&(s.phase==1||s.phase==3||s.phase==4||s.phase==5||s.phase==6);
+        if(s.phase==2){
+            // A native timeout/camera transition is not a new play or a pause
+            // menu. Stop lineup scheduling, but retain this play's admission
+            // so its already-earned result can finish its original tail.
+            bool keep=qualifiedPlay&&allowed&&fullnessKnown&&std::isfinite(fraction)&&fraction>=qualifiedMinimum&&
+                c.enabled&&c.lineups&&core::normalLimit(c)>0&&valid(s)&&competitive(s)>0;
+            float minimum=qualifiedMinimum;suspend();
+            if(keep){qualifiedPlay=true;qualifiedMinimum=minimum;}
+            phase=s.phase;return false;
+        }
         float standard=attendance::packed::standardMinimum(positions),specialMinimum=attendance::packed::specialMinimum(positions);
         bool ot=supported&&c.overtime&&overtime(s)&&fraction>=specialMinimum;
         float late=supported&&fraction>=specialMinimum?lateDrive(p):0;

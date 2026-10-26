@@ -143,7 +143,9 @@ struct Model {
     }
     sustained::Intent intent(const Settings& c,const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed)const{
         sustained::Intent out;out.match=match;out.epoch=epoch;out.updated=now;out.offense=p.offense;
-        bool phase=p.game.phase==1||p.game.phase==3||p.game.phase==4||p.game.phase==5||p.game.phase==6||p.game.phase==7;
+        // Phase 2 can be a live timeout/camera transition. Existing result
+        // envelopes may finish there; this creates no new play or lineup.
+        bool phase=p.game.phase>=1&&p.game.phase<=7;
         if(!allowed||!c.enabled||normalLimit(c)<=0||!phase||postgameMenu)return out;
         out.active=true;out.intensity=intensity;
         if(c.lineups&&resultWeight>0&&p.game.phase!=3&&p.game.phase!=6&&p.game.phase!=7&&resultCheer&&now/1000.0>=resultCheerAt&&now/1000.0-resultCheerAt<2.5){out.resultType=resultType;out.resultCheer=resultCheer;out.resultCheerUntil=static_cast<uint64_t>((resultCheerAt+2.5)*1000);}

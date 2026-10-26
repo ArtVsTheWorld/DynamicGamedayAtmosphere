@@ -33,12 +33,20 @@ public:
         bool possessionPending=now>=began_&&now-began_<1000&&p.game.phase==3;
         if(now<began_||(p.game.phase==3&&now-began_>=45000)||(p.game.phase==3&&p.offense!=side_&&!possessionPending)){active_=false;return;}
         if(held)heldAt_=now;
-        bool lostCarrier=!held&&now>=heldAt_&&now-heldAt_>250;
-        if(!tail_&&(p.game.phase!=3||lostCarrier||(rampOnly_&&!growing)))tail_=now;
+        // A tackled carrier may be released before the native whistle phase.
+        // Confirmed reactions keep their voice until that phase arrives, so
+        // the full release is AFTER the whistle. An unconfirmed gain buildup
+        // can still fade when abandoned. Fumbles/possession/world changes and
+        // the existing 45-second live guard remain independent cancellations.
+        if(!tail_&&(p.game.phase!=3||(rampOnly_&&!growing)))tail_=now;
         if(tail_&&now-tail_>=release_)active_=false;
     }
     sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness)const{
         if(!active_||!out.active||out.match!=match_||out.epoch!=epoch_||now<last_||now-last_>750||out.celebration||out.scoringReaction||out.reason==sustained::Reason::Eruption)return out;
+        // The official post-play response has its own longer hold/release.
+        // A short return tail must not fade that response out underneath it
+        // and expose it again at a higher level when this tail expires.
+        if(out.reason==sustained::Reason::Result&&out.priority>4)return out;
         float weight=level_*(tail_?1-(std::clamp)(static_cast<float>(now-tail_)/release_,0.f,1.f):1.f);
         out.reason=sustained::Reason::Result;out.continuous=!tail_;out.reaction=tail_!=0;out.priority=(std::max)(out.priority,4);
         out.size=(std::max)(out.size,rampOnly_?2:3);out.supporting=!tail_;out.attackMs=250;out.releaseMs=static_cast<int>(release_);

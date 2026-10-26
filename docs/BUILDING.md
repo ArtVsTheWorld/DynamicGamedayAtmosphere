@@ -8,7 +8,7 @@ From the repository folder:
 .\Source\Build.ps1 -Automatic
 ```
 
-This builds the native runtime and loader and runs all 78 build checks. Output goes to `Build/Release1550` for working build 1.55.0. The number comes from `Source/Product.json`. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+This builds the native runtime and loader and runs all 79 build checks. Output goes to `Build/Release1551` for working build 1.55.1. The number comes from `Source/Product.json`. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
 
 To compile the MMC adapter and make a download:
 

@@ -302,7 +302,11 @@ struct Tracker {
         }
         if(o.completed&&openingReliable&&s.quarter==1&&verifiedPlays<=5)o.openingPlay=verifiedPlays;
         if(s.phase==1&&eligibleSnap(p)){ready=p;haveReady=true;}
-        if(s.phase!=1&&s.phase!=3&&s.phase!=4&&s.phase!=5&&s.phase!=7){haveReady=inPlay=false;}
+        // A live timeout/camera transition can precede the official result.
+        // Keep only an already observed snap pending; never arm a new one
+        // from this phase. The caller rejects pause/replay/world changes.
+        if(s.phase==2)haveReady=false;
+        else if(s.phase!=1&&s.phase!=3&&s.phase!=4&&s.phase!=5&&s.phase!=7){haveReady=inPlay=false;}
         lastPhase=s.phase;return o;
     }
 };

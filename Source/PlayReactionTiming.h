@@ -14,7 +14,9 @@ class Distance {
     unsigned extra_=0;float threshold_=15;
 public:
     void reset(){*this=Distance{};}
-    bool ownsDuration()const{return owned_;}
+    // Measurement alone (for example two yards after a short catch) does not
+    // admit a full long-play sound or suppress the ordinary lineup bridge.
+    bool ownsDuration()const{return owned_&&(returning_||yards_>=threshold_);}
     float yards()const{return yards_;}unsigned extension()const{return extra_;}
     void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t sequence,uint64_t now,bool allowed,
                  const live::Outcome& event,float rawSpot,float gain,bool ranAfterCatch,int worldDirection,bool held,
@@ -24,6 +26,12 @@ public:
         bool newPlay=sequence!=sequence_;
         if(newPlay){sequence_=sequence;owned_=returning_=frozen_=position_=false;yards_=0;extra_=0;sampleAt_=0;originSide_=p.offense;worldDirection_=worldDirection;}
         if(!sequence)return;
+        if(frozen_&&p.game.phase==3&&!newPlay){
+            // The next snap may be visible before its tracker ID advances.
+            // Retire the previous distance once; do not resurrect its tail
+            // on that new ball while waiting for a fresh verified sequence.
+            owned_=returning_=position_=false;yards_=0;extra_=0;sampleAt_=0;return;
+        }
         float gainMinimum=std::isfinite(settings.minimumGainYards)?(std::clamp)(settings.minimumGainYards,10.f,60.f):15.f;
         float catchMinimum=std::isfinite(settings.minimumCatchYards)?(std::clamp)(settings.minimumCatchYards,10.f,60.f):20.f;
         if(newPlay)minimum_=threshold_=gainMinimum;
