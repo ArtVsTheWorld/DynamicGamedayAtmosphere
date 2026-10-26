@@ -51,6 +51,8 @@ inline constexpr uintptr_t HfaSelectionVtable=0xb2fa030;
 inline constexpr uintptr_t ReactionUpdate=0x2841720,ReactionReceive=0x2840d70,ReactionVtable=0xb221830;
 // IsPaused UI accessor reads this same flag; only read it after verification.
 inline constexpr uintptr_t PauseCheck=0x7ba6d50,PauseFlag=0xf547a00;
+// Named pause-tile text output; separate from the shared UI string writer.
+inline constexpr uintptr_t PauseMenuText=0x7a183cb,MenuStringWriter=0x25a3060,MenuTileVtable=0xb6465a0;
 // Replay manager: verified leaf getters expose playback and recording times.
 // These fields are read only; live game clocks do not rewind with highlights.
 inline constexpr uintptr_t ReplayManager=0xe36dbf8,ReplayVtable=0xc7553f8;

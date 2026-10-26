@@ -43,7 +43,7 @@ class GameCompatibilityReportTests {
             }
             var tool=Assembly.ReflectionOnlyLoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"DgaDiagnostics.exe"));
             using(var resource=tool.GetManifestResourceStream("Dga.CompatibilitySites"))using(var reader=new StreamReader(resource)){
-                var embedded=GameCompatibility.Sites(reader.ReadToEnd());Check(embedded.Count==13&&embedded[0].Name=="CrowdVisibility"&&embedded[0].Rva==0x64afda0);
+                var embedded=GameCompatibility.Sites(reader.ReadToEnd());Check(embedded.Count==14&&embedded[0].Name=="CrowdVisibility"&&embedded[0].Rva==0x64afda0);
             }
             Console.WriteLine("PASS: bounded read-only samples, real Windows reads against the test itself, embedded addresses, missing/outside addresses, PE validation, JSON round-trip and nested reports. No game process opened.");return 0;
         }catch(Exception error){Console.Error.WriteLine(error);return 1;}

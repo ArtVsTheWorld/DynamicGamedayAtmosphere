@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.55.1 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.55.2 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -407,6 +407,6 @@ Settings now live inside `Plugins/DynamicGamedayAtmosphere/`, alongside the Logs
 
 `Tools/DgaDiagnostics.exe` opens a small local control window with the current stadium fullness, preset selector, duration, separate sound/camera choices and a Stop button. Roar, swell, cheer, conversion, defensive cheer, disappointment, lineup, critical-down, touchdown and eruption previews use the verified native routes and current strength/volume settings. A preview starts only in a verified offline match while unpaused at the line. Requests expire; the test ends automatically and cannot queue into a later game. A snap, pause, replay or game change cancels it. One-shot cheers finish naturally, and native voice limits/accessibility settings still apply. Previews do not change attendance, scores, clocks or gameplay HFA. They bypass the usual play-situation requirement for controlled comparison, without permanently changing gameplay eligibility.
 
-The native pause-menu fullness widget is not implemented yet. The percentage in the diagnostics window uses the current measured seating value; it is separate from the planned in-game readout. Working previews still need an in-game listening/camera check.
+The regular pause menu shows **Stadium Fullness** beside Resume. This is the measured seating fullness used by crowd sound, rounded to a whole percent, rather than the percentage of the game's original attendance remaining. It refreshes when you open the menu; `--` means a reliable seating measurement is not ready. `PauseMenuFullness=0` in Dynamic Gameday Broadcast hides it after you reopen the menu. Resume and the other menu actions work normally. The native label route is verified; the integrated working build and repeatable previews still need their restart checks.
 
 The same tool can save a read-only compatibility report even when DGA did not activate. It records build metadata, loaded-module names and small code samples at the existing DGA addresses. Reports stay in DGA's Diagnostics folder, and nothing is sent automatically. No game EXE, save or full memory dump is included.

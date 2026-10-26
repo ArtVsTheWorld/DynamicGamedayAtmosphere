@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.1**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu fullness label is not implemented yet; its live UI trace was deferred.
+Working build **1.55.2**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.1/
+    Runtime-1.55.2/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -38,7 +38,7 @@ These are controlled previews of the native routes, not a simulated play or a te
 
 Tests are one at a time, include their fading period and end automatically. Repeated Start does not queue another test. A snap, pause, replay, game change, expired request or disabled control cancels it. Stop ends added loops/motion; already-started native one-shot cheers finish naturally. The ordinary atmosphere then resumes. Requests are tied to one game process and expire, so an old file cannot start a test in a later game.
 
-The window shows the same measured stadium-fullness percentage as the audio status. This is a separate desktop tool; it is not the planned in-game pause-menu widget.
+The window shows the same measured stadium-fullness percentage as the audio status. This is a separate desktop tool. The regular in-game pause menu also shows fullness beside Resume when PauseMenuFullness is enabled.
 
 ## Game compatibility report
 
@@ -59,6 +59,6 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
 - For the 1.55.1 hold fixes, finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
-- For the separate pause-menu work, leave the regular pause menu open. The next step is to identify its live text/data owner and lifetime. Reflected pause/UI class names alone are not a verified text injection route.
+- Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
 
-Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining live checks and pause-menu work are resolved.
+Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining integrated live checks are resolved.

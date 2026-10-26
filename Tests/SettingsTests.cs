@@ -23,6 +23,7 @@ class SettingsTests {
   try{
    string defaults=File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","Source","DynamicGamedayAtmosphere.ini"));
    SettingsMigration.Ensure(next,old,defaults);string fresh=File.ReadAllText(next);
+   Check(GetPrivateProfileInt("Dynamic Gameday Broadcast","PauseMenuFullness",0,next)==1);
    Check(Math.Abs(Level("Atmosphere","MaximumBoostPercent",next)-25)<.001&&Math.Abs(Level("Atmosphere","EruptionBoostPercent",next)-50)<.001);
    Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==39&&!fresh.Contains("[Energy]")&&!fresh.Contains("Momentum="));
    Check(!fresh.Contains("MaximumReductionPercent="));
@@ -40,6 +41,8 @@ class SettingsTests {
    Check(GetPrivateProfileInt("Replays","InsetAfterRoutinePlays",0,next)==1&&GetPrivateProfileInt("Replays","FullScreenBigPlays",0,next)==1);
    Check(GetPrivateProfileInt("Replays","DefensiveHighlights",0,next)==1&&GetPrivateProfileInt("General","ReplayBalanceVersion",0,next)==1);
    SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==fresh);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=39\n[Dynamic Gameday Broadcast]\nPauseMenuFullness=0\n");
+   SettingsMigration.Ensure(next,old,defaults);Check(GetPrivateProfileInt("Dynamic Gameday Broadcast","PauseMenuFullness",1,next)==0);
    foreach(int version in new[]{0,3,5,6,7,8}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion="+version+"\n[Energy]\nEnabled=1\nSustainedRoars=1\nPlaySurges=1\nMaximumBoostDb=12\nDecisiveMaximumBoostDb=8\nMomentum=1\n[Audio]\nStrength=17\nCommentaryFollowPercent=40\nCloseGameBoostPercent=15\n[Arrivals]\nStartPercent=93\nLateSchoolStartPercent=43\n[Retention]\nQ4GradualThinning=0\nQ4Gradual28Points=3\n[Custom]\nUnknown=keep\n");
     SettingsMigration.Ensure(next,old,defaults);string migrated=File.ReadAllText(next);

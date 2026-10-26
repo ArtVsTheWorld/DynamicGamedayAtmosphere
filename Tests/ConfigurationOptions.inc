@@ -3,6 +3,7 @@ struct NumericOption {const wchar_t* section;const wchar_t* key;double factory,l
 inline NumericOption options[]={
 {L"Dynamic Gameday Attendance",L"Enabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->enabled);}},
 {L"Dynamic Gameday Broadcast",L"ExtraReplaysEnabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(extraReplays);}},
+{L"Dynamic Gameday Broadcast",L"PauseMenuFullness",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(pauseMenuSetting);}},
 {L"Dynamic Gameday Broadcast",L"InsetAfterRoutinePlays",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(routineInsets);}},
 {L"Dynamic Gameday Broadcast",L"FullScreenBigPlays",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(bigPlayReplays);}},
 {L"Dynamic Gameday Broadcast",L"DefensiveHighlights",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(defensiveReplays);}},

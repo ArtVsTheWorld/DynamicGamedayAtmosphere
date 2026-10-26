@@ -69,6 +69,7 @@
 #include "AttendanceTimeline.h"
 #include "ReplayUpdateHook.h"
 #include "ReplayPresentation.h"
+#include "PauseMenu.h"
 
 using A=uintptr_t;
 extern "C" void CrowdTick();
@@ -248,6 +249,10 @@ std::shared_ptr<const attendance::diagnostic::Preview> diagnosticPreview=std::ma
 std::shared_ptr<const std::string> diagnosticStatus=std::make_shared<std::string>("idle");
 std::atomic<bool> swellAvailable{false},intensityAvailable{false},audioAudible{false};
 std::atomic<bool> pauseBinding{false};
+std::atomic<bool> pauseMenuSetting{true},pauseMenuAvailable{false};
+std::atomic<int> pauseMenuLastPercent{-2};std::atomic<uint64_t> pauseMenuDisplays{0};
+attendance::pausemenu::Labels pauseMenuLabels;
+void* pauseMenuGate=nullptr;void* pauseMenuOriginal=nullptr;
 std::atomic<unsigned long long> lastAudibleUpdate{0};
 using IntensityUpdate=void(__fastcall*)(A);
 IntensityUpdate originalIntensityUpdate=nullptr;
@@ -462,7 +467,7 @@ void log(const char* event,const std::string& message) {
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+       kind!="pause-menu"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -474,6 +479,51 @@ void log(const char* event,const std::string& message) {
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
 template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
+const char* __fastcall pauseMenuText(A tile,A key,A){
+    try{
+        if(!enabled||!pauseMenuSetting||!pauseMenuAvailable||mode!=0||!pauseBinding||!replayBinding)return nullptr;
+        char action[16]{},field[16]{};
+        if(at<A>(tile)!=image+attendance::pausemenu::TileVtable||!read(tile+0xd50,action,sizeof(action))||
+           !read(key,field,sizeof(field)))return nullptr;
+        action[15]=field[15]=0;
+        if(!attendance::pausemenu::labelField(action,field))return nullptr;
+        attendance::pausemenu::Context c;c.enabled=std::atomic_load(&settings)->enabled;
+        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),configuration=at<A>(image+0xf6379e0);
+        c.match=at<A>(wrapper+16);c.epoch=audioEpoch.load();
+        unsigned char online=1,paused=0,replaying=1;A pause=at<A>(image+attendance::bindings::PauseFlag);
+        A replay=at<A>(image+attendance::bindings::ReplayManager);
+        c.offlineDynasty=configuration&&read(configuration+0x84,&online,1)&&online==0&&
+            at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3&&
+            c.match==audioMatch.load()&&at<A>(c.match)==image+attendance::bindings::MatchVtable;
+        c.paused=read(pause,&paused,1)&&paused==1;
+        c.replay=at<A>(replay)!=image+attendance::bindings::ReplayVtable||!read(replay+0x38,&replaying,1)||replaying!=0||replaySuspendsAtmosphere.load();
+        {std::lock_guard<std::mutex> guard(historyMutex);c.leaving=matchLifecycle.leftWorld||matchLifecycle.match!=c.match;}
+        auto density=std::atomic_load(&renderedOccupancy);c.mapped=density->valid();c.measuredMatch=density->match;c.measuredEpoch=density->epoch;c.peak=density->peak();
+        c.loss=activeLoss.load();c.arrivalMissing=arrivalMissing.load();
+        if(audioEpoch.load()!=c.epoch||audioMatch.load()!=c.match||at<A>(wrapper+16)!=c.match)return nullptr;
+        int value=attendance::pausemenu::percent(c);const char* label=pauseMenuLabels.get(value);
+        if(label){pauseMenuLastPercent=value;++pauseMenuDisplays;}
+        return label;
+    }catch(...){return nullptr;} // A readout failure must leave the native menu usable.
+}
+bool bytes(A rva,const std::vector<unsigned char>& expected);
+bool preparePauseMenu(){
+    const auto& prefix=attendance::pausemenu::Prefix;
+    if(!pauseBinding||!replayBinding||!bytes(attendance::pausemenu::Site,std::vector<unsigned char>(prefix.begin(),prefix.end())))return false;
+    A call=image+attendance::pausemenu::Site+prefix.size();
+    if(at<unsigned char>(call)!=0xe8||call+5+at<int32_t>(call+1)!=image+attendance::pausemenu::Writer)return false;
+    auto code=attendance::pausemenu::trampoline(reinterpret_cast<A>(pauseMenuText),call);
+    pauseMenuGate=VirtualAlloc(nullptr,code.size(),MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);if(!pauseMenuGate)return false;
+    memcpy(pauseMenuGate,code.data(),code.size());DWORD old=0;
+    if(!VirtualProtect(pauseMenuGate,code.size(),PAGE_EXECUTE_READ,&old)){
+        VirtualFree(pauseMenuGate,0,MEM_RELEASE);pauseMenuGate=nullptr;return false;
+    }
+    FlushInstructionCache(GetCurrentProcess(),pauseMenuGate,code.size());
+    if(!makePatch(attendance::pausemenu::Site,pauseMenuGate,&pauseMenuOriginal,prefix.size())){
+        VirtualFree(pauseMenuGate,0,MEM_RELEASE);pauseMenuGate=nullptr;return false;
+    }
+    return true;
+}
 void observeWorldExit(){
     if(at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3)return;
     std::lock_guard<std::mutex> guard(historyMutex);
@@ -1052,6 +1102,8 @@ bool install() {
         if(!makePatch(attendance::bindings::CameraSet,reinterpret_cast<void*>(nativeCameraSet),reinterpret_cast<void**>(&originalNativeCameraSet),15))return false;
         sparseNativeCamera.setOriginal(originalNativeCameraSet);sparseCameraAvailable=true;
     }else log("native-camera-unavailable","Sparse-crowd native HFA camera filter unavailable; gameplay HFA and native camera remain unchanged.");
+    pauseMenuAvailable=preparePauseMenu();
+    if(!pauseMenuAvailable)log("pause-menu-inactive","Native pause-label binding unavailable; the ordinary pause menu remains unchanged.");
     if(!commitPatches())return false;
     if(cameraBindings){
         originalCameraView=reinterpret_cast<CameraViewCopy>(image+attendance::bindings::CameraViewCopy);presentationCamera.configure(image);
@@ -1157,6 +1209,7 @@ void readSettings(){
         return value.value;
     };
     c->enabled=number(L"Attendance",L"Enabled",1,0,1)!=0;
+    pauseMenuSetting=number(L"Dynamic Gameday Broadcast",L"PauseMenuFullness",1,0,1)!=0;
     extraReplays=number(L"Replays",L"Enabled",1,0,1)!=0;
     routineInsets=number(L"Replays",L"InsetAfterRoutinePlays",1,0,1)!=0;
     bigPlayReplays=number(L"Replays",L"FullScreenBigPlays",1,0,1)!=0;
@@ -2018,6 +2071,8 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Game process ID")<<GetCurrentProcessId()<<"\n";
     report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
     report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";
+    report.field("Pause-menu fullness")<<(!pauseMenuAvailable?"unavailable on this game layout":!pauseMenuSetting?"disabled":"enabled; updates when opening the pause menu")<<"\n";
+    report.field("Pause-menu displays")<<pauseMenuDisplays.load()<<"\n";
     report.field("Mode")<<(mode==0?"automatic":mode==1?"manual test":"restored")<<"\n";
     report.field("Team IDs (home/away)")<<shownTeam0<<" / "<<shownTeam1<<"\n";
     report.field("Ranks (home/away)")<<shownRank0<<" / "<<shownRank1<<" (game-supplied ranks; 0 means unavailable)\n";
@@ -2195,7 +2250,7 @@ DWORD WINAPI worker(void*) {
     log("ready","Ready. First-quarter arrivals fill toward the game's original attendance. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
     log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Full crowd boost +25%; high-leverage moments up to +35%; chants up to +15%; winning eruptions capped at +50%.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
-    unsigned long long last=0,lastScan=0;bool replayFaultNoted=false;
+    unsigned long long last=0,lastScan=0,lastPauseDisplays=0;int lastPauseValue=-2;bool replayFaultNoted=false;
     while(enabled){
         // UI/loading may suspend presentation callbacks while quitting a game.
         // Remember that exit even if the next game reuses the same match object.
@@ -2211,6 +2266,11 @@ DWORD WINAPI worker(void*) {
             log("requested",command);
         }
         auto now=GetTickCount64();readDiagnosticRequest(now);if(now-last>1000){
+            auto displays=pauseMenuDisplays.load();int value=pauseMenuLastPercent.load();
+            if(displays!=lastPauseDisplays){
+                if(value!=lastPauseValue)log("pause-menu",value>=0?"Displayed stadium fullness: "+std::to_string(value)+"%.":"Displayed stadium fullness: measurement unavailable.");
+                lastPauseDisplays=displays;lastPauseValue=value;
+            }
             if(replayPresentationFailed&&!replayFaultNoted){log("fault","Extra post-play replays stopped after a write fault; normal game presentation remains active.");replayFaultNoted=true;}
             readResumeStatus(now);saveAttendanceHistory();
             readSettings();

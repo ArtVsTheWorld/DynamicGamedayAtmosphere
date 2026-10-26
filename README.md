@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 diagnostics work (1.55.1). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 diagnostics work (1.55.2). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -26,6 +26,8 @@ Edit `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each optio
 - **Broadcast:** camera movement and extra replay opportunities.
 
 The game still chooses the original peak attendance. Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
+
+The working build shows **Stadium Fullness** beside Resume in the regular pause menu. This is how full the mapped stands are, not attendance remaining. Set `PauseMenuFullness=0` under Dynamic Gameday Broadcast to hide it, then reopen the menu.
 
 ## Problems?
 
