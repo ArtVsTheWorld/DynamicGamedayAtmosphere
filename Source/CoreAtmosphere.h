@@ -36,7 +36,8 @@ inline int resultReaction(const energy::Outcome& r){
     switch(r.event){
     case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
     case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:return 59;
-    case Event::ExplosiveGain:case Event::ThirdDownConversion:case Event::FourthDown:return 83;
+    case Event::ExplosiveGain:return r.yards>=40?91:83;
+    case Event::ThirdDownConversion:case Event::FourthDown:return 83;
     default:return r.firstDown?83:91;
     }
 }
@@ -55,7 +56,7 @@ struct Model {
         double age=now-eruptionAt;if(postgameMenu||eruptionAt<0||age<0)return 0;
         if(postgameHeld)return static_cast<float>((std::min)(age/.25,1.0));
         if(age>=eruptionSeconds)return 0;
-        return age<.25?static_cast<float>(age/.25):age<=eruptionSeconds-25?1.0f:static_cast<float>((eruptionSeconds-age)/25);
+        return age<.25?shape::smooth(static_cast<float>(age/.25)):age<=eruptionSeconds-25?1.0f:1-shape::smooth(static_cast<float>((age-(eruptionSeconds-25))/25));
     }
     bool finishPostgame(){
         if(!postgameSeen||postgameMenu)return false;
@@ -163,7 +164,7 @@ struct Model {
         if(!erupting&&resultWeight>0){
             out.scoringReaction=resultScoring;
             out.reason=sustained::Reason::Result;out.priority=5;out.continuous=true;out.size=resultProfile.size;
-            out.attackMs=750;out.releaseMs=static_cast<int>(resultProfile.release*1000);out.supporting=resultProfile.strength>=.68f;
+            out.attackMs=500;out.releaseMs=static_cast<int>(resultProfile.release*1000);out.supporting=resultProfile.strength>=.68f;
             out.deepCheers=resultProfile.layered;out.cheers=false;
             if(now/1000.0-resultCheerAt>=resultProfile.hold){out.reaction=true;out.continuous=false;out.supporting=false;}
         }

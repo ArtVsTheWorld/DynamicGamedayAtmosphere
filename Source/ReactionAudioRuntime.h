@@ -65,7 +65,7 @@ public:
         bool victory=wanted.celebration&&now<wanted.celebrationUntil&&consumed_!=wanted.celebration;
         bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
-            if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95)return;
+            if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95&&wanted.liveType!=91)return;
             if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
             Address asset=at<Address>(entity+0x38);if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);

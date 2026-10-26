@@ -130,5 +130,16 @@ int main(){
     wanted.liveCheer=2;disappointment.tick(addr(entity),wanted,700100);assert(sends==initial+1&&disappointment.liveDelivered(2)); // Native letdown is not duplicated.
     put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;wanted.liveType=83;
     disappointment.tick(addr(entity),wanted,700200);assert(sends==initial+1); // Negative families share the same two-voice limit.
-    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, priority, leases, cleanup, reentrancy and faults.");
+    // A 40+ yard completion uses the tested large cheer on the SAME live
+    // delivery path, with identical duplicate and two-voice protections.
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    attendance::cheer::Runtime explosive;explosive.configure(image,&api,receive,report);initial=sends;
+    wanted={};wanted.active=true;wanted.match=992;wanted.epoch=1;wanted.updated=800000;wanted.liveCheer=1;wanted.liveCheerUntil=800500;wanted.liveType=91;
+    explosive.tick(addr(entity),wanted,800000);assert(sends==initial+1&&received.back()==91&&explosive.liveDelivered(1));balanced();
+    explosive.tick(addr(entity),wanted,800100);assert(sends==initial+1);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),91);
+    wanted.liveCheer=2;explosive.tick(addr(entity),wanted,800100);assert(sends==initial+1&&explosive.liveDelivered(2));
+    put<int>(addr(instances),83);put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;
+    explosive.tick(addr(entity),wanted,800100);assert(sends==initial+1&&explosive.liveResolved(3)&&!explosive.liveDelivered(3));
+    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, explosive live cheers, priority, leases, cleanup, reentrancy and faults.");
 }

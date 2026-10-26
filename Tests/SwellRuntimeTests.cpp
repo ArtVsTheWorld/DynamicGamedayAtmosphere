@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include "../Source/SwellAudioRuntime.h"
+#include "../Source/ReturnAtmosphere.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -133,6 +134,23 @@ int main(){
     quick.tick(address(owner)+0x40,request,300150);assert(starts==oldStarts+1&&messages.back().attack==500); // Quick snap cannot leave the old two-second native-stop hole.
     quick.observeNativeStop(manager,address(stockStop),300200);request.updated=300300;quick.tick(address(owner)+0x40,request,300300);assert(starts==oldStarts+1); // One fast recovery per play token.
     request.active=false;request.updated=300400;quick.tick(address(owner)+0x40,request,300400);balanced();
+    // The production sound shape must hold BOTH native layers after the
+    // whistle, then send one shortened release ending at the original time.
+    for(bool gameplay:{false,true}){
+        Runtime shaped;shaped.configure(image,nullptr,&api,gameplay);
+        attendance::live::ReturnAtmosphere sound;attendance::energy::Play play;play.game={1,14,7,3,400,720};play.offense=0;
+        unsigned beforeStarts=starts,beforeStops=stops;
+        for(uint64_t now=400000;now<=404700;now+=25){
+            play.game.phase=now<400200?3:4;
+            sound.observe(play,901,1,now,true,now==400000?attendance::live::Outcome{attendance::live::Event::LongRun,1,0,20}:attendance::live::Outcome{},now<400200,false);
+            Intent base;base.active=true;base.match=901;base.epoch=1;base.updated=now;
+            auto voice=sound.merge(base,now,1);shaped.tick(address(owner)+0x40,voice,now);
+            assert(starts==beforeStarts+1);
+            if(now<401325)assert(shaped.playing()&&stops==beforeStops);
+            else assert(!shaped.playing()&&stops==beforeStops+1&&messages.back().release==3375);
+            balanced();
+        }
+    }
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");
 }

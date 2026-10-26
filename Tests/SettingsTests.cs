@@ -48,6 +48,10 @@ class SettingsTests {
    SettingsMigration.Ensure(next,old,defaults);string openingHelp=File.ReadAllText(next);
    Check(openingHelp.Contains("Ordinary opening drives use critical-down fullness")&&GetPrivateProfileInt("Atmosphere","OpeningAtmosphere",1,next)==0);
    SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==openingHelp);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=39\n[Dynamic Gameday Broadcast]\n; My custom note.\n; Default 4.5. Touchdowns and eruptions take over using their separate profiles.\nPlayReactionFadeSeconds=6\n; Live runs/returns keep the separate post-whistle fade above.\nPlayImpactExtraSeconds=2\n");
+   SettingsMigration.Ensure(next,old,defaults);string shapeHelp=File.ReadAllText(next);
+   Check(shapeHelp.Contains("brief hold, then a smooth fade")&&shapeHelp.Contains("; My custom note.")&&Level("Dynamic Gameday Broadcast","PlayReactionFadeSeconds",next)==6&&Level("Dynamic Gameday Broadcast","PlayImpactExtraSeconds",next)==2);
+   SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==shapeHelp);
    foreach(int version in new[]{0,3,5,6,7,8}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion="+version+"\n[Energy]\nEnabled=1\nSustainedRoars=1\nPlaySurges=1\nMaximumBoostDb=12\nDecisiveMaximumBoostDb=8\nMomentum=1\n[Audio]\nStrength=17\nCommentaryFollowPercent=40\nCloseGameBoostPercent=15\n[Arrivals]\nStartPercent=93\nLateSchoolStartPercent=43\n[Retention]\nQ4GradualThinning=0\nQ4Gradual28Points=3\n[Custom]\nUnknown=keep\n");
     SettingsMigration.Ensure(next,old,defaults);string migrated=File.ReadAllText(next);

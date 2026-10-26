@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include "ReactionShape.h"
 
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety };
@@ -29,8 +30,8 @@ inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
     if(c.kind==Kind::None||!c.match||now<c.updated||now-c.updated>750||now<c.began||!std::isfinite(c.percent))return 0;
     float age=static_cast<float>(now-c.began);
-    if(c.impactOnly){if(now>=c.until||c.until<=c.began+400)return 0;float duration=static_cast<float>(c.until-c.began);return limit(c.percent)*smooth(age/150)*smooth((duration-age)/(duration-400));}
-    if(c.tail)return c.until>c.began&&now<c.until?limit(c.percent)*smooth(static_cast<float>(c.until-now)/static_cast<float>(c.until-c.began)):0;
+    if(c.impactOnly){if(now>=c.until||c.until<=c.began+400)return 0;return limit(c.percent)*shape::impact(age,static_cast<float>(c.until-c.began));}
+    if(c.tail){unsigned total=c.until>c.began?static_cast<unsigned>((std::min)(c.until-c.began,uint64_t{16000})):0;return limit(c.percent)*shape::tail(age,static_cast<float>(total),c.confirmedRun?static_cast<float>(shape::tailHold(total)):0.f);}
     if(c.kind==Kind::Ordinary||c.kind==Kind::Critical||c.kind==Kind::LivePlay)return limit(c.percent)*smooth(age/(c.kind==Kind::LivePlay?200.0f:c.kind==Kind::Critical?600.0f:1000.0f));
     if(now>=c.until||c.until<=c.began||limit(c.percent)<=0)return 0;
     float duration=static_cast<float>(c.until-c.began),baseDuration=(std::max)(1.f,duration-c.distanceExtraMs),progress=age/baseDuration;
@@ -88,7 +89,7 @@ public:
         // snap, pause/replay suspension or world change cancels the old cue.
         if(newSnap){liveCue_={};ramp_=0;}
         if(!x.duringAllowed&&liveCue_.kind!=Kind::None&&!liveCue_.tail&&!liveCue_.impactOnly){
-            float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade;liveCue_.percent=value;liveCue_.tail=true;
+            float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade;liveCue_.percent=value;liveCue_.tail=true;liveCue_.confirmedRun=false;
         }
         bool ramp=x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
         if(ramp&&(liveCue_.kind==Kind::None||ramp_!=x.runBuildup)){liveCue_={x.match,x.epoch,x.now,x.now,x.now+45000,Kind::LivePlay,0,false,0,x.now,false};liveCue_.runBuildup=true;ramp_=x.runBuildup;join(liveCue_);}

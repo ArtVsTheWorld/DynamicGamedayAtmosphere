@@ -16,12 +16,13 @@ int main(){
     assert(distance.ownsDuration()&&distance.extension()==4000);tick(11000,99,4);tick(11200,99,5);tick(11500,99,1);assert(distance.extension()==4000); // Selection does not add more time.
     live::ReturnAtmosphere sound;live::Outcome run{live::Event::LongRun,1,0,99};p.game.phase=3;
     sound.observe(p,123,1,20000,true,run,true,false,4500,{},4000,true);
-    sustained::Intent base;base.active=true;base.match=123;base.epoch=1;base.releaseMs=14000;auto live=sound.merge(base,20000,1);assert(live.continuous&&live.releaseMs==8500);
+    sustained::Intent base;base.active=true;base.match=123;base.epoch=1;base.releaseMs=14000;auto live=sound.merge(base,20000,1);assert(live.continuous&&live.releaseMs==7300);
     motion::Model camera;motion::Settings cameraSettings;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=3;x.now=20000;x.duringPlay=1;x.distanceExtraMs=4000;camera.observe(cameraSettings,x);
     x.now=20250;camera.observe(cameraSettings,x);p.game.phase=4;x.phase=4;x.now=20500;auto cue=camera.observe(cameraSettings,x);assert(cue.tail&&cue.until==29000);
-    sound.observe(p,123,1,20500,true,{},false,false,4500,{},4000,true);auto tail=sound.merge(base,20500,1);assert(!tail.continuous&&tail.reaction&&!tail.supporting&&tail.releaseMs==8500);
-    sustained::Episode episode;episode.started(live,20000);tail.updated=20500;assert(episode.mustStop(tail,20500));episode.stopped(20500,tail.releaseMs);assert(episode.quietUntil==29000); // One native fade, not a second fade at 29000.
-    for(uint64_t now=20750;now<29000;now+=250){p.game.phase=now<22000?5:1;if(p.game.phase==1)p.offense=1;x.phase=p.game.phase;x.now=now;cue=camera.observe(cameraSettings,x);sound.observe(p,123,1,now,true,{},false,false,4500,{},4000,true);tail=sound.merge(base,now,1);assert(cue.until==29000&&tail.reaction&&tail.intensity>0);}
+    sound.observe(p,123,1,20500,true,{},false,false,4500,{},4000,true);auto tail=sound.merge(base,20500,1);assert(tail.continuous&&!tail.reaction&&tail.supporting&&tail.releaseMs==7300);
+    sustained::Episode episode;episode.started(live,20000);tail.updated=20500;assert(!episode.mustStop(tail,20500)); // The native voice holds briefly before its single release.
+    for(uint64_t now=20750;now<29000;now+=250){p.game.phase=now<22000?5:1;if(p.game.phase==1)p.offense=1;x.phase=p.game.phase;x.now=now;cue=camera.observe(cameraSettings,x);sound.observe(p,123,1,now,true,{},false,false,4500,{},4000,true);tail=sound.merge(base,now,1);assert(cue.until==29000&&tail.reaction==(now>=21700)&&tail.intensity>0);if(now==21750){tail.updated=now;assert(episode.mustStop(tail,now));episode.stopped(now,tail.releaseMs);assert(episode.quietUntil==29050);}
+    } // Native polling may add one step, never a second fade.
     x.now=29000;assert(camera.observe(cameraSettings,x).kind==motion::Kind::None);sound.observe(p,123,1,29000,true,{},false,false,4500,{},4000,true);assert(sound.merge(base,29000,1).reason==sustained::Reason::None);
     // Touchdown ownership wins over the return and extends only its release.
     core::Settings c;core::Model crowd;energy::Outcome touchdown;touchdown.accepted=touchdown.completed=true;touchdown.sequence=1;touchdown.event=energy::Event::HomeScore;touchdown.homePoints=6;touchdown.preSnapMargin=0;

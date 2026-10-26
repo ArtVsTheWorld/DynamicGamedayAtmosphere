@@ -22,7 +22,7 @@ int main(){
         assert(!tick(3,15,1).id&&runner.runBuildup().progress==1); // Tucked QB changes state while moving sideways, not a thrown pass.
         assert(!tick(3,14,9,false).id&&runner.runBuildup().id); // Brief carrier-pointer dropout.
         assert(!tick(3,14).id&&runner.runBuildup().progress==1); // Backward cut does not lower the established reaction.
-        tick(4,14);auto fading=sound.merge(base,now,.9f);assert(!runner.runBuildup().id&&!fading.continuous&&fading.reaction&&fading.intensity>0&&fading.releaseMs==4500);
+        tick(4,14);auto fading=sound.merge(base,now,.9f);assert(!runner.runBuildup().id&&fading.continuous&&!fading.reaction&&fading.supporting&&fading.intensity>0&&fading.releaseMs==3375);
         base.celebration=1;assert(sound.merge(base,now,.9f).reason==sustained::Reason::None); // Winning celebration keeps priority.
     }
     {live::Model m;live::Settings s;energy::Play p;p.game={2,7,7,1,300,720};p.offense=0;p.down=1;p.fieldSpot=-30;p.attackDirection=1;uint64_t t=1000;

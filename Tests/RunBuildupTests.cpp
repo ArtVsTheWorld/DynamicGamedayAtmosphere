@@ -41,7 +41,7 @@ int main(){
     x.runProgress=.5f;x.now+=200;cue=camera.observe(s,x);assert(motion::strength(cue,x.now)>5.49f&&motion::strength(cue,x.now)<5.51f);
     x.runProgress=1;x.duringPlay=1;x.now+=200;cue=camera.observe(s,x);assert(cue.began==began&&motion::strength(cue,x.now)==10);
     x.duringPlay=0;x.runBuildup=0;x.phase=4;x.now+=100;cue=camera.observe(s,x);assert(cue.tail&&motion::strength(cue,x.now)==10);
-    x.now+=1000;cue=camera.observe(s,x);assert(std::fabs(motion::strength(cue,x.now)-5)<.001f);
+    x.now+=1000;cue=camera.observe(s,x);assert(motion::strength(cue,x.now)>7.4f&&motion::strength(cue,x.now)<7.5f);
     x.now+=1000;assert(camera.observe(s,x).kind==motion::Kind::None);
     x.phase=3;x.runBuildup=2;x.runProgress=1;x.duringAllowed=false;x.now+=100;assert(camera.observe(s,x).kind==motion::Kind::None);
     motion::Model dropped;x.duringAllowed=true;x.runProgress=.2f;x.now=20000;dropped.observe(s,x);x.now+=200;auto partial=dropped.observe(s,x);float partialLevel=motion::strength(partial,x.now);

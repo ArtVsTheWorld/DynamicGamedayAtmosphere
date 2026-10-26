@@ -1,9 +1,10 @@
 #pragma once
 #include "LiveReactions.h"
+#include "ReactionShape.h"
 namespace attendance::live {
 class ReturnAtmosphere {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t began_=0,last_=0,tail_=0,heldAt_=0,ramp_=0;
-    int side_=-1;bool active_=false,rampOnly_=false;float level_=1;unsigned release_=4500;
+    int side_=-1;bool active_=false,rampOnly_=false;float level_=1;unsigned release_=4500,hold_=0;
     int phase_=-1;
     uint64_t liveBegan_=0;bool exhausted_=false;
 public:
@@ -19,10 +20,13 @@ public:
         bool runEvent=event.id&&(event.event==Event::LongRun||event.event==Event::RunAfterCatch);
         bool growing=buildup.id&&std::isfinite(buildup.progress)&&buildup.progress>0&&p.game.phase==3&&(held||(heldAt_&&now>=heldAt_&&now-heldAt_<=250));
         if(growing){
-            if(!active_||ramp_!=buildup.id){began_=heldAt_=now;tail_=0;side_=p.offense;active_=rampOnly_=true;level_=0;ramp_=buildup.id;}
+            if(!active_||(rampOnly_&&ramp_!=buildup.id)){began_=heldAt_=now;tail_=0;side_=p.offense;active_=rampOnly_=true;level_=0;}
+            // Later runner samples refine a confirmed catch/return; they
+            // cannot demote it into an unconfirmed buildup or lose its hold.
+            ramp_=buildup.id;
             level_=(std::max)(level_,.25f+.75f*(std::clamp)(buildup.progress,0.f,1.f));
         }
-        if(event.id&&(runEvent||event.event==Event::KickReturn||event.event==Event::PuntReturn||event.event==Event::Interception||event.event==Event::FumbleRecovery)){
+        if(event.id&&(runEvent||event.event==Event::LongCatch||event.event==Event::KickReturn||event.event==Event::PuntReturn||event.event==Event::Interception||event.event==Event::FumbleRecovery)){
             if(!growing)began_=heldAt_=now;
             tail_=0;side_=event.side;active_=true;rampOnly_=false;level_=1;
         }
@@ -38,7 +42,7 @@ public:
         // the full release is AFTER the whistle. An unconfirmed gain buildup
         // can still fade when abandoned. Fumbles/possession/world changes and
         // the existing 45-second live guard remain independent cancellations.
-        if(!tail_&&(p.game.phase!=3||(rampOnly_&&!growing)))tail_=now;
+        if(!tail_&&(p.game.phase!=3||(rampOnly_&&!growing))){tail_=now;hold_=rampOnly_?0:shape::tailHold(release_);}
         if(tail_&&now-tail_>=release_)active_=false;
     }
     sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness)const{
@@ -47,9 +51,11 @@ public:
         // A short return tail must not fade that response out underneath it
         // and expose it again at a higher level when this tail expires.
         if(out.reason==sustained::Reason::Result&&out.priority>4)return out;
-        float weight=level_*(tail_?1-(std::clamp)(static_cast<float>(now-tail_)/release_,0.f,1.f):1.f);
-        out.reason=sustained::Reason::Result;out.continuous=!tail_;out.reaction=tail_!=0;out.priority=(std::max)(out.priority,4);
-        out.size=(std::max)(out.size,rampOnly_?2:3);out.supporting=!tail_;out.attackMs=250;out.releaseMs=static_cast<int>(release_);
+        bool releasing=tail_&&now-tail_>=hold_;
+        float weight=level_*(tail_?shape::tail(static_cast<float>(now-tail_),static_cast<float>(release_),static_cast<float>(hold_)):1.f);
+        out.reason=sustained::Reason::Result;out.continuous=!releasing;out.reaction=releasing;out.priority=(std::max)(out.priority,4);
+        out.size=(std::max)(out.size,rampOnly_?2:3);out.supporting=!releasing;out.attackMs=500;out.releaseMs=static_cast<int>(release_-shape::tailHold(release_));
+        if(rampOnly_)out.releaseMs=static_cast<int>(release_);
         out.intensity=950*std::sqrt((std::clamp)(fullness,0.f,1.f))*weight;
         return out;
     }

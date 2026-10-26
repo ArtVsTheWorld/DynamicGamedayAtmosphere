@@ -71,7 +71,7 @@ public:
         if(kind==motion::Kind::Touchdown||kind==motion::Kind::Eruption){out.cue.until=(std::min)(until_,began_+(kind==motion::Kind::Touchdown?camera.touchdownMs:camera.eruptionMs));out.cue.impact=kind==motion::Kind::Touchdown?camera.touchdownImpact:camera.eruptionImpact;}
         unsigned fade=(std::min)(request_.preset==Preset::Eruption?20000u:request_.preset==Preset::Touchdown?8000u:4000u,request_.seconds*500u);
         uint64_t fading=until_-fade;wanted.releaseMs=static_cast<int>(fade);
-        if(c.now>=fading){float weight=static_cast<float>(until_-c.now)/fade;wanted.reaction=true;wanted.continuous=false;wanted.intensity*=weight;out.boost*=weight;}
+        if(c.now>=fading){float weight=1-shape::smooth(static_cast<float>(c.now-fading)/fade);wanted.reaction=true;wanted.continuous=false;wanted.intensity*=weight;out.boost*=weight;}
         if(kind==motion::Kind::Ordinary||kind==motion::Kind::Critical){if(c.now>=fading){out.cue.tail=true;out.cue.began=fading;}}
         return out;
     }

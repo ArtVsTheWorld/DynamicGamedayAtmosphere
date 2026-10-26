@@ -30,7 +30,7 @@ int main(){
         core.update(settings,p,now*.001,1,1);
         auto wanted=core.intent(settings,p,match,epoch,now,true);
         wanted=sound.merge(wanted,now,1);
-        assert(wanted.active&&wanted.reaction&&!wanted.continuous&&wanted.releaseMs==6500&&wanted.intensity>0);
+        assert(wanted.active&&wanted.reaction==(now>=3400)&&wanted.continuous==(now<3400)&&wanted.releaseMs==5300&&wanted.intensity>0);
         input.phase=p.game.phase;input.now=now;cue=camera.observe(cameraSettings,input);
         assert(cue.until==deadline&&motion::strength(cue,now)>0);
     }
@@ -74,7 +74,7 @@ int main(){
             tackle.observe(p,match,epoch,now,true,{},false,false);assert(tackle.merge(base,now,1).continuous);
         }
         p.game.phase=4;hit.phase=4;hit.now=13100;auto after=shake.observe(cameraSettings,hit);assert(after.tail&&after.until==17600);
-        tackle.observe(p,match,epoch,13100,true,{},false,false);auto fading=tackle.merge(base,13100,1);assert(fading.reaction&&fading.releaseMs==4500);
+        tackle.observe(p,match,epoch,13100,true,{},false,false);auto fading=tackle.merge(base,13100,1);assert(fading.continuous&&!fading.reaction&&fading.releaseMs==3375);
     }
     // A short catch may be measured for possible future YAC, but it cannot
     // start a long-play roar/hold before reaching an activation threshold.

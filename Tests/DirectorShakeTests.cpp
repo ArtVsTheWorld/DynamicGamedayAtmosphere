@@ -51,7 +51,7 @@ int main(){
     auto liveCue=liveModel.observe(liveSettings,v);assert(liveCue.kind==Kind::LivePlay);
     v.now=50200;liveCue=liveModel.observe(liveSettings,v);assert(strength(liveCue,v.now)==10);
     auto anchor=liveCue.oscillationBegan;v.now=50900;liveModel.observe(liveSettings,v);v.phase=4;v.now=51000;liveCue=liveModel.observe(liveSettings,v);assert(liveCue.tail&&strength(liveCue,v.now)==10&&liveCue.oscillationBegan==anchor);
-    v.now=52000;liveCue=liveModel.observe(liveSettings,v);assert(std::fabs(strength(liveCue,v.now)-5)<.001);
+    v.now=52000;liveCue=liveModel.observe(liveSettings,v);assert(strength(liveCue,v.now)>7.4f&&strength(liveCue,v.now)<7.5f); // Brief hold precedes the smooth fade.
     v.now=53000;liveCue=liveModel.observe(liveSettings,v);assert(liveCue.kind==Kind::None);
     v.phase=3;v.now=54000;v.duringPlay=2;liveModel.observe(liveSettings,v);v.phase=4;v.now=54200;v.touchdown=1;liveCue=liveModel.observe(liveSettings,v);assert(liveCue.kind==Kind::Touchdown);
     v.allowed=false;v.now=54300;assert(liveModel.observe(liveSettings,v).kind==Kind::None);

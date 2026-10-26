@@ -782,6 +782,10 @@ namespace DynamicGamedayAtmosphere {
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");
+            upgraded=upgraded.Replace("; Default 4.5. Touchdowns and eruptions take over using their separate profiles.",
+                "; Default 4.5 includes a brief hold, then a smooth fade. TDs/eruptions use separate profiles.")
+                .Replace("; Live runs/returns keep the separate post-whistle fade above.",
+                "; Short impacts hit quickly, hold briefly, then fade. Live runs/returns use the settling time above.");
             string result=Merge(upgraded,defaults);
             if(refreshHelp)result=RefreshHelp(result,defaults);
             if(categorized){

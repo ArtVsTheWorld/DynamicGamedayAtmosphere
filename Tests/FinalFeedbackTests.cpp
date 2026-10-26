@@ -41,7 +41,7 @@ int main(){
     {motion::Model m;motion::Settings s;assert(s.reactionFadeMs==4500);motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
         m.observe(s,x);x.now=1200;assert(motion::strength(m.observe(s,x),1200)==10);
         x.now=1900;m.observe(s,x);x.phase=4;x.now=2000;x.duringPlay=0;auto tail=m.observe(s,x);assert(tail.tail&&tail.until==6500);
-        x.now=4250;tail=m.observe(s,x);assert(std::fabs(motion::strength(tail,4250)-5)<.001f);
+        x.now=4250;tail=m.observe(s,x);assert(motion::strength(tail,4250)>7.4f&&motion::strength(tail,4250)<7.5f);
         x.now=6500;assert(m.observe(s,x).kind==motion::Kind::None);
     }
     {live::ReturnAtmosphere r;energy::Play p;p.game={2,7,7,3,300,720};p.down=1;p.offense=1;
@@ -49,7 +49,7 @@ int main(){
         sustained::Intent sound;sound.active=true;sound.match=123;sound.epoch=1;
         assert(r.merge(sound,1000,.9f).continuous);
         p.offense=0;r.observe(p,123,1,1200,true,{},true,false);assert(r.merge(sound,1200,.9f).continuous);
-        p.game.phase=4;r.observe(p,123,1,1500,true,{},false,false);auto tail=r.merge(sound,1500,.9f);assert(!tail.continuous&&tail.reaction&&tail.intensity>0&&tail.releaseMs==4500);
+        p.game.phase=4;r.observe(p,123,1,1500,true,{},false,false);auto tail=r.merge(sound,1500,.9f);assert(tail.continuous&&!tail.reaction&&tail.supporting&&tail.intensity>0&&tail.releaseMs==3375);
     }
     State half{3,0,18,5,720,720};halftime::ExitConversion conversion;
     assert(conversion.request(half,5,30)==5&&!conversion.request(half,5,30));

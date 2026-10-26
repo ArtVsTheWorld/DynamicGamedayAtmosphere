@@ -1,5 +1,6 @@
 #pragma once
 #include "ExcitementRules.h"
+#include "ReactionShape.h"
 
 namespace attendance::postplay {
 struct Profile {float strength=0;double hold=0,release=0;int size=2;bool layered=false;};
@@ -32,9 +33,6 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     return {strength,(4+4*strength)*duration,(6+3*strength)*duration,strength>=.68f?3:2,strength>=.85f};
 }
 inline float envelope(double age,const Profile& profile){
-    if(!std::isfinite(age)||age<0||age>=profile.hold+profile.release)return 0;
-    // Immediate positive response; native sound events supply their own short
-    // attack. Excitement then settles without a hard end at the next lineup.
-    return age<=profile.hold?1.0f:static_cast<float>((profile.hold+profile.release-age)/profile.release);
+    return shape::response(age,profile.hold,profile.release,profile.strength);
 }
 }

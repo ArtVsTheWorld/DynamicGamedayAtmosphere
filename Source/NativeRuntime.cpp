@@ -1506,7 +1506,7 @@ void atmosphereTick(){
         if(defensiveImpact&&result.highLeverageStop)liveReactionUntil=0;
         liveReactionPost=p.game.phase!=3;
         bool defensive=liveResult.event==attendance::live::Event::Interception||liveResult.event==attendance::live::Event::Sack||liveResult.event==attendance::live::Event::ForcedFumble||liveResult.event==attendance::live::Event::GoalLineStop||liveResult.event==attendance::live::Event::CriticalStop||liveResult.event==attendance::live::Event::FumbleRecovery;
-        liveReactionType=defensive?59:83;
+        liveReactionType=attendance::live::cheerType(liveResult);
         if(liveResult.event==attendance::live::Event::Interception)++shownLivePicks;else if(!defensive)++shownLiveCatches;
         if(liveReactionUntil>now){liveAuditId=liveReactionId;liveAuditUntil=liveReactionUntil;}
     }else if(situation.id){
@@ -2184,6 +2184,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% (third-and-10 or shorter; offensive fourth downs)\n";
     report.field("Special lineup cheer strength")<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
     report.field("Live-play shake strength")<<motion->live<<"%; "<<motion->reactionFadeMs*.001f<<"-second post-play fade\n";
+    report.field("Added reaction shape")<<"quick hit, short hold, smooth fade; existing strength/volume limits\n";
     report.field("Immediate long-catch impact")<<motion->catchImpact<<"%; separate from runs/returns and defensive impacts\n";
     report.field("Short-impact duration")<<(motion->reactionFadeMs+400+motion->impactExtraMs)*.001f<<" seconds total; catches tackled immediately, sacks and similar impacts\n";
     report.field("Touchdown strength")<<motion->touchdown<<"%\n";
