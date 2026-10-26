@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Path $crowdPlugins -Force | Out-Null
 $crowdPlugin=Join-Path $crowdPlugins ($product.name+'.dll')
 $native=$product.name+'Native-'+$product.version+'.dll'
 $csc=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-& $csc /nologo /target:library /platform:x64 "/out:$crowdPlugin" "/reference:$(Join-Path $MmcRoot 'FrostyCore.dll')" "/reference:$(Join-Path $MmcRoot 'FrostySdk.dll')" "/resource:$(Join-Path $crowdBuild $native),Attendance.$native" "/resource:$(Join-Path $crowdBuild 'LoadDynamicGamedayAtmosphere.exe'),Attendance.LoadDynamicGamedayAtmosphere.exe" "/resource:$(Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini'),Attendance.DynamicGamedayAtmosphere.ini" (Join-Path $PSScriptRoot 'MmcPlugin.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $crowdBuild 'BuildInfo.cs')
+& $csc /nologo /target:library /platform:x64 "/out:$crowdPlugin" "/reference:$(Join-Path $MmcRoot 'FrostyCore.dll')" "/reference:$(Join-Path $MmcRoot 'FrostySdk.dll')" "/resource:$(Join-Path $crowdBuild $native),Attendance.$native" "/resource:$(Join-Path $crowdBuild 'LoadDynamicGamedayAtmosphere.exe'),Attendance.LoadDynamicGamedayAtmosphere.exe" "/resource:$(Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini'),Attendance.DynamicGamedayAtmosphere.ini" "/resource:$(Join-Path $crowdBuild 'DgaDiagnostics.exe'),Attendance.DgaDiagnostics.exe" (Join-Path $PSScriptRoot 'MmcPlugin.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs') (Join-Path $crowdBuild 'BuildInfo.cs')
 if($LASTEXITCODE -ne 0){throw 'MMC adapter compilation failed'}
 Copy-Item -LiteralPath (Join-Path $crowdRoot 'README.md') -Destination $crowdPackage
 Copy-Item -LiteralPath (Join-Path $crowdRoot 'FEATURES.md') -Destination $crowdPackage
@@ -25,9 +25,9 @@ if($Install){
     New-Item -ItemType Directory -Path $crowdInstalled -Force | Out-Null
     foreach($name in @($native,'LoadDynamicGamedayAtmosphere.exe')){Copy-Item -LiteralPath (Join-Path $crowdBuild $name) -Destination (Join-Path $crowdInstalled $name) -Force}
     if(-not $DeferSettings){
-    & $csc /nologo ('/out:'+(Join-Path $crowdBuild 'MigrateSettings.exe')) (Join-Path $PSScriptRoot 'MigrateSettings.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs')
+    & $csc /nologo ('/out:'+(Join-Path $crowdBuild 'MigrateSettings.exe')) (Join-Path $PSScriptRoot 'MigrateSettings.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs')
     if($LASTEXITCODE -ne 0){throw 'Settings migration build failed'}
-    & (Join-Path $crowdBuild 'MigrateSettings.exe') (Join-Path $MmcRoot 'Plugins\DynamicGamedayAtmosphere.ini') (Join-Path $MmcRoot 'Plugins\DynamicAttendance.ini') (Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini')
+    & (Join-Path $crowdBuild 'MigrateSettings.exe') (Join-Path $MmcRoot 'Plugins') (Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini')
     if($LASTEXITCODE -ne 0){throw 'Settings migration failed'}
     }
 }

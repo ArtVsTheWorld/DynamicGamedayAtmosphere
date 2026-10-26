@@ -56,6 +56,7 @@
 #include "HalftimeExitConversion.h"
 #include "SparseHfaCamera.h"
 #include "DirectorShakeRuntime.h"
+#include "DiagnosticPreview.h"
 #include "ConfigSections.h"
 #include "LiveReactions.h"
 #include "NativePlayCall.h"
@@ -72,7 +73,7 @@
 using A=uintptr_t;
 extern "C" void CrowdTick();
 namespace {
-A image=0; HMODULE self=nullptr; std::filesystem::path folder,pluginsFolder,logsFolder;
+A image=0; HMODULE self=nullptr; std::filesystem::path folder,pluginsFolder,dataFolder,logsFolder;
 std::mutex logMutex;
 std::atomic<int> logLimitMB{2};
 std::atomic<bool> debugLog{false};
@@ -240,6 +241,11 @@ std::shared_ptr<const attendance::motion::Settings> cameraSettings=std::make_sha
 std::shared_ptr<const attendance::motion::Cue> cameraCue=std::make_shared<attendance::motion::Cue>();
 std::atomic<bool> cameraAvailable{false},cameraFaultReported{false},conferenceBinding{false},hfaBinding{false};
 std::shared_ptr<const attendance::sustained::Intent> sustainedIntent=std::make_shared<attendance::sustained::Intent>();
+attendance::diagnostic::Model diagnosticModel;
+uint64_t diagnosticProcessed=0;
+std::shared_ptr<const attendance::diagnostic::Request> diagnosticRequest=std::make_shared<attendance::diagnostic::Request>();
+std::shared_ptr<const attendance::diagnostic::Preview> diagnosticPreview=std::make_shared<attendance::diagnostic::Preview>();
+std::shared_ptr<const std::string> diagnosticStatus=std::make_shared<std::string>("idle");
 std::atomic<bool> swellAvailable{false},intensityAvailable{false},audioAudible{false};
 std::atomic<bool> pauseBinding{false};
 std::atomic<unsigned long long> lastAudibleUpdate{0};
@@ -269,7 +275,13 @@ float audibleFullness(const attendance::audio::Wanted& wanted){
 attendance::sustained::Intent wantedSwell(){
     auto intent=*std::atomic_load(&sustainedIntent);auto wanted=audioWanted();auto c=std::atomic_load(&coreSettings);
     auto now=GetTickCount64(),audibleAt=lastAudibleUpdate.load();
+    auto preview=std::atomic_load(&diagnosticPreview);
+    if(preview->sound&&preview->fresh(wanted.match,wanted.epoch,now)){
+        if(preview->playing(wanted.match,wanted.epoch,now))intent=preview->intent;
+        else if(preview->cooling)intent.active=false;
+    }
     int phase=audioPresentationPhase();
+    if(intent.diagnosticToken&&phase!=1)intent.active=false;
     // Verified intros can run their audio while the gameplay world is paused.
     if(!wanted.active||mode!=0||!c->enabled||!audioAudible||now<audibleAt||now-audibleAt>750||
        (!nativeUnpaused()&&phase!=6)||!attendance::sustained::fresh(intent,wanted.match,wanted.epoch,now))intent.active=false;
@@ -330,8 +342,14 @@ bool guardedSparseCameraTick(){__try{sparseCameraTick();return true;}__except(EX
 void __fastcall cameraView(A view,float* output){
     originalCameraView(view,output);
     if(!enabled||mode!=0||!cameraAvailable||replayLoss.load()>=0)return; // Recorded clips, including play-selection insets, stay steady.
-    auto cue=std::atomic_load(&cameraCue);if(cue->kind==attendance::motion::Kind::None)return;
-    try{presentationCamera.tick(view,output,*cue,audioMatch.load(),audioEpoch.load(),GetTickCount64());}
+    auto published=std::atomic_load(&cameraCue);auto cue=*published;auto preview=std::atomic_load(&diagnosticPreview);
+    if(preview->fresh(audioMatch.load(),audioEpoch.load(),GetTickCount64())&&(preview->active||preview->cooling)){
+        auto config=std::atomic_load(&coreSettings);
+        if(!preview->playing(audioMatch.load(),audioEpoch.load(),GetTickCount64())||!preview->camera||!config->enabled||!config->cameraShake||!nativeUnpaused()||audioPresentationPhase()!=1)return;
+        cue=preview->cue;
+    }
+    if(cue.kind==attendance::motion::Kind::None)return;
+    try{presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),GetTickCount64());}
     catch(...){presentationCamera.fail();}
 }
 A __fastcall crowdSend(A manager,A result,A event){
@@ -348,9 +366,13 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
     if(!notedAudioState.exchange(true))logAudioState(nativeCrowdSlider.load());
     audioAudible=audible;lastAudibleUpdate=GetTickCount64();
     if(swellAvailable)try {
-        auto wanted=wantedSwell();sustainedAudio.tick(owner,wanted,GetTickCount64());
+        auto wanted=wantedSwell();auto primary=wanted;auto preview=std::atomic_load(&diagnosticPreview);
+        bool diagnostic=preview->sound&&preview->playing(wanted.match,wanted.epoch,GetTickCount64())&&wanted.active;
+        if(diagnostic&&!preview->primary)primary.active=false;
+        sustainedAudio.tick(owner,primary,GetTickCount64());
+        if(diagnostic)wanted.supporting=preview->supporting;
         if(!wanted.supporting)wanted.reason=attendance::sustained::Reason::None;
-        if(wanted.reason!=attendance::sustained::Reason::Eruption)wanted.attackMs=4000;
+        if(wanted.reason!=attendance::sustained::Reason::Eruption&&!wanted.diagnosticToken)wanted.attackMs=4000;
         supportingSwell.tick(owner,wanted,GetTickCount64());
     }catch(...){sustainedAudio.fail();supportingSwell.fail();audioNote("swell-fault: new starts stopped; cleanup will retry on the next audio update");}
     if(chantAvailable)try {
@@ -359,6 +381,11 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
         bool active=wanted.active&&audible&&config->enabled&&mode!=2;
         float percent=(std::max)(attendance::balance::crowdBoost(present,config->maximumPercent),attendance::volume::boostPercent(crowdBoost.load()));
         float ceiling=attendance::core::callbackLimit(*config,shownAudioLimit.load(),GetTickCount64(),shownDecisiveUntil.load(),shownHighUntil.load());
+        auto preview=std::atomic_load(&diagnosticPreview);
+        if(preview->sound&&preview->playing(wanted.match,wanted.epoch,GetTickCount64())&&nativeUnpaused()&&audioPresentationPhase()==1&&replayLoss<0&&!replaySuspendsAtmosphere&&config->enabled){
+            float configured=preview->preset==attendance::diagnostic::Preset::Eruption?attendance::core::eruptionLimit(*config):preview->preset==attendance::diagnostic::Preset::Critical?attendance::core::highLeverageLimit(*config):attendance::core::normalLimit(*config);
+            ceiling=(std::max)(ceiling,configured);percent=(std::max)(percent,preview->boost);
+        }
         percent=(std::min)(percent,attendance::volume::boostPercent(ceiling));
         attendanceMixer.tick(owner,active,percent,attendance::balance::chantBoost(present,config->chantMaximumPercent));
     }catch(...){chantAvailable=false;audioNote("audio-fault: attendance boost mixer stopped after exception");}
@@ -370,8 +397,8 @@ bool signatures=false;
 bool read(A p,void* out,size_t n);
 void __fastcall periodChanged(A manager,int next);
 std::vector<unsigned char> cleanEntry(A rva){
-    if(rva==0x64afda0)return {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x6c,0x24,0x10,0x48,0x89,0x74,0x24,0x18};
-    if(rva==0x5d024c0)return {0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x99,0x30,0x01,0,0,0x48,0x89,0x6c,0x24,0x30};
+    if(rva==attendance::bindings::CrowdVisibility)return {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x6c,0x24,0x10,0x48,0x89,0x74,0x24,0x18};
+    if(rva==attendance::bindings::PeriodChange)return {0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x99,0x30,0x01,0,0,0x48,0x89,0x6c,0x24,0x30};
     if(rva==attendance::bindings::AudioUpdate)return {0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0x48,0x8b,0x89,0x38,0x02,0,0};
     if(rva==attendance::bindings::IntensityUpdate)return {0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x6c,0x24,0x18,0x56,0x57,0x41,0x56,0x48,0x83,0xec,0x20};
     if(rva==attendance::bindings::SwellSend)return {0x4c,0x8b,0xdc,0x55,0x41,0x56,0x49,0x8d,0x6b,0xd8,0x48,0x81,0xec,0x18,1,0,0};
@@ -433,7 +460,7 @@ void log(const char* event,const std::string& message) {
     if(!debugLog&&kind!="starting"&&kind!="ready"&&kind!="inactive"&&kind!="fault"&&kind!="quarter-break"&&
        kind!="two-minute"&&kind!="departures"&&kind!="arrivals"&&kind!="halftime"&&kind!="opening"&&kind!="eruption"&&
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
-       kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
+       kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
        kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
@@ -744,7 +771,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
     if(enabled&&maskLayout(crowd,renderer,begin,count,parts)&&agent<count){
         // The backend stores a hidden bit per resolved part, for each fan.
         unsigned bit=16;
-        if(attendance::visibility::resolvePart(reinterpret_cast<attendance::visibility::PartResolver>(image+0x65047b0),parts,part,bit)){
+        if(attendance::visibility::resolvePart(reinterpret_cast<attendance::visibility::PartResolver>(image+attendance::bindings::CrowdPartResolve),parts,part,bit)){
             std::lock_guard<std::mutex> guard(crowdMutex);
             auto found=startingCrowds.find(renderer);
             const bool collecting=(collectingStartingCrowd.load()&&!applying)||capturingBaseline;
@@ -906,9 +933,9 @@ bool install() {
     hfaBinding=bytes(attendance::bindings::HfaDisabledGetter+0x0f,{0x48,0x8b,0x05,0x22,0x1c,0xe5,0x0c})&&
         bytes(attendance::bindings::HfaDisabledGetter+0x1e,{0x0f,0xb6,0xb0,0xf0,0x01,0,0});
     if(at<unsigned int>(image+0x3c)>0x1000)return false;
-    if(!requiredBytes(0x64afda0,cleanEntry(0x64afda0))||
-       !requiredBytes(0x5d024c0,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x99,0x30,0x01,0,0,0x48,0x89,0x6c,0x24,0x30})||
-       !requiredBytes(0x65047b0,{0x4c,0x8b,0x91,0xa0,0,0,0,0x44,0x8b,0xca})||
+    if(!requiredBytes(attendance::bindings::CrowdVisibility,cleanEntry(attendance::bindings::CrowdVisibility))||
+       !requiredBytes(attendance::bindings::PeriodChange,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x99,0x30,0x01,0,0,0x48,0x89,0x6c,0x24,0x30})||
+       !requiredBytes(attendance::bindings::CrowdPartResolve,{0x4c,0x8b,0x91,0xa0,0,0,0,0x44,0x8b,0xca})||
        !requiredBytes(0xa0ad090,{0x48,0x83,0xec,0x38,0x89,0x54,0x24,0x28})||
        !requiredBytes(attendance::bindings::NeutralGetter,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x15,0x63,0x36,0x09,0x48,0x85,0xc9,0x74,0x18})||
        !requiredBytes(0x90934d0,{0x40,0x53,0x48,0x83,0xec,0x50})||
@@ -986,8 +1013,8 @@ bool install() {
     findEntities();
     if(!makePatch(attendance::bindings::AttendanceUpdate,reinterpret_cast<void*>(attendanceUpdate),reinterpret_cast<void**>(&originalAttendanceUpdate),18)||
        !makePatch(attendance::bindings::PresentationUpdate,reinterpret_cast<void*>(presentationUpdate),reinterpret_cast<void**>(&originalPresentationUpdate),15)||
-       !makePatch(0x64afda0,reinterpret_cast<void*>(visibility),reinterpret_cast<void**>(&originalSet),15)||
-       !makePatch(0x5d024c0,reinterpret_cast<void*>(periodChanged),reinterpret_cast<void**>(&originalPeriod),18))return false;
+       !makePatch(attendance::bindings::CrowdVisibility,reinterpret_cast<void*>(visibility),reinterpret_cast<void**>(&originalSet),15)||
+       !makePatch(attendance::bindings::PeriodChange,reinterpret_cast<void*>(periodChanged),reinterpret_cast<void**>(&originalPeriod),18))return false;
     const std::vector<unsigned char> audioQueue={0x40,0x53,0x48,0x83,0xec,0x40,0x48,0x89,0x7c,0x24,0x60};
     if(audioSetting&&bytes(attendance::bindings::AudioUpdate,cleanEntry(attendance::bindings::AudioUpdate))&&bytes(attendance::bindings::CrowdQueue,audioQueue)){
         if(!makePatch(attendance::bindings::AudioUpdate,reinterpret_cast<void*>(audioUpdate),reinterpret_cast<void**>(&originalAudioUpdate),16))return false;
@@ -1105,8 +1132,8 @@ void showContext(const attendance::Settings& c,const attendance::State& s){
 }
 void readSettings(){
     static attendance::SettingsPoll poll;
-    if(!poll.due(pluginsFolder/L"DynamicGamedayAtmosphere.ini",GetTickCount64()))return;
-    auto c=std::make_shared<attendance::Settings>();auto path=pluginsFolder/L"DynamicGamedayAtmosphere.ini";
+    if(!poll.due(dataFolder/L"DynamicGamedayAtmosphere.ini",GetTickCount64()))return;
+    auto c=std::make_shared<attendance::Settings>();auto path=dataFolder/L"DynamicGamedayAtmosphere.ini";
     auto location=[&](const wchar_t* section,const wchar_t* key){
         auto mapped=attendance::config::route(section,key);wchar_t found[4]{};
         GetPrivateProfileStringW(mapped.section,mapped.key,L"\x01",found,4,path.c_str());
@@ -1291,9 +1318,32 @@ bool playData(A match,attendance::energy::Play& p){
     }
     liveDown=p.down;liveOffense=p.offense;liveHomeTimeouts=p.homeTimeouts;return true;
 }
+void updateDiagnostic(uint64_t now){
+    auto queued=std::atomic_load(&diagnosticRequest);auto old=std::atomic_load(&diagnosticPreview);
+    if(queued->token==diagnosticProcessed&&!old->active&&!old->cooling)return;
+    diagnosticProcessed=queued->token;auto wanted=audioWanted();
+    attendance::State state;A match=0;bool game=gameState(state,match);auto density=std::atomic_load(&renderedOccupancy);
+    bool primary=!queued->sound||!attendance::diagnostic::primary(queued->preset)||(swellAvailable&&sustainedAudio.healthy());
+    bool support=!queued->sound||!attendance::diagnostic::support(queued->preset)||(swellAvailable&&supportingSwell.healthy());
+    bool cheers=!queued->sound||!attendance::diagnostic::cheer(queued->preset)||(cheerAvailable&&positiveCheer.healthy());
+    bool sounds=primary&&support&&cheers;
+    bool camera=!queued->camera||(cameraAvailable&&presentationCamera.healthy());
+    attendance::diagnostic::Context context;context.match=game?match:0;context.epoch=audioEpoch.load();context.now=now;context.phase=game?state.phase:0;
+    context.allowed=game&&contextReady&&wanted.active&&mode==0&&enabled&&audioSetting&&nativeUnpaused()&&audioAudible&&replayLoss<0&&!replaySuspendsAtmosphere&&!offscreenSimulation(state)&&density->owns(match,context.epoch)&&sounds&&camera;
+    context.fullness=audibleFullness(wanted);
+    if(!sounds)context.unavailable="not started: a requested native sound control is unavailable; check status/logs";
+    else if(!camera)context.unavailable="not started: added camera control is unavailable; check status/logs";
+    std::shared_ptr<const attendance::diagnostic::Preview> preview=std::make_shared<attendance::diagnostic::Preview>(diagnosticModel.update(*queued,context,*std::atomic_load(&coreSettings),*std::atomic_load(&cameraSettings)));
+    std::atomic_store(&diagnosticPreview,preview);
+    auto previous=std::atomic_load(&diagnosticStatus);
+    if(*previous!=diagnosticModel.status()){
+        std::shared_ptr<const std::string> text=std::make_shared<std::string>(diagnosticModel.status());std::atomic_store(&diagnosticStatus,text);log("diagnostics",*text);
+    }
+}
 void atmosphereTick(){
     auto now=GetTickCount64();uint64_t interval=lastAtmospherePhase==3||lastAtmospherePhase==4?16:50;
     if(now-lastAtmosphereTick<interval)return;lastAtmosphereTick=now;
+    updateDiagnostic(now);
     auto c=std::atomic_load(&retentionEventSettings);
     auto gap=[&](){
         std::shared_ptr<const attendance::sustained::Intent> quiet=std::make_shared<attendance::sustained::Intent>();std::atomic_store(&sustainedIntent,quiet);
@@ -1493,7 +1543,12 @@ void atmosphereTick(){
         playAuditSequence=result.sequence;
         const char* admitted=!audioSetting||!audio->enabled||!audio->lineups?"soundscape/layers disabled":!fullnessReady?"seating measurement unavailable":
             !(hadLayers||lineupAtmosphere.playContextActive())?"no qualifying atmosphere on this play":!reactionEligible?"fullness or competitiveness gate not met":"eligible";
-        log("play-summary","Play #"+std::to_string(result.sequence)+": "+attendance::energy::name(result.event)+"; "+std::to_string(static_cast<int>(std::lround(result.yards)))+" yards; home/away points "+std::to_string(result.homePoints)+"/"+std::to_string(result.awayPoints)+"; added reactions "+admitted+(result.safety?"; safety confirmed":"")+"; sack "+(result.sack?"confirmed":p.sack?"native flag present; not classified as a home defensive sack":"not confirmed")+"; result phase "+std::to_string(p.game.phase)+(result.takeaway?"; opponent timeouts "+std::to_string(result.opponentTimeouts)+"; seals regulation "+(attendance::energy::sealsRegulationTakeaway(result,p.game)?"yes":"no"):"")+"; measured reaction distance "+std::to_string(static_cast<int>(std::lround(reactionDistance.yards())))+" yards; extra settling "+std::to_string(scoreExtra)+" ms; camera cue "+attendance::motion::name(nextCamera->kind)+".");
+        const char* sackReason=result.sack?"confirmed":!playTracker.sawSack?(p.sack?"raw flag present, but no fresh sack proof for this snap":"native sack proof not observed"):
+            playTracker.start.offense==0&&!p.game.neutral?"away defense; home crowd does not celebrate":
+            playTracker.sawPick?"interception result takes precedence":p.offense!=playTracker.start.offense?"possession changed; sack ownership not established":
+            attendance::energy::gainedYards(playTracker.start,p)>0.01f?"contradictory positive yardage":"not selected; check scoring and event settings";
+        std::string yards=std::isfinite(result.yards)&&result.yards>-1000?std::to_string(static_cast<int>(std::lround(result.yards)))+" yards":"yardage unavailable";
+        log("play-summary","Play #"+std::to_string(result.sequence)+": "+attendance::energy::name(result.event)+"; "+yards+"; home/away points "+std::to_string(result.homePoints)+"/"+std::to_string(result.awayPoints)+"; added reactions "+admitted+(result.safety?"; safety confirmed":"")+"; snap offense "+(playTracker.start.offense==0?"home":playTracker.start.offense==1?"away":"unknown")+"; sack "+sackReason+"; result phase "+std::to_string(p.game.phase)+(result.takeaway?"; opponent timeouts "+std::to_string(result.opponentTimeouts)+"; seals regulation "+(attendance::energy::sealsRegulationTakeaway(result,p.game)?"yes":"no"):"")+"; measured reaction distance "+std::to_string(static_cast<int>(std::lround(reactionDistance.yards())))+" yards; extra settling "+std::to_string(scoreExtra)+" ms; camera cue "+attendance::motion::name(nextCamera->kind)+".");
     }
     if((p.game.phase==4||p.game.phase==5)&&playTracker.played&&playTracker.serial&&playAuditEndSequence!=playTracker.serial){
         playAuditEndSequence=playTracker.serial;
@@ -1935,7 +1990,7 @@ void readResumeStatus(uint64_t now){
     std::shared_ptr<const attendance::resume::Signal> signal=std::make_shared<attendance::resume::Signal>(next);std::atomic_store(&resumeSignal,signal);
 }
 void loadAttendanceHistory(){
-    auto path=pluginsFolder/L"DynamicGamedayAtmosphere"/L"History"/L"attendance-history.txt";
+    auto path=dataFolder/L"History"/L"attendance-history.txt";
     std::error_code error;auto size=std::filesystem::file_size(path,error);if(error||size>8*1024*1024)return;
     std::ifstream f(path);attendance::timeline::Archive archive;
     if(attendance::timeline::read(f,archive))attendanceArchive=std::move(archive);
@@ -1944,7 +1999,7 @@ void loadAttendanceHistory(){
 void saveAttendanceHistory(){
     static uint64_t written=0;attendance::timeline::Archive snapshot;
     {std::lock_guard<std::mutex> guard(timelineMutex);if(attendanceArchive.revision==written)return;snapshot=attendanceArchive;}
-    auto dir=pluginsFolder/L"DynamicGamedayAtmosphere"/L"History";if(!attendance::ensureFolder(dir))return;
+    auto dir=dataFolder/L"History";if(!attendance::ensureFolder(dir))return;
     auto file=dir/L"attendance-history.txt",pending=dir/L"attendance-history.pending";
     {std::ofstream f(pending,std::ios::trunc);attendance::timeline::write(f,snapshot);f.flush();if(!f)return;}
     if(MoveFileExW(pending.c_str(),file.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))written=snapshot.revision;
@@ -1961,6 +2016,8 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("GAME & MATCHUP");
     report.field("Game")<<"Q"<<shownQuarter<<" | "<<shownSeconds<<" seconds remaining | Home "<<shownScore0<<" - Away "<<shownScore1<<"\n";
     report.field("Game process ID")<<GetCurrentProcessId()<<"\n";
+    report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
+    report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";
     report.field("Mode")<<(mode==0?"automatic":mode==1?"manual test":"restored")<<"\n";
     report.field("Team IDs (home/away)")<<shownTeam0<<" / "<<shownTeam1<<"\n";
     report.field("Ranks (home/away)")<<shownRank0<<" / "<<shownRank1<<" (game-supplied ranks; 0 means unavailable)\n";
@@ -2089,11 +2146,29 @@ void writeStatus(std::ostream& state,unsigned long long now){
         report.field("Replay eligibility changes")<<insetEligibilityChanges<<" / "<<fullEligibilityChanges<<" / "<<defensiveRouteChanges<<" (inset / full / defense; not replay totals)\n";
     }
 }
+void readDiagnosticRequest(uint64_t now){
+    auto directory=dataFolder/L"Diagnostics";
+    auto source=directory/(L"request-"+std::to_wstring(GetCurrentProcessId())+L".txt"),processing=directory/(L"request-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(now)+L".pending");
+    std::error_code error;
+    if(!std::filesystem::exists(source,error)||error)return;
+    std::filesystem::rename(source,processing,error);if(error)return;
+    auto size=std::filesystem::file_size(processing,error);std::string text;
+    if(!error&&size<=256){std::ifstream file(processing);std::getline(file,text);}
+    std::filesystem::remove(processing,error);
+    FILETIME raw{};GetSystemTimeAsFileTime(&raw);ULARGE_INTEGER clock{};clock.LowPart=raw.dwLowDateTime;clock.HighPart=raw.dwHighDateTime;
+    attendance::diagnostic::Request command;
+    if(!attendance::diagnostic::parse(text,GetCurrentProcessId(),clock.QuadPart/10000-11644473600000ull,command)){
+        log("diagnostics","Ignored invalid, stale or wrong-process test request.");return;
+    }
+    command.deadline=now+1500;
+    std::shared_ptr<const attendance::diagnostic::Request> next=std::make_shared<attendance::diagnostic::Request>(command);std::atomic_store(&diagnosticRequest,next);
+    log("diagnostics",std::string("Requested ")+attendance::diagnostic::name(command.preset)+" preview; maximum "+std::to_string(command.seconds)+" seconds, current sound limits retained.");
+}
 DWORD WINAPI worker(void*) {
-    wchar_t path[32768]{};GetModuleFileNameW(self,path,32768);folder=std::filesystem::path(path).parent_path();pluginsFolder=folder.parent_path().parent_path();logsFolder=pluginsFolder/L"DynamicGamedayAtmosphere"/L"Logs";image=reinterpret_cast<A>(GetModuleHandleW(nullptr));
+    wchar_t path[32768]{};GetModuleFileNameW(self,path,32768);folder=std::filesystem::path(path).parent_path();dataFolder=folder.parent_path();pluginsFolder=dataFolder.parent_path();logsFolder=dataFolder/L"Logs";image=reinterpret_cast<A>(GetModuleHandleW(nullptr));
     lastApplied=0;shownCurrent=shownTarget=0;
     readSettings();log("starting","Dynamic Gameday Atmosphere " GAMEDAY_VERSION "; attendance, retention and crowd audio.");
-    if(GetPrivateProfileIntW(L"General",L"ConfigVersion",GAMEDAY_SCHEMA,(pluginsFolder/L"DynamicGamedayAtmosphere.ini").c_str())>GAMEDAY_SCHEMA){
+    if(GetPrivateProfileIntW(L"General",L"ConfigVersion",GAMEDAY_SCHEMA,(dataFolder/L"DynamicGamedayAtmosphere.ini").c_str())>GAMEDAY_SCHEMA){
         log("inactive","Settings belong to a newer version. Update the plugin before using this configuration.");return 1;
     }
     HANDLE modules=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE|TH32CS_SNAPMODULE32,GetCurrentProcessId());
@@ -2125,9 +2200,9 @@ DWORD WINAPI worker(void*) {
         // UI/loading may suspend presentation callbacks while quitting a game.
         // Remember that exit even if the next game reuses the same match object.
         observeWorldExit();
-        std::string command;{std::ifstream f(pluginsFolder/L"DynamicGamedayAtmosphere-control.txt");std::getline(f,command);}
+        std::string command;{std::ifstream f(dataFolder/L"Diagnostics"/L"legacy-control.txt");std::getline(f,command);}
         if(!command.empty()){
-            {std::ofstream clear(pluginsFolder/L"DynamicGamedayAtmosphere-control.txt",std::ios::trunc);}
+            {std::ofstream clear(dataFolder/L"Diagnostics"/L"legacy-control.txt",std::ios::trunc);}
             if(command=="observe")request=1;
             else if(command=="probe")request=2;
             else if(command=="empty")request=4;
@@ -2135,7 +2210,7 @@ DWORD WINAPI worker(void*) {
             else if(command=="restore"||command=="stop")request=3;
             log("requested",command);
         }
-        auto now=GetTickCount64();if(now-last>1000){
+        auto now=GetTickCount64();readDiagnosticRequest(now);if(now-last>1000){
             if(replayPresentationFailed&&!replayFaultNoted){log("fault","Extra post-play replays stopped after a write fault; normal game presentation remains active.");replayFaultNoted=true;}
             readResumeStatus(now);saveAttendanceHistory();
             readSettings();

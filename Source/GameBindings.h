@@ -6,6 +6,7 @@
 namespace attendance::bindings {
 inline constexpr uintptr_t AudioUpdate=0x28484a0,CrowdQueue=0x3d3fb30;
 inline constexpr uintptr_t AttendanceUpdate=0x3632a50;
+inline constexpr uintptr_t CrowdVisibility=0x64afda0,PeriodChange=0x5d024c0,CrowdPartResolve=0x65047b0;
 // Read-only placement lookup verified against the native agent*16 position path.
 inline constexpr uintptr_t SceneCrowdVtable=0xb7db448,CrowdRendererVtable=0xb7db228,CrowdPositionKey=0xb222068;
 // GameStates post-update dispatches every active phase, including PreGame.

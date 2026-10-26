@@ -8,7 +8,7 @@ From the repository folder:
 .\Source\Build.ps1 -Automatic
 ```
 
-This builds the native runtime and loader and runs all 74 build checks. Output goes to `Build/Release1540` for build 1.54.0. The number comes from `Source/Product.json`. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+This builds the native runtime and loader and runs all 78 build checks. Output goes to `Build/Release1550` for working build 1.55.0. The number comes from `Source/Product.json`. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
 
 To compile the MMC adapter and make a download:
 
@@ -28,6 +28,8 @@ python -m unittest discover -s Tests -p 'test_*.py'
 ```
 
 `Tests/HostChecks.cs` checks an adapter against an installed MMC SDK. `Tests/InstallTests.ps1` exercises installation/rollback in a disposable folder under Build. Neither replaces a live game test. The GitHub Windows workflow builds native code and runs tests without a game or MMC installation; it does not create or publish releases.
+
+For the working diagnostics build, `Tools/CheckMmcHost.ps1 -MmcRoot 'C:\Your\MMC'` compiles/tests the adapter in an isolated Build fixture, including extraction of its settings and diagnostics window. It does not install into MMC or create a release archive.
 
 ## Historical tags
 

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 2 | Build 1.54.0 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.55.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -204,7 +204,7 @@ A qualifying big game's opening kickoff has its own immediate lineup cheer, foll
 
 The roar builds over roughly 2.5-3.5 seconds. Each ordinary sequence lasts 40 seconds including its fade: roughly 26-30 seconds of buildup/sustain, then 10-14 seconds settling. Small timing and reaction-size differences reduce repetition. Opening energy fades through Q1; useful drives can build it again. Big games build on the same fullness-based foundation as ordinary packed games, with additional excitement and a larger native reaction profile when strength allows it. Close finishes add more emphasis during the last quarter of Q4; postseason games receive a small further lift. Ordinary-game strength is unchanged, and this adds no separate volume bonus. Blowout fading and all sound limits still apply.
 
-If arrivals push the stadium past its requirement while players are already lined up, the buildup can begin then. It does not need to wait for another play call, and it cannot restart repeatedly after its 40 seconds end. Ordinary buildup uses the same rules on home and away offense. Added sack impacts require a confirmed home defensive sack, or either defense at a neutral site, plus the play's atmosphere/fullness qualification. A result confirmed only at the next lineup can still receive its one impact.
+If arrivals push the stadium past its requirement while players are already lined up, the buildup can begin then. It does not need to wait for another play call, and it cannot restart repeatedly after its 40 seconds end. Ordinary buildup uses the same rules on home and away offense. Added sack impacts require a confirmed home defensive sack, or either defense at a neutral site, plus the play's atmosphere/fullness qualification. A result confirmed only at the next lineup can still receive its one impact. A fresh sack confirmation can also trigger while its yardage is still unavailable; an ordinary loss of yards does not prove a sack.
 
 Snapping carries the remaining sound through the play, followed by a short bridge into the result. Ordinary pre-snap shake settles after the snap. As the score separates from 16 to 24 points, added layers fade; at 24 or more, new ordinary layers stop. The game's own sounds remain.
 
@@ -375,7 +375,7 @@ The main log clears before it would pass its size limit, about 2 MB by default. 
 
 The plugin checks the game's internal layout before activating and has no EXE hash requirement. Game updates can require a plugin update. This release contains the plugin DLL, the short README and this feature list. Test tools, showcase controls and installer scripts are not included.
 
-Each setting in `Plugins/DynamicGamedayAtmosphere.ini` has a plain-language explanation, including valid ranges and how related switches interact. Updating from an older version refreshes help for known settings once while preserving values, custom disables and unknown settings.
+Each setting in `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini` has a plain-language explanation, including valid ranges and how related switches interact. Updating from an older version refreshes help for known settings once while preserving values, custom disables and unknown settings.
 
 
 For missing-audio troubleshooting, turn off `Enabled` under **Dynamic Gameday Soundscape**, then restart MMC and the game. With that switch off at launch, DGA leaves its audio hooks uninstalled while attendance and extra replays remain available. Added atmosphere motion depends on Soundscape. Re-enabling Soundscape after such a launch needs another restart. Status includes the game process ID, native audio callback count and native crowd-volume setting to help match a report to the correct session. Failed game-code checks now identify the expected and observed bytes and any recognizable existing detour; they still leave unsupported code untouched.
@@ -398,3 +398,13 @@ Important combinations:
 Logs use readable categories such as `[play-summary]`, `[reaction-audio]`, `[departures]` and `[configuration]`. Play summaries show qualification, native sack confirmation, result phase, takeover/timeout context when relevant and the selected camera cue. Status shows the measured reaction distance and additional settling allowance. Repeated identical failures are throttled even if other messages appear between them. The diagnostic cache, crowd history and log sizes are bounded.
 
 Disappointment requests can be subtle in the game's native mix. Offline Dynasty is the verified mode; other offline modes require their own live compatibility check rather than an assumed guarantee.
+
+## Diagnostics (working build)
+
+Settings now live inside `Plugins/DynamicGamedayAtmosphere/`, alongside the Logs, History, Runtime and Tools folders. The launcher preserves current custom values and moves the former loose settings into Backups after successful migration. It waits for the game to close before moving settings that an older running DLL may still use.
+
+`Tools/DgaDiagnostics.exe` opens a small local control window with the current stadium fullness, preset selector, duration, separate sound/camera choices and a Stop button. Roar, swell, cheer, conversion, defensive cheer, disappointment, lineup, critical-down, touchdown and eruption previews use the verified native routes and current strength/volume settings. A preview starts only in a verified offline match while unpaused at the line. Requests expire; the test ends automatically and cannot queue into a later game. A snap, pause, replay or game change cancels it. One-shot cheers finish naturally, and native voice limits/accessibility settings still apply. Previews do not change attendance, scores, clocks or gameplay HFA. They bypass the usual play-situation requirement for controlled comparison, without permanently changing gameplay eligibility.
+
+The native pause-menu fullness widget is not implemented yet. The percentage in the diagnostics window uses the current measured seating value; it is separate from the planned in-game readout. Working previews still need an in-game listening/camera check.
+
+The same tool can save a read-only compatibility report even when DGA did not activate. It records build metadata, loaded-module names and small code samples at the existing DGA addresses. Reports stay in DGA's Diagnostics folder, and nothing is sent automatically. No game EXE, save or full memory dump is included.

@@ -4,8 +4,8 @@
 #include "ConfigurationOptions.inc"
 int main(){
     auto root=std::filesystem::temp_directory_path()/(L"DGA-config-audit-"+std::to_wstring(GetCurrentProcessId()));
-    std::filesystem::create_directories(root);pluginsFolder=root;logsFolder=root/L"Logs";attendance::ensureFolder(logsFolder);
-    auto path=root/L"DynamicGamedayAtmosphere.ini";auto stamp=std::filesystem::file_time_type::clock::now();int serial=0;
+    pluginsFolder=root/L"Plugins";dataFolder=pluginsFolder/L"DynamicGamedayAtmosphere";logsFolder=dataFolder/L"Logs";attendance::ensureFolder(logsFolder);
+    auto path=dataFolder/L"DynamicGamedayAtmosphere.ini";auto stamp=std::filesystem::file_time_type::clock::now();int serial=0;
     auto write=[&](const NumericOption& option,const std::wstring& value){std::wofstream f(path,std::ios::trunc);f<<L"["<<option.section<<L"]\n"<<option.key<<L"="<<value<<L"\n";f.close();std::filesystem::last_write_time(path,stamp+std::chrono::seconds(++serial));readSettings();};
     unsigned cases=0;
     for(const auto& option:options){

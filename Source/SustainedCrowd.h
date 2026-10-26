@@ -2,9 +2,9 @@
 #include "ExcitementRules.h"
 
 namespace attendance::sustained {
-enum class Reason { None, Opening, Upset, LateDrive, DefensiveDown, Overtime, Eruption, Lineup, Result, PassFlight, Postgame };
+enum class Reason { None, Opening, Upset, LateDrive, DefensiveDown, Overtime, Eruption, Lineup, Result, PassFlight, Postgame, Diagnostics };
 inline const char* name(Reason r){
-    switch(r){case Reason::Postgame:return "postgame stadium atmosphere";case Reason::Opening:return "big-game opening";case Reason::Upset:return "developing upset";
+    switch(r){case Reason::Diagnostics:return "diagnostic preview";case Reason::Postgame:return "postgame stadium atmosphere";case Reason::Opening:return "big-game opening";case Reason::Upset:return "developing upset";
     case Reason::LateDrive:return "late scoring opportunity";case Reason::DefensiveDown:return "critical defensive down";
     case Reason::Eruption:return "winning celebration";case Reason::Overtime:return "overtime roar";case Reason::Lineup:return "play-call atmosphere";case Reason::Result:return "successful-play reaction";case Reason::PassFlight:return "pass-in-flight anticipation";default:return "quiet";}
 }
@@ -17,7 +17,7 @@ struct Intent {
     uint64_t lineupCheer=0,lineupCheerBegan=0,lineupCheerUntil=0;
     uint64_t liveCheer=0,liveCheerUntil=0;int liveType=83;
     bool deepCheers=false;uint64_t resultCheer=0,resultCheerUntil=0;int resultType=91;
-    bool scoringReaction=false;
+    bool scoringReaction=false;uint64_t diagnosticToken=0;
 };
 inline Intent select(const energy::Settings& c,const energy::Play& p,const energy::Model& model,
                      uintptr_t match,unsigned epoch,uint64_t now,bool allowed,float permanentFraction=1){

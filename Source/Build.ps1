@@ -25,6 +25,15 @@ Set-Content -LiteralPath (Join-Path $crowdOut 'ProductVersion.h') -Value $produc
 $buildInfo='namespace DynamicGamedayAtmosphere { internal static class BuildInfo { public const string Version="'+$product.version+'"; public const string AssemblyVersion="'+$product.version+'.0"; public const string NativeFile="DynamicGamedayAtmosphereNative-'+$product.version+'.dll"; } }'
 Set-Content -LiteralPath (Join-Path $crowdOut 'BuildInfo.cs') -Value $buildInfo -Encoding ascii
 $crowdInclude+=('/I'+$crowdOut)
+$crowdBindings=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'GameBindings.h') -Raw
+$crowdSites=@('CrowdVisibility','PeriodChange','CrowdPartResolve','AttendanceUpdate','PresentationUpdate','CurrentDownGetter','CurrentOffenseGetter','SackPredicate','ForcedFumblePredicate','AudioUpdate','IntensityUpdate','CameraViewCopy','ReplayUpdate')
+$crowdReportSites=foreach($site in $crowdSites){
+    $match=[regex]::Match($crowdBindings,'\b'+[regex]::Escape($site)+'\s*=\s*0x([0-9a-fA-F]+)')
+    if(-not $match.Success){throw ('Missing compatibility-report binding: '+$site)}
+    $site+' '+$match.Groups[1].Value
+}
+$crowdReportFile=Join-Path $crowdOut 'CompatibilitySites.txt'
+Set-Content -LiteralPath $crowdReportFile -Value $crowdReportSites -Encoding ascii
 Push-Location $crowdOut
 try {
     $crowdObjects=@()
@@ -43,7 +52,7 @@ try {
         if($LASTEXITCODE -ne 0){throw 'Rule checks build failed'}
         & '.\RulesTests.exe'
         if($LASTEXITCODE -ne 0){throw 'Rule checks failed'}
-        foreach($crowdTest in @('AttendanceMixerTests','NativeAtmosphereContextTests','AttendanceAudioTests','PresentationCameraTests','HandoffCameraTests','DirectorShakeTests','DirectorShakeRuntimeTests','LiveReactionsTests','RunBuildupTests','RunSoundscapeTests','CatchImpactTests','VenueVolumeTests','LateTrafficTests','QuarterBreakGroupTests','SituationalReactionsTests','LateHalfAtmosphereTests','LiveFumbleReturnTests','FinalFeedbackTests','OpeningKickoffTests','KickoffSoundscapeTests','CameraCutContinuityTests','SealingTakeawayTests','SafetyReactionTests','PlayReactionTimingTests','DefensiveStopEligibilityTests','ImmediateCatchTests','LineupAtmosphereTests','BigGameEnergyTests','LineupSustainTests','ReactionVarietyTests','ReactiveDepthTests','PostPlayAtmosphereTests','StadiumOccupancyTests','RenderedOccupancyTests','DrivePackedHouseTests','PackedHouseTests','SizeAtmosphereTests','CameraAdmissionTests','PassFlightTests','CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','AttendanceBalanceTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SettingsPollTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdQuietingTests','PresentationAtmosphereTests','SparseHfaCameraTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests','SeatPatternTests','SeatBaselineTests','SeatRuntimeTests','GamedayFlowTests')){
+        foreach($crowdTest in @('AttendanceMixerTests','NativeAtmosphereContextTests','AttendanceAudioTests','PresentationCameraTests','HandoffCameraTests','DirectorShakeTests','DirectorShakeRuntimeTests','LiveReactionsTests','RunBuildupTests','RunSoundscapeTests','CatchImpactTests','VenueVolumeTests','LateTrafficTests','QuarterBreakGroupTests','SituationalReactionsTests','LateHalfAtmosphereTests','LiveFumbleReturnTests','FinalFeedbackTests','OpeningKickoffTests','KickoffSoundscapeTests','CameraCutContinuityTests','SealingTakeawayTests','SafetyReactionTests','PlayReactionTimingTests','DefensiveStopEligibilityTests','DiagnosticPreviewTests','ImmediateCatchTests','LineupAtmosphereTests','BigGameEnergyTests','LineupSustainTests','ReactionVarietyTests','ReactiveDepthTests','PostPlayAtmosphereTests','StadiumOccupancyTests','RenderedOccupancyTests','DrivePackedHouseTests','PackedHouseTests','SizeAtmosphereTests','CameraAdmissionTests','PassFlightTests','CoreAtmosphereTests','CrowdAudioTests','CrowdAudioRuntimeTests','ChantMixerTests','ChantRuntimeTests','AtmosphereTests','EnergyTests','AtmosphereBalanceTests','OpeningAndLimitsTests','MomentumOvertimeTests','DepartureModelTests','AttendanceBalanceTests','ArrivalTests','VisibilityDispatchTests','LoggingTests','SettingsPollTests','SustainedCrowdTests','SwellRuntimeTests','ReactionRuntimeTests','CrowdIntensityTests','CrowdQuietingTests','PresentationAtmosphereTests','SparseHfaCameraTests','CrowdChangeWindowTests','AttendanceTimelineTests','ResumeBridgeTests','ReplayUpdateHookTests','ReplayPresentationTests','SeatPatternTests','SeatBaselineTests','SeatRuntimeTests','GamedayFlowTests')){
             & $crowdCl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 @crowdInclude (Join-Path $crowdRoot ('Tests\'+$crowdTest+'.cpp')) ('/Fe:'+$crowdTest+'.exe') /link @crowdLib
             if($LASTEXITCODE -ne 0){throw ($crowdTest+' build failed')}
             & ('.\'+$crowdTest+'.exe')
@@ -61,6 +70,20 @@ try {
         if($LASTEXITCODE -ne 0){throw 'Settings tests build failed'}
         & '.\SettingsTests.exe'
         if($LASTEXITCODE -ne 0){throw 'Settings tests failed'}
+        & (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') /nologo /out:PluginStorageTests.exe (Join-Path $crowdRoot 'Tests\PluginStorageTests.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs')
+        if($LASTEXITCODE -ne 0){throw 'Storage tests build failed'}
+        & '.\PluginStorageTests.exe'
+        if($LASTEXITCODE -ne 0){throw 'Storage tests failed'}
+        & (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') /nologo /target:winexe /platform:x64 /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Runtime.Serialization.dll ('/resource:'+$crowdReportFile+',Dga.CompatibilitySites') /out:DgaDiagnostics.exe (Join-Path $PSScriptRoot 'DgaDiagnostics.cs') (Join-Path $PSScriptRoot 'GameCompatibilityReport.cs')
+        if($LASTEXITCODE -ne 0){throw 'Diagnostics window build failed'}
+        & (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') /nologo /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Runtime.Serialization.dll /main:DiagnosticWindowTests /out:DiagnosticWindowTests.exe (Join-Path $crowdRoot 'Tests\DiagnosticWindowTests.cs') (Join-Path $PSScriptRoot 'DgaDiagnostics.cs') (Join-Path $PSScriptRoot 'GameCompatibilityReport.cs')
+        if($LASTEXITCODE -ne 0){throw 'Diagnostics window tests build failed'}
+        & '.\DiagnosticWindowTests.exe'
+        if($LASTEXITCODE -ne 0){throw 'Diagnostics window tests failed'}
+        & (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe') /nologo /platform:x64 /reference:System.Runtime.Serialization.dll /out:GameCompatibilityReportTests.exe (Join-Path $crowdRoot 'Tests\GameCompatibilityReportTests.cs') (Join-Path $PSScriptRoot 'GameCompatibilityReport.cs')
+        if($LASTEXITCODE -ne 0){throw 'Compatibility report tests build failed'}
+        & '.\GameCompatibilityReportTests.exe'
+        if($LASTEXITCODE -ne 0){throw 'Compatibility report tests failed'}
         if(-not(Test-Path -LiteralPath 'DynamicGamedayAtmosphere.ini')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini') -Destination 'DynamicGamedayAtmosphere.ini'}
     }
 } finally {Pop-Location}

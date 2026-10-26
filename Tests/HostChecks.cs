@@ -35,10 +35,11 @@ class HostChecks {
             }
             var extract=action.GetMethod("Extract",BindingFlags.Static|BindingFlags.NonPublic);
             Directory.CreateDirectory((string)action.GetProperty("RuntimeFolder").GetValue(null,null));
-            foreach(string name in new[]{"DynamicGamedayAtmosphereNative-"+release+".dll","LoadDynamicGamedayAtmosphere.exe","DynamicGamedayAtmosphere.ini"}){
+            foreach(string name in new[]{"DynamicGamedayAtmosphereNative-"+release+".dll","LoadDynamicGamedayAtmosphere.exe","DynamicGamedayAtmosphere.ini","DgaDiagnostics.exe"}){
                 if(plugin.GetManifestResourceStream("Attendance."+name)==null)throw new Exception("Missing resource "+name);
                 extract.Invoke(null,new object[]{name,name.EndsWith(".ini")});
-                if(!File.Exists(name.EndsWith(".ini")?Path.Combine(pluginFolder,name):Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Runtime-"+release,name)))throw new Exception("Missing extracted file "+name);
+                if(name=="DgaDiagnostics.exe"){if(!File.Exists(Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Tools",name)))throw new Exception("Diagnostics window missing");continue;}
+                if(!File.Exists(name.EndsWith(".ini")?Path.Combine(pluginFolder,"DynamicGamedayAtmosphere",name):Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Runtime-"+release,name)))throw new Exception("Missing extracted file "+name);
             }
             action.GetMethod("Note",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{null,"Package check passed"});
             if(!File.Exists(Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Logs","launcher.log")))throw new Exception("Launcher log is outside the plugin Logs folder");

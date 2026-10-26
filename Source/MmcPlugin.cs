@@ -35,11 +35,12 @@ namespace DynamicGamedayAtmosphere
             using(var host=Process.GetCurrentProcess())
                 if(String.Equals(host.ProcessName,"MMCModManager",StringComparison.OrdinalIgnoreCase))Start(null);
         }
-        public static string RuntimeFolder { get { return Path.Combine(Path.GetDirectoryName(typeof(AttendanceAction).Assembly.Location),"DynamicGamedayAtmosphere","Runtime-"+BuildInfo.Version); } }
+        public static string DataFolder { get { return PluginStorage.DataFolder(PluginsFolder); } }
+        public static string RuntimeFolder { get { return Path.Combine(DataFolder,"Runtime-"+BuildInfo.Version); } }
         public override Action<ILogger,PluginManagerType,CancellationToken> PreLaunchAction { get { return (log,type,token)=>Start(log); } }
         public override Action<ILogger,PluginManagerType,CancellationToken> PostLaunchAction { get { return (log,type,token)=>Start(log); } }
         public static string PluginsFolder { get { return Path.GetDirectoryName(typeof(AttendanceAction).Assembly.Location); } }
-        public static string LogsFolder { get { return Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere","Logs"); } }
+        public static string LogsFolder { get { return Path.Combine(DataFolder,"Logs"); } }
         private static void Note(ILogger logger,string text)
         {
             logger=logger??Interlocked.CompareExchange(ref hostLogger,null,null);
@@ -57,7 +58,8 @@ namespace DynamicGamedayAtmosphere
         }
         private static void Extract(string name,bool preserve)
         {
-            string destination=Path.Combine(name.EndsWith(".ini",StringComparison.OrdinalIgnoreCase)?PluginsFolder:RuntimeFolder,name);
+            string output=name=="DgaDiagnostics.exe"?Path.Combine(DataFolder,"Tools"):name.EndsWith(".ini",StringComparison.OrdinalIgnoreCase)?DataFolder:RuntimeFolder;
+            Directory.CreateDirectory(output);string destination=Path.Combine(output,name);
             if(preserve&&File.Exists(destination))return;
             byte[] bytes;
             using(var resource=typeof(AttendanceAction).Assembly.GetManifestResourceStream("Attendance."+name))
@@ -89,7 +91,19 @@ namespace DynamicGamedayAtmosphere
                     Extract(BuildInfo.NativeFile,false);Extract("LoadDynamicGamedayAtmosphere.exe",false);
                     string defaults;using(var input=typeof(AttendanceAction).Assembly.GetManifestResourceStream("Attendance.DynamicGamedayAtmosphere.ini"))
                     using(var reader=new StreamReader(input))defaults=reader.ReadToEnd();
-                    SettingsMigration.Ensure(Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere.ini"),Path.Combine(PluginsFolder,"DynamicAttendance.ini"),defaults);
+                    // An Update 2 runtime still uses the loose settings file.
+                    // Never move its settings out from under a running game.
+                    bool moving=File.Exists(Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere.ini"))||File.Exists(Path.Combine(PluginsFolder,"DynamicAttendance.ini"));
+                    bool noted=false;
+                    while(moving){
+                        var active=Process.GetProcessesByName("CollegeFB27");bool running=active.Length>0;foreach(var process in active)process.Dispose();
+                        if(!running)break;
+                        if(!noted){Note(logger,"Close the game once to move DGA settings into its own folder. The running game's old settings are preserved until then.");noted=true;}
+                        Thread.Sleep(1000);
+                    }
+                    PluginStorage.Ensure(PluginsFolder,defaults);
+                    Note(logger,"Settings: "+PluginStorage.SettingsFile(PluginsFolder)+". Former loose DGA files, if present, are preserved in its Backups folder.");
+                    Extract("DgaDiagnostics.exe",false);
                     Note(logger,"Launch watcher started. Automatic crowd departures are restricted to the verified offline Dynasty game layout.");
                     while(true)
                     {

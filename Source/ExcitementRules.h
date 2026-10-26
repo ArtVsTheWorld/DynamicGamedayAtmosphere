@@ -259,7 +259,16 @@ struct Tracker {
                         }
                         if(defenseSupported){
                             Event defensive=Event::None;
-                            if(sawSack&&gainedYards(start,p)<=0.01f&&gainedYards(start,p)>-1000){defensive=Event::Sack;o.sack=true;}
+                            // A fresh native sack can settle before its field
+                            // position does. Missing yardage is not a positive
+                            // gain; keep the native proof rather than dropping
+                            // the impact permanently at this first result.
+                            // Possession changes and contradictory gains still
+                            // need their own result, never a guessed sack.
+                            float gain=gainedYards(start,p);
+                            bool sackPosition=p.offense==start.offense&&
+                                (gain==-1000||(std::isfinite(gain)&&gain<=0.01f&&gain>-1000));
+                            if(sawSack&&!sawPick&&sackPosition){defensive=Event::Sack;o.sack=true;}
                             // A fumble during an interception return may belong
                             // to the other defense; do not guess its team.
                             if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}

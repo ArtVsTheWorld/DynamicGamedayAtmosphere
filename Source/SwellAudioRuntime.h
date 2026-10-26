@@ -111,7 +111,7 @@ inline bool emit(const Api& api,Address image,Address manager,bool start,int siz
 using Note=void(*)(const char*);
 class Runtime {
     Address image_=0,manager_=0,world_=0,asset_=0,owner_=0;Api api_{};Note note_=nullptr;
-    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0;unsigned failures_=0;
+    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0,lastDiagnostic_=0;unsigned failures_=0;
     std::atomic<bool> healthy_{true},playing_{false};std::atomic<unsigned> starts_{0},stops_{0};
     std::atomic<int> reason_{0};
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
@@ -143,7 +143,8 @@ public:
         // for this play instead of leaving a two-second hole. Repeated stop
         // messages keep the existing slower bound; this is not a restart loop.
         bool quickRecovery=nativeInterrupted&&token&&token!=quickToken_&&now>=lastRefresh_&&now-lastRefresh_>=100;
-        bool refresh=episode_.playing&&(eruptionHit||resultHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
+        bool diagnosticHit=wanted.active&&wanted.diagnosticToken&&wanted.diagnosticToken!=lastDiagnostic_;
+        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
         if(!stop&&!refresh&&!episode_.canStart(wanted,now))return;
         if(now<retryUntil_||now-lastResolve_<100)return;lastResolve_=now;
         Endpoint endpoint(api_);
@@ -165,11 +166,11 @@ public:
             // Stock stop messages still run normally. Reassert the same native
             // looping channel during opening hype, before its release completes.
             bool attempted=false;
-            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,500,4000,gameplay_)){
+            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,diagnosticHit?wanted.attackMs:500,4000,gameplay_)){
                 healthy_=false;retryUntil_=now+1000;return;
             }
             if(quickRecovery)quickToken_=token;
-            ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;++refreshes_;return;
+            ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;lastDiagnostic_=wanted.diagnosticToken;++refreshes_;return;
         }
         if(episode_.canStart(wanted,now)){
             uint64_t nativeAt=nativeStart_.load();
@@ -184,6 +185,7 @@ public:
             episode_.started(wanted,now);releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);manager_=endpoint.manager;world_=endpoint.world;asset_=endpoint.asset;owner_=owner;
             lastCelebration_=wanted.celebration;
             lastResult_=wanted.resultCheer;
+            lastDiagnostic_=wanted.diagnosticToken;
             playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
             handledStop_=nativeStops_.load();openingManager_=wanted.continuous||wanted.reason==Reason::Lineup?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));

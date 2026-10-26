@@ -96,6 +96,15 @@ struct TestWorld {
 int main(){
     image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
     logsFolder=std::filesystem::temp_directory_path()/L"Ace-SeatRuntimeTests";std::filesystem::create_directories(logsFolder);
+    // Reproduce the reported incompatible visibility entry in this private
+    // test executable. The required check must exit BEFORE creating hooks,
+    // touching any game code, or enabling the audio/presentation subsystems.
+    testPage(image);testPage(image+0x64afda0);
+    const unsigned char incompatible[]={0x48,0x8b,0xce,0x44,0x89,0x7d,0xd0,0xc5,0xfa,0x7f,0x45,0xe0,0x89,0x5d,0xd4};
+    std::memcpy(reinterpret_cast<void*>(image+0x64afda0),incompatible,sizeof(incompatible));
+    assert(!install()&&!signatures&&patches.empty()&&!audioHookInstalled&&!replayPresentationInstalled);
+    assert(originalSet==testSet&&originalAttendanceUpdate==testUpdate);
+    assert(!std::memcmp(reinterpret_cast<void*>(image+0x64afda0),incompatible,sizeof(incompatible)));
     // A resolver shim in this executable's own memory supplies the verified
     // native ABI expected by the production part resolver.
     A resolver=image+0x65047b0,page=resolver&~A(0xffff);void* allocation=VirtualAlloc(reinterpret_cast<void*>(page),65536,MEM_RESERVE|MEM_COMMIT,PAGE_EXECUTE_READWRITE);assert(allocation==reinterpret_cast<void*>(page));
@@ -318,6 +327,18 @@ int main(){
     assert(!departureModel.catchupQueued); // The accepted pressure was settled once.
     lastDecision=0;assert(guardedDecision());assert(activeLoss==caughtUp);
     guardedQuarterBreak(3,4);assert(activeLoss==caughtUp); // A duplicate same-time checkpoint cannot grant another visible batch.
+    // Cross the two-minute mark while lined up. The checkpoint must wait
+    // for selection, settle through the ordinary verified renderer path and
+    // remain once-only despite repeated callbacks during the break.
+    world.phase(1);testPut(reinterpret_cast<A>(world.clock.data())+0x28,121.f);
+    lastDecision=0;assert(guardedDecision());
+    testPut(reinterpret_cast<A>(world.clock.data())+0x28,119.f);
+    lastDecision=0;assert(guardedDecision());assert(activeLoss==caughtUp);checkScene(q4Scene,caughtUp);
+    world.phase(5);lastDecision=0;assert(guardedDecision());
+    int warningLoss=activeLoss;assert(warningLoss>=caughtUp&&warningLoss-caughtUp<=settings->transitionCap);
+    assert(warningLoss<=departureModel.periodStartLoss+settings->quarterCap);checkScene(q4Scene,warningLoss);
+    auto warningHazard=departureModel.hazard;
+    for(int repeat=0;repeat<5;++repeat){lastDecision=0;assert(guardedDecision());assert(activeLoss==warningLoss&&departureModel.hazard==warningHazard);checkScene(q4Scene,warningLoss);}
     mode=2;assert(guardedApply(false,true));
     // The production decision and recorder must carry the new conference flag,
     // rather than rebuilding a generic playoff snapshot for saved replays.
@@ -402,8 +423,8 @@ int main(){
     {std::ofstream f(logsFolder/"status-preview.txt");f<<text;}
     debugLog=true;std::ostringstream technical;writeStatus(technical,GetTickCount64());assert(technical.str().find("DEBUG - TECHNICAL COUNTERS")!=std::string::npos);debugLog=false;
     // Execute the actual native INI reader against mixed legacy/current settings.
-    pluginsFolder=logsFolder/L"SettingsCase";std::filesystem::create_directories(pluginsFolder);
-    {std::ofstream ini(pluginsFolder/L"DynamicGamedayAtmosphere.ini");ini<<"[Attendance]\nEnabled=1\n[Atmosphere]\nMaximumBoostPercent=25\nCriticalShakeStrengthPercent=8\n[Dynamic Gameday Attendance]\nEnabled=0\nArrivalsEnabled=0\nStartPercent=42\n[Dynamic Gameday Soundscape]\nEnabled=0\nLayeredAtmosphereEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=22\nEruptionBoostPercent=35\nChantMaximumBoostPercent=11\nLongCompletionMinimumYards=21\nDuringPlayReactionsEnabled=0\n[Dynamic Gameday Broadcast]\nCameraShake=0\nDuringPlayShakeStrengthPercent=12\nExtraReplaysEnabled=0\n";}
+    dataFolder=logsFolder/L"SettingsCase";std::filesystem::create_directories(dataFolder);
+    {std::ofstream ini(dataFolder/L"DynamicGamedayAtmosphere.ini");ini<<"[Attendance]\nEnabled=1\n[Atmosphere]\nMaximumBoostPercent=25\nCriticalShakeStrengthPercent=8\n[Dynamic Gameday Attendance]\nEnabled=0\nArrivalsEnabled=0\nStartPercent=42\n[Dynamic Gameday Soundscape]\nEnabled=0\nLayeredAtmosphereEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=22\nEruptionBoostPercent=35\nChantMaximumBoostPercent=11\nLongCompletionMinimumYards=21\nDuringPlayReactionsEnabled=0\n[Dynamic Gameday Broadcast]\nCameraShake=0\nDuringPlayShakeStrengthPercent=12\nExtraReplaysEnabled=0\n";}
     readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==42&&!audioSetting&&!extraReplays&&crowdReductionPercent==25);
     auto nativeConfig=std::atomic_load(&coreSettings);auto liveConfig=std::atomic_load(&liveReactionSettings);auto motionConfig=std::atomic_load(&cameraSettings);
     assert(!nativeConfig->enabled&&!nativeConfig->cameraShake&&nativeConfig->maximumPercent==17.5f&&nativeConfig->highLeveragePercent==22&&nativeConfig->eruptionPercent==35&&nativeConfig->chantMaximumPercent==11);

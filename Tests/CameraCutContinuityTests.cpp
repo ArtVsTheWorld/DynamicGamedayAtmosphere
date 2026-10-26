@@ -26,5 +26,41 @@ int main(){
     energy::Tracker plays;energy::Settings rules;energy::Play p;p.game={1,0,0,1,720,720};p.offense=1;p.down=1;p.toFirst=10;p.toGoal=60;p.fieldSpot=-10;p.attackDirection=1;p.resultStamp=1;
     plays.observe(rules,p);p.game.phase=3;plays.observe(rules,p);p.game.seconds=715;p.game.phase=1;p.down=2;p.toFirst=15;p.toGoal=65;p.fieldSpot=-15;p.resultStamp=2;p.sack=true;
     auto result=plays.observe(rules,p);assert(result.completed&&result.sack&&result.side==0);
+    // The native sack fact can be ready while both position sources are
+    // missing. It must still create exactly one eligible impact, on either
+    // supported defense and at either result phase.
+    for(int phase:{4,1})for(bool neutral:{false,true})for(int offense:{0,1}){
+        energy::Tracker tracker;energy::Play missing;
+        missing.game={1,0,0,1,720,720};missing.game.neutral=neutral;
+        missing.offense=offense;missing.down=1;missing.resultStamp=10;
+        tracker.observe(rules,missing);missing.game.phase=3;tracker.observe(rules,missing);
+        missing.game.phase=phase;missing.down=2;missing.resultStamp=11;missing.sack=true;
+        auto hit=tracker.observe(rules,missing);
+        bool supported=neutral||offense==1;
+        assert(hit.completed&&hit.sack==supported&&hit.yards==-1000);
+        if(supported){
+            assert(hit.side==1-offense&&hit.event==energy::Event::Sack);
+            motion::Model output;motion::Input impact;
+            impact.match=123;impact.epoch=1;impact.allowed=true;impact.phase=phase;
+            impact.now=40000;impact.duringPlay=hit.sequence;impact.duringImpact=true;
+            auto shake=output.observe(s,impact);assert(shake.impactOnly&&shake.kind==motion::Kind::LivePlay);
+            impact.now+=250;assert(motion::strength(output.observe(s,impact),impact.now)>0);
+        }
+        assert(!tracker.observe(rules,missing).completed);
+    }
+    // No native flag, stale flags, a positive gain, a pick or changed offense
+    // must not acquire a sack just because a result/position is incomplete.
+    for(int scenario=0;scenario<6;++scenario){
+        energy::Tracker tracker;energy::Play bad;
+        bad.game={1,0,0,1,720,720};bad.offense=1;bad.down=1;bad.resultStamp=20;
+        bad.sack=scenario==1;tracker.observe(rules,bad);
+        bad.game.phase=3;tracker.observe(rules,bad);bad.game.phase=4;bad.down=2;
+        bad.resultStamp=scenario==1?20:21;bad.sack=scenario!=0;
+        if(scenario==2){tracker.start.toGoal=60;bad.toGoal=55;}
+        if(scenario==3){bad.interception=true;bad.offense=0;}
+        if(scenario==4)bad.offense=0;
+        if(scenario==5)bad.simulated=true;
+        auto rejected=tracker.observe(rules,bad);assert(!rejected.sack);
+    }
     std::puts("PASS: TD/live impact continuity through cuts, timeout transitions and selection, unchanged expiry/oscillation, fresh-snap and pause/replay cleanup, and once-only late-confirmed defensive sack.");
 }
