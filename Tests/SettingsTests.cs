@@ -245,6 +245,10 @@ class SettingsTests {
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=35\n[Dynamic Gameday Soundscape]\nLongGainMinimumYards=20\n[Dynamic Gameday Broadcast]\nPlayImpactExtraSeconds=2\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Dynamic Gameday Soundscape","LongGainMinimumYards",next)==20&&Level("Dynamic Gameday Broadcast","PlayImpactExtraSeconds",next)==2);
    Check(Level("Dynamic Gameday Broadcast","CatchImpactShakeStrengthPercent",next)==8&&Level("Dynamic Gameday Attendance","LateTrafficEnabled",next)==1&&Level("Dynamic Gameday Attendance","LateTurnoverExtraMax",next)==10);
+   Check(Level("Dynamic Gameday Broadcast","CannonShakeStrengthPercent",next)==15);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=42\n[Dynamic Gameday Broadcast]\nDuringPlayShakeStrengthPercent=0\nCannonShakeStrengthPercent=7.5\n");SettingsMigration.Ensure(next,old,defaults);
+   Check(Level("Dynamic Gameday Broadcast","DuringPlayShakeStrengthPercent",next)==0&&Level("Dynamic Gameday Broadcast","CannonShakeStrengthPercent",next)==7.5);
+   string cannonCustom=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(cannonCustom==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=36\n[Dynamic Gameday Broadcast]\nCatchImpactShakeStrengthPercent=7.5\n[Dynamic Gameday Attendance]\nLateTrafficEnabled=0\nLateTurnoverExtraMax=4\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Dynamic Gameday Broadcast","CatchImpactShakeStrengthPercent",next)==7.5&&Level("Dynamic Gameday Attendance","LateTrafficEnabled",next)==0&&Level("Dynamic Gameday Attendance","LateTurnoverExtraMax",next)==4);
    string trafficCustom=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(trafficCustom==File.ReadAllText(next));

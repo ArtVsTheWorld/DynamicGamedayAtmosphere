@@ -17,7 +17,9 @@ int main(){
     bool started=true,integerValid=true;int value=10;
     auto integer=[&](uintptr_t p,int& out){assert(p==row);out=value;return integerValid;};
     auto playing=[&](uintptr_t p){assert(p==0x700000);return started;};
-    for(value=-1;value<=110;++value){fill();assert(cannon::started(image,entity,event,read,integer,playing)==(cannon::variant(value)?value:-1));}
+    // Independent authored selector range: the stadium switch lists all nine
+    // Cannon_01..Cannon_09 at slots 10..18, without any team identifier.
+    for(value=-1;value<=110;++value){fill();assert(cannon::started(image,entity,event,read,integer,playing)==(value>=10&&value<=18?value:-1));}
     value=10;
     for(int failure=0;failure<13;++failure){fill();started=integerValid=true;
         if(failure==0)put(entity,uintptr_t{0});if(failure==1)put(event+8,0x82b90c1cu); // Release is not a blast, even with a playing graph.
@@ -32,13 +34,22 @@ int main(){
     assert(cannon::started(image,entity,event,read,integer,playing)==10);
     put(event+8,0x82b90c1cu);assert(cannon::started(image,entity,event,read,integer,playing)==-1);
     put(event+8,0x01ade220u);assert(cannon::started(image,entity,event,read,integer,playing)==10);
-    cannon::Blast blast{123,1,1000,10};motion::Cue quiet;
-    auto impact=cannon::merge(quiet,blast,1100,10,true);assert(impact.kind==motion::Kind::Cannon&&impact.impactOnly&&motion::strength(impact,1100)<=10);
-    assert(cannon::merge(quiet,blast,1900,10,true).kind==motion::Kind::None);
-    assert(cannon::merge(quiet,blast,999,10,true).kind==motion::Kind::None);
-    assert(cannon::merge(quiet,blast,1100,10,false).kind==motion::Kind::None);
+    cannon::Blast blast{123,1,1000,10};motion::Cue quiet;motion::Settings settings;
+    assert(settings.cannon==15&&settings.live==10);
+    for(int selector=10;selector<=18;++selector)for(float liveStrength:{0.f,10.f,30.f}){
+        settings.live=liveStrength;blast.effect=selector;
+        auto impact=cannon::merge(quiet,blast,1100,settings.cannon,true);
+        assert(impact.kind==motion::Kind::Cannon&&impact.impactOnly&&impact.percent==15&&impact.until==1900);
+        for(uint64_t now=1000;now<1900;now+=25)assert(motion::strength(cannon::merge(quiet,blast,now,settings.cannon,true),now)<=15.001f);
+    }
+    assert(cannon::merge(quiet,blast,1900,15,true).kind==motion::Kind::None);
+    assert(cannon::merge(quiet,blast,999,15,true).kind==motion::Kind::None);
+    assert(cannon::merge(quiet,blast,1100,15,false).kind==motion::Kind::None);
+    assert(cannon::merge(quiet,blast,1100,0,true).kind==motion::Kind::None);
+    assert(cannon::merge(quiet,blast,1100,NAN,true).kind==motion::Kind::None);
+    assert(cannon::merge(quiet,blast,1100,7.5f,true).percent==7.5f);
     motion::Cue touchdown{123,1,1100,500,11500,motion::Kind::Touchdown,15,false,20};
-    auto winner=cannon::merge(touchdown,blast,1100,10,true);assert(winner.kind==motion::Kind::Touchdown&&winner.began==500&&winner.until==11500);
-    for(uint64_t now=1000;now<1900;now+=25){auto cue=cannon::merge(quiet,blast,now,10,true);assert(motion::strength(cue,now)<=10.001f);}
-    std::puts("PASS: authored-graph cannon trigger/release regression, replayed start/release/start sequence, all nine variants, playing/enable/patch/parameter validation, no horn/firework false triggers, 900ms bounded overlay and unchanged touchdown timing/peak.");
+    auto winner=cannon::merge(touchdown,blast,1100,15,true);assert(winner.kind==motion::Kind::Touchdown&&winner.began==500&&winner.until==11500);
+    assert(cannon::merge(touchdown,blast,1100,0,true).kind==motion::Kind::Touchdown);
+    std::puts("PASS: authored-graph start/release/start; independent all-nine cannon selector coverage; separate 15% default unaffected by live strength; zero/custom strength; sound/patch/parameter validation; no horn/firework triggers; bounded 900ms overlay and unchanged stronger touchdown.");
 }

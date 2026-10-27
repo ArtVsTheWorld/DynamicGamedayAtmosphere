@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.66.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.67.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.66.0/
+    Runtime-1.67.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -214,3 +214,17 @@ Landed hit sticks now request sound immediately, with a separate once-per-play c
 The existing airborne anticipation route has explicit home/away regression coverage for both observed airborne record kinds. The away pass in the 10:35 capture logged its anticipation swell at 10:35:06, before the deflection and result. The new build still needs a normal restart and integrated sound/motion check.
 
 A separate forced-fumble miss at 10:32:32-35 was captured: the current native forced-event type stayed zero, while the ordinary fumble/recovery reached the completed result. Recovery-only motion remains disabled. This build does not infer a forced fumble merely from a recovery; reliable cause detection for this miss is still under investigation.
+
+## 1.67 independent cannon strength and coverage
+
+CannonShakeStrengthPercent uses its own camera setting (default 15, range 0-30%, decimals supported). The menu calls it Stadium Cannon Shake (%); help explains higher/lower/zero behavior and its independence from Live Play Shake. Settings migration adds 15 for an existing INI with no cannon key and preserves an explicit custom value. The camera merger and sound lease use this independent value; zero returns the existing crowd cue unchanged and cannot bypass its ordinary sound pairing. Cannon duration remains 900ms; no fullness or team check is introduced.
+
+The authored stadium EffectSwitch lists Cannon_01..Cannon_09 at literal selectors 10..18. The final native stadium sound patch, start event and selector are shared, rather than Texas-specific. An offline dependency audit found 151 stadium sound sheets and 152 team prefabs reaching that patch. Independent selector expectations cover all nine variants and reject nearby horns/bells/fireworks. Native playback outside Texas has not been manually tested. The user confirmed Texas cannon movement after the trigger correction.
+
+### Delayed contact-caused fumble confirmation
+
+The subsequent 1.66.0 read-only capture at 11:51:25-26 recorded an away defender forcing a home fumble, with home recovery. Native reciprocal contact entries 8 (home carrier key 0x4) and 9 (away contact key 0x50104) shared time 508.8. The ball became unheld with state 0 at that contact; about 0.93 seconds later it published state 5/substate 1 with a holder already attached, alongside home pickup key 0x30004. The sampled dedicated cause type stayed zero. The old fallback required an unheld ball in the fumble state, so it could miss this publication order. Tentative cache types 53/207 were absent from this captured fumble and are not used as generic force proof.
+
+The new optional reader validates the same bounded native event cache and actor map used by other live reactions. Reciprocal opposing contact entries alone are ordinary hit evidence, not fumble proof. The model also requires grounded possession sampled within 350ms of contact, a nearby held-to-loose transition and fresh native fumble state within 1500ms. It retains the original carrier side through pickups. Native/fallback proofs share one force latch, and a 750ms whistle window permits late confirmation without restarting on phase bounces. World changes, pause/replay, simulation, stale samples, missing contact, an airborne ball without a recent grounded carrier and score changes fail closed. Late result enrichment never relabels a scoring result.
+
+Replaying the complete captured timeline through the production model yields exactly one proof owned by the home fumbler and zero positive home impacts. Mirroring only team ownership produces exactly one home-defense forced-fumble impact. The controls include ordinary tackles and passes from the same trace. Isolated cases cover home/away/neutral ownership, every down, delayed/split native publication, own pickups, native/fallback deduplication, scores and stale/simulation/world rejection. This new fallback still needs an integrated home-defense play after the user installs and restarts 1.67.
