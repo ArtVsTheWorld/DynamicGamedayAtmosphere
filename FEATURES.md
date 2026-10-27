@@ -450,3 +450,5 @@ Transition checks cover 121 ordered camera handoffs plus conversion/gain/skill/f
 - Kickoff/punt return swells are verified to begin at 30 yards, rise to the existing peak at 40, and emit one cheer at 40.
 - Successful hurdles add a positive cheer while retaining the gentler skill buildup/swell. Other skill routes and big-hit truck sounds are preserved.
 - Fresh third/fourth-down defensive catch knockouts accept both native result kinds 4 and 5. A Texas capture showed kind 5 with a newly raised knockout flag; an ordinary incompletion alone is still insufficient.
+
+Working 1.65.0 corrects the cannon observer to use the authored sound-start event instead of the release event. Texas's opening-kickoff Cannon_01 selection and active native instance were confirmed read-only in the running 1.64.0 game. Corrected start/release detection has an independent authored-graph regression check; live timing/feel on the corrected build still needs verification.

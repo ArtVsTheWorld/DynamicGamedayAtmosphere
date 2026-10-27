@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.64.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.65.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.64.0/
+    Runtime-1.65.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -194,3 +194,11 @@ The Cannon sound observer status lists availability and confirmed native starts.
 Crowd motion requires a fresh 150ms audible lease from an owned/native-adopted roar or swell in the same match/epoch. Actual native release deadlines remain audible until their existing tail ends. Rendering a valid gameplay view can request a missing lineup sound without first moving the camera, avoiding a sound/motion startup loop. Lost scenes, failures, mute and stale leases suppress added motion. Native Dynamic Camera Effects still gates every category, including cannon impacts.
 
 A read-only Texas capture at 09:21:29 showed the knockout flag rise while the pass result changed from kind 3 to kind 5, remaining positive through the whistle. The detector now admits kind 5 as well as 4, with the same fresh flag, third/fourth-down home-defense, possession and once-per-play checks. Successful hurdles request a positive cheer (the shared offensive/defensive cheer pool); their camera remains the gentle skill buildup.
+
+## 1.65 cannon trigger correction
+
+The installed 1.64.0 observer was ready but counted zero blasts after the Texas opening-kickoff cannon. Read-only inspection found the enabled stadium FX entity with selector 10 (Cannon_01), authored amplitude 1 and a native sound instance in playing state 2; master/crowd volume were both 100. The hook was installed, the selector/patch/instance checks matched, and master mute was ruled out.
+
+The authored graph identifies 0x01ade220 as the start: AudioGraphEvent 73 feeds ReceiveEntry 60, output port 21, which drives the ADSR Trigger. Event 0x82b90c1c feeds port 22, the ADSR Release. Version 1.64 had those event meanings reversed. Version 1.65 observes the start and rejects release even while the native graph remains playing. The fixture uses these literal authored inputs independently of the detector constants, including a start/release/start sequence. No extra cheer, volume, timing or camera strength change is introduced. The running game remains unchanged; corrected installed-event/shake verification is pending.
+
+A subsequent 1.64.0 Texas third-down pass-breakup capture at 10:20:47 showed the detector armed before the snap and throughout the play, with no native knockout flag in the sampled live/whistle window. The pass remained kind 3. Defensive/deep-incompletion cheer requests were logged; both native reaction slots were full, so additional cheers were suppressed. The user described a two-player DB/receiver breakup animation rather than a definite catch knocked loose. This is not treated as a confirmed knockout or used to broaden the impact to ordinary incompletions.
