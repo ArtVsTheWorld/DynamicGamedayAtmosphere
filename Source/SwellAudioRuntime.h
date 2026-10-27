@@ -121,7 +121,7 @@ class Runtime {
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
     std::atomic<Address> nativeManager_{0};std::atomic<uint64_t> nativeStart_{0},nativeStop_{0};std::atomic<int> nativeSize_{0};
     Address quickMatch_=0;unsigned quickEpoch_=0;uint64_t quickToken_=0;Reason quickReason_=Reason::None;
-    std::atomic<unsigned> adopted_{0};bool ownsVoice_=false,gameplay_=false;
+    std::atomic<unsigned> adopted_{0};bool ownsVoice_=false,gameplay_=false;int playingSize_=0;
 public:
     void configure(Address image,Note note=nullptr,const Api* api=nullptr,bool gameplay=false){image_=image;api_=api?*api:Api::native(image);note_=note;gameplay_=gameplay;}
     void tick(Address owner,Intent wanted,uint64_t now){
@@ -131,6 +131,14 @@ public:
         if(!healthy_&&!episode_.playing)return;
         if(!fresh(wanted,wanted.match,wanted.epoch,now))wanted.active=false;
         if(!passAnticipation(wanted))wanted.passFlight=0;
+        // A full live-run voice already supplies the scoring layer. Restarting
+        // its attack at the goal line can briefly pull the crowd down to quiet.
+        // Keep that voice and its new scoring hold; smaller/stopped voices still
+        // receive the existing fast refresh, and the separate cheer still plays.
+        bool scoreJoin=fresh(wanted,episode_.match,episode_.epoch,now)&&episode_.playing&&episode_.continuous&&
+            episode_.reason==Reason::Result&&episode_.priority==4&&playingSize_>=wanted.size&&
+            (wanted.scoringReaction||wanted.reason==Reason::Eruption)&&nativeStops_.load()==handledStop_;
+        if(scoreJoin){lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;}
         if(episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);
             episode_.continuous=wanted.continuous;
@@ -178,6 +186,7 @@ public:
             }
             if(quickRecovery)quickToken_=token;
             if(wanted.passFlight){lastPassFlight_=episode_.passFlight=wanted.passFlight;}
+            playingSize_=(std::clamp)(wanted.size,1,3);
             if(quickRecovery&&wanted.reason==Reason::Result&&note_)note_("Earned crowd reaction resumed after a native presentation stop; original play timing retained.");
             ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;lastDiagnostic_=wanted.diagnosticToken;++refreshes_;return;
         }
@@ -197,6 +206,7 @@ public:
             lastDiagnostic_=wanted.diagnosticToken;
             if(wanted.passFlight)lastPassFlight_=wanted.passFlight;
             playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
+            playingSize_=adopt?(std::max)(wanted.size,nativeSize_.load()):(std::clamp)(wanted.size,1,3);
             handledStop_=nativeStops_.load();openingManager_=wanted.continuous||lineupReason(wanted.reason)?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));
         }

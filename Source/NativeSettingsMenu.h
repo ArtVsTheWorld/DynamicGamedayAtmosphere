@@ -1,0 +1,182 @@
+#pragma once
+#include <windows.h>
+#include <filesystem>
+#include <atomic>
+#include <string>
+#include "SettingsMenu.h"
+#include "ConfigValue.h"
+
+namespace attendance::settingsmenu::native {
+using A=uintptr_t;
+inline constexpr A ListSite=0x7f30460,ProviderGlobal=0xfb3eb58,ProviderVtable=0xbcf5558,FileManagerGlobal=0xfa5a218;
+inline constexpr std::array<unsigned char,16> ListPrefix={0x40,0x56,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x30,0x49,0x8b,0,0x48,0x8b,0xf1};
+template<class T>inline T peek(A p){T v{};__try{std::memcpy(&v,reinterpret_cast<const void*>(p),sizeof(v));}__except(EXCEPTION_EXECUTE_HANDLER){}return v;}
+inline bool copy(A p,void* out,size_t size){__try{std::memcpy(out,reinterpret_cast<const void*>(p),size);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
+template<class R,class... Args>inline bool obtain(R& out,A fn,Args... args){__try{out=reinterpret_cast<R(__fastcall*)(Args...)>(fn)(args...);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
+template<class... Args>inline bool invoke(A fn,Args... args){__try{reinterpret_cast<void(__fastcall*)(Args...)>(fn)(args...);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
+inline int number(A reader){int n=-1;obtain(n,peek<A>(peek<A>(reader)+0x18),reader);return n;}
+inline int field(A reader,const char* key){int n=-1;obtain(n,peek<A>(peek<A>(reader)+0x10),reader,key);return n;}
+inline bool same(A p,const char* s){char b[96]{};size_t n=std::strlen(s);return n<sizeof(b)&&copy(p,b,n+1)&&!std::memcmp(b,s,n+1);}
+struct ArrayWriter {
+    A output;bool okay=true;
+    void integer(int row,const char* key,int value){okay=invoke(peek<A>(peek<A>(output)+0x20),output,row,key,value)&&okay;}
+    void text(int row,const char* key,const char* value){okay=invoke(peek<A>(peek<A>(output)+0x30),output,row,key,value)&&okay;}
+    void boolean(int row,const char* key,bool value){okay=invoke(peek<A>(peek<A>(output)+0x18),output,row,key,value)&&okay;}
+};
+struct ObjectWriter {
+    A output;bool okay=true;
+    void integer(const char* key,int value){okay=invoke(peek<A>(peek<A>(output)+0x10),output,key,value)&&okay;}
+};
+struct Row {int type,pad;const char* title;const char* description;int key,pad2;uint64_t disabled,unselectable,hidden;};
+struct CategoryRow {int key,pad;A rows;int count,pad2;};
+static_assert(sizeof(Row)==56&&sizeof(CategoryRow)==24);
+class Menu {
+    friend struct Fixture;
+    A image_=0,original_=0,owner_=0,initNotify_=0,shutdownNotify_=0;std::array<A,42> stock_{};std::array<A,43> shadow_{};
+    std::filesystem::path path_;using Note=void(*)(const char*);Note note_=nullptr;
+    bool active_=false,layoutNoted_=false;std::atomic<bool> scriptReady_{false},failed_{false};std::atomic<unsigned> displays_{0};
+    std::array<double,Count> current_{};std::array<std::vector<double>,Count> choices_{};
+    inline static Menu* instance_=nullptr;
+    static void __fastcall list(A p,A out,A in){instance_->getList(p,out,in);}
+    static void __fastcall init(A p,A in){instance_->initialize(p,in);}
+    static void __fastcall shutdown(A p,A in){instance_->finish(p,in);}
+    static void __fastcall toggleDetails(A p,A out,A category,A key){instance_->getToggle(p,out,category,key);}
+    static void __fastcall sliderDetails(A p,A out,A category,A key){instance_->getSlider(p,out,category,key);}
+    static void __fastcall saveToggle(A p,A out,A category,A key,A value,A reason){instance_->setToggle(p,out,category,key,value,reason);}
+    static void __fastcall saveSlider(A p,A out,A category,A key,int value,A reason){instance_->setSlider(p,out,category,key,value,reason);}
+    void fault(const char* what){if(!failed_&&note_)note_(what);failed_=true;}
+    // Called on the native menu thread. The cache lock pins the exact named APT
+    // file; no heap scans, disk edits or changes to another movie are necessary.
+    bool routeCategory(){
+        scriptReady_=false;
+        A manager=peek<A>(image_+FileManagerGlobal),cache=peek<A>(manager+0x20);
+        if(!cache)return false;
+        auto enter=peek<A>(image_+0x11783fc8),leave=peek<A>(image_+0x11783fd0);
+        if(!enter||!leave||!invoke(enter,cache+8))return false;
+        bool ready=false;A node=peek<A>(cache);
+        for(unsigned i=0;node&&i<2048;++i){
+            A file=peek<A>(node),name=peek<A>(file+0x10);
+            if(same(name+12,"fb_node_com/Scriptpod")&&peek<A>(file)==image_+0xbc39c78){
+                A data=peek<A>(file+0x30);
+                constexpr unsigned char head[]={0x59,0x87,0,0,0,0,0,0,1,0,0,0,0x17,0xb9,2,0x87,0,0,0,0,0xad,2,0x0b,0x53,0xa3};
+                constexpr unsigned char fallback[]={0xad,5,1,3,4,5,0x6e,0xa3,0x49,2,0x47,0xb9,2,0x47,0xa2,0xc5,0x47,0x74,0xb5,2,0xad,3,0x60,0x1f,0x61,0xb2,0xc6,0x99,0,0,0,0};
+                unsigned char actualHead[sizeof(head)]{},actual[32]{};auto replacement=categoryFallback();
+                if(same(data,"Apt Data:1:7:8\x1a")&&copy(data+0x286b8,actualHead,sizeof(actualHead))&&!std::memcmp(head,actualHead,sizeof(head))&&copy(data+0x2892c,actual,sizeof(actual))){
+                    if(!std::memcmp(actual,replacement.data(),sizeof(actual)))ready=true;
+                    else if(!std::memcmp(actual,fallback,sizeof(actual))){
+                        DWORD prior=0;
+                        if(VirtualProtect(reinterpret_cast<void*>(data+0x2892c),sizeof(actual),PAGE_READWRITE,&prior)){
+                            std::memcpy(reinterpret_cast<void*>(data+0x2892c),replacement.data(),replacement.size());
+                            DWORD unused=0;VirtualProtect(reinterpret_cast<void*>(data+0x2892c),sizeof(actual),prior,&unused);ready=true;
+                        }
+                    }
+                }
+                break;
+            }
+            A next=peek<A>(node+8);if(next==node)break;node=next;
+        }
+        invoke(leave,cache+8);scriptReady_=ready;return ready;
+    }
+    bool attach(A provider){
+        if(owner_==provider&&peek<A>(provider)==reinterpret_cast<A>(shadow_.data()+1))return true;
+        if(peek<A>(provider)!=image_+ProviderVtable||!copy(image_+ProviderVtable,stock_.data(),sizeof(stock_)))return false;
+        shadow_[0]=peek<A>(image_+ProviderVtable-8);std::copy(stock_.begin(),stock_.end(),shadow_.begin()+1);
+        auto table=shadow_.data()+1;table[1]=reinterpret_cast<A>(init);table[2]=reinterpret_cast<A>(shutdown);table[4]=reinterpret_cast<A>(list);
+        table[5]=reinterpret_cast<A>(toggleDetails);table[6]=reinterpret_cast<A>(saveToggle);table[7]=reinterpret_cast<A>(sliderDetails);table[8]=reinterpret_cast<A>(saveSlider);
+        if(InterlockedCompareExchangePointer(reinterpret_cast<void* volatile*>(provider),table,reinterpret_cast<void*>(image_+ProviderVtable))!=reinterpret_cast<void*>(image_+ProviderVtable))return false;
+        owner_=provider;active_=false;return true;
+    }
+    bool root(A p,A output){
+        std::array<CategoryRow,17> categories{};if(!copy(peek<A>(p+8),categories.data(),sizeof(categories)))return false;
+        const CategoryRow* root=nullptr;for(const auto& c:categories)if(c.key==3)root=&c;
+        if(!root||root->count!=12)return false;
+        std::array<Row,12> rows{};if(!copy(root->rows,rows.data(),sizeof(rows)))return false;
+        constexpr int keys[]={0,0,9,17,10,1,2,3,5,7,16,19};
+        for(size_t i=0;i<rows.size();++i)if(rows[i].type!=4||rows[i].key!=keys[i]||!rows[i].title)return false;
+        if(!routeCategory()||!attach(p)){
+            if(!layoutNoted_&&note_)note_("Settings tab not added: the active frontend routing or provider did not match. Native tabs and INI editing remain available.");
+            layoutNoted_=true;return false;
+        }
+        uint64_t mask=0;if(!obtain(mask,image_+0x7f297d0,p))return false;
+        ArrayWriter out{output};int i=0;
+        for(const auto& row:rows){
+            if(row.hidden&mask)continue;
+            out.integer(i,"type",row.type);out.text(i,"display",row.title);if(row.description)out.text(i,"description",row.description);out.integer(i,"key",row.key);
+            bool enabled=(row.disabled&mask)==0,selectable=(row.unselectable&mask)==0;
+            out.boolean(i,"isEnabled",enabled);out.boolean(i,"isInteractive",enabled);out.boolean(i,"isSelectable",selectable);out.boolean(i,"isFocusable",selectable);++i;
+        }
+        out.integer(i,"type",4);out.text(i,"display","Gameday Atmosphere");out.text(i,"description","Dynamic Gameday Atmosphere settings");out.integer(i,"key",Category);
+        out.boolean(i,"isEnabled",true);out.boolean(i,"isInteractive",true);out.boolean(i,"isSelectable",true);out.boolean(i,"isFocusable",true);
+        if(out.okay){++displays_;if(displays_==1&&note_)note_("Gameday Atmosphere tab appended after the native settings tabs.");}
+        else fault("Native settings field serialization failed; additional DGA menu writes disabled for this session.");
+        return true;
+    }
+    double readOption(size_t i){
+        const auto& o=Options[i];wchar_t raw[128]{};GetPrivateProfileStringW(o.section,o.key,L"",raw,128,path_.c_str());
+        if(o.kind==Kind::Profile){for(int n=0;n<4;++n)if(!_wcsicmp(raw,ProfileValues[n]))return n;return 0;}
+        if(o.kind!=Kind::Choice)return config::integer(raw,static_cast<int>(o.factory),static_cast<int>(o.low),static_cast<int>(o.high)).value;
+        return config::real(raw,static_cast<float>(o.factory),static_cast<float>(o.low),static_cast<float>(o.high)).value;
+    }
+    void save(int key,double value){
+        if(!active_||failed_||!owned(key)||!std::isfinite(value))return;
+        size_t i=static_cast<size_t>(key-FirstKey);const auto& o=Options[i];
+        if(value<o.low||value>o.high||std::abs(value-current_[i])<.00001)return;
+        if(GetPrivateProfileIntW(L"General",L"ConfigVersion",2,path_.c_str())>2)return;
+        wchar_t text[64]{};std::swprintf(text,64,L"%.9g",value);const wchar_t* saved=o.kind==Kind::Profile?ProfileValues[static_cast<int>(value)]:text;
+        if(!WritePrivateProfileStringW(o.section,o.key,saved,path_.c_str())){fault("Could not save a DGA setting to its INI; menu writes disabled for this session.");return;}
+        current_[i]=value;
+    }
+public:
+    bool bindings()const{
+        constexpr A entries[]={0x7f240c0,0x7f2e100,0x7f2e440,0x7f300f0,0x7f30460,0x7f31410,0x7f2ca00,0x7f30e70,0x7f2bc60,0x7f2fe10,0x7f2bbe0,0x7f404d0,0x7f30aa0,0x7f30a80,0x7f30a20,0x7f30a40,0x7f30a60,0x7f29790,0x7f3d1f0,0x7f43fb0,0x7f435f0,0x7f435e0,0x7f43600,0x7f43fc0,0x7f43b40,0x7f43610,0x7f2f120,0x7f3fab0,0x7f3f0b0,0x7f24370,0x78c9aaa,0x78c9aaa,0x7f24310,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa};
+        for(size_t i=0;i<stock_.size();++i)if(peek<A>(image_+ProviderVtable+8*i)!=image_+entries[i])return false;
+        return true;
+    }
+    void configure(A image,const std::filesystem::path& path,Note note){image_=image;path_=path;note_=note;instance_=this;initNotify_=image+0x7a67db0;shutdownNotify_=image+0x7a67ff0;}
+    void original(A p){original_=p;}
+    static A callback(){return reinterpret_cast<A>(list);}
+    bool ready()const{return scriptReady_&&!failed_;}
+    unsigned displays()const{return displays_;}
+    void getList(A p,A out,A in){
+        int category=number(in);
+        if(!failed_&&p==peek<A>(image_+ProviderGlobal)){
+            if(category==Category&&scriptReady_){ArrayWriter writer{out};settingsmenu::list(writer);if(!writer.okay)fault("Could not render DGA settings controls; menu writes disabled for this session.");return;}
+            if(category==3&&GetPrivateProfileIntW(L"General",L"ConfigVersion",2,path_.c_str())<=2&&root(p,out))return;
+        }
+        invoke(original_,p,out,in);
+    }
+    void initialize(A p,A in){
+        if(field(in,"key")!=Category){active_=false;invoke(stock_[1],p,in);return;}
+        owner_=p;active_=true;
+        for(size_t i=0;i<Count;++i){current_[i]=readOption(i);choices_[i]=Choices(Options[i],current_[i]).values;}
+        *reinterpret_cast<unsigned char*>(p+0x62)=1;
+        invoke(initNotify_,image_+0xdab0ae0);
+    }
+    void finish(A p,A in){
+        if(!active_){invoke(stock_[2],p,in);return;}
+        active_=false;*reinterpret_cast<unsigned char*>(p+0x62)=0;*reinterpret_cast<unsigned char*>(p+0x34)=0;
+        invoke(shutdownNotify_,image_+0xdab0ae0,Category,true,"");
+    }
+    void getToggle(A p,A out,A category,A key){
+        int id=number(key);
+        if(number(category)!=Category){invoke(stock_[5],p,out,category,key);return;}
+        if(!active_||p!=owner_||!owned(id)||find(id)->kind==Kind::Slider)return;
+        size_t i=static_cast<size_t>(id-FirstKey);Choices choices(Options[i],current_[i]);choices.values=choices_[i];ArrayWriter writer{out};settingsmenu::toggle(writer,Options[i],choices,current_[i]);
+    }
+    void getSlider(A p,A out,A category,A key){
+        int id=number(key);
+        if(number(category)!=Category){invoke(stock_[7],p,out,category,key);return;}
+        if(!active_||p!=owner_||!owned(id)||find(id)->kind!=Kind::Slider)return;
+        ObjectWriter writer{out};settingsmenu::slider(writer,*find(id),current_[static_cast<size_t>(id-FirstKey)]);
+    }
+    void setToggle(A p,A out,A category,A key,A value,A reason){
+        if(number(category)!=Category){invoke(stock_[6],p,out,category,key,value,reason);return;}
+        int id=number(key),index=number(value);if(!owned(id)||find(id)->kind==Kind::Slider||index<0)return;
+        const auto& values=choices_[static_cast<size_t>(id-FirstKey)];if(static_cast<size_t>(index)<values.size())save(id,values[index]);
+    }
+    void setSlider(A p,A out,A category,A key,int value,A reason){
+        if(number(category)!=Category){invoke(stock_[8],p,out,category,key,value,reason);return;}
+        int id=number(key);if(owned(id)&&find(id)->kind==Kind::Slider)save(id,value);
+    }
+};
+}

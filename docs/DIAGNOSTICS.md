@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.59.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.60.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.59.0/
+    Runtime-1.60.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -146,3 +146,15 @@ The corrected callback uses the existing gameplay swell with a 500ms attack, one
 `status.txt` now distinguishes the pass gate, verified-flight count and an actually playing airborne-pass supporting swell. One `pass-flight` log entry is written when a new airborne pass is verified, without logging every tick.
 
 Automated tests include replay of the captured ball sequence and native-event fixtures for cold/warm supporting voices, fast attack, pass-end release, repeated ticks, quiet gaps, interruptions and result priority. The code is staged for later installation. Listening to the corrected build after restarting MMC/game remains necessary; the capture used the installed build and made no game writes.
+
+## 1.60.0 scoring handoff and in-game settings
+
+A full-size, uninterrupted live-gain roar/swell carries into a confirmed touchdown or eruption without restarting its native attack. Smaller or natively stopped voices still refresh promptly. An earned crowd-intensity floor bridges the opening 250 ms, then releases into the scoring profile by 500 ms. Existing IDs, timing, fullness admission, volume caps and priorities are preserved. Cold, stale, paused and new-snap inputs cannot manufacture a score buildup.
+
+The Gameday Atmosphere tab uses the offline native settings provider and appears after the standard tabs. It includes all 73 user controls, grouped into Attendance, Soundscape, Broadcast and Logging, with native descriptions, Off/On choices, sliders, fractional-value choices and the departure profile. It reads and writes only the existing DGA INI; upgrade markers and native profile options are excluded. Existing custom fractional values are included as choices rather than rounded away.
+
+The tab is added only after the named active frontend script and its category fallback match the inspected layout. The category extension changes only the unknown-button fallback for DGA's new ID. Existing native cases and bytecode branch targets retain their offsets. The provider retains all 42 virtual methods and its RTTI entry; unrelated operations forward their full arguments. The implementation uses the existing loaded-file cache on the menu thread, without heap scans or game-asset edits.
+
+Automated fixtures cover row/value serialization, defaults, limits, INI saving/reopening/comments, future-config refusal, unique IDs, category branch alignment and six-argument stock forwarding. The catalog is checked against every user INI key and the actual configuration audit ranges. Read-only inspection verified the menu script and provider in PID 25260. Its captured prologue also caught and corrected an overly strict compatibility guard. The agent made no game-memory writes. The user subsequently restarted into an early 1.60.0 candidate; the corrected staged DLL needs a later restart to replace that candidate.
+
+The integrated tab still needs an installed-build visual and navigation test: confirm placement after Audio Settings, edit/reopen a toggle, a slider, a fractional control and Profile, check keyboard/controller switching and Back, verify Reset on the DGA page, and confirm every stock tab still edits and saves its own settings. Listen to a long run ending in a normal TD and an eruption to check the crowd handoff. The corrected candidate is staged for later installation. The agent has not replaced the installed early candidate.

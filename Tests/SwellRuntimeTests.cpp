@@ -226,6 +226,20 @@ int main(){
         }
         foundation.active=false;foundation.updated=603000;primary.tick(address(owner)+0x40,foundation,603000);flightSupport.tick(address(owner)+0x40,supportingIntent(foundation),603000);balanced();
     }
+    // Full live-run voices join a TD/eruption without a new native attack.
+    // A smaller voice or a stock stop still needs the normal fast refresh.
+    for(bool gameplay:{false,true})for(bool erupt:{false,true})for(int initialSize:{2,3})for(bool nativeStop:{false,true}){
+        Runtime joined;joined.configure(image,nullptr,&api,gameplay);
+        request={};request.active=request.continuous=request.supporting=true;request.match=970;request.epoch=1;request.reason=Reason::Result;request.priority=4;request.reactionId=7;request.size=initialSize;request.updated=700000;
+        joined.tick(address(owner)+0x40,request,700000);oldStarts=starts;oldStops=stops;
+        if(nativeStop){put(address(stockStop)+0xa0,address(descriptions[gameplay?3:1]));joined.observeNativeStop(manager,address(stockStop),700100);}
+        request.updated=700200;request.size=3;request.reason=erupt?Reason::Eruption:Reason::Result;request.priority=erupt?6:5;request.scoringReaction=!erupt;request.celebration=erupt?1:0;request.resultCheer=erupt?0:1;request.resultCheerUntil=702700;
+        joined.tick(address(owner)+0x40,request,700200);
+        unsigned expected=initialSize==3&&!nativeStop?0u:1u;
+        assert(starts==oldStarts+expected&&stops==oldStops&&joined.playing());
+        request.updated=700300;joined.tick(address(owner)+0x40,request,700300);assert(starts==oldStarts+expected&&stops==oldStops);
+        request.active=false;request.updated=700400;joined.tick(address(owner)+0x40,request,700400);balanced();
+    }
     assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");
