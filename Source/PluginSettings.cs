@@ -108,7 +108,7 @@ namespace DynamicGamedayAtmosphere {
         }
         static string Section(string line){string s=line.Trim();return s.StartsWith("[")&&s.EndsWith("]")?s.Substring(1,s.Length-2).Trim():null;}
         static string Key(string line){string s=line.Trim();int eq=s.IndexOf('=');return s.StartsWith(";")||s.StartsWith("#")||eq<1?null:s.Substring(0,eq).Trim();}
-        static int Number(string text,string wantedSection,string wantedKey,int fallback){
+        internal static int Number(string text,string wantedSection,string wantedKey,int fallback){
             string section="";foreach(string line in text.Replace("\r","").Split('\n')){
                 string next=Section(line);if(next!=null){section=next;continue;}
                 if(String.Equals(section,wantedSection,StringComparison.OrdinalIgnoreCase)&&String.Equals(Key(line),wantedKey,StringComparison.OrdinalIgnoreCase)){

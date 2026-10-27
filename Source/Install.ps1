@@ -27,4 +27,4 @@ try {
     if(Test-Path -LiteralPath $staged){Remove-Item -LiteralPath $staged}
     throw
 }
-Write-Output 'Installed Dynamic Gameday Atmosphere. Previous DLLs are backed up. Restart both MMC and the game. Existing settings migrate when MMC starts.'
+Write-Output 'Installed Dynamic Gameday Atmosphere. Previous DLLs are backed up. Restart both MMC and the game. On first Update 3 startup, old DGA settings are backed up and reset to current defaults; subsequent custom settings are preserved.'

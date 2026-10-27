@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.67.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.68.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,12 +16,12 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.67.0/
+    Runtime-1.68.0/
 ```
 
-The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
+On first Update 3 startup, the launcher atomically replaces a pre-Update-3 INI with current defaults and saves the exact original in Backups. SettingsResetVersion=3 records completion; later edits and routine updates are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
 
-Close both MMC and the game when updating. The launcher waits for a running game to close before moving loose settings that an older DLL might still be reading. Existing history and nested logs stay in place.
+Close both MMC and the game when updating. The launcher waits for a running game to close before moving loose settings or resetting an older nested INI that a running DLL might still be reading. Existing history and nested logs stay in place.
 
 ## Repeatable previews
 
@@ -95,7 +95,7 @@ For bug reports, check the current session's startup lines first. `Activation: I
 Play summaries distinguish missing native sack proof, unsupported defensive ownership and contradictory yardage. Unavailable yardage is reported as unavailable, rather than as a negative yardage value. Include the summary around a missed reaction, along with status; fullness alone does not show that every event requirement passed.
 
 - In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
-- Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
+- Verify first Update 3 startup resets old values, saves the exact original in Backups, and preserves new custom settings on later launches. No loose DGA INI/log files should remain.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
 - For the 1.56.0 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
@@ -228,3 +228,9 @@ The subsequent 1.66.0 read-only capture at 11:51:25-26 recorded an away defender
 The new optional reader validates the same bounded native event cache and actor map used by other live reactions. Reciprocal opposing contact entries alone are ordinary hit evidence, not fumble proof. The model also requires grounded possession sampled within 350ms of contact, a nearby held-to-loose transition and fresh native fumble state within 1500ms. It retains the original carrier side through pickups. Native/fallback proofs share one force latch, and a 750ms whistle window permits late confirmation without restarting on phase bounces. World changes, pause/replay, simulation, stale samples, missing contact, an airborne ball without a recent grounded carrier and score changes fail closed. Late result enrichment never relabels a scoring result.
 
 Replaying the complete captured timeline through the production model yields exactly one proof owned by the home fumbler and zero positive home impacts. Mirroring only team ownership produces exactly one home-defense forced-fumble impact. The controls include ordinary tackles and passes from the same trace. Isolated cases cover home/away/neutral ownership, every down, delayed/split native publication, own pickups, native/fallback deduplication, scores and stale/simulation/world rejection. This new fallback still needs an integrated home-defense play after the user installs and restarts 1.67.
+
+## 1.68 one-time Update 3 settings reset
+
+Pre-reset loose, legacy and nested INIs now start from the embedded defaults, including removal of obsolete/unknown DGA keys. The exact original is retained in a uniquely named Backups file by atomic replacement. SettingsResetVersion=3 is a release-family marker, not a build number: leave it unchanged in routine builds. Fresh installs start marked and need no reset backup. Future ConfigVersion files retain the existing refusal path; higher reset markers do not trigger a downgrade reset. Failed backup/replacement stops startup with the original still present. The launch log reports the reset and backup path. Existing game saves, native game settings, history, nested logs and unrelated plugins are unaffected.
+
+Storage fixtures cover Update 2/legacy/nested/malformed inputs, exact byte backups, later custom values across repeat launches and changed default values, fresh installs, future schemas/reset markers, stale loose copies, locked destination retry and unavailable backup directories. The installed user build has not been changed.
