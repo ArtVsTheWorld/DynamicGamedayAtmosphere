@@ -48,6 +48,7 @@ class View {
     }
 public:
     View(Address image,Read read):image_(image),read_(read){}
+    int actorSide(uint32_t key)const{return side(key);}
     Sample snapshot(const std::array<double,4>& seen={},bool counts=true)const{
         Sample out;Address value=component();
         if(value&&read_(value+0x1640,out.times.data(),sizeof(out.times))){

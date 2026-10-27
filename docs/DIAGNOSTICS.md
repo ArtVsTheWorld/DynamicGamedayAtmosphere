@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.65.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.66.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.65.0/
+    Runtime-1.66.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -202,3 +202,15 @@ The installed 1.64.0 observer was ready but counted zero blasts after the Texas 
 The authored graph identifies 0x01ade220 as the start: AudioGraphEvent 73 feeds ReceiveEntry 60, output port 21, which drives the ADSR Trigger. Event 0x82b90c1c feeds port 22, the ADSR Release. Version 1.64 had those event meanings reversed. Version 1.65 observes the start and rejects release even while the native graph remains playing. The fixture uses these literal authored inputs independently of the detector constants, including a start/release/start sequence. No extra cheer, volume, timing or camera strength change is introduced. The running game remains unchanged; corrected installed-event/shake verification is pending.
 
 A subsequent 1.64.0 Texas third-down pass-breakup capture at 10:20:47 showed the detector armed before the snap and throughout the play, with no native knockout flag in the sampled live/whistle window. The pass remained kind 3. Defensive/deep-incompletion cheer requests were logged; both native reaction slots were full, so additional cheers were suppressed. The user described a two-player DB/receiver breakup animation rather than a definite catch knocked loose. This is not treated as a confirmed knockout or used to broaden the impact to ordinary incompletions.
+
+## 1.66 confirmed defensive accents
+
+The 1.64.0 Texas capture at 10:35:08-10 had an away third-and-20 pass, fresh native event 39 at time 412.8999753892422, and defender actor 0x80004 (home side). Event 74 appeared on the same swat; the catch-knockout flag stayed zero and the result remained kind 3. The log recorded a deep-defensive-incompletion cheer and a completed third-down stop, with no added camera cue. This is independent pass-deflection proof, rather than an assumption that an incomplete pass was broken up.
+
+The native WasPassTipped query at 0x7d78c9e selects event 39 from the bounded 45-record cache. The new optional binding checks its selector, lookup layout and receiver signature. Reads validate the cache vtable/root, native actor identity/side and stable selected record. Fresh pre-snap/snap proof and a completed same-sequence third/fourth stop are required; stale storage, simulation, resumes, changed worlds and late proof fail closed. An interception, fumble, first down, score or larger existing impact blocks the small accent. The small motion shares the existing knockout envelope and paired roar/swell/cheer routes, with no volume change.
+
+Landed hit sticks now request sound immediately, with a separate once-per-play confirmation for third/fourth-down stop motion. Holding the runner after a grounded tackle does not suppress that confirmed stop. The ordinary HitStick event itself cannot request camera output. Same-frame hit/result publication, late result phases, knockout/major-impact overlap and converted/scoring plays have regression coverage.
+
+The existing airborne anticipation route has explicit home/away regression coverage for both observed airborne record kinds. The away pass in the 10:35 capture logged its anticipation swell at 10:35:06, before the deflection and result. The new build still needs a normal restart and integrated sound/motion check.
+
+A separate forced-fumble miss at 10:32:32-35 was captured: the current native forced-event type stayed zero, while the ordinary fumble/recovery reached the completed result. Recovery-only motion remains disabled. This build does not infer a forced fumble merely from a recovery; reliable cause detection for this miss is still under investigation.

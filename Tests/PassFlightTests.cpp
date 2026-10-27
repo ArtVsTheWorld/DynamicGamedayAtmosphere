@@ -33,5 +33,21 @@ int main(){
     begin();p.simulated=true;sample(3,3,1,false);assert(air.weight(now)==0);p.simulated=false;
     begin();sample(3,3,1,false);for(int i=0;i<82;++i){now+=100;sample(3,3,1,false);}assert(air.weight(now)<1);
     for(int i=0;i<15;++i){now+=100;sample(3,3,1,false);}assert(air.weight(now)==0); // Eight-second maximum, no restart.
-    std::cout<<"PASS: traced airborne-pass state, existing-voice reuse, catch/incompletion fade, once per snap, bounded lease, no guessed catches, pause/sim/world/stale guards.\n";
+    // The anticipation sound belongs to the ball in flight, for both offenses.
+    // Reproduce the away third-and-20 pass before its home-defender swat.
+    for(int side:{0,1})for(int kind:{1,3}){
+        live::PassFlight flight;energy::Play play;play.game={3,20,14,1,400,720};play.down=3;play.toFirst=20;play.offense=side;
+        flight.observe(play,123,1,1000,true,456,0,9,true);play.game.phase=3;
+        flight.observe(play,123,1,1100,true,456,0,2,true);flight.observe(play,123,1,1200,true,456,kind,1,false);
+        flight.observe(play,123,1,1400,true,456,kind,1,false);
+        sustained::Intent sound;sound.active=true;sound.match=123;sound.epoch=1;sound.updated=1400;
+        sound.reason=sustained::Reason::Lineup;sound.continuous=true;sound.intensity=700;
+        auto request=flight.merge(sound,1400,.92f);auto swell=sustained::supportingIntent(request);
+        assert(request.passFlight&&swell.reason==sustained::Reason::PassFlight&&swell.attackMs==500&&swell.intensity>0);
+        assert(!request.liveCheer&&!request.shake&&!request.celebration);
+        play.game.phase=4;flight.observe(play,123,1,1500,true,456,3,1,false);
+        for(uint64_t t=1600;t<=2800;t+=100)flight.observe(play,123,1,t,true,456,3,1,false);
+        assert(flight.weight(2800)==0);
+    }
+    std::cout<<"PASS: home/away airborne anticipation including the captured away third-and-20; existing-voice reuse, catch/incompletion fade, once per snap, bounded lease, no guessed catches, pause/sim/world/stale guards.\n";
 }

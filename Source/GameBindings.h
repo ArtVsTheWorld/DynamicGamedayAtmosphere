@@ -27,6 +27,9 @@ inline constexpr uintptr_t SkillCounters=0xfaccc78,SkillCountersVtable=0xbcceb78
 // Native catch-drop observer: +0x175 is copied from the knockout payload,
 // also used for the native "Pass Dropped - KNOCKOUT!" event label.
 inline constexpr uintptr_t CatchSummary=0xe34fb90,CatchSummaryVtable=0xb1d96c8,CatchKnockoutStore=0x27909c8,CatchSummaryReset=0x2797912;
+// WasPassTipped queries event 39 in the native per-play event cache. The
+// captured third-and-20 swat credited this event to the home defender.
+inline constexpr uintptr_t PassTippedQuery=0x7d78c9e,PlayEventLookup=0x7df7580,PlayEventReceive=0x7df73f0;
 // Same stadium DB capacity reader and attendance option used by
 // FootballMatchConditionsConstData. Reads only; no attendance/HFA mutation.
 inline constexpr uintptr_t StadiumCapacity=0x38bff60,OptionQuery=0x90934d0;
