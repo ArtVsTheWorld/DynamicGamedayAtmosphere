@@ -8,6 +8,16 @@ enum class Source {Live,Lineup,Result,Eruption,Followup};
 enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown};
 using Note=void(*)(Source,uint64_t,Delivery);
 inline bool countedVoice(int type){return type==91||type==75||type==83||type==59||type==95||(type>=8&&type<=15);}
+// The two positive, full-size families may serve either side of the ball.
+// Stable play/event identity prevents callback-by-callback rerolls. Dedicated
+// disappointment, big-hit and scoring families keep their authored purpose.
+inline int variedPositive(int type,uint64_t play,uint64_t event,unsigned epoch){
+    if((type!=59&&type!=83)||!play||!event)return type;
+    uint64_t mix=play*0x9e3779b97f4a7c15ull+event*0xbf58476d1ce4e5b9ull+epoch;
+    mix^=mix>>30;mix*=0xbf58476d1ce4e5b9ull;mix^=mix>>27;
+    return mix&1?59:83;
+}
+inline bool equivalentPositive(int requested,int active){return requested==active||((requested==59||requested==83)&&(active==59||active==83));}
 // Eruption, conversion and defensive-stop families passed listening tests. Their native
 // owner limits each reaction to 25 seconds; no borrowed entity is retained.
 inline bool emit(const sustained::Api& api,Receiver receiver,Address image,Address entity,int type=91){
@@ -103,7 +113,7 @@ public:
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;bool matching=false;
             for(Address p=begin;p<end;p+=16){int active=at<int>(p);
-                if(active==wanted.liveType)matching=true;
+                if(equivalentPositive(wanted.liveType,active))matching=true;
                 if(countedVoice(active))++positives;
             }
             bool milestone=wanted.overlapMilestone&&wanted.playSequence&&lastLiveSequence_==wanted.playSequence&&now>=lastLiveAt_&&now-lastLiveAt_>=900;
@@ -144,7 +154,7 @@ public:
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;
-            for(Address p=begin;p<end;p+=16){int active=at<int>(p);if(active==type){++nativeNow;return;}if(countedVoice(active))++positives;}
+            for(Address p=begin;p<end;p+=16){int active=at<int>(p);if(equivalentPositive(type,active)){++nativeNow;return;}if(countedVoice(active))++positives;}
             if(positives>=2){limited=true;return;}
             if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else healthy_=false;
         };

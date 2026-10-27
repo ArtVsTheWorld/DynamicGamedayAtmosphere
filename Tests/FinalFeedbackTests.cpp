@@ -28,9 +28,9 @@ int main(){
     {live::Fumbles f;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=1;live::ForcedEvent e{1234,0,true};
         f.observe(p,123,1,1000,true,e,0,2,false,true);p.game.phase=3;f.observe(p,123,1,1100,true,e,0,9,true,true);
         e.type=32;assert(f.observe(p,123,1,1200,true,e,3,5,false,true).event==live::Event::ForcedFumble);
-        p.offense=0;auto recovered=f.observe(p,123,1,1300,true,e,4,9,true,true);assert(recovered.event==live::Event::FumbleRecovery&&f.recoveryBuildup(1300).progress==.0001f);
-        f.observe(p,123,1,2050,true,e,4,9,true,true);assert(std::fabs(f.recoveryBuildup(2050).progress-.5f)<.001f);
-        f.observe(p,123,1,2800,true,e,4,9,true,true);assert(f.recoveryBuildup(2800).progress==1);
+        p.offense=0;auto recovered=f.observe(p,123,1,1300,true,e,4,9,true,true);assert(recovered.event==live::Event::FumbleRecovery&&!f.recoveryBuildup(1300).id);
+        f.observe(p,123,1,2050,true,e,4,9,true,true);assert(!f.recoveryBuildup(2050).id);
+        f.observe(p,123,1,2800,true,e,4,9,true,true);assert(!f.recoveryBuildup(2800).id);
         p.game.phase=4;f.observe(p,123,1,2900,true,e,4,9,false,true);assert(!f.recoveryBuildup(2900).id);
     }
     {live::Fumbles f;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=1;live::ForcedEvent none;
@@ -60,5 +60,5 @@ int main(){
     seats.convert(half,5,10,30,100);assert(seats.observe(half,10)==30); // The already-empty seats do not empty a second time.
     half.seconds=630;int returning=seats.observe(half,10);assert(returning<30&&returning>10);
     departures::Model departures;departures.beginWindow(1);auto changed=departures.convertSeatBreakers(half,5,5,1);assert(changed.loss<=6&&departures.windowBudget==1);
-    std::puts("PASS: regulation winning PAT/two-point scores, native limits/dedupe, critical-down snap continuity, live fumble/recovery ramp, five-second whistle fade and once-only smooth halftime permanent conversion with caps and no double removal.");
+    std::puts("PASS: regulation winning PAT/two-point scores, native limits/dedupe, critical-down snap continuity, live forced fumbles with sound-only pickups, five-second whistle fade and once-only smooth halftime permanent conversion with caps and no double removal.");
 }

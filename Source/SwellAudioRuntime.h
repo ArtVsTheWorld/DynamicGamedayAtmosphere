@@ -136,8 +136,8 @@ public:
         // Keep that voice and its new scoring hold; smaller/stopped voices still
         // receive the existing fast refresh, and the separate cheer still plays.
         bool scoreJoin=fresh(wanted,episode_.match,episode_.epoch,now)&&episode_.playing&&episode_.continuous&&
-            episode_.reason==Reason::Result&&episode_.priority==4&&playingSize_>=wanted.size&&
-            (wanted.scoringReaction||wanted.reason==Reason::Eruption)&&nativeStops_.load()==handledStop_;
+            episode_.reason==Reason::Result&&episode_.priority>=4&&playingSize_>=wanted.size&&
+            ((wanted.reason==Reason::Result&&wanted.priority>=4)||wanted.reason==Reason::Eruption)&&nativeStops_.load()==handledStop_;
         if(scoreJoin){lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;}
         if(episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);

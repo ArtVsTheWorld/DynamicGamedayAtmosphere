@@ -89,7 +89,7 @@ public:
         Cue previous=output_;float previousLevel=strength(previous,x.now);
         auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;}};
         if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
-            if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;}
+            if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;join(lineupCue_);}
             float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening):x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(settings,x.critical,x.lineupScale);
             if(std::fabs(target-lineupCue_.percent)>.01f){lineupCue_.transitionFrom=prior;lineupCue_.transitionAt=x.now;}
             lineupCue_.kind=x.critical?Kind::Critical:Kind::Ordinary;
@@ -104,6 +104,11 @@ public:
         // Retain the earned impact/tail until its original expiry; a fresh
         // snap, pause/replay suspension or world change cancels the old cue.
         if(newSnap){liveCue_={};ramp_=0;}
+        bool pulseOwns=(pulse_.kind!=Kind::None&&x.now<pulse_.until&&!newSnap&&(pulse_.kind!=Kind::Eruption||x.eruptionAlive))||
+            (x.phase!=3&&(td||eruption||safety||clincher||blocked));
+        // Consume lower-priority event IDs without queuing a hidden shake
+        // that could reappear after a short celebration has finished.
+        if(pulseOwns){liveCue_={};ramp_=0;}
         if(x.cancelLive&&liveCue_.kind!=Kind::None&&!liveCue_.cancelled){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+500;liveCue_.percent=value;
             liveCue_.tail=liveCue_.cancelled=true;liveCue_.impactOnly=liveCue_.confirmedRun=false;ramp_=0;
@@ -111,7 +116,7 @@ public:
         if(!x.duringAllowed&&liveCue_.kind!=Kind::None&&!liveCue_.tail&&!liveCue_.impactOnly){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade;liveCue_.percent=value;liveCue_.tail=true;liveCue_.confirmedRun=false;
         }
-        bool ramp=!x.cancelLive&&x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
+        bool ramp=!pulseOwns&&!x.cancelLive&&x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
         if(ramp&&(liveCue_.kind==Kind::None||ramp_!=x.runBuildup)){
             float inherited=liveCue_.kind==Kind::LivePlay&&liveCue_.impactOnly?previousLevel:0;
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+45000,Kind::LivePlay,0,false,0,x.now,false};
@@ -121,7 +126,7 @@ public:
         // Crossing the configured gain confirms the cheer without restarting
         // the shake that builds over the preceding five yards.
         bool covered=x.supplementalImpact&&liveCue_.kind!=Kind::None&&strength(liveCue_,x.now)>0;
-        if(live&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
+        if(live&&!pulseOwns&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
             bool impact=x.phase!=3||x.duringImpact;unsigned duration=x.impactMilliseconds?(std::clamp)(x.impactMilliseconds,1000u,10000u):reactionFade+400+(std::min)(settings.impactExtraMs,5000u);
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?duration:45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};
             liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;
@@ -148,7 +153,7 @@ public:
         }else if(td&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.reactionScale=std::isfinite(x.touchdownScale)?(std::clamp)(x.touchdownScale,1.f,1.15f):1;pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
         else if(clincher&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Clincher,configured(settings,Kind::Clincher),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         else if(blocked&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::BlockedKick,configured(settings,Kind::BlockedKick),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
-        else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
+        else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=limit(configured(settings,pulse_.kind)*pulse_.reactionScale);pulse_.impact=limit((pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact)*pulse_.reactionScale);output_=pulse_;}
         else if(liveCue_.kind!=Kind::None)output_=liveCue_;else{
             if(lineupCue_.kind!=Kind::None&&previous.kind!=Kind::None&&previous.kind!=Kind::Ordinary&&previous.kind!=Kind::Critical){lineupCue_.transitionFrom=previousLevel;lineupCue_.transitionAt=x.now;}

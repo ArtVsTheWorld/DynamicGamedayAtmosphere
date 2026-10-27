@@ -1570,6 +1570,7 @@ void atmosphereTick(){
         ++shownPassFlights;
         log("pass-flight","Verified airborne pass: kind "+std::to_string(liveKind)+", ball "+std::to_string(ballState)+", no holder; fullness "+std::to_string(static_cast<int>(std::lround(100*remaining)))+"%. Fast native swell requested; no pre-catch cheer/shake or extra volume bonus.");
     }
+    if(p.fumble)liveReactions.cancelRunBuildup(true);
     auto liveResult=liveReactions.observe(*liveSettings,p,match,epoch,now,liveAllowed&&!kickPlay,liveRecord,liveKind,ballState,catchSpot,runnerSpot,ballHeld,offensiveFourth,result.sequence==playTracker.serial?&result:nullptr);
     attendance::live::ForcedEvent forcedEvent;
     if(liveFumbleBinding&&liveAllowed&&liveSettings->enabled&&(p.game.phase==1||p.game.phase==3)){
@@ -1578,7 +1579,7 @@ void atmosphereTick(){
         forcedEvent.valid=forcedEvent.valid&&at<A>(image+attendance::bindings::LiveFootballEvent)==event&&at<int>(event+0x1c)==forcedEvent.type;
     }
     auto forcedLive=liveFumbles.observe(p,match,epoch,now,liveAllowed&&liveSettings->enabled&&(liveFumbleBinding||fumbleBinding),forcedEvent,liveKind,ballState,ballHeld,fumbleBinding&&attendance::live::isFumbleState(ballState,ballSubstate));
-    if(forcedLive.id){liveResult=forcedLive;liveReactions.cancelRunBuildup();playTracker.sawFumble=true;
+    if(forcedLive.id){liveResult=forcedLive;liveReactions.cancelRunBuildup(true);playTracker.sawFumble=true;
         if(forcedLive.event==attendance::live::Event::ForcedFumble)playTracker.sawForcedFumble=true;}
     hailMaryPass.observe(playTracker.serial,liveReactions.catchAirYards());
     result.hailMary=hailMaryPass.scored(result,playTracker.start);
@@ -1593,7 +1594,7 @@ void atmosphereTick(){
     if(knockoutResult.id&&!liveResult.id)liveResult=knockoutResult;
     // Sound-only accents (for example a provisional TFL cheer) do not prove
     // this play already received camera motion. Keep that ownership separate
-    // so a later authoritative sack/recovery can still request its impact.
+    // so a later authoritative sack/forced fumble can still request its impact.
     bool supplementalPrevious=attendance::live::accent(liveMotionEvent)||liveMotionEvent==attendance::live::Event::FourthConversion;
     auto confirmedImpact=attendance::live::completedImpact(result,p.game,liveAllowed&&liveSettings->enabled,supplementalPrevious?0:liveMotionSequence,59);
     bool defensiveImpact=confirmedImpact.id!=0;
@@ -1601,8 +1602,7 @@ void atmosphereTick(){
     auto situation=situationalReactions.observe(p,playTracker.start,result,match,epoch,playTracker.serial,now,
         liveAllowed&&liveSettings->enabled&&situationalReactionsEnabled&&(attendance::lineup::offensivePlay(selectedPlayType)||selectedPlayType==21),liveKind,ballState,catchSpot,runnerSpot,ballHeld,selectedPlayType);
     if(liveResult.id){
-        liveMotionSequence=playTracker.serial;
-        liveMotionEvent=liveResult.event;
+        if(attendance::live::cameraReaction(liveResult.event)){liveMotionSequence=playTracker.serial;liveMotionEvent=liveResult.event;}
         liveReactionMilestone=liveReactions.fourthConverted()&&(liveResult.event==attendance::live::Event::RunAfterCatch||liveResult.event==attendance::live::Event::LongRun||liveResult.event==attendance::live::Event::CompletedPass);
         liveReactionMajor=liveResult.yards>=40||liveResult.event==attendance::live::Event::Interception||liveResult.event==attendance::live::Event::FumbleRecovery||
             liveResult.event==attendance::live::Event::ForcedFumble||liveResult.event==attendance::live::Event::GoalLineStop||liveResult.event==attendance::live::Event::CriticalStop||
@@ -1670,6 +1670,7 @@ void atmosphereTick(){
     if(!openingKickoffAtmosphere.replacesLineup())wanted=lineupAtmosphere.merge(wanted,*audio,p,now,remaining);
     wanted=passFlight.merge(wanted,now,remaining);
     auto gainBuildup=liveReactions.runBuildup();
+    auto kickBuildup=returnReactions.buildup();if(kickBuildup.id)gainBuildup=kickBuildup;
     returnAtmosphere.observe(p,match,epoch,now,liveAllowed&&liveSettings->enabled,liveResult,ballHeld,forcedLive.id&&forcedLive.event==attendance::live::Event::ForcedFumble,std::atomic_load(&cameraSettings)->reactionFadeMs,gainBuildup,reactionDistance.extension(),reactionDistance.ownsDuration());
     wanted=returnAtmosphere.merge(wanted,now,remaining);
     if(wanted.reason==attendance::sustained::Reason::Result)wanted.reactionId=playTracker.serial;
@@ -1696,7 +1697,7 @@ void atmosphereTick(){
     motion.hostileOpening=hostile?attendance::motion::hostileOpeningStrength(fullnessReady?rendered->seats:0,std::atomic_load(&cameraSettings)->hostileOpeningMaximum):0;
     motion.openingKickoff=openingKickoff&&(selectedPlayType==23||selectedPlayType==24);
     motion.venueEligible=cameraAdmission.allowed;
-    motion.duringAllowed=liveAllowed&&liveSettings->enabled;motion.duringPlay=liveResult.id?liveReactionId:0;motion.duringImpact=defensiveImpact||(liveResult.id&&(p.game.phase!=3||liveResult.event==attendance::live::Event::ForcedFumble));
+    motion.duringAllowed=liveAllowed&&liveSettings->enabled;motion.duringPlay=liveResult.id&&attendance::live::cameraReaction(liveResult.event)?liveReactionId:0;motion.duringImpact=defensiveImpact||(liveResult.id&&(p.game.phase!=3||liveResult.event==attendance::live::Event::ForcedFumble));
     if(liveResult.id){
         bool accent=attendance::live::accent(liveResult.event);
         motion.duringImpact=motion.duringImpact||accent||liveResult.event==attendance::live::Event::FourthConversion;
@@ -1712,7 +1713,7 @@ void atmosphereTick(){
     motion.distanceExtraMs=(std::max)(scoreExtra,reactionDistance.extension());
     int blockLead=result.side==1?playTracker.start.game.awayScore-playTracker.start.game.homeScore:playTracker.start.game.homeScore-playTracker.start.game.awayScore;
     if(reactionEligible&&result.accepted&&result.completed&&result.blockedFieldGoal&&(result.side==0||p.game.neutral)&&blockLead>=0&&blockLead<=3)motion.blockedFieldGoal=result.sequence;
-    auto runBuildup=gainBuildup;auto recoveryBuild=liveFumbles.recoveryBuildup(now);if(recoveryBuild.id)runBuildup=recoveryBuild;motion.runBuildup=runBuildup.id;motion.runProgress=runBuildup.progress;
+    auto runBuildup=gainBuildup;motion.runBuildup=runBuildup.id;motion.runProgress=runBuildup.progress;
     int scored=result.side==1?result.awayPoints:result.homePoints;
     if(reactionEligible&&result.accepted&&result.completed&&(result.side==0||p.game.neutral)&&scored>=6&&scored<=8)motion.touchdown=result.sequence;
     if(motion.touchdown&&coreAtmosphere.resultSequence==result.sequence&&coreAtmosphere.resultLongTouchdown)motion.touchdownScale=attendance::postplay::LongTouchdownScale;
@@ -1723,11 +1724,12 @@ void atmosphereTick(){
     std::shared_ptr<const attendance::motion::Cue> nextCamera=std::make_shared<attendance::motion::Cue>(cameraMotion.observe(*std::atomic_load(&cameraSettings),motion));std::atomic_store(&cameraCue,nextCamera);
     wanted=attendance::pairing::merge(wanted,*nextCamera,now,remaining,playTracker.serial,presentationCamera.playing(*nextCamera,now),!returnAtmosphere.lostPossession());
     wanted=skillSwell.merge(wanted,now,remaining);
-    wanted=scoringSoundHandoff.merge(wanted,p.game.phase,now,remaining);
+    wanted=scoringSoundHandoff.merge(wanted,p.game.phase,now,remaining,!returnAtmosphere.lostPossession());
+    wanted.liveType=attendance::cheer::variedPositive(wanted.liveType,playTracker.serial,wanted.liveCheer,epoch);
+    wanted.resultType=attendance::cheer::variedPositive(wanted.resultType,playTracker.serial,wanted.resultCheer,epoch);
     wanted.playSequence=playTracker.serial;wanted.staggered=audio->staggeredCheers;wanted.majorLive=liveReactionMajor;wanted.overlapMilestone=audio->staggeredCheers&&liveReactionMilestone;
     std::shared_ptr<const attendance::sustained::Intent> next=std::make_shared<attendance::sustained::Intent>(wanted);std::atomic_store(&sustainedIntent,next);
-    if(liveResult.id)log("live-play","Live reaction #"+std::to_string(liveReactionId)+": "+attendance::live::name(liveResult.event)+"; "+std::to_string(static_cast<int>(liveResult.yards))+" yards; Q"+std::to_string(p.game.quarter)+" "+std::to_string(static_cast<int>(p.game.seconds))+"s; fullness "+std::to_string(static_cast<int>(std::lround(100*remaining)))+"%; camera cue "+attendance::motion::name(nextCamera->kind)+(nextCamera->runBuildup?" (building)":"")+(defensiveImpact&&result.highLeverageStop?"; full result cheer requested.":liveReactionType==0?"; soft skill swell requested.":liveReactionType==11?"; native big-hit crowd reaction requested.":"; immediate cheer requested."));
-    if(liveResult.id&&defensiveImpact&&liveResult.event==attendance::live::Event::FumbleRecovery)log("fumble-reaction","Defensive recovery confirmed after the live pickup window; one post-whistle recovery impact requested. Existing reaction and celebration priorities remain in place.");
+    if(liveResult.id)log("live-play","Live reaction #"+std::to_string(liveReactionId)+": "+attendance::live::name(liveResult.event)+"; "+std::to_string(static_cast<int>(liveResult.yards))+" yards; Q"+std::to_string(p.game.quarter)+" "+std::to_string(static_cast<int>(p.game.seconds))+"s; fullness "+std::to_string(static_cast<int>(std::lround(100*remaining)))+"%; camera cue "+attendance::motion::name(nextCamera->kind)+(nextCamera->runBuildup?" (building)":"")+(liveResult.event==attendance::live::Event::FumbleRecovery?"; recovery is sound-only; no new shake.":defensiveImpact&&result.highLeverageStop?"; full result cheer requested.":liveReactionType==0?"; soft skill swell requested.":liveReactionType==11?"; native big-hit crowd reaction requested.":"; immediate cheer requested."));
     if(result.accepted&&result.completed&&result.sequence&&(result.sequence!=playAuditSequence||result.homePoints>0||result.awayPoints>0)){
         playAuditSequence=result.sequence;
         const char* admitted=!audioSetting||!audio->enabled||!audio->lineups?"soundscape/layers disabled":!fullnessReady?"seating measurement unavailable":

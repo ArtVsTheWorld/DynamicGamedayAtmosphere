@@ -21,7 +21,7 @@ int main(){
         p.simulated=true;assert(!m.observe(p,123,1,1300,true,e,0,9,true).id);
     }
     live::ReturnAtmosphere returnSound;energy::Play p;p.game={1,0,0,3,700,720};p.offense=0;p.down=0;
-    live::Outcome trigger{live::Event::KickReturn,1,0,30};sustained::Intent base;base.active=true;base.match=123;base.epoch=1;
+    live::Outcome trigger{live::Event::KickReturn,1,0,40};sustained::Intent base;base.active=true;base.match=123;base.epoch=1;
     returnSound.observe(p,123,1,1000,true,trigger,true,false);
     for(uint64_t now=1000;now<=11000;now+=100){returnSound.observe(p,123,1,now,true,{},true,false);base.updated=now;auto sound=returnSound.merge(base,now,.9f);assert(sound.reason==sustained::Reason::Result&&sound.continuous&&sound.supporting&&sound.size==3&&sound.intensity>900);}
     p.game.phase=4;returnSound.observe(p,123,1,11100,true,{},false,false);base.updated=11100;assert(returnSound.merge(base,11100,.9f).reason==sustained::Reason::Result);

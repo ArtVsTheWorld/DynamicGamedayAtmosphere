@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.62.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.63.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.62.0/
+    Runtime-1.63.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -72,7 +72,7 @@ On ordinary qualified calls, watch for motion easing in before the lineup instea
 
 ## Fast fumble recoveries
 
-If the game confirms a defensive fumble recovery after the live detector missed the loose ball/pickup, the existing qualified play now receives one 10% settling impact. The log marks this as a fumble-reaction confirmed after the live pickup window. This is a post-whistle fallback, not proof that the immediate forced-fumble event was observed. It keeps the normal atmosphere/fullness rules and the native cheer duplicate/voice limits. If that play already received its live reaction motion, it is not replayed. Sound-only accents no longer count as proof of prior camera motion when a later authoritative defensive impact settles. Own-team recoveries do not qualify as defensive takeaways. Touchdowns and eruptions keep priority. Test both an immediate recovery/tackle and a recovery with a return, including a camera cut and timeout before the fade ends.
+Recovery-only shake is removed in 1.63.0: live pickups are excluded from camera event routing, the recovery buildup is empty and the settled recovery fallback cannot create motion without separate forced-fumble proof. Defensive recovery sounds remain. A loose ball retires ordinary gain detection for that snap, preventing a held pickup from reviving pre-fumble catch/run motion. An already-playing forced-fumble impact keeps its original timer. Confirmed decisive eruptions and touchdowns retain priority.
 
 ## Reaction consistency checks
 
@@ -80,7 +80,7 @@ Short impacts request a roar/swell for their complete hold and fade, even when t
 
 The neutral-site first offensive play gets a positive opening counterpart for whichever side has the ball. Existing home-stadium behavior stays visitors-only. Other offensive and defensive reactions keep their side-relative neutral rules. Neutral games avoid treating the whole crowd as disappointed by one side's success.
 
-After a return loses possession, its old celebration stops and its remaining motion settles briefly. A new defensive recovery can replace it. When a forced-fumble impact becomes a recovery return, it retains its current strength instead of dropping back to the bottom of the buildup.
+After a return loses possession, its old celebration stops and its remaining motion settles briefly. A forced-fumble impact can replace it; a later recovery adds no new movement and does not restart the existing impact.
 
 Check close and wide cameras during ordinary buildup, live returns, an impact and a celebration. Status reports the configured envelope, view-compensation multiplier and resulting movement separately. Every added shake reduces close-ups and compensates wider views, bounded at four times for extreme projections. This never changes the camera angle, zoom or audio gain. Recorded replays remain excluded. A successful dispatch or render count is diagnostic evidence, not proof of what was audible or visible; the integrated build still needs listening and camera checks in a fresh game.
 
@@ -176,3 +176,13 @@ A 120-second read-only trace on PID 34916 caught the credited hurdle count settl
 The native catch-drop observer copies its knockout payload into +0x175 and uses it for the Pass Dropped - KNOCKOUT! event. Its reset clears the flag. The optional read-only binding checks those code signatures, owner vtable and stable pointer; the model requires a new clear-to-knockout transition plus a dropped-pass result on an observed third/fourth defensive snap. Ordinary drops, special teams, stale worlds, simulation and late flags are rejected. The small impact lasts 1.8 seconds at half live strength, with defensive cheer 59 and normal priority. It still needs a naturally observed in-game knockout. Existing within-five-yard third/fourth stops are tested for both their impact event and defensive cheer.
 
 Turning Dynamic Camera Effects Off changed native camera option +0x3e6 from 1 to 0, while the other profile stayed 1. All three added camera routes already require both native options. Regression tests cover each motion category with either profile Off/On; status now distinguishes the native switch from the mod setting. The agent left the user-selected switch untouched.
+
+## 1.63.0 returns, recovery motion and reaction handoffs
+
+Kickoff/punt returns expose a coherent buildup from 30 to 40 yards, with one cheer and the existing full peak at 40. Both world directions, all three native kick types, home/neutral ownership, partial stops, high-water progress, brief holder gaps, stale samples and teleports have regression coverage. Partial returns do not own a full confirmed-return hold.
+
+The camera interaction matrix checks 121 ordered pairs across ordinary/critical lineups, runs, catches, soft skills, defensive hits, TDs, eruptions, safeties, blocks and clinchers. It checks amplitude/oscillation continuity, strength bounds and priority. Separate sequences check conversion -> gain -> skill -> forced fumble -> sound-only pickup -> TD -> eruption, shorter custom celebration durations, no hidden lower-effect resurrection, and fresh-snap cleanup.
+
+The sound handoff now covers equal/higher-priority result changes as well as scoring upgrades. It carries only a recently earned normalized level for 250 ms, releasing the bridge by 500 ms without changing effect timers or gain limits. Negative reactions, lost possession, stale/world changes and a new snap cannot inherit the old play. Full-size continuous voices are retained across new result IDs; stopped or undersized voices still refresh.
+
+Offensive/defensive positive cheer IDs 83 and 59 share stable per-event choices. Runtime duplicate matching treats them as equivalent, so variety cannot create a duplicate layered cheer. Native big-hit, disappointment and scoring IDs retain their original families. Existing full-volume and two-voice limits remain. Tests cover both-family coverage, repeated callback stability, cross-family native deduplication and no retries. The agent has not installed the build or changed game settings; actual transition feel still needs in-game listening/visual checks.

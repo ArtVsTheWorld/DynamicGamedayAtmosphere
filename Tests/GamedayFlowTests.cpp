@@ -70,9 +70,10 @@ int main(){
     for(int type:{22,23,24})for(int flight:{-1,1}){live::Returns returns;auto play=fixture();play.offense=1;play.down=type==22?4:0;
         uint64_t time=1000;auto tick=[&](int phase,float z,bool held,int side){play.game.phase=phase;play.offense=side;time+=100;return returns.observe(play,123,1,time,true,type,z,held);};
         assert(!tick(1,0,true,1).id);assert(!tick(3,0,true,1).id);assert(!tick(3,40.f*flight,false,1).id);
-        assert(!tick(3,40.f*flight,true,0).id);assert(!tick(3,11.f*flight,true,0).id);
-        auto longReturn=tick(3,10.f*flight,true,0);assert(longReturn.yards==30&&longReturn.event==(type==22?live::Event::PuntReturn:live::Event::KickReturn));
-        assert(!tick(3,0,true,0).id);
+        assert(!tick(3,40.f*flight,true,0).id);
+        for(int gain=1;gain<40;++gain)assert(!tick(3,(40.f-gain)*flight,true,0).id);
+        auto longReturn=tick(3,0,true,0);assert(longReturn.yards==40&&longReturn.event==(type==22?live::Event::PuntReturn:live::Event::KickReturn));
+        assert(!tick(3,-1.f*flight,true,0).id);
     }
     {live::Returns returns;auto play=fixture();play.down=0;play.offense=1;
         returns.observe(play,123,1,1000,true,23,0,true);play.game.phase=3;returns.observe(play,123,1,1100,true,23,0,true);
@@ -85,5 +86,5 @@ int main(){
         int absent=prior-permanent;assert(absent>=16&&absent<=24);
         s.quarter=3;for(int n=0;n<=20;++n){s.seconds=q-q/4*n/20.f;int missing=half.observe(s,permanent);if(n<20){assert(missing<=prior);prior=missing;}else assert(missing==0&&half.done);}
     }
-    std::cout<<"PASS: sparse immediate lineup cheers, stable gentle random motion, hard measured-fullness gates, longer TD profile, native defensive impacts, catch-based 30-yard returns and gradual quarter-scaled halftime absences.\n";
+    std::cout<<"PASS: sparse immediate lineup cheers, stable gentle random motion, hard measured-fullness gates, longer TD profile, native defensive impacts, catch-based 30-to-40-yard return buildup and gradual quarter-scaled halftime absences.\n";
 }

@@ -36,7 +36,7 @@ int main(){
     layers.observe(c,p,123,1,45000,true,.75f,true,nullptr,53913);assert(layers.serial==1&&!layers.running);
     layers.observe(c,p,123,1,46000,true,.75f,true,nullptr,53913);assert(layers.serial==1&&!layers.running);
     // Return layer already supplies both sustained channels and yields to eruptions.
-    live::ReturnAtmosphere returns;live::Outcome gain{live::Event::KickReturn,1,0,30};p.offense=0;p.game.phase=3;
+    live::ReturnAtmosphere returns;live::Outcome gain{live::Event::KickReturn,1,0,40};p.offense=0;p.game.phase=3;
     returns.observe(p,123,1,50000,true,gain,true,false);sustained::Intent base;base.active=true;base.match=123;base.epoch=1;
     auto out=returns.merge(base,50000,.8f);assert(out.continuous&&out.supporting&&out.size==3&&out.priority>=4);
     base.celebration=1;assert(returns.merge(base,50000,.8f).celebration==1);

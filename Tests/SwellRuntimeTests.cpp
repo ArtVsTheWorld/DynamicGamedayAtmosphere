@@ -249,6 +249,18 @@ int main(){
     skills.tick(address(owner)+0x40,request,800200);assert(starts==oldStarts+1&&messages.back().attack==500);
     request.updated=800300;skills.tick(address(owner)+0x40,request,800300);assert(starts==oldStarts+1);
     request.active=false;request.updated=800400;skills.tick(address(owner)+0x40,request,800400);balanced();
+    // A full-size ongoing reaction can hand off to the next live/result
+    // reaction without restarting its native attack. A real stop still refreshes.
+    for(bool gameplay:{false,true})for(bool nativeStop:{false,true}){
+        Runtime continuity;continuity.configure(image,nullptr,&api,gameplay);
+        request={};request.active=request.continuous=request.supporting=true;request.match=990;request.epoch=1;request.reason=Reason::Result;request.priority=4;request.reactionId=1;request.size=3;request.updated=900000;
+        continuity.tick(address(owner)+0x40,request,900000);oldStarts=starts;
+        if(nativeStop){put(address(stockStop)+0xa0,address(descriptions[gameplay?3:1]));continuity.observeNativeStop(manager,address(stockStop),900100);}
+        request.reactionId=2;request.resultCheer=2;request.resultCheerUntil=902700;request.updated=900200;
+        continuity.tick(address(owner)+0x40,request,900200);assert(starts==oldStarts+(nativeStop?1u:0u));
+        request.updated=900300;continuity.tick(address(owner)+0x40,request,900300);assert(starts==oldStarts+(nativeStop?1u:0u));
+        request.active=false;request.updated=900400;continuity.tick(address(owner)+0x40,request,900400);balanced();
+    }
     assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");

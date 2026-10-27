@@ -72,14 +72,13 @@ int main(){
         p.offense=0;sound.observe(p,123,1,20400,true,{},true,false);assert(!sound.lostPossession());
         p.offense=1;sound.observe(p,123,1,20500,true,{},true,false);assert(sound.lostPossession()); // No repeated grace once possession settled.
     }
-    // The recovery ramp inherits a still-playing forced-fumble impact.
-    // It must not dip back to one percent when the return starts.
+    // A pickup is sound-only and leaves the original forced-fumble impact
+    // at its existing amplitude and expiry, without creating a recovery ramp.
     {motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=3;x.now=30000;x.duringPlay=1;x.duringImpact=true;
-        m.observe(settings,x);x.now=30200;auto impact=m.observe(settings,x);assert(motion::strength(impact,x.now)==10);
-        x.now=30300;x.duringPlay=2;x.duringImpact=false;x.runBuildup=55;x.runProgress=.0001f;auto recovery=m.observe(settings,x);
-        assert(recovery.rampFloor==10&&motion::strength(recovery,x.now)==10);
-        x.now=30600;recovery=m.observe(settings,x);assert(motion::strength(recovery,x.now)==10);
-        x.now=30700;x.phase=4;x.runBuildup=x.duringPlay=0;auto tail=m.observe(settings,x);assert(tail.tail&&tail.until==35700);
+        auto initial=m.observe(settings,x);x.now=30200;auto impact=m.observe(settings,x);assert(motion::strength(impact,x.now)==10);
+        x.now=30300;x.duringPlay=0;auto pickup=m.observe(settings,x);assert(pickup.began==initial.began&&pickup.until==initial.until);
+        x.now=30700;x.phase=4;pickup=m.observe(settings,x);assert(pickup.impactOnly&&pickup.until==initial.until);
+        x.now=initial.until;assert(m.observe(settings,x).kind==motion::Kind::None);
     }
     // Every automatic camera category shares the same close/wide correction.
     std::array<float,16> projection{};projection[0]=2;projection[11]=1;

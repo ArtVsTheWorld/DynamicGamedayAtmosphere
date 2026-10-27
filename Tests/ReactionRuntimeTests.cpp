@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdio>
 #include <vector>
+#include <set>
 using namespace attendance::sustained;
 constexpr Address image=0x140000000;
 unsigned char entity[0x200]{},asset[0x80]{},systemData[0x60]{},list[0x20]{},description[0x60]{},reactionValue[0x60]{},parameter[0x60]{},instances[32]{};
@@ -192,5 +193,20 @@ int main(){
     wanted.liveCheer=2;wanted.updated=1030100;truck.tick(addr(entity),wanted,1030100);assert(sends==initial+1);
     put<int>(addr(instances),8);put<int>(addr(instances)+16,15);put(addr(entity)+0x128,addr(instances)+32);
     wanted.liveCheer=3;wanted.updated=1030200;truck.tick(addr(entity),wanted,1030200);assert(sends==initial+1);
+    // Offense and defense share positive full-size families, with stable
+    // event choices and equivalent-family native duplicate suppression.
+    for(int original:{59,83}){std::set<int> families;
+        for(uint64_t play=1;play<=100;++play){int chosen=attendance::cheer::variedPositive(original,play,play+1,1);
+            assert(chosen==59||chosen==83);families.insert(chosen);
+            for(int callback=0;callback<20;++callback)assert(attendance::cheer::variedPositive(original,play,play+1,1)==chosen);
+        }assert(families.size()==2);
+    }
+    for(int specific:{11,75,91,95})assert(attendance::cheer::variedPositive(specific,1,1,1)==specific);
+    assert(attendance::cheer::variedPositive(59,0,1,1)==59);
+    attendance::cheer::Runtime shared;shared.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=780;wanted.epoch=1;wanted.updated=1040000;wanted.liveCheer=1;wanted.liveCheerUntil=1040500;wanted.liveType=59;
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);
+    shared.tick(addr(entity),wanted,1040000);assert(sends==initial&&shared.liveDelivered(1));
+    wanted.liveCheer=2;wanted.liveType=83;put<int>(addr(instances),59);shared.tick(addr(entity),wanted,1040100);assert(sends==initial&&shared.liveDelivered(2));
     std::puts("PASS: native duplicate handling, one bounded staggered same-family followup, native-inclusive voice limit/no retry, snap/pause cancellation, eruption priority, cleanup, reentrancy and faults.");
 }

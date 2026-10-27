@@ -1,41 +1,46 @@
 #include "../Source/LiveReactions.h"
+#include "../Source/LiveFumble.h"
+#include "../Source/CoreAtmosphere.h"
 #include "../Source/DirectorShake.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance;
 int main(){
-    energy::Settings rules;motion::Settings settings;
+    energy::Settings rules;
     for(int phase:{1,4,5})for(int offense:{0,1})for(bool neutral:{false,true}){
         energy::Tracker tracker;energy::Play p;p.game={2,7,7,1,300,720};p.game.neutral=neutral;
         p.down=1;p.offense=offense;p.toGoal=60;p.toFirst=10;p.resultStamp=10;
         tracker.observe(rules,p);p.game.phase=3;tracker.observe(rules,p);
-        // The loose ball and pickup both happened between live observations.
         p.game.phase=phase;p.offense=1-offense;p.down=1;p.resultStamp=11;p.fumble=true;p.game.seconds=295;
-        auto result=tracker.observe(rules,p);bool expected=offense==1||neutral;
-        assert(result.accepted&&result.completed&&result.takeaway&&!result.forcedFumble);
-        auto impact=live::completedImpact(result,p.game,true,0,83);assert(bool(impact.id)==expected);
-        if(expected){
-            assert(result.event==energy::Event::FumbleRecovery&&impact.event==live::Event::FumbleRecovery&&live::cheerType(impact)==59);
-            assert(live::completedImpact(result,p.game,true,0,59).id); // A previous sound-only defensive cheer owns no camera cue.
-            assert(!live::completedImpact(result,p.game,false,0,83).id);
-            assert(!live::completedImpact(result,p.game,true,result.sequence,59).id); // Existing forced/pickup response wins.
-            assert(live::completedImpact(result,p.game,true,result.sequence,95).id); // An earlier letdown is not that defensive response.
-            motion::Model camera;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=x.duringImpact=true;
-            x.phase=phase;x.now=1000;x.duringPlay=impact.id;auto cue=camera.observe(settings,x);auto until=cue.until;
-            assert(cue.kind==motion::Kind::LivePlay&&cue.impactOnly&&cue.percent==10&&until==7400);
-            for(uint64_t now=1200;now<until;now+=100){x.now=now;x.phase=now<2000?2:now<3000?5:1;cue=camera.observe(settings,x);assert(cue.kind==motion::Kind::LivePlay&&cue.until==until&&motion::strength(cue,now)>0);}
-            x.now=until;assert(camera.observe(settings,x).kind==motion::Kind::None);
-            camera.reset();x.now=10000;x.phase=4;x.touchdown=1;cue=camera.observe(settings,x);assert(cue.kind==motion::Kind::Touchdown);
-            x.now=10100;x.eruption=1;x.eruptionAlive=true;assert(camera.observe(settings,x).kind==motion::Kind::Eruption);
+        auto result=tracker.observe(rules,p);assert(result.accepted&&result.completed&&result.takeaway&&!result.forcedFumble);
+        assert(!live::completedImpact(result,p.game,true,0,83).id);
+        assert(!live::cameraReaction(live::Event::FumbleRecovery));
+        if(offense==1||neutral){
+            core::Model sound;core::Settings settings;sound.react(settings,result,1,p.game,true);
+            assert(result.event==energy::Event::FumbleRecovery&&sound.resultCheer&&sound.resultType==59);
+            auto forced=result;forced.forcedFumble=true;
+            auto impact=live::completedImpact(forced,p.game,true,0,83);
+            assert(impact.event==live::Event::ForcedFumble&&live::cameraReaction(impact.event));
+            assert(!live::completedImpact(forced,p.game,true,forced.sequence,59).id);
         }
-        assert(!tracker.observe(rules,p).completed);
     }
-    for(int scenario=0;scenario<6;++scenario){
-        energy::Tracker tracker;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=1;p.resultStamp=10;
-        tracker.observe(rules,p);p.game.phase=3;tracker.observe(rules,p);
-        p.game.phase=4;p.offense=scenario==0?1:0;p.resultStamp=scenario==1?10:11;p.fumble=scenario!=2;p.down=1;
-        if(scenario==3)p.simulated=true;if(scenario==4){p.fumble=false;p.interception=true;}if(scenario==5)p.game.phase=7;
-        auto result=tracker.observe(rules,p);assert(!live::completedImpact(result,p.game,true,0,83).id);
+    // Own and defensive pickups never add a recovery buildup. The forced hit
+    // remains independently eligible, and a subsequent pickup cannot reset it.
+    for(int owner:{0,1}){
+        live::Fumbles f;energy::Play p;p.game={2,7,7,1,300,720};p.offense=owner;p.down=1;live::ForcedEvent e{999,0,true};
+        f.observe(p,123,1,1000,true,e,0,9,true);p.game.phase=3;f.observe(p,123,1,1100,true,e,0,9,true);
+        e.type=32;auto hit=f.observe(p,123,1,1200,true,e,0,5,false,true);
+        assert(bool(hit.id)==(owner==1));if(hit.id)assert(hit.event==live::Event::ForcedFumble);
+        p.offense=owner;auto own=f.observe(p,123,1,1300,true,e,0,2,true);assert(!own.id&&!f.recoveryBuildup(1300).id);
     }
-    std::puts("PASS: confirmed fast defensive recoveries get one eligible 10% post-whistle impact without invented live pickup/return; home/neutral ownership, gates, native duplicate suppression, timeout/selection fade, TD/eruption priority and stale/own-recovery/interception/simulation guards.");
+    // A held pickup must not revive a long-run ramp from pre-fumble yardage.
+    live::Model run;live::Settings limits;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=0;p.fieldSpot=-30;p.attackDirection=1;
+    uint64_t now=1000;auto sample=[&](int phase,float yards,bool held){now+=100;p.game.phase=phase;return run.observe(limits,p,123,1,now,true,456,0,held?2:5,NAN,-30+yards,held);};
+    sample(1,0,true);sample(3,0,true);for(int n=1;n<=12;++n)sample(3,static_cast<float>(n),true);assert(run.runBuildup().id);
+    run.cancelRunBuildup(true);p.fumble=true;sample(3,12,false);p.fumble=false;
+    for(int n=13;n<=35;++n){assert(!sample(3,static_cast<float>(n),true).id);assert(!run.runBuildup().id);}
+    sample(4,35,true);sample(1,0,true);sample(3,0,true);live::Outcome fresh;
+    for(int n=1;n<=15;++n){auto event=sample(3,static_cast<float>(n),true);if(event.id)fresh=event;}
+    assert(fresh.event==live::Event::LongRun);
+    std::puts("PASS: recovery-only motion and buildup removed; defensive recovery audio retained; forced-fumble impact/dedup preserved; own pickups cannot revive prior gain motion; next snap rearms normally.");
 }

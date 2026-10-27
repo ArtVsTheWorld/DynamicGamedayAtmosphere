@@ -15,7 +15,7 @@ public:
     void reset(){*this=Distance{};}
     // Measurement alone (for example two yards after a short catch) does not
     // admit a full long-play sound or suppress the ordinary lineup bridge.
-    bool ownsDuration()const{return owned_&&(returning_||yards_>=threshold_);}
+    bool ownsDuration()const{return owned_&&(threshold_<=0||yards_>=threshold_);}
     float yards()const{return yards_;}unsigned extension()const{return extra_;}
     void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t sequence,uint64_t now,bool allowed,
                  const live::Outcome& event,float rawSpot,float gain,bool ranAfterCatch,int worldDirection,bool held,
@@ -44,7 +44,7 @@ public:
         }
         if(!frozen_&&p.game.phase==3){
             bool kick=std::isfinite(kickYards)&&kickYards>=30;
-            if(kick){owned_=returning_=true;minimum_=threshold_=30;yards_=(std::max)(yards_,kickYards);}
+            if(kick){owned_=returning_=true;minimum_=threshold_=40;yards_=(std::max)(yards_,kickYards);}
             else if(returning_){
                 bool coherent=position_&&held&&(p.offense==side_||returnEvent)&&std::isfinite(rawSpot)&&std::fabs(rawSpot)<=60&&sampleAt_&&now>=sampleAt_&&std::fabs(rawSpot-lastSpot_)<=3.5f+30.f*(now-sampleAt_)*.001f;
                 if(coherent){if(direction_==1||direction_==-1)yards_=(std::max)(yards_,(rawSpot-origin_)*direction_);lastSpot_=rawSpot;sampleAt_=now;}
