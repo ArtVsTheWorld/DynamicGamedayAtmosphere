@@ -1,6 +1,6 @@
 # Diagnostics â€” working Update 3 build
 
-Working build **1.57.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.58.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.57.0/
+    Runtime-1.58.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -124,4 +124,15 @@ The late home-blowout traffic rule now builds urgency faster in the final 25% of
 
 For a live check after restarting, test a close game becoming a 28–35-point home loss inside the final three minutes of a 12-minute Q4. Check that exits settle at breaks/inside Super Sim, never visibly during live action, and that a late rally cannot refill earlier permanent departures. Check a different quarter length too. The integrated build is staged; the running 1.56.0 game is unchanged.
 
-The proposed additional Upset Watch sound route is not implemented in this build. The UNC–Notre Dame read-only sample showed rank 120 versus 12, 15,371 occupied positions out of 27,663 (55.6%), full original attendance and an 83.3% packed-house requirement. Upset retention was active; added play-call sound layers were not qualified. This needs a separate reviewed qualification route, rather than redefining this half-full stadium as packed.
+## 1.58.0 Upset Watch sound checks
+
+This build implements a separate sound admission, leaving the 1.57.0 launcher and traffic behavior intact. The UNC-Notre Dame sample (native ranks 120/12, 7-3 in early Q2, 15,371 of 27,663 positions occupied) qualifies at a 54.9% requirement. Packed house still requires 83.3%. The new `Upset Watch sound` status field shows the current story stage, whether it qualifies and its own actual-fullness gate; `upset-watch` log entries report stage/admission changes rather than ticking every frame. Existing upset retention is a separate field and behavior.
+
+Automated checks cover the sample, unknown ranks/layouts, smaller discrepancies, quarter-length scaling, neutral-side symmetry, failed bids, off switches, reset ownership, reaction and final-whistle handoffs, both native swell channels and existing volume/camera gates. Manual listening remains required after installing the staged build and restarting MMC/game:
+
+- In the sample matchup, listen for a modest Q2 lineup roar/swell. Confirm that packed-house status and ordinary pre-snap camera motion stay inactive at 55.6%.
+- Try a home big play, then an away offensive call. The earned play should react normally; the away call should add roars/swells without a lineup cheer.
+- Compare an early close bid with the final 25% of Q4. A major late upset bid should sustain tension without stacking boosts or restarting cheers on every tick.
+- Let the favorite lead by more than 14, or by more than eight in that final window. This route should release. Pause/replay/simulation must not generate fresh reactions.
+- Confirm an upset victory's existing celebration still takes priority and follows postgame carry rules.
+- Set `UpsetWatchAtmosphere=0`; other routes, packed requirements and configured volume caps must retain their values.

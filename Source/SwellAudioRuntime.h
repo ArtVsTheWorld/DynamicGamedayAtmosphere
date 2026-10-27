@@ -142,8 +142,8 @@ public:
         bool eruptionHit=wanted.active&&wanted.reason==Reason::Eruption&&wanted.celebration&&wanted.celebration!=lastCelebration_;
         bool resultHit=wanted.active&&wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil&&wanted.resultCheer!=lastResult_;
         if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch||quickReason_!=wanted.reason){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickReason_=wanted.reason;quickToken_=0;}
-        uint64_t token=wanted.reason==Reason::Lineup?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
-        bool nativeInterrupted=(episode_.continuous||episode_.reason==Reason::Lineup)&&nativeStops_.load()!=handledStop_;
+        uint64_t token=lineupReason(wanted.reason)?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
+        bool nativeInterrupted=(episode_.continuous||lineupReason(episode_.reason))&&nativeStops_.load()!=handledStop_;
         // A native snap/timeout/penalty stop can affect the same crowd channel.
         // Recover once promptly per earned reaction, even after its one-shot
         // cheer was deduped or expired. Repeated stops keep the slower bound.
@@ -180,7 +180,7 @@ public:
         }
         if(episode_.canStart(wanted,now)){
             uint64_t nativeAt=nativeStart_.load();
-            bool adopt=wanted.reason==Reason::Lineup&&nativeManager_.load()==endpoint.manager&&nativeAt&&now>=nativeAt&&now-nativeAt<4000&&nativeStop_.load()<nativeAt&&nativeSize_.load()>=wanted.size;
+            bool adopt=lineupReason(wanted.reason)&&nativeManager_.load()==endpoint.manager&&nativeAt&&now>=nativeAt&&now-nativeAt<4000&&nativeStop_.load()<nativeAt&&nativeSize_.load()>=wanted.size;
             bool attempted=false,notReady=false;
             bool sent=adopt||emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,&notReady,wanted.attackMs,4000,gameplay_);
             if(!sent){
@@ -193,7 +193,7 @@ public:
             lastResult_=wanted.resultCheer;
             lastDiagnostic_=wanted.diagnosticToken;
             playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
-            handledStop_=nativeStops_.load();openingManager_=wanted.continuous||wanted.reason==Reason::Lineup?manager_:0;
+            handledStop_=nativeStops_.load();openingManager_=wanted.continuous||lineupReason(wanted.reason)?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));
         }
     }

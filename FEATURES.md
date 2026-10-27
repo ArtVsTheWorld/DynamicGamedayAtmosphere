@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.57.0 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.58.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -187,6 +187,16 @@ Native intensity changes crowd character rather than applying an exact loudness 
 The boosts above 75% adjust the sound signal; perceived loudness depends on the sound and your settings. High-leverage moments can reach +35% total and eruptions +50% total. Boosts do not stack on top of those caps.
 
 Added sound layers require a qualifying situation and its stadium-size-based fullness threshold. Added reactions and celebration movement inherit the requirement of the play that qualified. The game's own reactions, ordinary fullness-based volume and quieting continue independently.
+
+### Upset Watch sound
+
+`UpsetWatchAtmosphere=1` adds a separate sound route from Q2 onward when a lower-ranked home team challenges a Top 25 visitor. Native game ranks must show a meaningful gap; unknown ranks cannot qualify. At neutral sites, either team's underdog bid can qualify. Records are not used by this sound route.
+
+The required actual fullness is the standard stadium-size sound gate minus 35 percentage points multiplied by the relative rank discrepancy and the current upset stage, with an absolute 50% floor. The discrepancy is the rank gap divided by the gap plus 50. For example, #120 UNC leading #12 Notre Dame 7-3 at the start of Q2 needs about **54.9%** of its 27,663 mapped positions occupied, so the measured **55.6%** crowd qualifies. Its **83.3% packed-house requirement stays unchanged**.
+
+Early bids get a modest lineup roar/swell. A closer score, a larger ranking gap and a later game stage strengthen excitement. The final 25% of Q4 can sustain tension for a close bid with a large ranking gap, using the existing high-leverage limit. A deficit beyond 14 points ends the route; a two-score deficit in that final window ends it too. The usual lopsided-game fade still applies. Layers settle when the bid or crowd stops qualifying.
+
+The route admits the same earned play reactions and existing upset-win celebration; it does not create another cheer for the same event. Touchdowns and eruptions take priority. Away-offense play selection at home venues still uses roars/swells only. Fullness continues to scale sound strength, and all ordinary, high-leverage, chant and eruption volume caps stay unchanged. Packed-house classification, packed marquee reaction boosts, pre-snap camera requirements and attendance protection remain separate. Earned reaction motion retains its existing zoom compensation. Set this option to zero to remove only the additional sound admission, or turn off PlayCallAtmosphere to disable play-call layers altogether.
 
 ### Layered play-call buildup
 

@@ -40,6 +40,7 @@ namespace DynamicGamedayAtmosphere {
             new LayoutKey("Atmosphere","WinningEruptions","Dynamic Gameday Soundscape","WinningEruptions"),
             new LayoutKey("Atmosphere","OvertimeAtmosphere","Dynamic Gameday Soundscape","OvertimeAtmosphere"),
             new LayoutKey("Atmosphere","PlayCallAtmosphere","Dynamic Gameday Soundscape","PlayCallAtmosphere"),
+            new LayoutKey("Atmosphere","UpsetWatchAtmosphere","Dynamic Gameday Soundscape","UpsetWatchAtmosphere"),
             new LayoutKey("Atmosphere","BigGameMinimumFullnessPercent","Dynamic Gameday Soundscape","BigGameMinimumFullnessPercent"),
             new LayoutKey("Atmosphere","PackedHouseBuildup","Dynamic Gameday Soundscape","PackedHouseBuildup"),
             new LayoutKey("Atmosphere","DriveEscalation","Dynamic Gameday Soundscape","DriveEscalation"),

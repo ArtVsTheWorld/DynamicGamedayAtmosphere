@@ -3,6 +3,7 @@
 
 namespace attendance::sustained {
 enum class Reason { None, Opening, Upset, LateDrive, DefensiveDown, Overtime, Eruption, Lineup, Result, PassFlight, Postgame, Diagnostics };
+inline bool lineupReason(Reason reason){return reason==Reason::Lineup||reason==Reason::Upset;}
 inline const char* name(Reason r){
     switch(r){case Reason::Diagnostics:return "diagnostic preview";case Reason::Postgame:return "postgame stadium atmosphere";case Reason::Opening:return "big-game opening";case Reason::Upset:return "developing upset";
     case Reason::LateDrive:return "late scoring opportunity";case Reason::DefensiveDown:return "critical defensive down";
@@ -89,7 +90,7 @@ struct Episode {
     bool mustStop(const Intent& wanted,uint64_t now)const{
         return playing&&(!fresh(wanted,match,epoch,now)||wanted.reason==Reason::None||wanted.reaction||
             (continuous?(!wanted.continuous||openingExpired(wanted,now)):
-                ((wanted.offense>=0&&offense>=0&&wanted.offense!=offense)||now<began||now-began>=(reason==Reason::Lineup?28000u:20000u))));
+                ((wanted.offense>=0&&offense>=0&&wanted.offense!=offense)||now<began||now-began>=(lineupReason(reason)?28000u:20000u))));
     }
     bool canStart(const Intent& wanted,uint64_t now)const{
         bool freshResult=wanted.reason==Reason::Result&&((wanted.reactionId&&wanted.reactionId!=reactionId)||(wanted.resultCheer&&now<wanted.resultCheerUntil));

@@ -6,6 +6,7 @@
 #include "AttendanceContext.h"
 #include "PackedHouse.h"
 #include "OpeningDrive.h"
+#include "UpsetAtmosphere.h"
 namespace attendance::lineup {
 inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
@@ -97,10 +98,11 @@ struct Model {
     sustained::Reason reason=sustained::Reason::None;
     drive::Model drive;bool packedHouse=false,qualifiedPlay=false;float qualifiedMinimum=1.01f;
     OpeningDrive openingDrive;bool openingDriveQualified=false;
+    upsetsound::Route upsetSound;
     bool hostileOpening=false;uint64_t hostileCheer=0,hostileCheerBegan=0;
     void reset(){*this=Model{};}
     void handOffResult(){if(carrying&&!continuousMode){carrying=running=false;liveAt=postAt=tailAt=0;weight=0;reason=sustained::Reason::None;}}
-    void suspend(){qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
+    void suspend(){upsetSound={};qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
     uint64_t cameraLineupId()const{return phase==5?cheerSerial+1:cheerSerial;}
     float cameraChoice()const{return phase==5?static_cast<float>(variety::mix(variationSeed^(cheerSerial+1)^0x5348414b45ull)%1001)/1000.0f:shakeChoice;}
     float momentWeight()const{return leverage&&strength>0?(std::clamp)(weight/strength,0.0f,1.0f):0;}
@@ -164,15 +166,20 @@ struct Model {
         float goal=supported&&fraction>=standard?goalLine(p):0;
         float bigThreshold=bigRequirement(c,s,positions);
         float competition=competitive(s);
+        upsetSound=upsetsound::evaluate(s,positions,fraction,fullnessKnown,supported&&c.upsetWatch&&!p.simulated);
+        bool upset=upsetSound.qualified&&competition>0;
         bool bigQualified=big&&fraction>=bigThreshold;
-        bool special=ot||late>0,regular=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
+        bool standardRoute=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
+        bool upsetFinish=upset&&upsetSound.climax;
+        bool special=ot||late>0||upsetFinish,regular=standardRoute||upset;
         hostileOpening=regular&&c.opening&&((s.neutral&&openingDrive.firstOpeningPlay())||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
-        packedHouse=regular&&!big&&!special&&packed;
+        packedHouse=standardRoute&&!big&&!ot&&late<=0&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
             qualifiedPlay=regular||special;qualifiedMinimum=1.01f;
             if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0||openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);}
-            if(special)qualifiedMinimum=(std::min)(qualifiedMinimum,specialMinimum);
+            if(ot||late>0)qualifiedMinimum=(std::min)(qualifiedMinimum,specialMinimum);
+            if(upset)qualifiedMinimum=(std::min)(qualifiedMinimum,upsetSound.minimum);
         }
         if(!supported){suspend();phase=s.phase;return false;}
         if(!regular&&!special){
@@ -192,6 +199,7 @@ struct Model {
         // Big games build ON the same foundation. Retain the former opening
         // peak as a floor, then add energy rather than replacing packed density.
         if(big)importance=(std::max)({importance+bigGamePremium(s,fraction,close),.22f*close,openingWeight});
+        if(upset)importance=(std::max)(importance,upsetSound.importance*close);
         importance=(std::min)(1.0f,importance+.35f*drive.heat*close);
         importance=(std::max)(importance,goal);
         if(hostileOpening)importance=1;
@@ -201,8 +209,8 @@ struct Model {
             leverage=true;
             carrying=false;liveAt=postAt=0;
             if(!continuousMode){continuousBegan=now;began=now;++serial;profile=variety::choose(variationSeed,serial);start=true;}
-            continuousMode=true;running=true;tailAt=0;weight=ot?1.0f:late;strength=weight;
-            reason=ot?sustained::Reason::Overtime:sustained::Reason::LateDrive;
+            continuousMode=true;running=true;tailAt=0;weight=ot?1.0f:(std::max)(late,upsetFinish?importance:0.f);strength=weight;
+            reason=ot?sustained::Reason::Overtime:late>0?sustained::Reason::LateDrive:sustained::Reason::Upset;
         }else{
             if(s.phase==1)leverage=critical||goal>=.525f||hostileOpening;
             if(continuousMode){continuousMode=false;running=false;tailAt=now;tailWeight=weight;}
@@ -220,10 +228,10 @@ struct Model {
                     tailWeight=carryWeight;running=carrying=false;
                 }
             }
-            if(hold){weight=carryWeight*(std::min)(1.f,competition/(std::max)(.001f,carryCompetition));reason=sustained::Reason::Lineup;}
+            if(hold){weight=carryWeight*(std::min)(1.f,competition/(std::max)(.001f,carryCompetition));reason=upset?sustained::Reason::Upset:sustained::Reason::Lineup;}
             else if(running&&s.phase==1&&now>=began&&now-began<profile.totalMs()){
                 auto age=now-began;float envelope=(std::min)({1.0f,static_cast<float>(age)/profile.envelopeAttackMs,static_cast<float>(profile.totalMs()-age)/profile.releaseMs});
-                strength=importance;weight=importance*envelope;reason=age<profile.roarMs?sustained::Reason::Lineup:sustained::Reason::None;
+                strength=importance;weight=importance*envelope;reason=age<profile.roarMs?(upset?sustained::Reason::Upset:sustained::Reason::Lineup):sustained::Reason::None;
             }else if(running&&!carrying&&now>=began&&now-began>=profile.totalMs()){
                 running=false;tailAt=0;weight=0;reason=sustained::Reason::None;
             }else if(running||tailAt){
@@ -239,7 +247,7 @@ struct Model {
             shakeChoice=static_cast<float>(variety::mix(variationSeed^cheerSerial^0x5348414b45ull)%1001)/1000.0f;
         }
         shakeTier=0;
-        if(c.cameraShake&&(s.phase==1||s.phase==5)&&(special||importance>.10f))shakeTier=(special||critical)?3:goal>=.6f?2:1;
+        if(c.cameraShake&&(s.phase==1||s.phase==5)&&(standardRoute||ot||late>0)&&(special||importance>.10f))shakeTier=(ot||late>0||critical)?3:goal>=.6f?2:1;
         phase=s.phase;return start;
     }
     sustained::Intent merge(sustained::Intent out,const core::Settings& c,const energy::Play& p,uint64_t now,float fraction)const{

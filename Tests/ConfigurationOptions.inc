@@ -39,6 +39,7 @@ inline NumericOption options[]={
 {L"Dynamic Gameday Soundscape",L"OpeningAtmosphere",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->opening);}},
 {L"Dynamic Gameday Soundscape",L"OvertimeAtmosphere",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->overtime);}},
 {L"Dynamic Gameday Soundscape",L"PlayCallAtmosphere",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->lineups);}},
+{L"Dynamic Gameday Soundscape",L"UpsetWatchAtmosphere",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->upsetWatch);}},
 {L"Dynamic Gameday Soundscape",L"SkillMoveReactions",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->skillMoves);}},
 {L"Dynamic Gameday Soundscape",L"StaggeredMajorCheers",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->staggeredCheers);}},
 {L"Dynamic Gameday Soundscape",L"PackedBigGameReactions",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->contextReactions);}},

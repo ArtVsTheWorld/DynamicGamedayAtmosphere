@@ -136,6 +136,23 @@ int main(){
     quick.tick(address(owner)+0x40,request,300150);assert(starts==oldStarts+1&&messages.back().attack==500); // Quick snap cannot leave the old two-second native-stop hole.
     quick.observeNativeStop(manager,address(stockStop),300200);request.updated=300300;quick.tick(address(owner)+0x40,request,300300);assert(starts==oldStarts+1); // One fast recovery per play token.
     request.active=false;request.updated=300400;quick.tick(address(owner)+0x40,request,300400);balanced();
+    // Upset Watch uses the same adoption, quick recovery and one-token guard
+    // for both the anticipation roar and its supporting gameplay swell.
+    for(bool gameplay:{false,true}){
+        Runtime upset;upset.configure(image,nullptr,&api,gameplay);
+        request={};request.active=true;request.match=903;request.epoch=1;request.reason=Reason::Upset;request.lineup=88;request.continuous=true;request.size=2;request.updated=350000;
+        upset.tick(address(owner)+0x40,request,350000);assert(upset.playing());oldStarts=starts;
+        put(address(stockStop)+0xa0,address(descriptions[gameplay?3:1]));upset.observeNativeStop(manager,address(stockStop),350100);
+        request.updated=350150;upset.tick(address(owner)+0x40,request,350150);assert(starts==oldStarts+1);
+        upset.observeNativeStop(manager,address(stockStop),350200);request.updated=350300;upset.tick(address(owner)+0x40,request,350300);assert(starts==oldStarts+1);
+        request.active=false;request.updated=350400;upset.tick(address(owner)+0x40,request,350400);assert(!upset.playing());balanced();
+        Runtime nativeUpset;nativeUpset.configure(image,nullptr,&api,gameplay);
+        startEvent=true;construct(address(nativeStart),0,0);set(entries[0],3);set(entries[1],4000);
+        put(address(nativeStart)+0xa0,address(descriptions[gameplay?2:0]));nativeUpset.observeNativeStop(manager,address(nativeStart),360000);eventEnd(address(nativeStart));
+        request.active=true;request.updated=360100;oldStarts=starts;nativeUpset.tick(address(owner)+0x40,request,360100);
+        assert(nativeUpset.playing()&&nativeUpset.adopted()==1&&starts==oldStarts);
+        request.active=false;request.updated=360300;nativeUpset.tick(address(owner)+0x40,request,360300);balanced();
+    }
     // The production sound shape must hold BOTH native layers after the
     // whistle, then send one shortened release ending at the original time.
     for(bool gameplay:{false,true}){

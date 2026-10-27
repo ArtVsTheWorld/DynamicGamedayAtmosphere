@@ -259,6 +259,12 @@ class SettingsTests {
    Check(Level("Dynamic Gameday Soundscape","MaximumBoostPercent",next)==17.5&&Level("Dynamic Gameday Soundscape","SkillMoveReactions",next)==0&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41);
    Check(File.ReadAllText(next).Contains("limited extra")&&!File.ReadAllText(next).Contains("; Most fans allowed to leave permanently"));
    string trafficHelp=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(trafficHelp==File.ReadAllText(next));
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=41\n[Dynamic Gameday Soundscape]\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=25\nEruptionBoostPercent=40\nPackedHouseBuildup=0\nUpsetWatchAtmosphere=0\n");SettingsMigration.Ensure(next,old,defaults);
+   Check(Level("Dynamic Gameday Soundscape","UpsetWatchAtmosphere",next)==0&&Level("Dynamic Gameday Soundscape","PackedHouseBuildup",next)==0);
+   Check(Level("Dynamic Gameday Soundscape","MaximumBoostPercent",next)==17.5&&Level("Dynamic Gameday Soundscape","HighLeverageBoostPercent",next)==25&&Level("Dynamic Gameday Soundscape","EruptionBoostPercent",next)==40);
+   string upsetSettings=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(upsetSettings==File.ReadAllText(next));
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=41\n[Dynamic Gameday Soundscape]\nPlayCallAtmosphere=0\n");SettingsMigration.Ensure(next,old,defaults);
+   Check(Level("Dynamic Gameday Soundscape","UpsetWatchAtmosphere",next)==1&&Level("Dynamic Gameday Soundscape","PlayCallAtmosphere",next)==0);
    Console.WriteLine("PASS: clean/legacy settings, native quieting migration, 3-5/5-10 randomized lineup ceilings, 20-yard defaults/pass-flight option, 11-second TD, firm fullness floor, five-second fade/retired distance option, preserved custom settings/comments, idempotence and future schemas.");return 0;
   }catch(Exception e){Console.Error.WriteLine(e);return 1;}
   finally{foreach(string file in Directory.GetFiles(dir))File.Delete(file);Directory.Delete(dir);}

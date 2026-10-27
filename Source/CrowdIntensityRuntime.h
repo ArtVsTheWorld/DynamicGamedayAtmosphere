@@ -53,7 +53,7 @@ public:
         state.last=now;
         // Smooth raises. A lost lease or departed gameplay context restores the
         // current native output immediately rather than keeping a stale lift.
-        float attack=wanted.liveCheer?.05f:wanted.reason==Reason::PassFlight?.15f:wanted.reason==Reason::Result||wanted.reason==Reason::Eruption||wanted.reason==Reason::Lineup?.25f:2.0f;
+        float attack=wanted.liveCheer?.05f:wanted.reason==Reason::PassFlight?.15f:wanted.reason==Reason::Result||wanted.reason==Reason::Eruption||lineupReason(wanted.reason)?.25f:2.0f;
         state.weight=active?(std::min)(1.0f,state.weight+dt/attack):0;
         // Quieting is restricted to the selector verified in the listening
         // test. An unknown route keeps native sound; there is no gain fallback.

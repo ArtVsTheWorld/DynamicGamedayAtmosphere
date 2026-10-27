@@ -95,6 +95,7 @@ attendance::presentationaudio::Model presentationAtmosphere;
 std::atomic<bool> shownLineup{false};
 std::atomic<bool> shownOpeningDrive{false};
 std::atomic<bool> shownHostileOpening{false};
+std::atomic<int> shownUpsetStage{0};std::atomic<bool> shownUpsetSound{false};std::atomic<float> shownUpsetMinimum{1.01f};
 std::shared_ptr<const attendance::occupancy::Snapshot> stadiumOccupancy=std::make_shared<attendance::occupancy::Snapshot>();
 std::shared_ptr<const attendance::occupancy::Rendered> renderedOccupancy=std::make_shared<attendance::occupancy::Rendered>();
 std::mutex capacityMutex;uint64_t lastCapacityAttempt=0;
@@ -495,7 +496,7 @@ void log(const char* event,const std::string& message) {
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind!="pause-menu"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+       kind!="upset-watch"&&kind!="pause-menu"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -913,6 +914,7 @@ void resetMatch(){
     {std::lock_guard<std::mutex> guard(historyMutex);gameHistory.reset();arrivalModel.reset();halftimeModel.reset();halftimeExitConversion.reset();shownHalftimeConverted=0;departureModel.reset();matchLifecycle.reset();}
     {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();cameraMotion.reset();liveReactions.reset();skillReactions.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();returnAtmosphere.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
     shownLineup=shownPackedHouse=shownOpeningDrive=shownHostileOpening=false;shownDrive=0;shownDistanceExtra=0;shownReactionDistance=0;
+    shownUpsetStage=0;shownUpsetSound=false;shownUpsetMinimum=1.01f;
     crowdBoost=0;shownEruption=shownPostgameCarry=false;
     arrivalMissing=0;arrivalReconcilePending=false;visibilityRetry=false;captureArrivalBaseline=false;pregameRendererRetry=postgameRendererRetry=false;shownAmbienceLift=shownOpeningWeight=0;shownAudioLimit=attendance::core::NormalMaximumDb;shownDecisiveUntil=shownHighUntil=0;visibilityGeneration=0;
     shownHalftime=shownArriving=0;shownNeutral=false;shownConference=shownHfa=shownConferenceKnown=shownBigAtmosphere=false;shownTeam0=shownTeam1=-1;
@@ -1286,6 +1288,7 @@ void readSettings(){
     core->skillMoves=number(L"Atmosphere",L"SkillMoveReactions",1,0,1)!=0;
     core->staggeredCheers=number(L"Atmosphere",L"StaggeredMajorCheers",1,0,1)!=0;
     core->contextReactions=number(L"Atmosphere",L"PackedBigGameReactions",1,0,1)!=0;
+    core->upsetWatch=number(L"Atmosphere",L"UpsetWatchAtmosphere",1,0,1)!=0;
     core->cameraShake=number(L"Atmosphere",L"CameraShake",1,0,1)!=0;
     nativeShakeMinimum=number(L"Dynamic Gameday Broadcast",L"NativeShakeMinimumFullnessPercent",50,0,100);
     auto motion=std::make_shared<attendance::motion::Settings>();
@@ -1442,6 +1445,7 @@ void atmosphereTick(){
         std::shared_ptr<const attendance::sustained::Intent> quiet=std::make_shared<attendance::sustained::Intent>();std::atomic_store(&sustainedIntent,quiet);
         auto wanted=audioWanted();std::lock_guard<std::mutex> guard(atmosphereMutex);
         finishLiveAudit("pause, replay or game-scene interruption");shownOpeningDrive=shownHostileOpening=false;
+        shownUpsetStage=0;shownUpsetSound=false;shownUpsetMinimum=1.01f;
         lineupAtmosphere.suspend();openingKickoffAtmosphere.suspend();liveReactions.suspend();skillReactions.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();returnAtmosphere.reset();reactionDistance.reset();passFlight.reset();liveReactionUntil=0;shownLineup=false;lastAtmospherePhase=-1;
         std::shared_ptr<const attendance::motion::Cue> quietCamera=std::make_shared<attendance::motion::Cue>(cameraMotion.suspend(now));std::atomic_store(&cameraCue,quietCamera);
         shownHighUntil=0;
@@ -1493,6 +1497,14 @@ void atmosphereTick(){
     float hadMinimum=hadLayers?lineupAtmosphere.qualifiedMinimum:1.01f;
     auto previousHostileCheer=lineupAtmosphere.match==match&&lineupAtmosphere.epoch==epoch?lineupAtmosphere.hostileCheer:0;
     lineupAtmosphere.observe(*std::atomic_load(&coreSettings),p,match,epoch,now,enabled&&audioSetting&&mode==0&&fullnessReady,remaining,fullnessReady,&result,fullnessReady?rendered->seats:0);
+    const auto& upsetSound=lineupAtmosphere.upsetSound;
+    if(shownUpsetStage!=upsetSound.stage||shownUpsetSound!=upsetSound.qualified){
+        std::ostringstream message;message<<attendance::upsetsound::name(upsetSound.stage);
+        if(upsetSound.stage)message<<"; "<<(upsetSound.qualified?"sound route qualified":"waiting for enough fans")<<" at "<<100*remaining<<"% fullness (needs "<<100*upsetSound.minimum<<"%). Packed-house and volume limits unchanged.";
+        else message<<"; separate sound route settled or unavailable.";
+        log("upset-watch",message.str());
+    }
+    shownUpsetStage=upsetSound.stage;shownUpsetSound=upsetSound.qualified;shownUpsetMinimum=upsetSound.minimum;
     bool hostile=lineupAtmosphere.hostileOpening;
     shownHostileOpening=hostile;
     if(hostile&&lineupAtmosphere.hostileCheer&&lineupAtmosphere.hostileCheer!=previousHostileCheer)log("opening",p.game.neutral?"Neutral-site opening offensive play: shared crowd cheers, roar and swell; stadium-size camera strength and existing volume limits apply.":"Visitors have the opening offensive play: hostile defensive roar and swell (no added lineup cheer); stadium-size camera strength and existing volume limits apply.");
@@ -2201,7 +2213,10 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("ATMOSPHERE & CAMERA - LIVE EFFECTS");
     report.field("Opening-drive allowance")<<(shownOpeningDrive?"qualified at critical-down fullness":"inactive / first possession ended or below requirement")<<"\n";
-    report.field("Play-call atmosphere")<<(!audio->enabled||!audio->lineups?"disabled":shownLineup?(shownPackedHouse?"packed-house buildup active":"active"):shownBigAtmosphere?"big game; waiting for lineup / enough fans":"waiting for packed stadium, OT or late scoring drive")<<"\n";
+    report.field("Play-call atmosphere")<<(!audio->enabled||!audio->lineups?"disabled":shownLineup?(shownPackedHouse?"packed-house buildup active":"active"):shownBigAtmosphere?"big game; waiting for lineup / enough fans":"waiting for a qualifying lineup / enough fans")<<"\n";
+    report.field("Upset Watch sound")<<(!audio->enabled||!audio->lineups||!audio->upsetWatch?"disabled":attendance::upsetsound::name(shownUpsetStage))<<"; ";
+    if(shownUpsetStage)state<<(shownUpsetSound?"qualified":"waiting for enough fans")<<"; needs "<<100*shownUpsetMinimum.load()<<"% actual fullness; ";
+    state<<"separate from upset retention and packed house\n";
     report.field("Native excitement")<<crowdIntensity.native()<<" -> "<<crowdIntensity.output()<<" (game -> crowd soundscape; excitement, not volume %)\n";
     report.field("Situational reactions")<<(situationalReactionsEnabled?"enabled; home letdowns / defensive cheers":"disabled")<<"\n";
     report.field("During-play reactions")<<(!std::atomic_load(&liveReactionSettings)->enabled?"disabled":!liveReactionBindings?"unavailable":"enabled; qualifying layered plays only")<<"\n";
