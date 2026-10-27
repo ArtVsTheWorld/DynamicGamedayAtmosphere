@@ -84,11 +84,15 @@ namespace DynamicGamedayAtmosphere
             if(!first)return;
             new Thread(()=>
             {
-                var attempted=new HashSet<string>();
+                var attempted=new LaunchClaims();var errors=new LaunchBackoff();var clock=Stopwatch.StartNew();
+                string watcherStep="create runtime folder",watcherFile=RuntimeFolder;
+                string mmcElevation=LaunchDiagnostics.Elevation(Process.GetCurrentProcess().Id);
                 try
                 {
                     Directory.CreateDirectory(RuntimeFolder);
-                    Extract(BuildInfo.NativeFile,false);Extract("LoadDynamicGamedayAtmosphere.exe",false);
+                    watcherStep="extract native runtime";watcherFile=Path.Combine(RuntimeFolder,BuildInfo.NativeFile);Extract(BuildInfo.NativeFile,false);
+                    watcherStep="extract runtime loader";watcherFile=Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe");Extract("LoadDynamicGamedayAtmosphere.exe",false);
+                    watcherStep="read embedded default settings";watcherFile=null;
                     string defaults;using(var input=typeof(AttendanceAction).Assembly.GetManifestResourceStream("Attendance.DynamicGamedayAtmosphere.ini"))
                     using(var reader=new StreamReader(input))defaults=reader.ReadToEnd();
                     // An Update 2 runtime still uses the loose settings file.
@@ -96,40 +100,57 @@ namespace DynamicGamedayAtmosphere
                     bool moving=File.Exists(Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere.ini"))||File.Exists(Path.Combine(PluginsFolder,"DynamicAttendance.ini"));
                     bool noted=false;
                     while(moving){
+                        watcherStep="wait for the running game before migrating settings";
                         var active=Process.GetProcessesByName("CollegeFB27");bool running=active.Length>0;foreach(var process in active)process.Dispose();
                         if(!running)break;
                         if(!noted){Note(logger,"Close the game once to move DGA settings into its own folder. The running game's old settings are preserved until then.");noted=true;}
                         Thread.Sleep(1000);
                     }
-                    PluginStorage.Ensure(PluginsFolder,defaults);
+                    watcherStep="prepare or migrate DGA settings";watcherFile=PluginStorage.SettingsFile(PluginsFolder);PluginStorage.Ensure(PluginsFolder,defaults);
                     Note(logger,"Settings: "+PluginStorage.SettingsFile(PluginsFolder)+". Former loose DGA files, if present, are preserved in its Backups folder.");
-                    Extract("DgaDiagnostics.exe",false);
-                    Note(logger,"Launch watcher started. Automatic crowd departures are restricted to the verified offline Dynasty game layout.");
+                    watcherStep="extract diagnostics tool";watcherFile=Path.Combine(DataFolder,"Tools","DgaDiagnostics.exe");Extract("DgaDiagnostics.exe",false);
+                    Note(logger,"DGA "+BuildInfo.Version+" launch watcher started | MMC PID "+Process.GetCurrentProcess().Id+" | MMC permissions: "+mmcElevation+". Automatic crowd departures are restricted to the verified offline Dynasty game layout.");
                     while(true)
                     {
+                        watcherStep="enumerate game processes";watcherFile=null;var present=new HashSet<int>();
                         foreach(var game in Process.GetProcessesByName("CollegeFB27"))using(game)
                         {
+                            int pid=game.Id;present.Add(pid);if(!errors.Due(pid,clock.ElapsedMilliseconds))continue;
+                            string operation="check game readiness",file=null;bool loadAttempted=false;
                             try
                             {
-                                if(game.HasExited||game.MainWindowHandle==IntPtr.Zero||(DateTime.UtcNow-game.StartTime.ToUniversalTime()).TotalSeconds<20)continue;
-                                string identity=game.Id+":"+game.StartTime.ToUniversalTime().Ticks;
-                                if(!attempted.Add(identity))continue;
-                                string arguments=game.Id+" \""+Path.Combine(RuntimeFolder,BuildInfo.NativeFile)+"\"";
-                                using(var child=Process.Start(new ProcessStartInfo(Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe"),arguments)
-                                {WorkingDirectory=RuntimeFolder,UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardOutput=true,RedirectStandardError=true}))
+                                long started;if(!LaunchReadiness.Read(new LaunchProcess(game),DateTime.UtcNow,out started))continue;
+                                string recovered=errors.Recovered(pid);if(recovered!=null)Note(logger,recovered);
+                                if(!attempted.Take(pid,started))continue;loadAttempted=true;
+                                file=Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe");
+                                string arguments=pid+" \""+Path.Combine(RuntimeFolder,BuildInfo.NativeFile)+"\"";
+                                Note(logger,"Starting runtime loader | PID "+pid+" | MMC permissions: "+mmcElevation+" | Game permissions: "+LaunchDiagnostics.Elevation(pid)+" | Loader: "+file+" | Runtime: "+Path.Combine(RuntimeFolder,BuildInfo.NativeFile));
+                                operation="start runtime loader executable";
+                                using(var child=new Process())
                                 {
-                                    if(child==null)throw new IOException("Loader did not start");
-                                    string output=child.StandardOutput.ReadToEnd();string errors=child.StandardError.ReadToEnd();child.WaitForExit();
-                                    if(child.ExitCode!=0)throw new IOException("Loader exited "+child.ExitCode+": "+errors+output);
-                                    Note(logger,"Runtime loaded for PID "+game.Id+". Activation status is in "+Path.Combine(LogsFolder,"DynamicGamedayAtmosphere.log")+".");
+                                    child.StartInfo=new ProcessStartInfo(file,arguments){WorkingDirectory=RuntimeFolder,UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
+                                    var output=new LaunchCapture();var stderr=new LaunchCapture();
+                                    child.OutputDataReceived+=(sender,line)=>output.Add(line.Data);child.ErrorDataReceived+=(sender,line)=>stderr.Add(line.Data);
+                                    if(!child.Start())throw new IOException("Loader did not start");
+                                    operation="read runtime loader output";child.BeginOutputReadLine();child.BeginErrorReadLine();
+                                    operation="wait for runtime loader to finish";
+                                    if(!child.WaitForExit(30000))throw new TimeoutException("Loader has not finished after 30 seconds. Loading may still be pending; another load will not be attempted in this game process.");
+                                    child.WaitForExit();operation="check runtime loader result";
+                                    if(child.ExitCode!=0)throw new IOException("Loader exit "+child.ExitCode+": "+LaunchDiagnostics.OneLine(stderr.Text+" "+output.Text));
+                                    Note(logger,"Runtime loaded for PID "+pid+". Activation status is in "+Path.Combine(LogsFolder,"DynamicGamedayAtmosphere.log")+".");
+                                    if(!String.IsNullOrWhiteSpace(stderr.Text))Note(logger,"Loader diagnostic | PID "+pid+" | "+LaunchDiagnostics.OneLine(stderr.Text));
                                 }
                             }
-                            catch(Exception error){Note(logger,"Could not activate: "+error.Message+". Restart the game before retrying.");}
+                            catch(Exception error){
+                                if(loadAttempted)Note(logger,LaunchDiagnostics.Failure(pid,operation,file,error)+" | No further runtime load will be attempted in this game process. Restart both MMC and the game after resolving the reported restriction.");
+                                else {string note=errors.Failed(pid,clock.ElapsedMilliseconds,operation,file,error);if(note!=null)Note(logger,note+" | MMC permissions: "+mmcElevation+" | Game permissions: "+LaunchDiagnostics.Elevation(pid)+". Check administrator-level differences or a reported security block.");}
+                            }
                         }
+                        errors.Retain(present);attempted.Retain(present);
                         Thread.Sleep(1000);
                     }
                 }
-                catch(Exception error){try{Note(logger,"Watcher stopped: "+error.Message);}catch{}}
+                catch(Exception error){try{Note(logger,"Watcher stopped | "+LaunchDiagnostics.Failure(Process.GetCurrentProcess().Id,watcherStep,watcherFile,error));}catch{}}
                 finally{Interlocked.Exchange(ref watching,0);}
             }){IsBackground=true,Name="Dynamic Gameday Atmosphere launch watcher"}.Start();
         }

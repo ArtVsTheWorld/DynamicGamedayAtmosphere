@@ -7,7 +7,7 @@ struct Settings {
     int enabled=1; Profile profile=Profile::Automatic;
     int comebackDeficit=21,comebackRecovered=14,comebackDeteriorationSeconds=60;
     int warningEnabled=1,formulaStrength=100,quarterCap=45,transitionCap=4;
-    int lateTraffic=1;
+    int lateTraffic=1,lateTrafficQuarterExtra=10;
 };
 struct State {
     int quarter=0,homeScore=0,awayScore=0,phase=0;float seconds=0,quarterSeconds=0;

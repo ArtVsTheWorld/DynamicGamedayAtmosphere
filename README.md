@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 diagnostics work (1.56.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 diagnostics work (1.57.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -31,7 +31,7 @@ The working build shows **Stadium Fullness** beside Resume in the regular pause 
 
 ## Problems?
 
-[Open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose) with your plugin/game/MMC versions, matchup, settings and logs. Logs are in `Plugins/DynamicGamedayAtmosphere/Logs/`.
+[Open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose) with your plugin/game/MMC versions, matchup, settings and logs. Logs are in `Plugins/DynamicGamedayAtmosphere/Logs/`. Activation errors in `launcher.log` name the failed step and Windows error. Compare the reported MMC/game administrator levels when access is denied.
 
 For missing audio, disable Soundscape's `Enabled` option and restart MMC and the game. Re-enabling it also needs a restart. There is no EXE hash requirement, but an EA update may still require new game bindings.
 

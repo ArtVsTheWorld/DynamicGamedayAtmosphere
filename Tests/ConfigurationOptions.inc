@@ -32,6 +32,7 @@ inline NumericOption options[]={
 {L"Dynamic Gameday Attendance",L"MaximumDeparturePerQuarter",45.0,1.0,50.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->quarterCap);}},
 {L"Dynamic Gameday Attendance",L"MaximumDeparturePerTransition",4.0,1.0,20.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->transitionCap);}},
 {L"Dynamic Gameday Attendance",L"LateTrafficEnabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->lateTraffic);}},
+{L"Dynamic Gameday Attendance",L"LateTrafficExtraQuarterAllowance",10.0,0.0,10.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->lateTrafficQuarterExtra);}},
 {L"Dynamic Gameday Attendance",L"LateTurnoverExtraMax",10.0,0.0,15.0,1,[]()->double{return static_cast<double>(lateTurnoverMaximum);}},
 {L"Dynamic Gameday Attendance",L"FormulaStrength",100.0,0.0,200.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->formulaStrength);}},
 {L"Dynamic Gameday Soundscape",L"LayeredAtmosphereEnabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->enabled);}},

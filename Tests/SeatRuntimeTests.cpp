@@ -335,8 +335,10 @@ int main(){
     testPut(reinterpret_cast<A>(world.clock.data())+0x28,119.f);
     lastDecision=0;assert(guardedDecision());assert(activeLoss==caughtUp);checkScene(q4Scene,caughtUp);
     world.phase(5);lastDecision=0;assert(guardedDecision());
-    int warningLoss=activeLoss;assert(warningLoss>=caughtUp&&warningLoss-caughtUp<=settings->transitionCap);
-    assert(warningLoss<=departureModel.periodStartLoss+settings->quarterCap);checkScene(q4Scene,warningLoss);
+    // The long held lineup can earn the new late-traffic allowance. It is
+    // reconciled only at this hidden break, sharing the once-only warning budget.
+    int warningLoss=activeLoss;assert(warningLoss>=caughtUp&&warningLoss-caughtUp<=(std::max)(settings->transitionCap,settings->lateTrafficQuarterExtra));
+    assert(warningLoss<=departureModel.periodStartLoss+settings->quarterCap+settings->lateTrafficQuarterExtra);checkScene(q4Scene,warningLoss);
     auto warningHazard=departureModel.hazard;
     for(int repeat=0;repeat<5;++repeat){lastDecision=0;assert(guardedDecision());assert(activeLoss==warningLoss&&departureModel.hazard==warningHazard);checkScene(q4Scene,warningLoss);}
     mode=2;assert(guardedApply(false,true));

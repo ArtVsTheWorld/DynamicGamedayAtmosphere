@@ -117,6 +117,7 @@ struct Model {
     int plannedLoss=0,plannedPeriod=0,plannedStart=0;
     int fourthBreakGroup=0;bool fourthBreakNotice=false;
     float lastHomeScoreAt=-1;bool trafficQueued=false;
+    int trafficQuarterPolicy=0;
     int windowBudget=100;
     float windowAt=-1;int windowHome=-1,windowAway=-1;
     int visibleLow=0,visibleHigh=100,visibleBudget=100;
@@ -150,11 +151,17 @@ struct Model {
         visibleBudget=allowance;visibleBound=false;visibleLow=0;visibleHigh=100;
     }
     void reset(){*this=Model{};}
+    int quarterLimit(const State& raw,float time,int maximumPerQuarter)const{
+        int cap=(std::clamp)(maximumPerQuarter,1,50);
+        if(raw.playoff)return (std::min)(cap,championship(raw)?10:20);
+        if(raw.quarter!=4||time<3.75f*raw.quarterSeconds||time>4*raw.quarterSeconds)return cap;
+        State s=raw;s.seconds=4*s.quarterSeconds-time;
+        return cap+traffic::extraQuarterAllowance(s,lastHomeScoreAt,trafficQuarterPolicy);
+    }
     void boundPressure(const State& s,float time,int maximumPerQuarter){
         int period=(std::min)(4,1+static_cast<int>(time/s.quarterSeconds+0.00001f));
         if(period!=plannedPeriod){plannedPeriod=period;plannedStart=plannedLoss;}
-        int cap=(std::clamp)(maximumPerQuarter,1,50);
-        if(s.playoff)cap=(std::min)(cap,championship(s)?10:20);
+        int cap=quarterLimit(s,time,maximumPerQuarter);
         int allowed=(std::max)(plannedLoss,(std::min)(lossCeiling(s),plannedStart+cap));
         double ceiling=-std::log((std::max)(0.000001,1-allowed/100.0));
         hazard=(std::min)(hazard,ceiling);
@@ -170,6 +177,7 @@ struct Model {
         if(!valid(s)||(!authoritative&&s.phase!=1&&s.phase!=5&&s.phase!=6))return false;
         float now=elapsedGameTime(s);
         if(seen&&(now+0.01f<elapsed||s.homeScore<previous.homeScore||s.awayScore<previous.awayScore||s.quarterSeconds!=length))return false;
+        trafficQuarterPolicy=enabled&&c.enabled&&c.formulaStrength>0&&c.lateTraffic&&stayFactor(s,h)>0?(std::clamp)(c.lateTrafficQuarterExtra,0,10):0;
         if(!enabled||!c.enabled||!c.formulaStrength||stayFactor(s,h)<=0||s.quarter>4){
             // Protection stops future exits and cancels fractional pressure;
             // already-earned exits do not depend on the next camera window.
@@ -205,10 +213,13 @@ struct Model {
                 double traffic=(std::min)(trafficTarget(c,previous,priorHistory,mid,previousScoreAt),trafficTarget(c,s,h,mid,lastHomeScoreAt));
                 bool faster=traffic>target;target=(std::max)(target,traffic);
                 // Ordinary catch-up takes about 90 game seconds at 12-minute
-                // quarters; hopeless late traffic closes its gap in about 15.
+                // quarters; hopeless late traffic closes its gap in about
+                // 10-15, depending on the deficit and recovery outlook.
                 // Endpoint agreement
                 // prevents charging a new blowout to earlier competitive time.
-                double extra=(std::max)(0.0,target-hazard)*-std::expm1(-(b-a)/(length/(faster?48.0:8.0)));
+                State urgency=s;urgency.seconds=4*length-mid;
+                double speed=faster?48+24*traffic::blowoutUrgency(urgency,lastHomeScoreAt):8;
+                double extra=(std::max)(0.0,target-hazard)*-std::expm1(-(b-a)/(length/speed));
                 hazard+=extra+ordinary*0.5;catchupQueued=catchupQueued||extra>0.000000001;trafficQueued=trafficQueued||(faster&&extra>0.000000001);
                 if(mid>=length&&mid<=2*length&&minimumStart>=0){
                     auto halfTarget=[&](const State& x,const History& story){
@@ -255,7 +266,7 @@ struct Model {
         const int before=currentLoss;currentLoss=(std::max)(currentLoss,committedLoss);
         int period=(std::min)(4,1+static_cast<int>(elapsedGameTime(s)/s.quarterSeconds+0.00001f));
         if(period!=capPeriod){capPeriod=period;periodStartLoss=currentLoss;}
-        int cap=(std::clamp)(maximumPerQuarter,1,50);if(s.playoff)cap=(std::min)(cap,championship(s)?10:20);
+        int cap=quarterLimit(s,elapsedGameTime(s),maximumPerQuarter);
         int allowed=(std::min)(lossCeiling(s),periodStartLoss+cap);
         int requested=(std::min)(100,currentLoss+(std::clamp)(extra,0,25));
         // Fold verified external late-score exits into the same history once.

@@ -1,6 +1,6 @@
 # Diagnostics â€” working Update 3 build
 
-Working build **1.56.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.57.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.56.0/
+    Runtime-1.57.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -115,3 +115,13 @@ These additions pass automated checks but still need a fresh-process in-game che
 - For a major play or eruption, listen for at most one additional cheer after the initial hit. Logs label it Staggered second cheer; a voice-limit skip is intentional and must never backfill later.
 
 Optional skill signatures fail closed without preventing other features from loading. New SkillMoveReactions, StaggeredMajorCheers and PackedBigGameReactions switches are in Dynamic Gameday Soundscape. Existing settings and volume limits are preserved. No release package or public release was created for this working build.
+
+## 1.57.0 launcher and late-traffic checks
+
+The launch watcher now reports the exact process/file operation, PID, Windows error and HRESULT instead of a generic Access is denied. It reports MMC/game administrator levels where readable. Metadata checks retry after 5, 15, 30 and then 60 seconds, with coalesced unchanged-error summaries and a recovery notice. The native loader names failed file, process, module, memory and thread operations and captures error codes before cleanup can change them. The same game process receives only one actual runtime-load attempt; a timeout is treated as possibly pending, not permission to inject again. These changes report restrictions; they do not change Windows permissions or game security settings.
+
+The late home-blowout traffic rule now builds urgency faster in the final 25% of Q4. Deficits of 17+ use the stronger ramp, while hopeless 28+ deficits can use the approved extra quarter allowance, up to ten original-crowd points. Default 45 can therefore reach at most 55; the actual allowance is smaller in less decisive situations. Crowd floors, comeback protection, safe visibility windows and postseason limits stay in force. New LateTrafficExtraQuarterAllowance=0 restores the absolute ordinary cap, without turning traffic target acceleration off. LateTrafficEnabled=0 disables both. Status shows the live bound and why further departures may be limited.
+
+For a live check after restarting, test a close game becoming a 28–35-point home loss inside the final three minutes of a 12-minute Q4. Check that exits settle at breaks/inside Super Sim, never visibly during live action, and that a late rally cannot refill earlier permanent departures. Check a different quarter length too. The integrated build is staged; the running 1.56.0 game is unchanged.
+
+The proposed additional Upset Watch sound route is not implemented in this build. The UNC–Notre Dame read-only sample showed rank 120 versus 12, 15,371 occupied positions out of 27,663 (55.6%), full original attendance and an 83.3% packed-house requirement. Upset retention was active; added play-call sound layers were not qualified. This needs a separate reviewed qualification route, rather than redefining this half-full stadium as packed.

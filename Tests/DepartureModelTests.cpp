@@ -49,7 +49,7 @@ CadenceRun variedWindows(int minutes,int interval,bool rally,bool postseason=fal
         if(tick%interval==0||tick%720==0||tick==2880){
             s.phase=5;d.beginWindow(s,c.transitionCap);int before=loss;
             loss=d.settle(s,loss,0,c.quarterCap).loss;
-            assert(loss>=before&&loss<=lossCeiling(s)&&loss-d.periodStartLoss<=c.quarterCap);
+            assert(loss>=before&&loss<=lossCeiling(s)&&loss-d.periodStartLoss<=c.quarterCap+(s.quarter==4&&!s.playoff?10:0));
         }
     }
     return {loss,d.plannedLoss,d.hazard};
@@ -238,7 +238,7 @@ int main(){
     // Compare complete score paths and confirm quarter-length normalization.
     s={1,0,0,5,720,720};s.rank0=26;s.rank1=50;
     auto lateLoss=lateBlowout(s,false),lateWin=lateBlowout(s,true);
-    assert(lateLoss.final>=45&&lateLoss.final<=lateLoss.q4+c.quarterCap);
+    assert(lateLoss.final>=45&&lateLoss.final<=lateLoss.q4+c.quarterCap+10);
     assert(lateWin.final+10<lateLoss.final);
     context=s;context.rivalry=true;assert(lateBlowout(context,false).final==lateLoss.final);
     auto frequent=lateBlowout(s,false,1),infrequent=lateBlowout(s,false,30);
@@ -255,7 +255,7 @@ int main(){
     assert(steadyFine.final==steadyCoarse.final&&std::abs(steadyFine.hazard-steadyCoarse.hazard)<0.0001);
     for(int minutes=1;minutes<=20;++minutes){
         context=s;context.quarterSeconds=static_cast<float>(minutes*60);
-        auto r=lateBlowout(context,false,1);assert(r.final>=40&&r.final-r.q4<=c.quarterCap);
+        auto r=lateBlowout(context,false,1);assert(r.final>=40&&r.final-r.q4<=c.quarterCap+10);
         assert(lateBlowout(context,true,1).final+8<r.final);
     }
     // Early home routs earn exits before halftime without backdating a new score.

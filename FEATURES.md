@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.56.0 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.57.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -116,7 +116,7 @@ Playoff, conference championship and national championship crowds are more patie
 
 ### Protection against sudden huge drops
 
-Permanent departures are capped in each quarter at 45 percentage points of the original crowd in ordinary games, 20 in playoffs and conference championships, and 10 in the national championship. For example, a 45-point cap permits a change from 90% to 45%; it is not a 45% cut applied repeatedly to whoever remains.
+The standard permanent-departure cap in each quarter is 45 percentage points of the original crowd in ordinary games, 20 in playoffs and conference championships, and 10 in the national championship. For example, a 45-point cap permits a change from 90% to 45%; it is not a 45% cut applied repeatedly to whoever remains.
 
 Late-score departures share that cap. Departures blocked by the cap are discarded rather than waiting to hit all at once later. Temporary halftime absences have their own limits.
 
@@ -138,7 +138,9 @@ Ordinary departures stop in overtime. The existing crowd remains rather than bei
 
 During the last quarter of Q4, home crowds can leave faster when a comeback is slipping away. With 12-minute quarters, this is the final three minutes. A larger deficit, less time, fewer timeouts and the opponent having possession make departures more urgent. Home possession, a nearby scoring opportunity and a recent home score add patience. That recent-scoring boost fades with game time, and an opponent score cancels it. Unknown possession or timeout data uses a patient fallback.
 
-The system moves toward a crowd target, so it does not subtract another percentage every time it updates. It can catch up much faster than the ordinary blowout rule, while keeping the same crowd floors, quarter limit and hidden seat-update windows. Fans who already left do not return after a score. Winning home crowds keep their existing patience. Postseason crowds receive a smaller traffic target only in clear blowouts; neutral-site games retain their symmetric rules.
+The system moves toward a crowd target, so it does not subtract another percentage every time it updates. For a home deficit of 17 or more, urgency builds over the opening tenth of this window and severe losses move more quickly toward the applicable crowd floor. Its response takes roughly 10–15 game seconds with 12-minute quarters, scaled for other lengths. Hidden seat-update windows still control when changes become visible. Fans who already left do not return after a score. Winning home crowds keep their existing patience. Postseason crowds receive a smaller traffic target only in clear blowouts; neutral-site games retain their symmetric rules.
+
+A home team losing by 28 or more can use a limited extra Q4 allowance in that late window. At the default setting, up to ten additional points of the original crowd may leave beyond the normal 45-point quarter cap. The amount responds to the deficit, remaining clock and recovery outlook; it is an allowance, not an automatic crowd cut. All crowd floors and comeback protection still apply. It never applies to winning home teams, neutral venues or postseason games. Set LateTrafficExtraQuarterAllowance to 0 to keep the ordinary cap absolute; LateTrafficEnabled=0 disables both traffic acceleration and this exception. Status shows the current quarter budget, minimum remaining crowd allowed and whether the floor, quarter limit or comeback protection is holding departures back.
 
 A verified late home interception or lost fumble can also send a group home when it sharply reduces the recovery outlook. This can include a one-score loss when the opponent can run out the clock with kneel-downs. The group is capped at ten original-crowd percentage points by default and runs once for the turnover. Hopeful comebacks stay protected; neutral and postseason games are excluded from this event group. The old late-score group remains. A return touchdown uses the larger of its score and turnover groups, without adding both together. Settings allow the continuous traffic acceleration and turnover group to be disabled separately.
 
@@ -377,9 +379,11 @@ The status report separates the matchup, visible attendance, current sound level
 
 Play summaries record the confirmed event and whether added reactions qualified. A numbered live-reaction entry records the gain, clock, fullness and camera cue. Matching audio entries say whether a cheer was sent to the game, was already playing, was skipped because native reaction layers were full, or missed its window during a scene change. Primary cheers are requested at the confirmed trigger. An optional single second accent for major plays has its own short, logged delay. A blocked cheer does not wait in a queue to pop up later. A sent sound event or prepared camera cue confirms dispatch, not what a particular speaker mix or camera ultimately showed. Pause, replay, injury and other presentation changes can interrupt effects.
 
+Launcher failures name the failed operation, game process ID, relevant file and Windows error code/HRESULT where available. For example, a denied game start-time query is distinguished from a blocked loader executable, module enumeration or runtime-load operation. Reports include whether MMC and the game are running as administrator when Windows allows that read-only check. Repeated process-check failures back off through 5, 15, 30 and 60 seconds; unchanged failures are summarized rather than logged every second. A changed error or recovery gets its own notice. Runtime loading stays once per game-process/start-time identity, including uncertain failures, so a blocked or pending load cannot create repeated injection attempts.
+
 The main log clears before it would pass its size limit, about 2 MB by default. The status file is overwritten. Crowd-history storage is also bounded.
 
-The plugin checks the game's internal layout before activating and has no EXE hash requirement. Game updates can require a plugin update. This release contains the plugin DLL, the short README and this feature list. Test tools, showcase controls and installer scripts are not included.
+The plugin checks the game's internal layout before activating and has no EXE hash requirement. Game updates can require a plugin update. The plugin DLL contains its native runtime and local preview tool; the short README and this feature list are separate. Installer scripts are not required.
 
 Each setting in `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini` has a plain-language explanation, including valid ranges and how related switches interact. Updating from an older version refreshes help for known settings once while preserving values, custom disables and unknown settings.
 

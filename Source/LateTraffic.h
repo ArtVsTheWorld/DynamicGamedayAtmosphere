@@ -20,13 +20,25 @@ inline float recovery(const State& s,float recent=0){
     float lift=.25f*(std::clamp)(recent,0.f,1.f)*(1-chance)*context::smooth(chance*2);
     return (std::clamp)(chance+lift,0.f,1.f);
 }
-inline float activation(const State& s){return lateHomeGame(s)?context::smooth((window(s)-s.seconds)/(window(s)*.20f)):0;}
+inline float activation(const State& s){return lateHomeGame(s)?context::smooth((window(s)-s.seconds)/(window(s)*(!s.playoff&&s.awayScore-s.homeScore>=17?.10f:.20f))):0;}
+inline float blowoutUrgency(const State& s,float scoredAt=-1){
+    if(!lateHomeGame(s)||s.playoff||s.awayScore-s.homeScore<17)return 0;
+    return activation(s)*context::smooth((s.awayScore-s.homeScore-16)/19.f)*(1-recovery(s,recentScore(s,scoredAt)));
+}
+inline int extraQuarterAllowance(const State& s,float scoredAt,int maximum){
+    int deficit=s.awayScore-s.homeScore;
+    if(!lateHomeGame(s)||s.playoff||deficit<28)return 0;
+    float severity=.6f+.4f*context::smooth((deficit-28)/14.f);
+    float hopeless=1-recovery(s,recentScore(s,scoredAt));
+    return static_cast<int>(std::lround((std::clamp)(maximum,0,10)*severity*hopeless*activation(s)));
+}
 inline float lossTarget(const State& s,float scoredAt=-1){
     int deficit=s.awayScore-s.homeScore;
     if(!lateHomeGame(s)||deficit<=8||(s.playoff&&deficit<17))return 0;
     float hopeless=1-recovery(s,recentScore(s,scoredAt));
     float target=30+45*context::smooth((deficit-8)/27.f);
     if(s.playoff)target=lossCeiling(s)*(target/75.f)*(championship(s)?.35f:.60f);
+    else if(deficit>=17)target+=(lossCeiling(s)-target)*context::smooth((deficit-16)/19.f)*hopeless;
     return target*std::pow(hopeless,.8f)*activation(s);
 }
 }

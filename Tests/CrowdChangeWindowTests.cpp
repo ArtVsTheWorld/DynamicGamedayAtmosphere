@@ -45,7 +45,9 @@ int main(){
     assert(model.catchupQueued);s.phase=3;assert(!entry());
     s.phase=5;assert(entry());model.observe(exits,s,history);
     auto catchup=model.settle(s,loss);loss=catchup.loss;
-    assert(catchup.catchup&&loss>6&&loss<=51);
+    // The 35-point late home loss can use eight extra quarter points, but
+    // none of them became visible during the held lineup/live-view sequence.
+    assert(catchup.catchup&&loss>51&&loss<=59);
     s.seconds=100;model.observe(exits,s,history);assert(!entry());assert(loss==catchup.loss);
     s.quarter=5;s.seconds=s.quarterSeconds;assert(entry()); // A real new quarter is a break even if the phase stays PlayCall.
     window.observe(456,State{1,0,0,6,900,900});assert(window.take(456,State{1,0,0,6,900,900}));

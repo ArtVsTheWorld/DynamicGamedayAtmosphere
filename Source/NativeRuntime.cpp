@@ -1273,6 +1273,7 @@ void readSettings(){
     c->quarterCap=number(L"Retention",L"MaximumDeparturePerQuarter",45,1,50);
     c->transitionCap=number(L"Retention",L"MaximumDeparturePerTransition",4,1,20);
     c->lateTraffic=number(L"Dynamic Gameday Attendance",L"LateTrafficEnabled",1,0,1);
+    c->lateTrafficQuarterExtra=number(L"Dynamic Gameday Attendance",L"LateTrafficExtraQuarterAllowance",10,0,10);
     lateTurnoverMaximum=number(L"Dynamic Gameday Attendance",L"LateTurnoverExtraMax",10,0,15);
     c->formulaStrength=number(L"Retention",L"FormulaStrength",100,0,200);
     auto energy=std::make_shared<attendance::energy::Settings>();
@@ -2237,6 +2238,18 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Arrival finish points")<<"normal "<<arrivalFinish<<"% / severe "<<arrivalLateFinish<<"% through Q1\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";
+    report.field("Late blowout extra quarter allowance")<<config->lateTrafficQuarterExtra<<" points maximum; 28+ home deficit in final 25% of Q4; floors/postseason limits preserved\n";
+    attendance::State trafficState;int trafficCap=0,trafficLimit=0,trafficLoss=0;
+    {std::lock_guard<std::mutex> guard(historyMutex);trafficState=departureModel.previous;if(attendance::valid(trafficState)){trafficCap=departureModel.quarterLimit(trafficState,attendance::elapsedGameTime(trafficState),config->quarterCap);trafficLimit=(std::min)(attendance::lossCeiling(trafficState),departureModel.periodStartLoss+trafficCap);trafficLoss=departureModel.committedLoss;}}
+    report.field("Late traffic check");
+    if(config->enabled&&config->formulaStrength>0&&config->lateTraffic&&mode==0&&attendance::valid(trafficState)&&attendance::traffic::lateHomeGame(trafficState)&&trafficState.awayScore-trafficState.homeScore>=17){
+        state<<"Q4 allowance "<<trafficCap<<" points; minimum crowd allowed now "<<100-trafficLimit<<"% of original; ";
+        if(trafficLoss>=attendance::lossCeiling(trafficState))state<<"crowd floor reached";
+        else if(trafficLoss>=trafficLimit)state<<"quarter limit reached";
+        else if(shownComeback)state<<"comeback protection still applies";
+        else state<<"exits accrue with game time; waiting targets use safe breaks";
+        state<<"\n";
+    }else state<<"inactive / outside a late home blowout\n";
     report.field("Safe-break step size")<<config->transitionCap<<" points before wait-time adjustments\n";
     report.field("Halftime seat-break strength")<<halftimeExtra<<"% of normal temporary break\n";
 

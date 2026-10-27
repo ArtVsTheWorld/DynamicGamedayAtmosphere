@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Path $plugins -Force | Out-Null
 $csc=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $native=$product.name+'Native-'+$product.version+'.dll'
 $resources=@(('/resource:'+(Join-Path $build $native)+',Attendance.'+$native),('/resource:'+(Join-Path $build 'LoadDynamicGamedayAtmosphere.exe')+',Attendance.LoadDynamicGamedayAtmosphere.exe'),('/resource:'+(Join-Path $source 'DynamicGamedayAtmosphere.ini')+',Attendance.DynamicGamedayAtmosphere.ini'),('/resource:'+(Join-Path $build 'DgaDiagnostics.exe')+',Attendance.DgaDiagnostics.exe'))
-& $csc /nologo /target:library /platform:x64 ('/out:'+(Join-Path $plugins 'DynamicGamedayAtmosphere.dll')) ('/reference:'+(Join-Path $MmcRoot 'FrostyCore.dll')) ('/reference:'+(Join-Path $MmcRoot 'FrostySdk.dll')) @resources (Join-Path $source 'MmcPlugin.cs') (Join-Path $source 'PluginSettings.cs') (Join-Path $source 'PluginStorage.cs') (Join-Path $build 'BuildInfo.cs')
+& $csc /nologo /target:library /platform:x64 ('/out:'+(Join-Path $plugins 'DynamicGamedayAtmosphere.dll')) ('/reference:'+(Join-Path $MmcRoot 'FrostyCore.dll')) ('/reference:'+(Join-Path $MmcRoot 'FrostySdk.dll')) @resources (Join-Path $source 'MmcPlugin.cs') (Join-Path $source 'LaunchDiagnostics.cs') (Join-Path $source 'PluginSettings.cs') (Join-Path $source 'PluginStorage.cs') (Join-Path $build 'BuildInfo.cs')
 if($LASTEXITCODE -ne 0){throw 'Adapter compilation failed'}
 & $csc /nologo ('/out:'+(Join-Path $fixture 'HostChecks.exe')) ('/reference:'+(Join-Path $MmcRoot 'FrostySdk.dll')) (Join-Path $root 'Tests\HostChecks.cs')
 if($LASTEXITCODE -ne 0){throw 'Host check compilation failed'}
