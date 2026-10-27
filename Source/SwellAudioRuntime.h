@@ -115,7 +115,7 @@ inline bool emit(const Api& api,Address image,Address manager,bool start,int siz
 using Note=void(*)(const char*);
 class Runtime {
     Address image_=0,manager_=0,world_=0,asset_=0,owner_=0;Api api_{};Note note_=nullptr;
-    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0,lastDiagnostic_=0,lastPassFlight_=0;unsigned failures_=0;
+    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0,lastDiagnostic_=0,lastPassFlight_=0,lastSkillAccent_=0;unsigned failures_=0,skillEpoch_=0;Address skillMatch_=0;
     std::atomic<bool> healthy_{true},playing_{false};std::atomic<unsigned> starts_{0},stops_{0};
     std::atomic<int> reason_{0};
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
@@ -159,7 +159,8 @@ public:
         bool quickRecovery=nativeInterrupted&&token&&token!=quickToken_&&now>=lastRefresh_&&now-lastRefresh_>=100;
         bool diagnosticHit=wanted.active&&wanted.diagnosticToken&&wanted.diagnosticToken!=lastDiagnostic_;
         bool passHit=gameplay_&&wanted.active&&wanted.passFlight&&wanted.passFlight!=lastPassFlight_;
-        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||passHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
+        bool skillHit=gameplay_&&wanted.active&&wanted.skillAccent&&(wanted.skillAccent!=lastSkillAccent_||wanted.match!=skillMatch_||wanted.epoch!=skillEpoch_);
+        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||passHit||skillHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
         if(!stop&&!refresh&&!episode_.canStart(wanted,now))return;
         if(now<retryUntil_||now-lastResolve_<100)return;lastResolve_=now;
         Endpoint endpoint(api_);
@@ -181,11 +182,12 @@ public:
             // Stock stop messages still run normally. Reassert the same native
             // looping channel during opening hype, before its release completes.
             bool attempted=false;
-            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,diagnosticHit?wanted.attackMs:500,4000,gameplay_)){
+            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,diagnosticHit||skillHit?wanted.attackMs:500,4000,gameplay_)){
                 healthy_=false;retryUntil_=now+1000;return;
             }
             if(quickRecovery)quickToken_=token;
             if(wanted.passFlight){lastPassFlight_=episode_.passFlight=wanted.passFlight;}
+            if(wanted.skillAccent){lastSkillAccent_=wanted.skillAccent;skillMatch_=wanted.match;skillEpoch_=wanted.epoch;}
             playingSize_=(std::clamp)(wanted.size,1,3);
             if(quickRecovery&&wanted.reason==Reason::Result&&note_)note_("Earned crowd reaction resumed after a native presentation stop; original play timing retained.");
             ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;lastDiagnostic_=wanted.diagnosticToken;++refreshes_;return;
@@ -205,6 +207,7 @@ public:
             lastResult_=wanted.resultCheer;
             lastDiagnostic_=wanted.diagnosticToken;
             if(wanted.passFlight)lastPassFlight_=wanted.passFlight;
+            if(wanted.skillAccent){lastSkillAccent_=wanted.skillAccent;skillMatch_=wanted.match;skillEpoch_=wanted.epoch;}
             playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
             playingSize_=adopt?(std::max)(wanted.size,nativeSize_.load()):(std::clamp)(wanted.size,1,3);
             handledStop_=nativeStops_.load();openingManager_=wanted.continuous||lineupReason(wanted.reason)?manager_:0;

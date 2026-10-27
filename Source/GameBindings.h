@@ -21,6 +21,10 @@ inline constexpr uintptr_t SackPredicate=0x61fcc30,ForcedFumblePredicate=0x61fd3
 inline constexpr uintptr_t FieldGoalBlockedPredicate=0x61fb890; // Broadcast key 32: match flags bit 8.
 inline constexpr uintptr_t LiveFootballEvent=0xe34f548,LiveFootballEventVtable=0xc292c60,LiveFootballEventType=0x275bbe0;
 inline constexpr uintptr_t PlayStats=0xf3d1fe0,SelectedPlayer=0xd9ce380,PlayerContexts=0xe3405a0;
+inline constexpr uintptr_t SkillCounters=0xfaccc78,SkillCountersVtable=0xbcceb78,HurdleCountGetter=0x7d65b30;
+// Native catch-drop observer: +0x175 is copied from the knockout payload,
+// also used for the native "Pass Dropped - KNOCKOUT!" event label.
+inline constexpr uintptr_t CatchSummary=0xe34fb90,CatchSummaryVtable=0xb1d96c8,CatchKnockoutStore=0x27909c8,CatchSummaryReset=0x2797912;
 // Same stadium DB capacity reader and attendance option used by
 // FootballMatchConditionsConstData. Reads only; no attendance/HFA mutation.
 inline constexpr uintptr_t StadiumCapacity=0x38bff60,OptionQuery=0x90934d0;

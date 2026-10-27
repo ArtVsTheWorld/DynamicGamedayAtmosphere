@@ -53,6 +53,15 @@ int main(){
     put(addr(replay[0])+0x38,static_cast<unsigned char>(1));skipped(addr(view[0]),cue.match,2,2000);put(addr(replay[0])+0x38,static_cast<unsigned char>(0));
     skipped(addr(view[0]),cue.match,3,2000);skipped(addr(view[0]),cue.match+8,2,2000);skipped(addr(view[0]),cue.match,2,2800);
     put(addr(settings[0])+0x41a,static_cast<unsigned short>(0));skipped(addr(view[0]),cue.match,2,2000);put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
+    // Both native Dynamic Camera Effects profiles block every added category,
+    // including earned close-ups, until re-enabled; no native setting is written.
+    for(unsigned offset:{0x3e6u,0x41au})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher}){
+        auto gated=cue;gated.kind=kind;gated.until=17000;put(addr(settings[0])+offset,static_cast<unsigned short>(0));
+        output=source;auto priorCount=r.changed();r.tick(addr(view[0]),output.data(),gated,cue.match,2,2000);
+        assert(output==source&&r.changed()==priorCount);
+        put(addr(settings[0])+offset,static_cast<unsigned short>(1));
+        output=source;r.tick(addr(view[0]),output.data(),gated,cue.match,2,2000);assert(output!=source&&r.changed()==priorCount+1);
+    }
     skipped(addr(foreign[0]),cue.match,2,2000);wrapper[2]=0;skipped(addr(view[0]),cue.match,2,2000);wrapper[2]=cue.match;
     auto count=r.changed();r.tick(addr(view[0]),reinterpret_cast<float*>(addr(view[0])+0x274),cue,cue.match,2,2000);assert(view==original&&count==r.changed());
     output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());

@@ -27,6 +27,7 @@ struct Intent {
     uint64_t playSequence=0;
     // Stable airborne-pass identity; no cheer, score or camera event.
     uint64_t passFlight=0;
+    uint64_t skillAccent=0;
 };
 inline bool passAnticipation(const Intent& wanted){return wanted.passFlight&&wanted.reason!=Reason::None&&!wanted.celebration&&!wanted.motionCompanion&&wanted.reason!=Reason::Result&&wanted.reason!=Reason::Eruption;}
 inline Intent supportingIntent(Intent wanted){

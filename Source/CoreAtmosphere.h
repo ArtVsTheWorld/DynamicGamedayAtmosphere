@@ -50,7 +50,7 @@ struct Model {
     double eruptionSeconds=EruptionSeconds,roarHoldSeconds=RoarHoldSeconds;
     double resultCheerAt=-1000;uint64_t resultCheer=0,resultSequence=0;int resultType=91;
     postplay::Profile resultProfile;float resultWeight=0;
-    bool resultScoring=false;
+    bool resultScoring=false,resultLongTouchdown=false;
     float eruptionMinimum=ReactionMinimumFullness,resultMinimum=ReactionMinimumFullness;
     void reset(){*this=Model{};}
     float eruptionWeight(double now)const{
@@ -76,28 +76,27 @@ struct Model {
         // ordinary matchups. Routine short first downs still need active layers.
         bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6;
         bool scoreUpgrade=scoring&&result.sequence==resultSequence&&!resultScoring;
+        bool longTouchdown=c.eruptions&&layeredActive&&postplay::longCloseTouchdown(result);
         if((!durationOwned||scoring||result.contextClincher)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
            (result.sequence!=resultSequence||scoreUpgrade)&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
            (now-resultCheerAt>=4||scoreUpgrade)&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
-            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s);resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring||result.contextClincher;resultMinimum=minimum;++resultCheer;
+            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s,longTouchdown);resultLongTouchdown=longTouchdown;resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring||result.contextClincher;resultMinimum=minimum;++resultCheer;
         }
         if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!std::isfinite(now))return false;
         // The verified tracker supplies only home scores, or either side at a neutral venue.
         if(result.side<0||result.side>1||(result.side==1&&!s.neutral))return false;
         energy::Event selected=result.event;
         bool contextStop=c.contextReactions&&result.contextEruption&&result.completed&&selected==energy::Event::GameSealingStop;
-        bool early=result.completed&&result.firstTouchdown&&result.openingPlay>=1&&result.openingPlay<=5&&s.quarter==1&&layeredActive;
+        bool early=result.completed&&result.firstTouchdown&&result.openingPlay>=1&&result.openingPlay<=energy::OpeningTouchdownPlayLimit&&s.quarter==1&&layeredActive;
         bool otTakeaway=result.completed&&result.takeaway&&overtime(s);
         bool lateTakeaway=energy::sealsRegulationTakeaway(result,s);
-        bool longTouchdown=result.completed&&(result.side==0?result.homePoints:result.awayPoints)>=6&&result.touchdownYards>=60&&result.touchdownYards<=110&&result.preSnapMargin>=0&&result.preSnapMargin<=8&&layeredActive;
         bool hailMary=result.accepted&&result.completed&&result.hailMary&&(result.side==0?result.homePoints:result.awayPoints)>=6&&layeredActive;
         if(early)selected=energy::Event::EarlyTouchdown;
-        if(longTouchdown)selected=energy::preferred(selected,energy::Event::ExplosiveTouchdown);
         if(hailMary)selected=energy::preferred(selected,energy::Event::HailMaryTouchdown);
         if(otTakeaway)selected=energy::preferred(selected,energy::Event::OvertimeTakeaway);
         if(lateTakeaway)selected=energy::preferred(selected,energy::Event::LateTakeaway);
-        if((selected==energy::Event::EarlyTouchdown&&!early)||(selected==energy::Event::OvertimeTakeaway&&!otTakeaway)||(selected==energy::Event::LateTakeaway&&!lateTakeaway)||(selected==energy::Event::ExplosiveTouchdown&&!longTouchdown)||(selected==energy::Event::HailMaryTouchdown&&!hailMary))return false;
-        if(!decisive(selected)&&!contextStop&&selected!=energy::Event::EarlyTouchdown&&selected!=energy::Event::OvertimeTakeaway&&selected!=energy::Event::LateTakeaway&&selected!=energy::Event::ExplosiveTouchdown&&selected!=energy::Event::HailMaryTouchdown)return false;
+        if((selected==energy::Event::EarlyTouchdown&&!early)||(selected==energy::Event::OvertimeTakeaway&&!otTakeaway)||(selected==energy::Event::LateTakeaway&&!lateTakeaway)||(selected==energy::Event::HailMaryTouchdown&&!hailMary))return false;
+        if(!decisive(selected)&&!contextStop&&selected!=energy::Event::EarlyTouchdown&&selected!=energy::Event::OvertimeTakeaway&&selected!=energy::Event::LateTakeaway&&selected!=energy::Event::HailMaryTouchdown)return false;
         if(selected==energy::Event::LastSecondLead&&(s.quarter!=4||s.seconds<0||s.seconds>30))return false;
         bool same=result.sequence&&result.sequence==sequence;
         if(same&&energy::priority(selected)<=energy::priority(event))return false;

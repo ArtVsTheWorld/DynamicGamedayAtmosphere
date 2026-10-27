@@ -1,4 +1,5 @@
 #include "../Source/LineupAtmosphere.h"
+#include "../Source/DirectorShake.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance;
@@ -13,12 +14,18 @@ int main(){
         auto tick=[&](uint64_t now){layers.observe(c,p,123,1,now,true,fraction,true,nullptr,53913);auto result=tracker.observe(events,p);return crowd.react(c,result,now/1000.0,p.game,layers.layeredActive());};
         tick(1000);tick(6000);p.game.phase=3;tick(7000);p.game.phase=4;p.game.seconds-=12;p.resultStamp=2;if(side==0)p.game.homeScore+=6;else p.game.awayScore+=6;
         bool expected=yards>=60&&std::abs(lead)<=8&&(side==0||neutral)&&fraction>=.60f;
-        assert(tick(20000)==expected);assert(!tick(20050));
+        assert(!tick(20000));assert(!tick(20050));
+        assert(crowd.resultLongTouchdown==expected&&crowd.celebration==0);
         if(expected){
-            assert(crowd.event==energy::Event::ExplosiveTouchdown);crowd.update(c,p,20.25,1,1);
-            auto wanted=crowd.intent(c,p,123,1,20250,true);assert(wanted.deepCheers&&wanted.attackMs==500&&wanted.releaseMs==20000&&wanted.supporting&&wanted.size==3);
-            assert(volume::boostPercent(crowd.parent)<=50.01f&&crowd.eruptionWeight(20.25)==1);
-            assert(crowd.eruptionWeight(45)>crowd.eruptionWeight(55)&&crowd.eruptionWeight(55)>crowd.eruptionWeight(64));
+            crowd.update(c,p,20.25,1,1);
+            auto wanted=crowd.intent(c,p,123,1,20250,true);
+            assert(wanted.scoringReaction&&wanted.reason==sustained::Reason::Result&&!wanted.celebration&&wanted.size==3);
+            energy::Outcome standard;standard.event=energy::Event::HomeScore;standard.preSnapMargin=std::abs(lead);
+            auto profile=postplay::choose(standard,p.game);
+            assert(crowd.resultProfile.strength>profile.strength&&crowd.resultProfile.strength<=1);
+            assert(crowd.resultProfile.hold==profile.hold&&crowd.resultProfile.release==profile.release);
+            assert(wanted.releaseMs==static_cast<int>(profile.release*1000));
+            assert(volume::boostPercent(crowd.parent)<=25.01f&&!crowd.erupting);
         }
     }
     // A return is not measured from the offense's original line of scrimmage.
@@ -55,7 +62,24 @@ int main(){
     delayedTick(1000);delayedTick(6000);delayedTick(35000);
     assert(!settled.layeredActive()&&settled.playContextActive());p.game.phase=3;delayedTick(36000);
     p.game.phase=4;p.game.seconds-=12;p.game.homeScore+=6;p.resultStamp=2;
-    assert(delayedTick(49000)&&lateSnap.event==energy::Event::ExplosiveTouchdown);
+    assert(!delayedTick(49000)&&lateSnap.resultLongTouchdown&&lateSnap.celebration==0);
     settled.suspend();assert(!settled.playContextActive());
-    std::puts("PASS: 60-yard/pre-snap one-score boundaries, actual tracker/layer gating, away/neutral scope, no fabricated return distance, immediate burst and long fade, maximum critical reactions/shake, result accents with cooldown and no extra gain.");
+    // Long TDs use a 15% camera accent with the normal TD clock and priority.
+    for(float scale:{1.f,postplay::LongTouchdownScale}){
+        motion::Model model;motion::Settings settings;motion::Input in;
+        in.match=123;in.epoch=1;in.allowed=true;in.phase=4;in.now=1000;in.touchdown=1;in.touchdownScale=scale;
+        auto cue=model.observe(settings,in);assert(cue.kind==motion::Kind::Touchdown&&cue.until==12000);
+        in.now=1200;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-20*scale)<.001f);
+        in.now=3000;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-15*scale)<.001f);
+        assert(cue.began==1000&&cue.until==12000); // Repeated observations do not restart it.
+        in.now=3100;in.eruption=1;in.eruptionAlive=true;cue=model.observe(settings,in);
+        assert(cue.kind==motion::Kind::Eruption&&cue.percent==22.5f&&cue.reactionScale==1);
+    }
+    // Real decisive scores still erupt even when they also qualify as long TDs.
+    auto final=play();final.game.quarter=4;final.game.seconds=20;final.game.homeScore=26;
+    energy::Outcome winner;winner.accepted=winner.completed=true;winner.side=0;winner.sequence=1;winner.homePoints=6;
+    winner.touchdownYards=65;winner.preSnapMargin=0;winner.event=energy::Event::LastSecondLead;
+    core::Model winning;assert(winning.react(c,winner,1,final.game,true)&&winning.event==energy::Event::LastSecondLead);
+
+    std::puts("PASS: 60-yard/pre-snap one-score boundaries, actual tracker/layer gating, away/neutral scope, no fabricated return distance, modest long-TD accent with standard timing/caps and decisive-score priority, maximum critical reactions/shake, result accents with cooldown and no extra gain.");
 }

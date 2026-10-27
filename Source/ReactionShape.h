@@ -15,6 +15,7 @@ inline float tail(float age,float total,float hold){
 inline float impact(float age,float total){
     return smooth(age/100.f)*tail(age,total,(std::min)(1000.f,total*.2f));
 }
+inline float skillBuildup(float age,float total){return smooth(age/450.f)*tail(age,total,450.f);}
 // A clear onset settles slightly into a sustained cheer, then eases down.
 // Values never exceed one: shape changes cannot raise the volume ceiling.
 inline float response(double age,double hold,double release,float strength){

@@ -39,9 +39,9 @@ int main(){
     assert(attacks.size()>100&&supports.size()>100&&sizes.size()==2);
     core::Settings c;
     for(unsigned number=1;number<=6;++number)for(int source=0;source<3;++source)for(int side=0;side<2;++side){
-        auto result=opening(number,side,source);assert(result.completed&&result.firstTouchdown&&result.openingPlay==(number<=5?number:0));
+        auto result=opening(number,side,source);assert(result.completed&&result.firstTouchdown&&result.openingPlay==(number<=2?number:0));
         auto p=initial();p.game.phase=4;p.game.neutral=side==1;p.game.homeScore=side==0?6:0;p.game.awayScore=side==1?6:0;
-        core::Model m;assert(m.react(c,result,1,p.game,true)==(number<=5));if(number<=5)assert(m.event==Event::EarlyTouchdown);
+        core::Model m;assert(m.react(c,result,1,p.game,true)==(number<=2));if(number<=2)assert(m.event==Event::EarlyTouchdown);
         core::Model quiet;assert(!quiet.react(c,result,1,p.game,false));
         if(side==1){p.game.neutral=false;core::Model away;assert(!away.react(c,result,1,p.game,true));}
     }
@@ -94,5 +94,5 @@ int main(){
         t.reset();p=initial();p.game={4,20,21,1,120,720};p.down=4;t.observe(ec,p);p.game.phase=3;t.observe(ec,p);p.game.phase=4;p.game.seconds=seconds;p.game.homeScore=23;auto out=t.observe(ec,p);core::Model m;
         assert(m.react(c,out,1,p.game)==(seconds<=30));
     }
-    std::puts("PASS: bounded stable variety, actual first-five plays including kickoff, first-TD/active-layer gating, simulation/away rejection, fresh interception/fumble possession proof, OT 60-second/postgame carry, close game-sealing takeover boundaries and 30-second go-ahead cutoff.");
+    std::puts("PASS: bounded stable variety, actual first-two plays including kickoff, first-TD/active-layer gating, simulation/away rejection, fresh interception/fumble possession proof, OT 60-second/postgame carry, close game-sealing takeover boundaries and 30-second go-ahead cutoff.");
 }

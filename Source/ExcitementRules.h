@@ -8,6 +8,7 @@
 #include <limits>
 
 namespace attendance::energy {
+inline constexpr unsigned OpeningTouchdownPlayLimit=2;
 struct Settings {
     int enabled=1,eruptions=1,chaos=1,upsetWatch=1,lateScoreDepartures=5;
     float ordinaryDb=3,exceptionalDb=6,maxDb=6,decisiveDb=8;
@@ -45,7 +46,7 @@ inline const char* name(Event e){
     case Event::OpeningReturn:return "Opening kickoff return touchdown";
     case Event::OpeningTouchdown:return "First offensive snap touchdown";
     case Event::LastSecondLead:return "Final-30-seconds go-ahead score";
-    case Event::EarlyTouchdown:return "First touchdown within the opening five plays";
+    case Event::EarlyTouchdown:return "First touchdown within the opening two plays";
     case Event::OvertimeTakeaway:return "Overtime takeaway";
     case Event::LateTakeaway:return "Game-sealing late takeaway";
     case Event::FumbleRecovery:return "Defensive fumble recovery";
@@ -322,9 +323,9 @@ struct Tracker {
         }
         if(o.completed&&o.takeaway)o.opponentTimeouts=o.side==0?p.awayTimeouts:p.homeTimeouts;
         if(o.completed&&o.sequence&&o.sequence!=countedPlay){
-            countedPlay=o.sequence;if(verifiedPlays<6)++verifiedPlays;
+            countedPlay=o.sequence;if(verifiedPlays<=OpeningTouchdownPlayLimit)++verifiedPlays;
         }
-        if(o.completed&&openingReliable&&s.quarter==1&&verifiedPlays<=5)o.openingPlay=verifiedPlays;
+        if(o.completed&&openingReliable&&s.quarter==1&&verifiedPlays<=OpeningTouchdownPlayLimit)o.openingPlay=verifiedPlays;
         if(s.phase==1&&eligibleSnap(p)){ready=p;haveReady=true;}
         // A live timeout/camera transition can precede the official result.
         // Keep only an already observed snap pending; never arm a new one

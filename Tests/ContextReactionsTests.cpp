@@ -35,5 +35,15 @@ int main(){
         auto result=model.observe({},t.snap,t.after,sequence,match,epoch,now,.99f,53913,true);assert(result.contextEruption==(bad==0));
         assert(!model.observe({},t.snap,t.after,sequence,match,epoch,now+10,.99f,53913,true).contextEruption);
     }
+    // Both normal goal-line stop impacts request the defensive cheer family.
+    // A third-down stop stays on the same possession; fourth down flips it.
+    for(int down:{3,4}){Test t;t.snap.game.rank0=t.snap.game.rank1=50;t.snap.down=down;
+        t.after.down=down==3?4:1;t.after.offense=down==3?1:0;auto result=t.run();
+        auto impact=live::completedImpact(result,t.after.game,true,0,83);
+        assert(impact.id&&live::cheerType(impact)==59&&core::resultReaction(result)==59);
+        core::Model sound;core::Settings settings;assert(!sound.react(settings,result,1,t.after.game,true));
+        sound.update(settings,t.after,1.25,1,1);auto wanted=sound.intent(settings,t.after,123,1,1250,true);
+        assert(wanted.resultCheer&&wanted.resultType==59&&!wanted.celebration);
+    }
     std::puts("PASS: normal third/fourth goal-line stops; packed big/rivalry-only context; clock/possession/timeout sealing proof; no speculative sack eruptions; clinching first-down profile; neutral symmetry and smooth bounded strength.");
 }

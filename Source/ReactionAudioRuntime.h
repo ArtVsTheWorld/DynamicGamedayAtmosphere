@@ -7,11 +7,12 @@ using Receiver=Address(__fastcall*)(Address,Address);
 enum class Source {Live,Lineup,Result,Eruption,Followup};
 enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown};
 using Note=void(*)(Source,uint64_t,Delivery);
+inline bool countedVoice(int type){return type==91||type==75||type==83||type==59||type==95||(type>=8&&type<=15);}
 // Eruption, conversion and defensive-stop families passed listening tests. Their native
 // owner limits each reaction to 25 seconds; no borrowed entity is retained.
 inline bool emit(const sustained::Api& api,Receiver receiver,Address image,Address entity,int type=91){
     using namespace sustained;
-    if(type!=91&&type!=75&&type!=83&&type!=59&&type!=95)return false;
+    if(type!=91&&type!=75&&type!=83&&type!=59&&type!=95&&type!=11)return false;
     Address asset=at<Address>(entity+0x38),system=at<Address>(asset+0x20)&~Address(4);
     Address list=at<Address>(system+0x20),description=0;
     unsigned count=at<unsigned>(list-4)&0x7fffffff;
@@ -67,7 +68,7 @@ class Runtime {
         Address begin=sustained::at<Address>(entity+0x120),end=sustained::at<Address>(entity+0x128);
         if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;report(Source::Followup,next.id,Delivery::Failed);return true;}
         unsigned voices=0;
-        for(Address p=begin;p<end;p+=16){int active=sustained::at<int>(p);if(active==91||active==75||active==83||active==59||active==95)++voices;}
+        for(Address p=begin;p<end;p+=16){int active=sustained::at<int>(p);if(countedVoice(active))++voices;}
         // A matching family is allowed here after the deliberate gap. Keep
         // the existing two-voice budget, including the game's own instances.
         if(voices>=2){report(Source::Followup,next.id,Delivery::VoiceLimit);return true;}
@@ -95,7 +96,7 @@ public:
         bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
             followup_={};
-            if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95&&wanted.liveType!=91)return;
+            if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95&&wanted.liveType!=91&&wanted.liveType!=11)return;
             if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
             Address asset=at<Address>(entity+0x38);if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
@@ -103,7 +104,7 @@ public:
             unsigned positives=0;bool matching=false;
             for(Address p=begin;p<end;p+=16){int active=at<int>(p);
                 if(active==wanted.liveType)matching=true;
-                if(active==91||active==75||active==83||active==59||active==95)++positives;
+                if(countedVoice(active))++positives;
             }
             bool milestone=wanted.overlapMilestone&&wanted.playSequence&&lastLiveSequence_==wanted.playSequence&&now>=lastLiveAt_&&now-lastLiveAt_>=900;
             lastLiveAt_=now;lastLiveSequence_=wanted.playSequence;
@@ -143,7 +144,7 @@ public:
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;
-            for(Address p=begin;p<end;p+=16){int active=at<int>(p);if(active==type){++nativeNow;return;}if(active==91||active==75||active==83||active==59||active==95)++positives;}
+            for(Address p=begin;p<end;p+=16){int active=at<int>(p);if(active==type){++nativeNow;return;}if(countedVoice(active))++positives;}
             if(positives>=2){limited=true;return;}
             if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else healthy_=false;
         };

@@ -22,9 +22,9 @@ Address __fastcall construct(Address e,Address,Address d){
     put(addr(parameter)+0x20,reinterpret_cast<Address>(badParameter?"wrong":"reacType"));return e;
 }
 void __fastcall eventEnd(Address){++eventEnds;}
-void __fastcall set(Address v,int n){assert(n==91||n==75||n==83||n==59||n==95);put(v,n);}
+void __fastcall set(Address v,int n){assert(n==91||n==75||n==83||n==59||n==95||n==11);put(v,n);}
 Address __fastcall receive(Address target,Address){
-    assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(type==91||type==75||type==83||type==59||type==95);received.push_back(type);++sends;
+    assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(type==91||type==75||type==83||type==59||type==95||type==11);received.push_back(type);++sends;
     if(reenter&&recursive)recursive->tick(addr(entity),wanted,wanted.updated);
     if(fault){fault=false;RaiseException(EXCEPTION_ACCESS_VIOLATION,0,0,nullptr);}return 0;
 }
@@ -182,5 +182,15 @@ int main(){
     milestones.tick(addr(entity),wanted,1021200);assert(sends==initial+2&&received.back()==83);milestones.tick(addr(entity),wanted,1021300);assert(sends==initial+2);
     put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;wanted.updated=1022400;wanted.liveCheerUntil=1022900;
     milestones.tick(addr(entity),wanted,1022400);assert(sends==initial+2); // Native two-voice cap still wins.
+    // Trucks use the authored BIGHIT_POS large family, with native big-hit
+    // instances included in the same two-voice budget as ordinary cheers.
+    attendance::cheer::Runtime truck;truck.configure(image,&api,receive);initial=sends;
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    wanted={};wanted.active=true;wanted.match=779;wanted.epoch=1;wanted.updated=1030000;wanted.liveType=11;wanted.liveCheer=1;wanted.liveCheerUntil=1030500;
+    truck.tick(addr(entity),wanted,1030000);assert(sends==initial+1&&received.back()==11);balanced();
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),11);
+    wanted.liveCheer=2;wanted.updated=1030100;truck.tick(addr(entity),wanted,1030100);assert(sends==initial+1);
+    put<int>(addr(instances),8);put<int>(addr(instances)+16,15);put(addr(entity)+0x128,addr(instances)+32);
+    wanted.liveCheer=3;wanted.updated=1030200;truck.tick(addr(entity),wanted,1030200);assert(sends==initial+1);
     std::puts("PASS: native duplicate handling, one bounded staggered same-family followup, native-inclusive voice limit/no retry, snap/pause cancellation, eruption priority, cleanup, reentrancy and faults.");
 }

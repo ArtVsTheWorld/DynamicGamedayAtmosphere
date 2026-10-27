@@ -34,10 +34,11 @@ inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint
     if(cue.impactOnly)hold=(std::min)(1000.f,total*.2f);
     else if(cue.tail)hold=cue.confirmedRun?static_cast<float>(shape::tailHold(total)):0;
     else if(!longLive)hold=total*(cue.kind==motion::Kind::Eruption?.5f:5.f/9);
+    if(cue.softAccent)hold=450;
     bool releasing=!longLive&&age>=hold;
     int release=longLive?5000:static_cast<int>((std::max)(500.f,total-hold));
     float level=(std::clamp)(motion::strength(cue,now)/peak,0.f,1.f);
-    out.intensity=(std::max)(out.intensity,950.f*std::sqrt(fullness)*level);
+    out.intensity=(std::max)(out.intensity,(cue.softAccent?650.f:950.f)*std::sqrt(fullness)*level);
     if(out.reason==sustained::Reason::Result&&out.priority>4){
         // Preserve the official scoring/result response, extending only its
         // hold/release when a custom camera profile would otherwise outlive it.
@@ -48,8 +49,8 @@ inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint
     if(out.reason==sustained::Reason::Result&&!cue.impactOnly)return out; // Existing run/return pair already owns its fade.
     out.reason=sustained::Reason::Result;out.priority=(std::max)(out.priority,4);
     out.reactionId=sequence?sequence:cue.began;out.continuous=!releasing;out.reaction=releasing;
-    out.size=3;out.supporting=true;out.supportingOnly=false;out.motionCompanion=true;
-    out.attackMs=cue.impactOnly?100:500;out.releaseMs=release;
+    out.size=cue.softAccent?2:3;out.supporting=true;out.supportingOnly=cue.softAccent;out.motionCompanion=true;
+    out.attackMs=cue.softAccent?450:cue.impactOnly?100:500;out.releaseMs=release;
     return out;
 }
 }

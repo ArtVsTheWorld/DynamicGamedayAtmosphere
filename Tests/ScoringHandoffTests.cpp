@@ -10,7 +10,7 @@ int main(){
         auto run=running(1000,fullness);assert(handoff.merge(run,3,1000,fullness).intensity==run.intensity);
         energy::Play p;p.game={2,7,0,4,400,720};p.game.neutral=neutral;p.offense=0;p.down=1;
         energy::Outcome score;score.accepted=score.completed=true;score.sequence=7;score.side=0;score.homePoints=6;score.preSnapMargin=0;
-        score.event=eruption?energy::Event::ExplosiveTouchdown:energy::Event::HomeScore;score.touchdownYards=eruption?65.f:25.f;
+        score.event=energy::Event::HomeScore;score.hailMary=eruption;score.touchdownYards=eruption?65.f:25.f;
         sound.react(c,score,1.1,p.game,true,true,.5f);
         for(uint64_t now=1100;now<=1700;now+=25){
             sound.update(c,p,now*.001,fullness,fullness,0,true,.5f);auto native=sound.intent(c,p,123,1,now,true);

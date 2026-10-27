@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.61.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.62.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.61.0/
+    Runtime-1.62.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -164,3 +164,15 @@ The integrated tab still needs an installed-build visual and navigation test: co
 A 150-second read-only capture of the default RTG player camera verified the gameplay view and shared camera guards across live and post-play phases. The widest observed vertical FOV was 88.507 degrees, requiring 3.090x compensation against the existing 35-degree reference. The former 2x ceiling under-compensated that view. The ceiling is now 4x; the captured view receives its calculated 3.090x, while close-up attenuation, configured strengths, envelopes, eligibility, replay exclusion and sound caps are unchanged.
 
 An explicitly approved ten-second camera-only eruption preview on installed 1.60.0 confirmed real output at the old 2x ceiling. The user described it as suitable for an ordinary play and slightly light. The preview ended normally. Regression tests cover the captured projection for every reaction kind, projected-motion normalization, the extreme-view bound, unchanged source camera data and eruption impact-to-hold progression. Revised 1.61.0 compensation still needs a visual check after installation; this session did not test a naturally triggered RTG eruption or preview a post-play cutaway.
+
+## 1.62.0 settings, touchdown rules and skill reactions
+
+The user verified the native tab and pause-menu fullness toggle on installed 1.61.0. All 73 controls now have plain-language labels and help. Every numeric description explains higher and lower values; Profile labels are Automatic, Normal, Patient Fans and Bad Weather. INI keys, choices, defaults and bounds are preserved. Numeric editing, controller navigation and Reset still need installed-build checks.
+
+The Penn State-USC log identifies the first two touchdowns as Q1 10:26 (opening-five-play rule in 1.61.0) and Q1 5:11 (60+ yard close-game rule). The new opening cutoff is two tracked plays, including kickoff. A long close-game touchdown now keeps the standard TD duration and sound-volume caps, with a 15% camera accent and bounded extra crowd excitement. Other decisive-score eruptions retain priority. Summaries now print the pre-snap line-to-goal TD distance separately from ordinary result yardage.
+
+A 120-second read-only trace on PID 34916 caught the credited hurdle count settling about 0.27 seconds after the whistle while the hurdle fake-out timestamp stayed zero. The optional native counter binding now accepts only fresh increases from an observed snap and up to 0.6 seconds after the whistle, with the existing side, spacing, per-play and suspension limits. Skill accents use a 0.45-second rise, 50% of configured live strength and a two-second lifetime. A separate sound envelope supplies a short swell even with DGA camera shake off; each fresh accent may refresh the supporting voice once with the native 0.5-second minimum attack. Trucks request the authored area-reaction category BIGHIT_POS, large size (11); existing big-hit voices count toward the two-voice budget. Exact sample/listening checks remain pending.
+
+The native catch-drop observer copies its knockout payload into +0x175 and uses it for the Pass Dropped - KNOCKOUT! event. Its reset clears the flag. The optional read-only binding checks those code signatures, owner vtable and stable pointer; the model requires a new clear-to-knockout transition plus a dropped-pass result on an observed third/fourth defensive snap. Ordinary drops, special teams, stale worlds, simulation and late flags are rejected. The small impact lasts 1.8 seconds at half live strength, with defensive cheer 59 and normal priority. It still needs a naturally observed in-game knockout. Existing within-five-yard third/fourth stops are tested for both their impact event and defensive cheer.
+
+Turning Dynamic Camera Effects Off changed native camera option +0x3e6 from 1 to 0, while the other profile stayed 1. All three added camera routes already require both native options. Regression tests cover each motion category with either profile Off/On; status now distinguishes the native switch from the mod setting. The agent left the user-selected switch untouched.

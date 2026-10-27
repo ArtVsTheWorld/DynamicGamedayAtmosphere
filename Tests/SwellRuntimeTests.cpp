@@ -240,6 +240,15 @@ int main(){
         request.updated=700300;joined.tick(address(owner)+0x40,request,700300);assert(starts==oldStarts+expected&&stops==oldStops);
         request.active=false;request.updated=700400;joined.tick(address(owner)+0x40,request,700400);balanced();
     }
+    // A fresh skill swell replaces the supporting voice once with its short
+    // attack, even when a lineup swell is already playing. No retrigger loop.
+    Runtime skills;skills.configure(image,nullptr,&api,true);
+    request={};request.active=request.continuous=request.supporting=true;request.match=980;request.epoch=1;request.reason=Reason::Lineup;request.lineup=1;request.size=2;request.updated=800000;
+    skills.tick(address(owner)+0x40,request,800000);oldStarts=starts;
+    request.reason=Reason::Result;request.priority=4;request.skillAccent=1;request.reactionId=1;request.supportingOnly=request.motionCompanion=true;request.attackMs=500;request.releaseMs=1550;request.updated=800200;
+    skills.tick(address(owner)+0x40,request,800200);assert(starts==oldStarts+1&&messages.back().attack==500);
+    request.updated=800300;skills.tick(address(owner)+0x40,request,800300);assert(starts==oldStarts+1);
+    request.active=false;request.updated=800400;skills.tick(address(owner)+0x40,request,800400);balanced();
     assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");

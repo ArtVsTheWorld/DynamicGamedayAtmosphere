@@ -3,8 +3,13 @@
 #include "ReactionShape.h"
 
 namespace attendance::postplay {
+inline constexpr float LongTouchdownScale=1.15f;
+inline bool longCloseTouchdown(const energy::Outcome& r){
+    return r.accepted&&r.completed&&r.side>=0&&r.side<=1&&(r.side==0?r.homePoints:r.awayPoints)>=6&&
+        std::isfinite(r.touchdownYards)&&r.touchdownYards>=60&&r.touchdownYards<=110&&r.preSnapMargin>=0&&r.preSnapMargin<=8;
+}
 struct Profile {float strength=0;double hold=0,release=0;int size=2;bool layered=false;};
-inline Profile choose(const energy::Outcome& result,const State& s){
+inline Profile choose(const energy::Outcome& result,const State& s,bool longTouchdown=false){
     using energy::Event;
     float strength=.45f;
     switch(result.event){
@@ -32,7 +37,10 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     if(s.quarter>=4&&margin<=8)strength+=.06f;
     strength=(std::clamp)(strength*context*(std::clamp)(result.contextStrength,1.f,1.35f),0.0f,1.0f);
     double duration=result.safety||result.event==Event::Safety?.70:1.0;
-    return {strength,(4+4*strength)*duration,(6+3*strength)*duration,strength>=.68f?3:2,strength>=.85f};
+    // The long-TD accent adds bounded excitement, without borrowing the
+    // eruption's extended roar, extra volume or longer camera profile.
+    float accent=longTouchdown?(std::min)(1.f,strength*LongTouchdownScale):strength;
+    return {accent,(4+4*strength)*duration,(6+3*strength)*duration,strength>=.68f?3:2,strength>=.85f};
 }
 inline float envelope(double age,const Profile& profile){
     return shape::response(age,profile.hold,profile.release,profile.strength);

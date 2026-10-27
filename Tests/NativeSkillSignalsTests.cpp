@@ -41,5 +41,17 @@ int main(){
     {Test t;for(int i=0;i<5;++i){t.advance(900);t.sample.times[2]+=1;auto a=t.tick();assert(bool(a.id)==(i<3));t.sample.events[0]={31,0,double(20+i),4};assert(!t.tick().id);}}
     // Success + broken-tackle evidence on the same collision becomes one accent.
     {Test t;t.now+=100;t.sample.times[2]=10;t.sample.events[0]={31,0,20,4};assert(t.tick().event==live::Event::StiffArm);assert(!t.tick().id);}
-    std::puts("PASS: bounded read-only skill/actor mapping; success-only move timestamps; landed hits/broken tackles; side/neutral gates; attempt/stale/world/gap rejection; collision dedupe and three spaced accents per play.");
+    // The captured credited hurdle count settles 0.27s after the whistle,
+    // without a fake-out timestamp. An old positive count cannot replay it.
+    {Test t;t.m.reset();t.p.game.phase=1;t.sample.hurdleCount=0;t.tick();t.p.game.phase=3;t.now+=100;t.tick();
+        t.p.game.phase=4;t.held=false;t.now+=100;t.tick();t.now+=275;t.sample.hurdleCount=1;
+        assert(t.tick().event==live::Event::Hurdle);t.now+=100;assert(!t.tick().id);}
+    for(int bad=0;bad<5;++bad){Test t;t.m.reset();t.p.game.phase=1;t.sample.hurdleCount=bad==0?1:0;t.tick();t.p.game.phase=3;t.now+=100;t.tick();
+        t.p.game.phase=4;t.held=false;t.now+=100;t.tick();t.sample.hurdleCount=1;t.now+=275;
+        if(bad==1)t.allowed=false;if(bad==2)t.p.offense=1;if(bad==3)t.now+=800;if(bad==4)t.match=456;
+        assert(!t.tick().id);}
+    // A fake-out timestamp followed by its credited count remains one hurdle.
+    {Test t;t.sample.hurdleCount=0;t.now+=100;t.sample.times[5]=10;assert(t.tick().event==live::Event::Hurdle);
+        t.p.game.phase=4;t.now+=100;t.tick();t.sample.hurdleCount=1;t.now+=275;assert(!t.tick().id);}
+    std::puts("PASS: bounded read-only skill/actor mapping; success timestamps and fresh late credited hurdles; landed hits/broken tackles; side/neutral gates; attempt/stale/world/gap rejection; collision dedupe and three spaced accents per play.");
 }
