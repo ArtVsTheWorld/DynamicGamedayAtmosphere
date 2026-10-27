@@ -4,7 +4,7 @@
 namespace attendance::cheer {
 using Address=uintptr_t;
 using Receiver=Address(__fastcall*)(Address,Address);
-enum class Source {Live,Lineup,Result,Eruption};
+enum class Source {Live,Lineup,Result,Eruption,Followup};
 enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown};
 using Note=void(*)(Source,uint64_t,Delivery);
 // Eruption, conversion and defensive-stop families passed listening tests. Their native
@@ -45,7 +45,36 @@ class Runtime {
     uint64_t lineup_=0,lastLineupCheer_=0;
     sustained::Api api_;Receiver receiver_=nullptr;std::mutex mutex_;
     std::atomic<bool> healthy_{true};std::atomic<unsigned> sent_{0};
-    uint64_t liveConsumed_=0;std::atomic<uint64_t> liveDelivered_{0},liveResolved_{0};Note note_=nullptr;
+    uint64_t liveConsumed_=0,lastLiveAt_=0,lastLiveSequence_=0;std::atomic<uint64_t> liveDelivered_{0},liveResolved_{0};Note note_=nullptr;
+    struct Followup {bool active=false;Source source=Source::Result;uint64_t id=0,sequence=0,due=0,until=0;int type=75;};
+    Followup followup_;
+    void arm(Source source,uint64_t id,int type,const sustained::Intent& wanted,uint64_t now){
+        followup_={};
+        if(!wanted.staggered||!wanted.playSequence||type==95)return;
+        followup_={true,source,id,wanted.playSequence,now+900,now+1800,wanted.deepCheers?75:type};
+    }
+    bool follow(Address entity,const sustained::Intent& wanted,uint64_t now){
+        if(!followup_.active)return false;
+        bool same=followup_.sequence==wanted.playSequence&&wanted.staggered&&
+            (followup_.source==Source::Eruption?wanted.celebration==followup_.id:
+                !wanted.celebration&&wanted.reason==sustained::Reason::Result&&wanted.reactionId==followup_.sequence);
+        if(!same||now>=followup_.until||now+900<followup_.due){followup_={};return false;}
+        if(now<followup_.due)return false;
+        if(sustained::at<Address>(entity)!=image_+bindings::ReactionVtable)return false;
+        Address asset=sustained::at<Address>(entity+0x38);
+        if(sustained::at<int>(asset+0x40)!=3||sustained::at<float>(asset+0x44)!=25)return false;
+        Followup next=followup_;followup_={}; // One bounded attempt, consumed before native dispatch.
+        Address begin=sustained::at<Address>(entity+0x120),end=sustained::at<Address>(entity+0x128);
+        if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;report(Source::Followup,next.id,Delivery::Failed);return true;}
+        unsigned voices=0;
+        for(Address p=begin;p<end;p+=16){int active=sustained::at<int>(p);if(active==91||active==75||active==83||active==59||active==95)++voices;}
+        // A matching family is allowed here after the deliberate gap. Keep
+        // the existing two-voice budget, including the game's own instances.
+        if(voices>=2){report(Source::Followup,next.id,Delivery::VoiceLimit);return true;}
+        if(emit(api_,receiver_,image_,entity,next.type)){++sent_;report(Source::Followup,next.id,Delivery::Sent);}
+        else{healthy_=false;report(Source::Followup,next.id,Delivery::Failed);}
+        return true;
+    }
     void report(Source source,uint64_t id,Delivery delivery){
         if(source==Source::Live)liveResolved_=id;
         if(note_)note_(source,id,delivery);
@@ -59,32 +88,37 @@ public:
         using namespace sustained;
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& value;explicit Guard(bool& v):value(v){value=true;}~Guard(){value=false;}} guard(executing);
-        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now))return;
         std::lock_guard<std::mutex> lock(mutex_);
-        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=lastLineupCheer_=liveConsumed_=0;liveDelivered_=liveResolved_=0;}
+        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now)){followup_={};return;}
+        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=lastLineupCheer_=liveConsumed_=lastLiveAt_=lastLiveSequence_=0;liveDelivered_=liveResolved_=0;followup_={};}
         bool victory=wanted.celebration&&now<wanted.celebrationUntil&&consumed_!=wanted.celebration;
         bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
+            followup_={};
             if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95&&wanted.liveType!=91)return;
             if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
             Address asset=at<Address>(entity+0x38);if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
-            unsigned positives=0;
+            unsigned positives=0;bool matching=false;
             for(Address p=begin;p<end;p+=16){int active=at<int>(p);
-                if(active==wanted.liveType){liveConsumed_=wanted.liveCheer;liveDelivered_=wanted.liveCheer;report(Source::Live,wanted.liveCheer,Delivery::NativePlaying);return;}
+                if(active==wanted.liveType)matching=true;
                 if(active==91||active==75||active==83||active==59||active==95)++positives;
             }
+            bool milestone=wanted.overlapMilestone&&wanted.playSequence&&lastLiveSequence_==wanted.playSequence&&now>=lastLiveAt_&&now-lastLiveAt_>=900;
+            lastLiveAt_=now;lastLiveSequence_=wanted.playSequence;
+            if(matching&&!milestone){liveConsumed_=wanted.liveCheer;liveDelivered_=wanted.liveCheer;report(Source::Live,wanted.liveCheer,Delivery::NativePlaying);if(wanted.majorLive)arm(Source::Live,wanted.liveCheer,wanted.liveType,wanted,now);return;}
             // Existing native reactions take the available space. Resolve this
             // opportunity now rather than adding a late cheer when one ends.
             if(positives>=2){liveConsumed_=wanted.liveCheer;report(Source::Live,wanted.liveCheer,Delivery::VoiceLimit);return;}
             liveConsumed_=wanted.liveCheer;
-            if(emit(api_,receiver_,image_,entity,wanted.liveType)){++sent_;liveDelivered_=wanted.liveCheer;lastLineupCheer_=now;report(Source::Live,wanted.liveCheer,Delivery::Sent);}
+            if(emit(api_,receiver_,image_,entity,wanted.liveType)){++sent_;liveDelivered_=wanted.liveCheer;lastLineupCheer_=now;report(Source::Live,wanted.liveCheer,Delivery::Sent);if(wanted.majorLive)arm(Source::Live,wanted.liveCheer,wanted.liveType,wanted,now);}
             else{healthy_=false;report(Source::Live,wanted.liveCheer,Delivery::Failed);}
             return;
         }
         bool result=!wanted.celebration&&wanted.resultCheer&&now<wanted.resultCheerUntil&&result_!=wanted.resultCheer;
         bool lineup=false;
+        if(!victory&&!result&&follow(entity,wanted,now))return;
         if(!victory&&!result){
             if(!wanted.cheers||!wanted.lineupCheer||wanted.lineupCheer==lineup_||now<wanted.lineupCheerBegan)return;
             uint64_t age=now-wanted.lineupCheerBegan;
@@ -99,6 +133,7 @@ public:
         if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
         // Consume before dispatch, including uncertain native failures. A score
         // may cross several entity updates/scenes but receives one bounded burst.
+        followup_={};
         if(victory)consumed_=wanted.celebration;
         else if(result){result_=wanted.resultCheer;lastLineupCheer_=now;}
         else{lineup_=wanted.lineupCheer;lastLineupCheer_=now;}
@@ -113,9 +148,11 @@ public:
             if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else healthy_=false;
         };
         send(result?wanted.resultType:lineup?wanted.lineupType:91);
-        // Hit together. Sustained roar/swell channels supply the aftermath;
-        // no delayed or repeated cheer barrage follows the initial eruption.
-        if((victory||lineup||result)&&wanted.deepCheers&&healthy_)send(75);
+        // Keep the immediate primary; the optional second layer has one
+        // bounded delayed opportunity, never a repeated cheer barrage.
+        bool stagger=wanted.staggered&&(victory||(result&&wanted.deepCheers));
+        if((victory||lineup||result)&&wanted.deepCheers&&!stagger&&healthy_)send(75);
+        if(stagger&&healthy_&&(sentNow||nativeNow))arm(victory?Source::Eruption:Source::Result,victory?wanted.celebration:wanted.resultCheer,result?wanted.resultType:91,wanted,now);
         report(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,
             !healthy_?Delivery::Failed:sentNow?Delivery::Sent:nativeNow?Delivery::NativePlaying:limited?Delivery::VoiceLimit:Delivery::Failed);
     }

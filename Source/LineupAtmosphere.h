@@ -137,7 +137,7 @@ struct Model {
             bool firstHome=home&&openingObserved&&!homeOffenseSeen&&s.quarter==1;
             int lead=p.offense==1?s.awayScore-s.homeScore:s.homeScore-s.awayScore;
             bool winningDrive=home&&newDrive&&((s.quarter==4&&s.seconds<=180)||overtime(s))&&lead<=0&&lead>=-8;
-            cheerMoment=normal&&((p.toGoal>=0&&p.toGoal<=10)||firstHome||winningDrive);
+            cheerMoment=home&&((p.toGoal>=0&&p.toGoal<=10)||firstHome||winningDrive);
             if(home)homeOffenseSeen=true;
             if(normal){previousOffense=p.offense;drivePending=false;}
         }
@@ -263,6 +263,7 @@ struct Model {
             out.hostileOpening=true;out.lineupType=p.game.neutral?91:59;out.lineupCheer=hostileCheer;out.lineupCheerBegan=hostileCheerBegan;out.lineupCheerUntil=hostileCheerBegan+1500;
             out.cheers=p.game.phase==1;out.deepCheers=true;out.intensity=(std::max)(out.intensity,excitement(now,fraction));
         }
+        if(!p.game.neutral&&p.offense==1){out.cheers=out.deepCheers=false;out.lineupCheer=0;}
         if(weight<=0)return out;
         float level=excitement(now,fraction);
         out.intensity=(std::max)(out.intensity,level);

@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.55.8**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.56.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.55.8/
+    Runtime-1.56.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -86,7 +86,7 @@ Check close and wide cameras during ordinary buildup, live returns, an impact an
 
 ## Later live check
 
-Working 1.55.9 also recognizes the captured kind-1 airborne pass to held ball-3 receiver sequence and held ball-2 running states, without treating an airborne provisional record as a completed catch. Fresh reset, possession, coordinate and yardage checks remain. A non-scoring result can receive one bounded score upgrade before the next snap if the game publishes its touchdown late; the same play ID is retained and scoring sound/motion takes over. All added shake types now compensate for zoom, including ordinary/critical buildup and blocked-kick impacts.
+Working 1.56.0 also recognizes the captured kind-1 airborne pass to held ball-3 receiver sequence and held ball-2 running states, without treating an airborne provisional record as a completed catch. Fresh reset, possession, coordinate and yardage checks remain. A non-scoring result can receive one bounded score upgrade before the next snap if the game publishes its touchdown late; the same play ID is retained and scoring sound/motion takes over. All added shake types now compensate for zoom, including ordinary/critical buildup and blocked-kick impacts.
 
 The shared live post-whistle fade defaults to five seconds at every play distance. The distance-extension setting is retired; old stock 4.5-second settings migrate to five, while other custom fade values remain. Touchdown/eruption profiles retain their own durations. A qualifying home FG block uses the native blocked-FG flag and the original selected FG play, rather than guessing from a missed kick. A tie or 1–3-point home lead receives the touchdown-style impact; other qualifying margins use the regular impact. Test a real block, a normal miss, both lead bands, a possible return/TD takeover and zoomed cutaways. The optional binding was checked read-only in the running game; the integrated blocked-kick reaction still needs a live block.
 
@@ -97,7 +97,21 @@ Play summaries distinguish missing native sack proof, unsupported defensive owne
 - In an ordinary matchup, test the opening offensive possession between its critical-down and packed-house fullness thresholds. Buildup and long-play reactions should qualify there, then lose that opening allowance for the next possession. Ordinary downs stay gentle; big games retain their existing lower opening allowance. Check OpeningAtmosphere=0 too.
 - Verify migration preserves your custom settings and leaves no loose DGA INI/log files.
 - Compare a roar, swell, cheer, combined eruption and camera-only preview. Check F8/F9, natural fading, pause/replay/snap cancellation and normal gameplay afterward.
-- For the 1.55.9 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
+- For the 1.56.0 reaction shapes, compare an immediately tackled 20+ yard catch with a 40+ yard completion followed by a short run. The latter should use the larger cheer, keep the roar through the catch and hold briefly after the whistle. Also finish a long run/return, call a timeout and proceed to play selection. Check that the earned response settles smoothly, then ends without restarting over the next snap. Include an immediately tackled catch and a touchdown takeover. Automated tests cover these handoffs; the integrated behavior still needs a live check.
 - Check the regular pause menu: Resume should show Stadium Fullness matching the audio fullness in status, rounded to a whole percent. Resume/reopen after arrivals or departures to check it changes. Check replay, a second game without restarting, and PauseMenuFullness=0. Reopen the menu after editing the setting.
 
 Build/host helpers are described in [BUILDING.md](BUILDING.md). Do not publish this as Update 3 before the remaining integrated live checks are resolved.
+
+## 1.56.0 reaction checks
+
+These additions pass automated checks but still need a fresh-process in-game check:
+
+- In an eligible packed game, beat a defender with a truck or stiff arm, and land a hit stick. Confirm a short cheer/motion accent, without repeated effects on the same collision. Check a successful juke, spin and hurdle too; those success fields were traced but not yet positively demonstrated live.
+- At a neutral site, repeat a skill or defensive play for the designated away side. At a home stadium, away-offense play calls should use roars/swells without DGA's lineup cheer; home-offense special calls retain theirs.
+- Convert fourth-and-short on a short pass, then continue for a qualifying long gain. Look for the immediate conversion accent followed by the long-gain response, subject to the two-reaction voice limit.
+- Stop third down inside the five, then a fourth-down attempt there. Fourth down should feel slightly stronger. A routine stop must not erupt merely because the game is close.
+- In a packed ranked game or rivalry, clinch a one-score win with a takeaway/goal-line stop or offensive first down. Check the eruption/scoring-style upgrade. Unknown or sufficient opponent timeouts should prevent speculative upgrades.
+- Let a sack or other earned shake carry onto a player close-up. Its original timer should continue with softer movement on the close-up. Recorded replay footage must stay steady. Ordinary lineup movement should still stay off presentation cutaways.
+- For a major play or eruption, listen for at most one additional cheer after the initial hit. Logs label it Staggered second cheer; a voice-limit skip is intentional and must never backfill later.
+
+Optional skill signatures fail closed without preventing other features from loading. New SkillMoveReactions, StaggeredMajorCheers and PackedBigGameReactions switches are in Dynamic Gameday Soundscape. Existing settings and volume limits are preserved. No release package or public release was created for this working build.

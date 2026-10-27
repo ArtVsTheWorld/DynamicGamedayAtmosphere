@@ -11,6 +11,7 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     case Event::ExplosiveGain:strength=result.yards>=40?.85f:result.yards>=20?.70f:.55f;break;
     case Event::ThirdDownConversion:case Event::ThirdStop:strength=.72f;break;
     case Event::FourthDown:case Event::FourthStop:strength=.90f;break;
+    case Event::GameSealingStop:case Event::GameSealingFirstDown:strength=1;break;
     case Event::BackfieldStop:strength=.62f;break;
     case Event::Sack:strength=.72f;break;
     case Event::MadeFieldGoal:strength=.65f;break;
@@ -29,7 +30,7 @@ inline Profile choose(const energy::Outcome& result,const State& s){
     if(result.preSnapMargin>=0)margin=result.preSnapMargin;
     float context=margin<=8?1.0f:margin<=16?.90f:margin<=24?.72f:.50f;
     if(s.quarter>=4&&margin<=8)strength+=.06f;
-    strength=(std::clamp)(strength*context,0.0f,1.0f);
+    strength=(std::clamp)(strength*context*(std::clamp)(result.contextStrength,1.f,1.35f),0.0f,1.0f);
     double duration=result.safety||result.event==Event::Safety?.70:1.0;
     return {strength,(4+4*strength)*duration,(6+3*strength)*duration,strength>=.68f?3:2,strength>=.85f};
 }

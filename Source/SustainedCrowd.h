@@ -22,6 +22,8 @@ struct Intent {
     uint64_t reactionId=0;
     bool hostileOpening=false;int lineupType=91;
     bool motionCompanion=false,supportingOnly=false;
+    bool staggered=false,majorLive=false,overlapMilestone=false;
+    uint64_t playSequence=0;
 };
 inline Intent select(const energy::Settings& c,const energy::Play& p,const energy::Model& model,
                      uintptr_t match,unsigned epoch,uint64_t now,bool allowed,float permanentFraction=1){

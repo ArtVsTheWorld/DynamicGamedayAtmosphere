@@ -30,9 +30,11 @@ struct Play {
     int selectedType=-1;bool blockedFieldGoal=false;
 };
 enum class Event { None,FourthDown,GoalLine,PickSix,LateDrive,HomeScore,UpsetWin,
-    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety,BlockedFieldGoal };
+    OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety,BlockedFieldGoal,GameSealingStop,GameSealingFirstDown };
 inline const char* name(Event e){
     switch(e){
+    case Event::GameSealingStop:return "Game-sealing defensive play in a packed marquee game";
+    case Event::GameSealingFirstDown:return "Game-sealing first down in a packed marquee game";
     case Event::FourthDown:return "Fourth-down conversion";
     case Event::GoalLine:return "Goal-line stand";
     case Event::PickSix:return "Interception return touchdown";
@@ -70,6 +72,7 @@ inline const char* name(Event e){
 }
 inline int priority(Event e){
     switch(e){
+    case Event::GameSealingStop:return 98;case Event::GameSealingFirstDown:return 79;
     case Event::OvertimeWin:return 100;case Event::GameWinningScore:return 99;case Event::LastSecondLead:return 95;case Event::PickSix:return 90;
     case Event::OvertimeTakeaway:return 94;case Event::LateTakeaway:return 93;case Event::HailMaryTouchdown:return 92;case Event::EarlyTouchdown:return 86;case Event::ExplosiveTouchdown:return 84;case Event::FumbleRecovery:return 75;
     case Event::UpsetWin:return 88;case Event::OpeningReturn:return 85;case Event::OpeningTouchdown:return 82;
@@ -122,6 +125,7 @@ struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,
     int opponentTimeouts=-1;
     bool safety=false;
     bool fiveYardLoss=false,blockedFieldGoal=false;
+    bool thirdGoalStop=false,contextEruption=false,contextClincher=false;float contextStrength=1;
 };
 inline bool sealsRegulationTakeaway(const Outcome& result,const State& s){
     if(!result.accepted||!result.completed||!result.takeaway||!valid(s)||s.quarter!=4||s.seconds>60||result.defendingLead<=0||result.defendingLead>8)return false;

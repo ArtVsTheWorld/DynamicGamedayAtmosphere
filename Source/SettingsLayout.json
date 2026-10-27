@@ -85,6 +85,24 @@
   },
   {
     "oldSection": "Atmosphere",
+    "oldKey": "SkillMoveReactions",
+    "section": "Dynamic Gameday Soundscape",
+    "key": "SkillMoveReactions"
+  },
+  {
+    "oldSection": "Atmosphere",
+    "oldKey": "StaggeredMajorCheers",
+    "section": "Dynamic Gameday Soundscape",
+    "key": "StaggeredMajorCheers"
+  },
+  {
+    "oldSection": "Atmosphere",
+    "oldKey": "PackedBigGameReactions",
+    "section": "Dynamic Gameday Soundscape",
+    "key": "PackedBigGameReactions"
+  },
+  {
+    "oldSection": "Atmosphere",
     "oldKey": "PlayCallAtmosphere",
     "section": "Dynamic Gameday Soundscape",
     "key": "PlayCallAtmosphere"

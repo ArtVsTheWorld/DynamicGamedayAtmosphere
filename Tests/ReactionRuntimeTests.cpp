@@ -151,5 +151,36 @@ int main(){
     hostile.tick(addr(entity),wanted,900200);assert(sends==initial+4); // Opener is not suppressed by the kickoff's recent cheer.
     put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+32);put<int>(addr(instances),83);put<int>(addr(instances)+16,91);
     wanted.lineupCheer=3;hostile.tick(addr(entity),wanted,900200);assert(sends==initial+4); // Existing two-voice limit remains authoritative.
-    std::puts("PASS: simultaneous two-family eruption, native duplicates, no delayed barrage, earlier varied critical accents, verified-result tokens, hostile defensive opener, explosive live cheers, priority, leases, cleanup, reentrancy and faults.");
+    // The second cheer may overlap a matching native family AFTER the gap;
+    // it never keeps retrying when the two-voice budget is full.
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    attendance::cheer::Runtime stagger;stagger.configure(image,&api,receive,report);initial=sends;
+    wanted={};wanted.active=true;wanted.staggered=true;wanted.playSequence=10;wanted.match=777;wanted.epoch=1;
+    wanted.reason=Reason::Result;wanted.reactionId=10;wanted.majorLive=true;wanted.liveCheer=1;wanted.liveCheerUntil=1000500;wanted.liveType=83;
+    auto delayed=[&](uint64_t now){wanted.updated=now;stagger.tick(addr(entity),wanted,now);balanced();};
+    delayed(1000000);assert(sends==initial+1);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);
+    delayed(1000899);assert(sends==initial+1);delayed(1000900);assert(sends==initial+2&&received.back()==83);
+    delayed(1001000);delayed(1001500);assert(sends==initial+2);
+    // Matching native primary still permits the one scheduled second accent.
+    wanted.liveCheer=2;wanted.liveCheerUntil=1002500;delayed(1002000);assert(sends==initial+2);
+    delayed(1002900);assert(sends==initial+3);
+    wanted.liveCheer=3;wanted.liveCheerUntil=1004500;delayed(1004000);
+    put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);delayed(1004900);assert(sends==initial+3);
+    put(addr(entity)+0x128,addr(instances)+16);delayed(1005000);assert(sends==initial+3); // No retry after voice-limit skip.
+    wanted.liveCheer=4;wanted.liveCheerUntil=1006500;delayed(1006000);wanted.playSequence=11;wanted.reactionId=11;delayed(1006900);assert(sends==initial+3);
+    wanted.liveCheer=5;wanted.liveCheerUntil=1008500;delayed(1008000);wanted.active=false;delayed(1008100);wanted.active=true;delayed(1008900);assert(sends==initial+3); // Pause/replay clears pending.
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    wanted.liveCheer=0;wanted.celebration=99;wanted.celebrationUntil=1016000;wanted.deepCheers=true;delayed(1010000);assert(sends==initial+4&&received.back()==91);
+    delayed(1010900);assert(sends==initial+5&&received.back()==75);delayed(1011000);assert(sends==initial+5);
+    // Fourth-down conversion and a later long gain are separate live milestones.
+    attendance::cheer::Runtime milestones;milestones.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.staggered=true;wanted.playSequence=40;wanted.match=778;wanted.epoch=1;wanted.liveType=83;wanted.liveCheer=1;wanted.liveCheerUntil=1020500;wanted.updated=1020000;
+    milestones.tick(addr(entity),wanted,1020000);assert(sends==initial+1);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);
+    wanted.liveCheer=2;wanted.overlapMilestone=true;wanted.updated=1021200;wanted.liveCheerUntil=1021700;
+    milestones.tick(addr(entity),wanted,1021200);assert(sends==initial+2&&received.back()==83);milestones.tick(addr(entity),wanted,1021300);assert(sends==initial+2);
+    put<int>(addr(instances)+16,59);put(addr(entity)+0x128,addr(instances)+32);wanted.liveCheer=3;wanted.updated=1022400;wanted.liveCheerUntil=1022900;
+    milestones.tick(addr(entity),wanted,1022400);assert(sends==initial+2); // Native two-voice cap still wins.
+    std::puts("PASS: native duplicate handling, one bounded staggered same-family followup, native-inclusive voice limit/no retry, snap/pause cancellation, eruption priority, cleanup, reentrancy and faults.");
 }

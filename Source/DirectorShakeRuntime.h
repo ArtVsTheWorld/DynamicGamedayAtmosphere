@@ -37,9 +37,11 @@ class Runtime {
         // the separate presentation views behind the play-selection menu.
         // Earned reactions below still follow all current live render views.
         if(c.kind==Kind::Ordinary||c.kind==Kind::Critical)return views&&at<uintptr_t>(views+0x68)==view;
-        // Current render views only. No retained scene or camera references.
-        for(unsigned i=0;views&&i<4;++i)if(at<uintptr_t>(views+i*0x68)==view)return true;
-        return false;
+        // Earned effects also follow native player cutaways whose borrowed
+        // view is outside the four gameplay slots. The hook's verified camera
+        // vtable, live match, pause/replay and cue leases remain mandatory.
+        // Each output still receives its own projection compensation.
+        return true;
     }
 public:
     void configure(uintptr_t image){image_=image;}

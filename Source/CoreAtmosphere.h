@@ -11,7 +11,7 @@ inline constexpr double EruptionSeconds=45,RoarHoldSeconds=25,OpeningReleaseSeco
 // Absolute lower bound. Qualified plays supply their stricter size-based gate.
 inline constexpr float ReactionMinimumFullness=.50f;
 inline float competition(const State& s){float x=(std::clamp)((std::abs(s.homeScore-s.awayScore)-16)/8.0f,0.0f,1.0f);return 1-x*x*(3-2*x);}
-struct Settings {bool enabled=true,opening=true,eruptions=true,overtime=true,lineups=true,cameraShake=true;float maximumPercent=NormalMaximumPercent,eruptionPercent=EruptionMaximumPercent,lineupPercent=50,chantMaximumPercent=15,highLeveragePercent=HighLeverageMaximumPercent;bool packedHouse=true,driveEscalation=true;float bigGameMinimum=.55f;};
+struct Settings {bool enabled=true,opening=true,eruptions=true,overtime=true,lineups=true,cameraShake=true;float maximumPercent=NormalMaximumPercent,eruptionPercent=EruptionMaximumPercent,lineupPercent=50,chantMaximumPercent=15,highLeveragePercent=HighLeverageMaximumPercent;bool packedHouse=true,driveEscalation=true;float bigGameMinimum=.55f;bool skillMoves=true,staggeredCheers=true,contextReactions=true;};
 inline float normalLimit(const Settings& c){return c.enabled&&std::isfinite(c.maximumPercent)?c.maximumPercent>=NormalMaximumPercent?NormalMaximumDb:volume::boostDb(c.maximumPercent):0;}
 inline float highLeverageLimit(const Settings& c){return (std::max)(normalLimit(c),std::isfinite(c.highLeveragePercent)?volume::boostDb((std::clamp)(c.highLeveragePercent,0.0f,HighLeverageMaximumPercent)):0);}
 inline float eruptionLimit(const Settings& c){return (std::max)(normalLimit(c),std::isfinite(c.eruptionPercent)?c.eruptionPercent>=EruptionMaximumPercent?EruptionMaximumDb:volume::boostDb(c.eruptionPercent):0);}
@@ -26,7 +26,7 @@ inline bool positiveResult(energy::Event e){
     using energy::Event;
     return e==Event::ExplosiveGain||e==Event::ThirdDownConversion||e==Event::FourthDown||e==Event::BackfieldStop||
         e==Event::ThirdStop||e==Event::FourthStop||e==Event::Turnover||e==Event::FumbleRecovery||e==Event::GoalLine||
-        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety||e==Event::BlockedFieldGoal;
+        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety||e==Event::BlockedFieldGoal||e==Event::GameSealingStop||e==Event::GameSealingFirstDown;
 }
 // Listening-tested families: yardage/conversions and defensive stops. The
 // native game retains its own opponent-success reactions.
@@ -35,7 +35,8 @@ inline int resultReaction(const energy::Outcome& r){
     if(r.safety)return 91; // Same cheer family as a touchdown, with a shorter profile.
     switch(r.event){
     case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
-    case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:case Event::BlockedFieldGoal:return 59;
+    case Event::GameSealingStop:case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:case Event::BlockedFieldGoal:return 59;
+    case Event::GameSealingFirstDown:return 91;
     case Event::ExplosiveGain:return r.yards>=40?91:83;
     case Event::ThirdDownConversion:case Event::FourthDown:return 83;
     default:return r.firstDown?83:91;
@@ -75,15 +76,16 @@ struct Model {
         // ordinary matchups. Routine short first downs still need active layers.
         bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6;
         bool scoreUpgrade=scoring&&result.sequence==resultSequence&&!resultScoring;
-        if((!durationOwned||scoring)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
+        if((!durationOwned||scoring||result.contextClincher)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
            (result.sequence!=resultSequence||scoreUpgrade)&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
            (now-resultCheerAt>=4||scoreUpgrade)&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
-            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s);resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring;resultMinimum=minimum;++resultCheer;
+            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s);resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring||result.contextClincher;resultMinimum=minimum;++resultCheer;
         }
         if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!std::isfinite(now))return false;
         // The verified tracker supplies only home scores, or either side at a neutral venue.
         if(result.side<0||result.side>1||(result.side==1&&!s.neutral))return false;
         energy::Event selected=result.event;
+        bool contextStop=c.contextReactions&&result.contextEruption&&result.completed&&selected==energy::Event::GameSealingStop;
         bool early=result.completed&&result.firstTouchdown&&result.openingPlay>=1&&result.openingPlay<=5&&s.quarter==1&&layeredActive;
         bool otTakeaway=result.completed&&result.takeaway&&overtime(s);
         bool lateTakeaway=energy::sealsRegulationTakeaway(result,s);
@@ -95,7 +97,7 @@ struct Model {
         if(otTakeaway)selected=energy::preferred(selected,energy::Event::OvertimeTakeaway);
         if(lateTakeaway)selected=energy::preferred(selected,energy::Event::LateTakeaway);
         if((selected==energy::Event::EarlyTouchdown&&!early)||(selected==energy::Event::OvertimeTakeaway&&!otTakeaway)||(selected==energy::Event::LateTakeaway&&!lateTakeaway)||(selected==energy::Event::ExplosiveTouchdown&&!longTouchdown)||(selected==energy::Event::HailMaryTouchdown&&!hailMary))return false;
-        if(!decisive(selected)&&selected!=energy::Event::EarlyTouchdown&&selected!=energy::Event::OvertimeTakeaway&&selected!=energy::Event::LateTakeaway&&selected!=energy::Event::ExplosiveTouchdown&&selected!=energy::Event::HailMaryTouchdown)return false;
+        if(!decisive(selected)&&!contextStop&&selected!=energy::Event::EarlyTouchdown&&selected!=energy::Event::OvertimeTakeaway&&selected!=energy::Event::LateTakeaway&&selected!=energy::Event::ExplosiveTouchdown&&selected!=energy::Event::HailMaryTouchdown)return false;
         if(selected==energy::Event::LastSecondLead&&(s.quarter!=4||s.seconds<0||s.seconds>30))return false;
         bool same=result.sequence&&result.sequence==sequence;
         if(same&&energy::priority(selected)<=energy::priority(event))return false;
@@ -150,6 +152,7 @@ struct Model {
         bool phase=p.game.phase>=1&&p.game.phase<=7;
         if(!allowed||!c.enabled||normalLimit(c)<=0||!phase||postgameMenu)return out;
         out.active=true;out.intensity=intensity;
+        out.staggered=c.staggeredCheers;
         if(c.lineups&&resultWeight>0&&p.game.phase!=3&&p.game.phase!=6&&p.game.phase!=7&&resultCheer&&now/1000.0>=resultCheerAt&&now/1000.0-resultCheerAt<2.5){out.resultType=resultType;out.resultCheer=resultCheer;out.resultCheerUntil=static_cast<uint64_t>((resultCheerAt+2.5)*1000);}
         if(erupting&&c.eruptions){
             if(postgameHeld||now/1000.0-eruptionAt<roarHoldSeconds){

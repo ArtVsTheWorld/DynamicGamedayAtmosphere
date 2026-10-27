@@ -27,7 +27,7 @@ int main(){
         tick(4000);sustained::Intent intent;intent.active=true;intent.match=123;intent.epoch=1;intent.updated=4000;
         auto sound=layers.merge(intent,config,p,4000,gate);
         assert(sound.hostileOpening==(side==1)&&sound.continuous);
-        if(side==1){assert(sound.lineupType==59&&sound.deepCheers&&sound.lineupCheer&&sound.supporting&&sound.attackMs==800&&sound.size==3&&layers.leverage);}
+        if(side==1){assert(!sound.cheers&&!sound.deepCheers&&!sound.lineupCheer&&sound.supporting&&sound.attackMs==800&&sound.size==3&&layers.leverage);}
         auto cheer=layers.hostileCheer;
         // Returning to selection before any snap may preserve the opening,
         // but does not schedule another hostile cheer burst.

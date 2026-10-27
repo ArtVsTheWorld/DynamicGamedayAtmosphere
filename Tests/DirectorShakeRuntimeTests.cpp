@@ -58,7 +58,7 @@ int main(){
     output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());
     // The projection is read only; close-up celebration motion is reduced.
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
-    for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})for(unsigned slot:{0u,2u,3u}){
+    for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher})for(unsigned slot:{0u,2u,3u}){
         views[slot*0x68/8]=addr(foreign[0]);Cue earned=cue;earned.kind=kind;earned.until=17000;
         output=source;auto countBefore=r.changed();r.tick(addr(foreign[0]),output.data(),earned,cue.match,2,2000);assert(output!=source&&r.changed()==countBefore+1);
         assert(earned.began==cue.began&&earned.updated==cue.updated); // Filtering never rewrites an earned cue's clock.
@@ -84,7 +84,7 @@ int main(){
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
-    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})for(float focal:{12.f,1.5857974f}){
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher})for(float focal:{12.f,1.5857974f}){
         auto tested=cue;tested.kind=kind;tested.until=17000;projection[5]=focal;
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
         output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000);
@@ -94,6 +94,9 @@ int main(){
         auto other=tested;++other.began;assert(!zoom.playing(other,2000));
         assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
     }
+    // Earned effects follow a verified cutaway outside all four cached views.
+    views[0]=views[2*0x68/8]=views[3*0x68/8]=0;
+    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(output!=source);
     views[0]=addr(view[0]);
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),reinterpret_cast<const unsigned char*>(original.data())+0x2b4,sizeof(projection));
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());
