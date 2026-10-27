@@ -12,6 +12,7 @@ inline const char* name(Event e){if(auto label=accentName(e))return label;switch
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
 inline int cheerType(const Outcome& event){
     if(event.event==Event::Truck)return 11; // Native BIGHIT_POS, large size.
+    if(event.event==Event::Hurdle)return 83; // Successful clearance: positive cheer plus the gentle buildup.
     if(softSkill(event.event))return 0; // A short swell accompanies the softer motion.
     switch(event.event){
     case Event::CatchKnockout:case Event::ThirdGoalStop:case Event::HitStick:case Event::BlockedFieldGoal:case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;

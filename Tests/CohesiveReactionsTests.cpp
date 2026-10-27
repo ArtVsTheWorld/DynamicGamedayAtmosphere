@@ -34,7 +34,7 @@ int main(){
     motion::Cue score{123,1,11000,1000,31000,motion::Kind::Touchdown,15,false,20};
     auto scoring=base(11000);scoring.reason=sustained::Reason::Result;scoring.priority=5;scoring.reaction=true;scoring.scoringReaction=true;scoring.releaseMs=9000;scoring.resultCheer=8;
     auto longer=pairing::merge(scoring,score,11000,1,1);assert(longer.continuous&&!longer.reaction&&longer.releaseMs>13000&&longer.scoringReaction&&longer.resultCheer==8);
-    scoring.reason=sustained::Reason::Eruption;scoring.celebration=7;kept=pairing::merge(scoring,score,11000,1,1);assert(kept.celebration==7&&kept.releaseMs==9000);
+    scoring.reason=sustained::Reason::Eruption;scoring.celebration=7;kept=pairing::merge(scoring,score,11000,1,1);assert(kept.celebration==7&&kept.releaseMs>=9000&&kept.intensity>0);
     auto stale=base(1000);assert(pairing::merge(stale,score,11000,1,1).reason==sustained::Reason::None);
     // Neutral-site opening welcomes the first offense, rather than treating
     // either half of the stadium as the away crowd. Never repeats next play.

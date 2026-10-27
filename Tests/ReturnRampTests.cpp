@@ -26,8 +26,9 @@ int main(){
         Test t(direction,type,kicker,neutral);bool own=kicker==1||neutral;uint64_t rampStart=0;
         for(int gain=1;gain<=45;++gain){auto event=t.tick(3,-40.f+gain,true);assert(bool(event.id)==(own&&gain==40));
             if(event.id)assert(event.event==(type==22?live::Event::PuntReturn:live::Event::KickReturn)&&event.yards==40);
-            if(!own||gain<30)assert(!t.returns.buildup().id);
-            if(own&&gain==30){assert(t.returns.buildup().id);rampStart=t.returns.buildup().id;assert(t.movement()<1.01f);}
+            if(!own||gain<30){assert(!t.returns.buildup().id);assert(t.voice().reason==sustained::Reason::None);}
+            if(own&&gain==30){assert(t.returns.buildup().id);rampStart=t.returns.buildup().id;assert(t.movement()<1.01f);
+                auto swell=t.voice();assert(swell.reason==sustained::Reason::Result&&swell.continuous&&swell.supporting&&swell.intensity>0&&swell.intensity<300&&!swell.liveCheer&&!swell.resultCheer);}
             if(own&&gain==35){assert(std::fabs(t.returns.buildup().progress-.5f)<.0001f);assert(std::fabs(t.movement()-5.5f)<.01f);assert(t.voice().intensity<950);}
             if(own&&gain>=40){assert(t.returns.buildup().id==rampStart&&t.returns.buildup().progress==1);assert(t.movement()==10&&t.voice().intensity==950);}
         }

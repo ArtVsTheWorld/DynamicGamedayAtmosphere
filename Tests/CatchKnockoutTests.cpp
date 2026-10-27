@@ -24,6 +24,9 @@ int main(){
         assert(!c.tick(4,4).id);
     }
     {Case c;c.tick(4,3);c.sample.knockout=true;assert(c.tick(4,4).id);} // Late drop publication.
+    for(int kind:{4,5}){Case c;c.sample.knockout=true;assert(c.tick(3,kind).event==live::Event::CatchKnockout);assert(!c.tick(4,kind).id);}
+    {Case c;assert(!c.tick(3,5).id);} // Kind 5 alone is only an incompletion.
+    {Case c;c.sample.knockout=true;assert(!c.tick(3,3).id);assert(c.tick(4,5).id);} // Captured airborne -> knockout/incomplete order.
     for(int bad=0;bad<10;++bad){Case c;c.sample.knockout=true;int kind=4;bool held=false;
         if(bad==0)c.allowed=false;if(bad==1)c.p.simulated=true;if(bad==2)c.now+=800;if(bad==3)++c.epoch;
         if(bad==4)c.match=456;if(bad==5)c.sample.object=4321;if(bad==6)c.sample.valid=false;

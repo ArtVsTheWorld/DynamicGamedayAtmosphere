@@ -67,9 +67,11 @@ int main(){
     request={};request.match=123;request.epoch=1;request.updated=timeValue;request.active=true;request.reason=Reason::Opening;request.size=3;request.intensity=1000;
     auto tick=[&](uint64_t time){timeValue=time;request.updated=time;runtime.tick(address(owner)+0x40,request,time);balanced();};
     reenter=true;tick(1000);assert(runtime.playing()&&starts==1&&messages.back().size==3&&messages.back().attack==4000);
+    assert(runtime.audible(request,1000));auto foreign=request;foreign.epoch++;assert(!runtime.audible(foreign,1000));
     reenter=false;
     for(uint64_t time=1100;time<21000;time+=100)tick(time);assert(starts==1&&queries==1); // No per-frame endpoint work while holding.
     tick(21000);assert(!runtime.playing()&&stops==1&&messages.back().release==4000);
+    assert(runtime.audible(request,24999)&&!runtime.audible(request,25000));
     tick(28000);assert(starts==1);tick(29000);assert(starts==2);
     request.active=false;tick(29100);assert(stops==2&&!runtime.playing()); // Disable cleans up through the same live endpoint.
     request.active=true;tick(37100);assert(starts==3);runtime.tick(address(owner)+0x40,request,38000);balanced();assert(stops==3); // Expired lease.
@@ -80,7 +82,7 @@ int main(){
     Runtime failed;failed.configure(image,nullptr,&api);badParameter=true;request.updated=65000;
     failed.tick(address(owner)+0x40,request,65000);balanced();assert(!failed.playing());badParameter=false;
     Runtime faulted;faulted.configure(image,nullptr,&api);faultSend=true;request.updated=68000;
-    faulted.tick(address(owner)+0x40,request,68000);balanced();assert(!faulted.healthy()&&faulted.playing());
+    faulted.tick(address(owner)+0x40,request,68000);balanced();assert(!faulted.healthy()&&faulted.playing()&&!faulted.audible(request,68000));
     request.updated=70100;faulted.tick(address(owner)+0x40,request,70100);balanced();assert(!faulted.playing()); // Attempted send faults still receive a guarded stop.
     Runtime continuous;continuous.configure(image,nullptr,&api);request.continuous=true;request.releaseMs=20000;request.reason=Reason::Opening;request.updated=100000;
     continuous.tick(address(owner)+0x40,request,100000);balanced();assert(continuous.playing());

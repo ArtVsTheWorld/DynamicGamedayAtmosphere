@@ -6,8 +6,8 @@
 #include "ReactionShape.h"
 
 namespace attendance::motion {
-enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher };
-inline const char* name(Kind k){switch(k){case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
+enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
+inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cannon impact";case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
 struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=15;};
 inline float hostileOpeningStrength(uint64_t positions,float maximum=15){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;

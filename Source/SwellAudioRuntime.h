@@ -121,6 +121,7 @@ class Runtime {
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
     std::atomic<Address> nativeManager_{0};std::atomic<uint64_t> nativeStart_{0},nativeStop_{0};std::atomic<int> nativeSize_{0};
     Address quickMatch_=0;unsigned quickEpoch_=0;uint64_t quickToken_=0;Reason quickReason_=Reason::None;
+    Address audibleMatch_=0;unsigned audibleEpoch_=0;uint64_t releaseUntil_=0;
     std::atomic<unsigned> adopted_{0};bool ownsVoice_=false,gameplay_=false;int playingSize_=0;
 public:
     void configure(Address image,Note note=nullptr,const Api* api=nullptr,bool gameplay=false){image_=image;api_=api?*api:Api::native(image);note_=note;gameplay_=gameplay;}
@@ -168,13 +169,13 @@ public:
         if(episode_.playing&&(endpoint.manager!=manager_||endpoint.world!=world_||endpoint.asset!=asset_||owner!=owner_)){
             // Retired worlds own their retired voices. Never send through a
             // replacement endpoint to stop a sound belonging to another world.
-            episode_.stopped(now);playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
+            episode_.stopped(now);releaseUntil_=0;playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
             if(note_)note_("Anticipation released after the crowd scene changed.");return;
         }
         if(stop){
             int release=wanted.active&&healthy_?releaseMs_:4000;
             if(ownsVoice_&&!emit(api_,image_,endpoint.manager,false,3,nullptr,nullptr,4000,release,gameplay_)){retryUntil_=now+1000;healthy_=false;if(note_)note_("Anticipation stop failed; no further swell starts will be sent.");return;}
-            bool owned=ownsVoice_;if(owned)++stops_;episode_.stopped(now,static_cast<unsigned>(release));playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
+            bool owned=ownsVoice_;releaseUntil_=owned?now+release:0;if(owned)++stops_;episode_.stopped(now,static_cast<unsigned>(release));playing_=false;reason_=0;openingManager_=0;ownsVoice_=false;
             if(note_)note_(owned?"Anticipation roar fading out; normal game reactions continue.":"Native lineup roar returned to game control.");return;
         }
         if(refresh){
@@ -208,13 +209,17 @@ public:
             lastDiagnostic_=wanted.diagnosticToken;
             if(wanted.passFlight)lastPassFlight_=wanted.passFlight;
             if(wanted.skillAccent){lastSkillAccent_=wanted.skillAccent;skillMatch_=wanted.match;skillEpoch_=wanted.epoch;}
-            playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
+            playing_=true;audibleMatch_=wanted.match;audibleEpoch_=wanted.epoch;releaseUntil_=0;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
             playingSize_=adopt?(std::max)(wanted.size,nativeSize_.load()):(std::clamp)(wanted.size,1,3);
             handledStop_=nativeStops_.load();openingManager_=wanted.continuous||lineupReason(wanted.reason)?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));
         }
     }
     bool playing()const{return playing_;}bool healthy()const{return healthy_;}
+    bool audible(const Intent& wanted,uint64_t now){
+        std::lock_guard<std::mutex> lock(mutex_);
+        return healthy_&&audibleMatch_==wanted.match&&audibleEpoch_==wanted.epoch&&(playing_||now<releaseUntil_);
+    }
     Reason reason()const{return static_cast<Reason>(reason_.load());}
     unsigned starts()const{return starts_;}unsigned stops()const{return stops_;}
     unsigned refreshes()const{return refreshes_;}

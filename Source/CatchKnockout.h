@@ -31,7 +31,9 @@ public:
         live::Outcome out;
         // A fresh native knockout plus its dropped-pass result distinguishes
         // contact at the catch from a normal incompletion or receiver drop.
-        if(active&&proof_&&!used_&&kind==4&&!held&&!p.interception&&!p.fumble){used_=true;out={live::Event::CatchKnockout,++serial_,1-side_,0};}
+        // Contact breakups can publish kind 5 (observed with a fresh native
+        // knockout in Texas), while dropped catches can publish kind 4.
+        if(active&&proof_&&!used_&&(kind==4||kind==5)&&!held&&!p.interception&&!p.fumble){used_=true;out={live::Event::CatchKnockout,++serial_,1-side_,0};}
         if(p.game.phase!=1&&p.game.phase!=3&&!post)ready_=live_=false;
         phase_=p.game.phase;return out;
     }

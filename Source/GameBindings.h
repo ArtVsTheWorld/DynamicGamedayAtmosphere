@@ -4,6 +4,8 @@
 // compatibility is not tied to an executable hash. Keep future binding changes
 // here, separately from the configurable atmosphere rules.
 namespace attendance::bindings {
+// Final native LegacySoundEntity event receiver and read-only Int32 variant accessor.
+inline constexpr uintptr_t LegacySoundVtable=0xaefc638,LegacySoundReceive=0x10fdc70,VariantValue=0x5b29690,Int32Type=0xf638ea0;
 inline constexpr uintptr_t AudioUpdate=0x28484a0,CrowdQueue=0x3d3fb30;
 inline constexpr uintptr_t AttendanceUpdate=0x3632a50;
 inline constexpr uintptr_t CrowdVisibility=0x64afda0,PeriodChange=0x5d024c0,CrowdPartResolve=0x65047b0;
@@ -33,7 +35,7 @@ inline constexpr uintptr_t MatchVtable=0xb4781e8,RulesVtable=0xb4776f0;
 // Native IsNeutralStadium, also used by HFA suppression at 0x2e1f5b4.
 inline constexpr uintptr_t NeutralGetter=0x61faea0;
 // Crowd slider in MixerBridge's cached user-volume array.
-inline constexpr uintptr_t CrowdSlider=0x1f4;
+inline constexpr uintptr_t MasterSlider=0x1e8,CrowdSlider=0x1f4;
 // Scoped crowd-event query and owned temporary event lifecycle.
 inline constexpr uintptr_t SwellQuery=0x2076c70,SwellQueryGet=0x207ca70,SwellQueryDestroy=0x20778a0,SwellWeakRelease=0x1498660;
 inline constexpr uintptr_t SwellAllocator=0xdc4c670,SwellQueryType=0xf5ba3a8,SwellManagerGetter=0x3d3d500;

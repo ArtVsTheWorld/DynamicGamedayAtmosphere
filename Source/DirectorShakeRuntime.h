@@ -22,6 +22,7 @@ class Runtime {
     uintptr_t image_=0;
     std::atomic<bool> healthy_{true};std::atomic<uint64_t> changed_{0},last_{0};std::atomic<float> percent_{0};std::atomic<Kind> kind_{Kind::None};
     std::atomic<uint64_t> appliedBegan_{0};std::atomic<float> zoomScale_{1},unscaled_{0};
+    std::atomic<uint64_t> requestedBegan_{0},requestedAt_{0};std::atomic<Kind> requestedKind_{Kind::None};
     static bool read(uintptr_t p,void* out,size_t size){SIZE_T n=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,size,&n)&&n==size;}
     template<class T>static T at(uintptr_t p){T value{};read(p,&value,sizeof(value));return value;}
     bool world(const Cue& c,uintptr_t view)const{
@@ -45,8 +46,12 @@ class Runtime {
     }
 public:
     void configure(uintptr_t image){image_=image;}
+    bool prepare(uintptr_t view,const Cue& cue,uintptr_t match,unsigned epoch,uint64_t now){
+        if(!healthy_||cue.match!=match||cue.epoch!=epoch||strength(cue,now)<=0||!world(cue,view))return false;
+        requestedBegan_=cue.began;requestedKind_=cue.kind;requestedAt_=now;return true;
+    }
     void tick(uintptr_t view,float* destination,const Cue& cue,uintptr_t match,unsigned epoch,uint64_t now){
-        if(!healthy_||cue.match!=match||cue.epoch!=epoch||strength(cue,now)<=0||!world(cue,view))return;
+        if(!prepare(view,cue,match,epoch,now))return;
         auto address=reinterpret_cast<uintptr_t>(destination);
         if(address<view+0x800&&address+sizeof(float)*16>view)return;
         std::array<float,16> projection{},output{};Cue adjusted=cue;
@@ -60,6 +65,7 @@ public:
     bool healthy()const{return healthy_;}void fail(){healthy_=false;}
     bool playing(uint64_t now)const{auto last=last_.load();return healthy_&&last&&now>=last&&now-last<150;}
     bool playing(const Cue& cue,uint64_t now)const{return playing(now)&&appliedBegan_==cue.began&&kind_==cue.kind;}
+    bool requested(const Cue& cue,uint64_t now)const{auto at=requestedAt_.load();return at&&now>=at&&now-at<150&&requestedBegan_==cue.began&&requestedKind_==cue.kind;}
     float zoomScale()const{return zoomScale_;}float unscaled()const{return unscaled_;}
     Kind kind()const{return kind_;}float percent()const{return percent_;}uint64_t changed()const{return changed_;}
 };

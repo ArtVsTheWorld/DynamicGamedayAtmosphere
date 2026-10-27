@@ -3,6 +3,10 @@
 #include "SustainedCrowd.h"
 
 namespace attendance::pairing {
+struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;};
+inline bool soundReady(const SoundLease& sound,const motion::Cue& cue,uint64_t now){
+    return sound.audible&&sound.match&&sound.match==cue.match&&sound.epoch==cue.epoch&&now>=sound.updated&&now-sound.updated<=150;
+}
 // Sound follows the selected camera envelope, never the rendered zoom strength.
 // No new cheer, gain bonus, play event or timer is created by this bridge.
 inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint64_t now,float fullness,
@@ -11,10 +15,12 @@ inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint
        now<cue.updated||now-cue.updated>750||now<cue.began||!std::isfinite(fullness)||fullness<=0||fullness>1)return out;
     float peak=(std::max)(motion::limit(cue.percent),motion::limit(cue.impact));if(peak<=0)return out;
     bool buildup=cue.kind==motion::Kind::Ordinary||cue.kind==motion::Kind::Critical;
-    bool voiced=out.reason!=sustained::Reason::None&&(out.continuous||out.reaction);
-    if(out.celebration||out.reason==sustained::Reason::Eruption)return out;
+    bool voiced=out.reason!=sustained::Reason::None&&(out.continuous||out.reaction)&&std::isfinite(out.intensity)&&out.intensity>0;
+    if((out.celebration||out.reason==sustained::Reason::Eruption)&&voiced)return out;
     if(buildup){
-        if(voiced||!visibleBuildup)return out;
+        if(!visibleBuildup)return out;
+        float level=650.f*std::sqrt(fullness)*(std::clamp)(motion::strength(cue,now)/peak,0.f,1.f);
+        if(voiced||(out.reason!=sustained::Reason::None&&(out.continuous||out.reaction))){out.intensity=(std::max)(out.intensity,level);return out;}
         // The prepared camera may be hidden behind a presentation cutaway.
         // Only its actually rendered gameplay transition gets this prelude.
         out.reason=sustained::Reason::Lineup;out.priority=(std::max)(out.priority,1);
@@ -39,11 +45,20 @@ inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint
     int release=longLive?5000:static_cast<int>((std::max)(500.f,total-hold));
     float level=(std::clamp)(motion::strength(cue,now)/peak,0.f,1.f);
     out.intensity=(std::max)(out.intensity,(cue.softAccent?650.f:950.f)*std::sqrt(fullness)*level);
+    if(out.celebration||out.reason==sustained::Reason::Eruption){
+        // An eruption identity alone does not guarantee a playing voice.
+        // Repair a silent/incomplete intent without inventing another cheer.
+        out.reason=sustained::Reason::Eruption;out.priority=(std::max)(out.priority,6);
+        out.continuous=!releasing;out.reaction=releasing;out.supporting=!releasing;
+        out.size=3;out.attackMs=500;out.releaseMs=(std::max)(out.releaseMs,release);
+        out.motionCompanion=true;return out;
+    }
     if(out.reason==sustained::Reason::Result&&out.priority>4){
         // Preserve the official scoring/result response, extending only its
         // hold/release when a custom camera profile would otherwise outlive it.
         out.releaseMs=(std::max)(out.releaseMs,release);
         if(!releasing){out.continuous=true;out.reaction=false;out.supporting=true;}
+        else if(!voiced){out.reaction=true;out.continuous=false;}
         return out;
     }
     if(out.reason==sustained::Reason::Result&&!cue.impactOnly)return out; // Existing run/return pair already owns its fade.

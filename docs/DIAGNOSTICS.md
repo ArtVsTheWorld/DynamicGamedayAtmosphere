@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.63.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.64.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.63.0/
+    Runtime-1.64.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -186,3 +186,11 @@ The camera interaction matrix checks 121 ordered pairs across ordinary/critical 
 The sound handoff now covers equal/higher-priority result changes as well as scoring upgrades. It carries only a recently earned normalized level for 250 ms, releasing the bridge by 500 ms without changing effect timers or gain limits. Negative reactions, lost possession, stale/world changes and a new snap cannot inherit the old play. Full-size continuous voices are retained across new result IDs; stopped or undersized voices still refresh.
 
 Offensive/defensive positive cheer IDs 83 and 59 share stable per-event choices. Runtime duplicate matching treats them as equivalent, so variety cannot create a duplicate layered cheer. Native big-hit, disappointment and scoring IDs retain their original families. Existing full-volume and two-voice limits remain. Tests cover both-family coverage, repeated callback stability, cross-family native deduplication and no retries. The agent has not installed the build or changed game settings; actual transition feel still needs in-game listening/visual checks.
+
+## 1.64 sound-linked camera verification
+
+The Cannon sound observer status lists availability and confirmed native starts. A [cannon] log requires the exact stadium FX patch, native Play event, an enabled playing instance, positive authored amplitude and a Cannon_01..09 selector (10..18). It does not infer a blast from a score or team ID. The existing native blast is the sound companion; no cannon sound is duplicated. Nine selector values and native receiver/variant-accessor bytes were verified read-only; in-game event timing is pending on the staged observer.
+
+Crowd motion requires a fresh 150ms audible lease from an owned/native-adopted roar or swell in the same match/epoch. Actual native release deadlines remain audible until their existing tail ends. Rendering a valid gameplay view can request a missing lineup sound without first moving the camera, avoiding a sound/motion startup loop. Lost scenes, failures, mute and stale leases suppress added motion. Native Dynamic Camera Effects still gates every category, including cannon impacts.
+
+A read-only Texas capture at 09:21:29 showed the knockout flag rise while the pass result changed from kind 3 to kind 5, remaining positive through the whistle. The detector now admits kind 5 as well as 4, with the same fresh flag, third/fourth-down home-defense, possession and once-per-play checks. Successful hurdles request a positive cheer (the shared offensive/defensive cheer pool); their camera remains the gentle skill buildup.

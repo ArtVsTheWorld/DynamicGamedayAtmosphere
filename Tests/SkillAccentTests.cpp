@@ -5,7 +5,8 @@
 using namespace attendance;
 int main(){
     assert(live::cheerType({live::Event::Truck,1,0,0})==11);
-    for(auto event:{live::Event::StiffArm,live::Event::Hurdle,live::Event::Juke,live::Event::Spin,live::Event::BrokenTackle})assert(live::cheerType({event,1,0,0})==0);
+    for(auto event:{live::Event::StiffArm,live::Event::Juke,live::Event::Spin,live::Event::BrokenTackle})assert(live::cheerType({event,1,0,0})==0);
+    assert(live::cheerType({live::Event::Hurdle,1,0,0})==83);
     assert(live::cheerType({live::Event::HitStick,1,0,0})==59);
     motion::Settings settings;motion::Model camera;motion::Input in;in.match=123;in.epoch=1;in.phase=3;in.now=1000;
     in.allowed=in.duringAllowed=in.duringImpact=in.softAccent=true;in.duringPlay=1;in.impactMilliseconds=2000;in.reactionScale=.5f;
@@ -29,5 +30,5 @@ int main(){
     }
     swell.observe(p,123,1,3000,true,{},0);base.updated=3000;assert(!swell.merge(base,3000,1).supporting);
     swell.observe(p,123,1,3100,true,{live::Event::Spin,2,0,0},2);swell.observe(p,123,1,3200,false,{},0);base.updated=3200;assert(!swell.merge(base,3200,1).supporting);
-    std::puts("PASS: gentle 450ms skill build/fade, bounded 50% live strength, independent short swell without cheers/gain, native truck big-hit family, hit-stick separation and scoring/suspension priority.");
+    std::puts("PASS: gentle 450ms skill build/fade, bounded 50% live strength, independent short skill swells, successful hurdle cheer, native truck big-hit family, hit-stick separation and scoring/suspension priority.");
 }

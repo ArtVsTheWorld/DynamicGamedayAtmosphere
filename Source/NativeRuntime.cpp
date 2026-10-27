@@ -43,6 +43,7 @@
 #include "CrowdIntensityRuntime.h"
 #include "NativeReactionTrace.h"
 #include "MotionSoundPairing.h"
+#include "CannonSoundRuntime.h"
 #include "ScoringSoundHandoff.h"
 #include "CallbackGate.h"
 #include "CrowdChangeWindow.h"
@@ -224,7 +225,12 @@ std::atomic<bool> cheerAvailable{false};
 using ReactionUpdate=void(__fastcall*)(A,A);ReactionUpdate originalReactionUpdate=nullptr;
 attendance::sustained::IntensityRuntime crowdIntensity;
 attendance::motion::Runtime presentationCamera;
-attendance::motion::PointerHook cameraViewHook;
+attendance::motion::PointerHook cameraViewHook,cannonReceiverHook;
+using LegacySoundReceive=void(__fastcall*)(A,A);LegacySoundReceive originalLegacySoundReceive=nullptr;
+std::shared_ptr<const attendance::cannon::Blast> cannonBlast=std::make_shared<attendance::cannon::Blast>();
+std::mutex cannonMutex;std::atomic<bool> cannonAvailable{false};std::atomic<unsigned> cannonStarts{0};
+std::shared_ptr<const attendance::pairing::SoundLease> motionSound=std::make_shared<attendance::pairing::SoundLease>();
+std::atomic<bool> nativeMasterAudible{false};
 attendance::sparsecamera::Runtime sparseNativeCamera;
 attendance::sparsecamera::Api::Set originalNativeCameraSet=nullptr;
 std::atomic<bool> sparseCameraAvailable{false},sparseCameraFaultReported{false};std::atomic<int> nativeShakeMinimum{50};
@@ -385,6 +391,36 @@ void sparseCameraTick(){
     if(lease.suppress||sparseNativeCamera.active())sparseNativeCamera.tick(attendance::sustained::at<A>(image+attendance::bindings::CameraOwner),lease,now);
 }
 bool guardedSparseCameraTick(){__try{sparseCameraTick();return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
+bool cannonRead(A p,void* value,size_t size){SIZE_T copied=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),value,size,&copied)&&copied==size;}
+bool cannonInteger(A variant,int& value){
+    using Get=A(__fastcall*)(A,A);
+    A data=0;return attendance::sustained::obtain(data,reinterpret_cast<Get>(image+attendance::bindings::VariantValue),variant,image+attendance::bindings::Int32Type)&&cannonRead(data,&value,sizeof(value));
+}
+bool cannonPlaying(A instance){
+    using Playing=bool(__fastcall*)(A);
+    __try{
+        A table=attendance::sustained::at<A>(instance);if(table<image+0xac00000||table>=image+0xdc00000)return false;
+        A function=attendance::sustained::at<A>(table+0x58);if(function<image||function>=image+0xac00000)return false;
+        return reinterpret_cast<Playing>(function)(instance);
+    }
+    __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+}
+void observeCannon(A entity,A event){
+    auto config=std::atomic_load(&coreSettings);A match=audioMatch.load();unsigned epoch=audioEpoch.load();auto now=GetTickCount64();
+    A configuration=attendance::sustained::at<A>(image+0xf6379e0);
+    if(!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!config->enabled||!config->cameraShake||!cameraAvailable||!match||!nativeUnpaused()||!configuration||attendance::sustained::at<unsigned char>(configuration+0x84)!=0||!nativeMasterAudible)return;
+    // Match/world/offline and accessibility are checked again at camera output.
+    int effect=attendance::cannon::started(image,entity,event,cannonRead,cannonInteger,cannonPlaying);
+    if(effect<0)return;
+    std::lock_guard<std::mutex> guard(cannonMutex);auto old=std::atomic_load(&cannonBlast);
+    if(old->match==match&&old->epoch==epoch&&now>=old->began&&now-old->began<120)return;
+    std::shared_ptr<const attendance::cannon::Blast> next=std::make_shared<attendance::cannon::Blast>(attendance::cannon::Blast{match,epoch,now,effect});
+    std::atomic_store(&cannonBlast,next);++cannonStarts;
+}
+void __fastcall legacySoundReceive(A entity,A event){
+    originalLegacySoundReceive(entity,event);
+    try{observeCannon(entity,event);}catch(...){cannonAvailable=false;}
+}
 void __fastcall cameraView(A view,float* output){
     originalCameraView(view,output);
     if(!enabled||mode!=0||!cameraAvailable||replayLoss.load()>=0)return; // Recorded clips, including play-selection insets, stay steady.
@@ -394,8 +430,21 @@ void __fastcall cameraView(A view,float* output){
         if(!preview->playing(audioMatch.load(),audioEpoch.load(),GetTickCount64())||!preview->camera||!config->enabled||!config->cameraShake||!nativeUnpaused()||audioPresentationPhase()!=1)return;
         cue=preview->cue;
     }
+    bool cannonSound=false;
+    if(!preview->active&&!preview->cooling){
+        auto config=std::atomic_load(&coreSettings);auto blast=std::atomic_load(&cannonBlast);
+        cue=attendance::cannon::merge(cue,*blast,GetTickCount64(),std::atomic_load(&cameraSettings)->live,
+            enabled&&mode==0&&audioSetting&&config->enabled&&config->cameraShake&&blast->match==audioMatch.load()&&blast->epoch==audioEpoch.load());
+        auto now=GetTickCount64();cannonSound=nativeMasterAudible&&blast->match==audioMatch.load()&&blast->epoch==audioEpoch.load()&&attendance::cannon::variant(blast->effect)&&blast->began&&now>=blast->began&&now-blast->began<900;
+    }
     if(cue.kind==attendance::motion::Kind::None)return;
-    try{presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),GetTickCount64());}
+    try{
+        auto now=GetTickCount64();
+        if(!presentationCamera.prepare(view,cue,audioMatch.load(),audioEpoch.load(),now))return;
+        bool diagnostic=preview->fresh(audioMatch.load(),audioEpoch.load(),now)&&(preview->active||preview->cooling);
+        if(!diagnostic&&!cannonSound&&!attendance::pairing::soundReady(*std::atomic_load(&motionSound),cue,now))return;
+        presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),now);
+    }
     catch(...){presentationCamera.fail();}
 }
 A __fastcall crowdSend(A manager,A result,A event){
@@ -409,6 +458,8 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
     int volume=0;SIZE_T count=0;
     bool audible=owner>=0x10040&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(owner-0x40+attendance::bindings::CrowdSlider),&volume,4,&count)&&count==4&&volume>0&&volume<=100;
     nativeCrowdSlider=count==4&&volume>=0&&volume<=100?volume:-1;
+    int master=0;SIZE_T masterCount=0;nativeMasterAudible=owner>=0x10040&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(owner-0x40+attendance::bindings::MasterSlider),&master,4,&masterCount)&&masterCount==4&&master>0&&master<=100;
+    audible=audible&&nativeMasterAudible;
     if(!notedAudioState.exchange(true))logAudioState(nativeCrowdSlider.load());
     audioAudible=audible;lastAudibleUpdate=GetTickCount64();
     if(swellAvailable)try {
@@ -418,6 +469,7 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
         sustainedAudio.tick(owner,primary,GetTickCount64());
         if(diagnostic)wanted.supporting=preview->supporting;
         supportingSwell.tick(owner,attendance::sustained::supportingIntent(wanted),GetTickCount64());
+        auto soundAt=GetTickCount64();std::shared_ptr<const attendance::pairing::SoundLease> sound=std::make_shared<attendance::pairing::SoundLease>(attendance::pairing::SoundLease{wanted.match,wanted.epoch,soundAt,wanted.active&&audible&&(sustainedAudio.audible(wanted,soundAt)||supportingSwell.audible(wanted,soundAt))});std::atomic_store(&motionSound,sound);
     }catch(...){sustainedAudio.fail();supportingSwell.fail();audioNote("swell-fault: new starts stopped; cleanup will retry on the next audio update");}
     if(chantAvailable)try {
         auto wanted=audioWanted();auto config=std::atomic_load(&coreSettings);
@@ -1168,6 +1220,13 @@ bool install() {
         originalCameraView=reinterpret_cast<CameraViewCopy>(image+attendance::bindings::CameraViewCopy);presentationCamera.configure(image);
         cameraAvailable=cameraViewHook.install(image+attendance::bindings::CameraViewSlot,reinterpret_cast<A>(originalCameraView),reinterpret_cast<A>(cameraView));
     }
+    if(cameraAvailable&&audioSetting&&
+       bytes(attendance::bindings::LegacySoundReceive,{0x48,0x89,0x5c,0x24,0x18,0x48,0x89,0x6c,0x24,0x20,0x41,0x56,0x48,0x83,0xec,0x20})&&
+       bytes(attendance::bindings::VariantValue,{0x48,0x89,0x5c,0x24,0x10,0x57,0x48,0x83,0xec,0x20})){
+        originalLegacySoundReceive=reinterpret_cast<LegacySoundReceive>(image+attendance::bindings::LegacySoundReceive);
+        cannonAvailable=cannonReceiverHook.install(image+attendance::bindings::LegacySoundVtable+0x28,reinterpret_cast<A>(originalLegacySoundReceive),reinterpret_cast<A>(legacySoundReceive));
+    }
+    if(!cannonAvailable)log("cannon-inactive","Native stadium-sound observer unavailable; cannon audio remains under game control.");
     if(!cameraAvailable)log("anticipation-inactive","Camera motion binding unavailable; native camera presentation remains active.");
     enabled=true;return true;
 }
@@ -1462,6 +1521,7 @@ void atmosphereTick(){
     auto now=GetTickCount64();uint64_t interval=lastAtmospherePhase==3||lastAtmospherePhase==4?16:50;
     if(now-lastAtmosphereTick<interval)return;lastAtmosphereTick=now;
     updateDiagnostic(now);
+    static unsigned loggedCannons=0;auto fired=cannonStarts.load();if(fired!=loggedCannons){loggedCannons=fired;auto blast=std::atomic_load(&cannonBlast);log("cannon","Native cannon variant "+std::to_string(blast->effect-9)+" started; short impact requested alongside the existing cannon audio, with no extra sound or volume boost.");}
     auto c=std::atomic_load(&retentionEventSettings);
     auto gap=[&](){
         std::shared_ptr<const attendance::sustained::Intent> quiet=std::make_shared<attendance::sustained::Intent>();std::atomic_store(&sustainedIntent,quiet);
@@ -1722,7 +1782,7 @@ void atmosphereTick(){
     motion.eruptionAlive=coreAtmosphere.erupting||coreAtmosphere.postgameHeld;
     if(previousCelebration!=coreAtmosphere.celebration)motion.eruption=coreAtmosphere.celebration;
     std::shared_ptr<const attendance::motion::Cue> nextCamera=std::make_shared<attendance::motion::Cue>(cameraMotion.observe(*std::atomic_load(&cameraSettings),motion));std::atomic_store(&cameraCue,nextCamera);
-    wanted=attendance::pairing::merge(wanted,*nextCamera,now,remaining,playTracker.serial,presentationCamera.playing(*nextCamera,now),!returnAtmosphere.lostPossession());
+    wanted=attendance::pairing::merge(wanted,*nextCamera,now,remaining,playTracker.serial,(presentationCamera.playing(*nextCamera,now)||presentationCamera.requested(*nextCamera,now)),!returnAtmosphere.lostPossession());
     wanted=skillSwell.merge(wanted,now,remaining);
     wanted=scoringSoundHandoff.merge(wanted,p.game.phase,now,remaining,!returnAtmosphere.lostPossession());
     wanted.liveType=attendance::cheer::variedPositive(wanted.liveType,playTracker.serial,wanted.liveCheer,epoch);
@@ -2275,6 +2335,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Native sack/fumble checks")<<(defensiveReactionBindings?"verified":"unavailable; measured five-yard loss fallback independent")<<"\n";
     report.field("Blocked-field-goal detection")<<(fieldGoalBlockBinding?"verified native block flag":"unavailable; normal missed kicks do not count as blocks")<<"\n";
     report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged":sparseNativeCamera.active()?"shake suppressed for sparse crowd":"normal; sparse-crowd filter ready")<<" (gameplay HFA unchanged)\n";
+    report.field("Cannon sound observer")<<(cannonAvailable?"ready":"unavailable")<<"; confirmed native blasts "<<cannonStarts.load()<<"\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);

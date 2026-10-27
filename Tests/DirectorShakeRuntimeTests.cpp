@@ -55,7 +55,7 @@ int main(){
     put(addr(settings[0])+0x41a,static_cast<unsigned short>(0));skipped(addr(view[0]),cue.match,2,2000);put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
     // Both native Dynamic Camera Effects profiles block every added category,
     // including earned close-ups, until re-enabled; no native setting is written.
-    for(unsigned offset:{0x3e6u,0x41au})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher}){
+    for(unsigned offset:{0x3e6u,0x41au})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon}){
         auto gated=cue;gated.kind=kind;gated.until=17000;put(addr(settings[0])+offset,static_cast<unsigned short>(0));
         output=source;auto priorCount=r.changed();r.tick(addr(view[0]),output.data(),gated,cue.match,2,2000);
         assert(output==source&&r.changed()==priorCount);
@@ -67,7 +67,7 @@ int main(){
     output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());
     // The projection is read only; close-up celebration motion is reduced.
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
-    for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher})for(unsigned slot:{0u,2u,3u}){
+    for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(unsigned slot:{0u,2u,3u}){
         views[slot*0x68/8]=addr(foreign[0]);Cue earned=cue;earned.kind=kind;earned.until=17000;
         output=source;auto countBefore=r.changed();r.tick(addr(foreign[0]),output.data(),earned,cue.match,2,2000);assert(output!=source&&r.changed()==countBefore+1);
         assert(earned.began==cue.began&&earned.updated==cue.updated); // Filtering never rewrites an earned cue's clock.
@@ -93,7 +93,7 @@ int main(){
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
-    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
         auto tested=cue;tested.kind=kind;tested.until=17000;projection[5]=focal;
         projection[0]=.5773501992f; // Captured default RTG horizontal focal length.
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
