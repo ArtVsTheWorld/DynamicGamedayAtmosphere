@@ -34,15 +34,15 @@ struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
 // Ball 4 can already name the receiver before the stats record becomes kind 1;
 // a non-null holder by itself is therefore NOT proof of a completed catch.
 class PassFlight {
-    uintptr_t match_=0,record_=0;unsigned epoch_=0;int phase_=-1,side_=-1;
+    uintptr_t match_=0,record_=0,readyRecord_=0;unsigned epoch_=0;int phase_=-1,side_=-1;
     uint64_t last_=0,snap_=0,began_=0,ended_=0;bool ready_=false,snapped_=false,reset_=false,used_=false,air_=false;
 public:
     void reset(){*this=PassFlight{};}
     void observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,uintptr_t record,int kind,int ball,bool held){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
         if(!allowed||!match||p.simulated||!valid(p.game)||now<last_||(last_&&now-last_>750)){reset();return;}last_=now;
-        if(p.game.phase==1){ready_=energy::normalDown(p);side_=p.offense;snapped_=air_=false;began_=ended_=0;}
-        if(p.game.phase==3&&phase_==1&&ready_){snapped_=true;record_=record;snap_=now;reset_=used_=false;}
+        if(p.game.phase==1){ready_=energy::normalDown(p)&&p.offense>=0&&p.offense<=1;side_=p.offense;snapped_=air_=false;began_=ended_=0;readyRecord_=kind==0?record:0;}
+        if(p.game.phase==3&&phase_==1&&ready_&&energy::normalDown(p)&&p.offense==side_){snapped_=true;record_=record;snap_=now;reset_=record&&record==readyRecord_;used_=false;}
         if(snapped_&&p.game.phase==3&&record&&record==record_&&p.offense==side_&&now>=snap_&&now-snap_<=45000){
             if(kind==0)reset_=true;
             bool flight=reset_&&(kind==3||kind==1)&&ball==1&&!held;
@@ -57,12 +57,16 @@ public:
         if(air_)return (std::clamp)(static_cast<float>(now-began_)/150.0f,0.0f,1.0f);
         return ended_&&now>=ended_?1-(std::clamp)(static_cast<float>(now-ended_)/1200.0f,0.0f,1.0f):0;
     }
+    uint64_t flightId()const{return began_;}
+    bool airborne()const{return air_;}
     sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness)const{
         float w=weight(now);
         if(!out.active||out.match!=match_||out.epoch!=epoch_||w<=0||out.celebration||out.reason==sustained::Reason::Result||out.reason==sustained::Reason::Eruption)return out;
         out.intensity=(std::max)(out.intensity,900*w*std::sqrt((std::clamp)(fullness,0.0f,1.0f)));
-        // Reuse an existing roar rather than starting another competing voice.
-        if(out.reason==sustained::Reason::None){out.reason=sustained::Reason::PassFlight;out.priority=2;out.continuous=true;out.size=2;out.attackMs=250;out.releaseMs=1200;out.supporting=false;}
+        out.passFlight=began_;out.supporting=true;out.size=(std::max)(out.size,2);
+        // Keep the existing roar and use the shared gameplay swell. If no
+        // roar remains, the swell alone is enough; the primary is a fault fallback.
+        if(out.reason==sustained::Reason::None){out.reason=sustained::Reason::PassFlight;out.priority=2;out.continuous=true;out.attackMs=500;out.releaseMs=1200;out.supportingOnly=true;}
         return out;
     }
 };

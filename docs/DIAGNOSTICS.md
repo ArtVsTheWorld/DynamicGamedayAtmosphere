@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.58.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.59.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.58.0/
+    Runtime-1.59.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -136,3 +136,13 @@ Automated checks cover the sample, unknown ranks/layouts, smaller discrepancies,
 - Let the favorite lead by more than 14, or by more than eight in that final window. This route should release. Pause/replay/simulation must not generate fresh reactions.
 - Confirm an upset victory's existing celebration still takes priority and follows postgame carry rules.
 - Set `UpsetWatchAtmosphere=0`; other routes, packed requirements and configured volume caps must retain their values.
+
+## 1.59.0 airborne-pass swell checks
+
+A read-only live capture recorded three qualifying home throws at 100% mapped fullness, with verified airborne spans of about 0.95, 1.95 and 3.12 seconds. The final throw was confirmed incomplete by the user. Both old and corrected detectors recognize those passes. The old mixer could leave a low-intensity lineup without an actual supporting-swell request, and the callback forced the supporting channel to use a four-second attack.
+
+The corrected callback uses the existing gameplay swell with a 500ms attack, one pass identity and the existing 1.2-second pass-end fade. It can start despite the prior lineup's quiet gap and refresh an already-playing supporting channel once for the new flight. Native stop recovery is bounded; primary roar ownership, higher-priority results/eruptions and configured caps remain intact. The pure detector also accepts reset proof already verified at the line for quick releases. Actual settings, fullscreen/pause ownership, native ball proof and fullness admission are still required.
+
+`status.txt` now distinguishes the pass gate, verified-flight count and an actually playing airborne-pass supporting swell. One `pass-flight` log entry is written when a new airborne pass is verified, without logging every tick.
+
+Automated tests include replay of the captured ball sequence and native-event fixtures for cold/warm supporting voices, fast attack, pass-end release, repeated ticks, quiet gaps, interruptions and result priority. The code is staged for later installation. Listening to the corrected build after restarting MMC/game remains necessary; the capture used the installed build and made no game writes.

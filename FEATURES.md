@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 development | Working build 1.58.0 | Offline CFB 27
+By Ace | Update 3 development | Working build 1.59.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -238,7 +238,7 @@ These reactions need a play that qualified for layered atmosphere and enough ful
 - Runs, quarterback scrambles and short catch-and-runs start a gentle shake at 10 total yards: about 1%, rising to the normal 10% live-play strength by 15 yards. A roar and supporting gameplay swell build with the run; the cheer starts when it reaches 15 yards. Catch-and-runs need actual movement after the catch, so a 15-yard catch tackled immediately does not bypass the separate long-catch cutoff. Sideways or backward cuts do not cancel an established long-run reaction. Long air-yard catches keep their immediate reaction rather than this ramp. Custom long-gain settings move the five-yard ramp with the cutoff.
 - Close offensive fourth-down conversions can react as soon as a held runner or confirmed catch reaches the first-down line, even on a short gain. Field goals and punts do not count as offensive conversions.
 - Interceptions react to a fresh native interception signal without waiting for the slower possession label to update.
-- Passes in flight can lift anticipation on an eligible layered play. This reuses the roar/swell, adds no pre-catch cheer or camera shake, and settles when the ball is caught or the pass ends. A catch still needs the game's confirmation; the intended receiver alone is not treated as a completion.
+- While a verified pass is airborne, the existing native gameplay swell builds with a 0.5-second attack. It works alongside a lineup roar and can give an already-playing swell one fast refresh for that pass. If no roar remains, it uses only the gameplay swell, with the primary channel available as a fault fallback. It settles over the existing short pass-end fade; catches and other earned reactions take priority. A known stats reset at the line also covers a quick release whose live reset frame was missed. No extra volume bonus, pre-catch cheer or shake is added. Pause, replay, simulation, unknown play types and unqualified fullness still block new anticipation. `PassFlightAnticipation` requires `DuringPlayReactionsEnabled`.
 - Kickoff and punt returns can react at 30 return yards, measured from the returner's catch/recovery. Kick flight must be observed, so a touchback or the kick's flight distance cannot count as a long return.
 - Confirmed sacks, forced fumbles and fourth-down goal-line stops inside the five get a short reaction impact after the play. Verified five-yard losses also receive the defensive cheer and impact, even when the game supplies no sack flag. Missing yardage, stale results, kicking plays and unverified possession changes cannot supply that loss proof. A lost fumble is not required for a forced-fumble impact.
 - A confirmed defensive fumble recovery can still receive one short impact after the whistle if the loose ball and pickup happened too quickly for the live detector. A recovery already covered by the play's defensive reaction is not repeated. This fallback does not invent a return or treat an offense recovering its own fumble as a defensive takeaway.

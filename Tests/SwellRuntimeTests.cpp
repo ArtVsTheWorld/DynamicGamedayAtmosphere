@@ -188,6 +188,44 @@ int main(){
     request.reaction=false;request.continuous=true;request.reactionId=78;request.updated=timeValue=500550;
     interrupted.tick(address(owner)+0x40,request,timeValue);assert(starts==oldStarts+2); // A new earned response may bypass the previous quiet gap without another cheer.
     request.active=false;request.updated=timeValue=500650;interrupted.tick(address(owner)+0x40,request,timeValue);observer=nullptr;balanced();
+    // Real flight durations in the read-only capture were about 0.95, 1.95
+    // and 3.12 seconds. The production callback must request a real gameplay
+    // swell with a fast attack, even while the lineup roar already exists.
+    for(bool warmSupport:{false,true}){
+        Runtime primary,flightSupport;primary.configure(image,nullptr,&api);flightSupport.configure(image,nullptr,&api,true);
+        attendance::live::PassFlight flight;attendance::energy::Play play;play.game={2,0,0,1,600,720};play.down=1;play.offense=0;
+        Intent foundation;foundation.active=true;foundation.match=950;foundation.epoch=1;foundation.reason=Reason::Lineup;foundation.priority=1;foundation.continuous=true;foundation.lineup=99;foundation.size=1;foundation.attackMs=3000;foundation.releaseMs=12000;foundation.supporting=warmSupport;foundation.intensity=1000;foundation.updated=600000;
+        primary.tick(address(owner)+0x40,foundation,600000);flightSupport.tick(address(owner)+0x40,supportingIntent(foundation),600000);
+        flight.observe(play,950,1,600000,true,456,0,9,true);
+        play.game.phase=3;flight.observe(play,950,1,600200,true,456,3,1,false);
+        auto current=[&](uint64_t now){flight.observe(play,950,1,now,true,456,3,1,false);foundation.updated=now;return flight.merge(foundation,now,.8f);};
+        auto inAir=current(600216);assert(inAir.supporting&&inAir.passFlight&&!inAir.liveCheer&&!inAir.shake);
+        primary.tick(address(owner)+0x40,inAir,600216);flightSupport.tick(address(owner)+0x40,supportingIntent(inAir),600216);
+        assert(primary.starts()==1&&primary.refreshes()==0&&flightSupport.starts()==1&&flightSupport.refreshes()==(warmSupport?1u:0u));
+        assert(messages.back().start&&messages.back().attack==500&&messages.back().size==2);
+        oldStarts=starts;
+        for(uint64_t now=600250;now<=601100;now+=50){auto holding=current(now);primary.tick(address(owner)+0x40,holding,now);flightSupport.tick(address(owner)+0x40,supportingIntent(holding),now);assert(starts==oldStarts);}
+        // Catch/incompletion proof releases flight ownership without guessing a
+        // completion. A higher-priority result may override a carried flight id.
+        play.game.phase=4;flight.observe(play,950,1,601150,true,456,3,4,false);foundation.updated=601150;auto ended=flight.merge(foundation,601150,.8f);
+        auto score=ended;score.reason=Reason::Result;score.priority=5;score.reactionId=10;score.motionCompanion=true;
+        assert(supportingIntent(score).reason==Reason::Result&&!passAnticipation(score));
+        for(uint64_t now=601200;now<=602400;now+=50){flight.observe(play,950,1,now,true,456,3,4,false);foundation.updated=now;auto settling=flight.merge(foundation,now,.8f);flightSupport.tick(address(owner)+0x40,supportingIntent(settling),now);}
+        assert(flightSupport.playing()==warmSupport);
+        if(!warmSupport){
+            assert(!messages.back().start&&messages.back().release==1200); // Do not inherit the lineup's 12-second release.
+            // A subsequent verified pass can start promptly inside the previous
+            // voice's quiet gap, but the same flight cannot start every frame.
+            play.game.phase=1;flight.observe(play,950,1,602450,true,456,0,9,true);
+            play.game.phase=3;flight.observe(play,950,1,602500,true,456,3,1,false);
+            auto next=current(602516);flightSupport.tick(address(owner)+0x40,supportingIntent(next),602516);assert(flightSupport.playing()&&flightSupport.starts()==2);
+            oldStarts=starts;auto same=current(602650);flightSupport.tick(address(owner)+0x40,supportingIntent(same),602650);assert(starts==oldStarts);
+            put(address(stockStop)+0xa0,address(descriptions[3]));flightSupport.observeNativeStop(manager,address(stockStop),602700);
+            auto resumed=current(602750);flightSupport.tick(address(owner)+0x40,supportingIntent(resumed),602750);assert(starts==oldStarts+1&&messages.back().attack==500);
+            flightSupport.observeNativeStop(manager,address(stockStop),602800);auto repeated=current(602850);flightSupport.tick(address(owner)+0x40,supportingIntent(repeated),602850);assert(starts==oldStarts+1);
+        }
+        foundation.active=false;foundation.updated=603000;primary.tick(address(owner)+0x40,foundation,603000);flightSupport.tick(address(owner)+0x40,supportingIntent(foundation),603000);balanced();
+    }
     assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");

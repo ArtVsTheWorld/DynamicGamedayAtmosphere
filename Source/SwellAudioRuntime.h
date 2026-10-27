@@ -115,7 +115,7 @@ inline bool emit(const Api& api,Address image,Address manager,bool start,int siz
 using Note=void(*)(const char*);
 class Runtime {
     Address image_=0,manager_=0,world_=0,asset_=0,owner_=0;Api api_{};Note note_=nullptr;
-    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0,lastDiagnostic_=0;unsigned failures_=0;
+    Episode episode_;std::mutex mutex_;uint64_t lastResolve_=0,retryUntil_=0,lastRefresh_=0,lastCelebration_=0,lastResult_=0,lastDiagnostic_=0,lastPassFlight_=0;unsigned failures_=0;
     std::atomic<bool> healthy_{true},playing_{false};std::atomic<unsigned> starts_{0},stops_{0};
     std::atomic<int> reason_{0};
     std::atomic<Address> openingManager_{0};std::atomic<unsigned> nativeStops_{0},refreshes_{0};unsigned handledStop_=0;int releaseMs_=4000;
@@ -130,7 +130,8 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         if(!healthy_&&!episode_.playing)return;
         if(!fresh(wanted,wanted.match,wanted.epoch,now))wanted.active=false;
-        if(episode_.playing&&wanted.active&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
+        if(!passAnticipation(wanted))wanted.passFlight=0;
+        if(episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);
             episode_.continuous=wanted.continuous;
             if(wanted.reason==Reason::Result&&wanted.reactionId)episode_.reactionId=wanted.reactionId;
@@ -142,14 +143,15 @@ public:
         bool eruptionHit=wanted.active&&wanted.reason==Reason::Eruption&&wanted.celebration&&wanted.celebration!=lastCelebration_;
         bool resultHit=wanted.active&&wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil&&wanted.resultCheer!=lastResult_;
         if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch||quickReason_!=wanted.reason){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickReason_=wanted.reason;quickToken_=0;}
-        uint64_t token=lineupReason(wanted.reason)?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
+        uint64_t token=wanted.passFlight?wanted.passFlight:lineupReason(wanted.reason)?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
         bool nativeInterrupted=(episode_.continuous||lineupReason(episode_.reason))&&nativeStops_.load()!=handledStop_;
         // A native snap/timeout/penalty stop can affect the same crowd channel.
         // Recover once promptly per earned reaction, even after its one-shot
         // cheer was deduped or expired. Repeated stops keep the slower bound.
         bool quickRecovery=nativeInterrupted&&token&&token!=quickToken_&&now>=lastRefresh_&&now-lastRefresh_>=100;
         bool diagnosticHit=wanted.active&&wanted.diagnosticToken&&wanted.diagnosticToken!=lastDiagnostic_;
-        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
+        bool passHit=gameplay_&&wanted.active&&wanted.passFlight&&wanted.passFlight!=lastPassFlight_;
+        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||passHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
         if(!stop&&!refresh&&!episode_.canStart(wanted,now))return;
         if(now<retryUntil_||now-lastResolve_<100)return;lastResolve_=now;
         Endpoint endpoint(api_);
@@ -175,6 +177,7 @@ public:
                 healthy_=false;retryUntil_=now+1000;return;
             }
             if(quickRecovery)quickToken_=token;
+            if(wanted.passFlight){lastPassFlight_=episode_.passFlight=wanted.passFlight;}
             if(quickRecovery&&wanted.reason==Reason::Result&&note_)note_("Earned crowd reaction resumed after a native presentation stop; original play timing retained.");
             ownsVoice_=true;lastRefresh_=now;lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;lastDiagnostic_=wanted.diagnosticToken;++refreshes_;return;
         }
@@ -192,6 +195,7 @@ public:
             lastCelebration_=wanted.celebration;
             lastResult_=wanted.resultCheer;
             lastDiagnostic_=wanted.diagnosticToken;
+            if(wanted.passFlight)lastPassFlight_=wanted.passFlight;
             playing_=true;reason_=static_cast<int>(wanted.reason);ownsVoice_=!adopt;if(adopt)++adopted_;else ++starts_;
             handledStop_=nativeStops_.load();openingManager_=wanted.continuous||lineupReason(wanted.reason)?manager_:0;
             if(sent&&note_)note_(name(wanted.reason));

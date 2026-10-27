@@ -10,12 +10,21 @@ int main(){
     begin();sample(3,3,1,false);now+=160;sample(3,3,1,false);assert(air.weight(now)==1);
     sustained::Intent out;out.active=true;out.match=match;out.epoch=epoch;out.updated=now;
     auto anticipation=air.merge(out,now,.8f);assert(anticipation.reason==sustained::Reason::PassFlight&&anticipation.continuous&&anticipation.intensity>700);
+    assert(anticipation.passFlight&&anticipation.supporting&&anticipation.supportingOnly&&sustained::supportingIntent(anticipation).attackMs==500);
     assert(!anticipation.liveCheer&&!anticipation.shake&&!anticipation.celebration);
-    out.reason=sustained::Reason::Lineup;out.intensity=1000;assert(air.merge(out,now,.8f).intensity==1000); // No extra voice or reduction.
+    out.reason=sustained::Reason::Lineup;out.intensity=1000;auto layered=air.merge(out,now,.8f);assert(layered.intensity==1000&&layered.reason==sustained::Reason::Lineup&&layered.supporting); // Reuse the existing roar and request its supporting swell.
+    auto support=sustained::supportingIntent(layered);assert(support.reason==sustained::Reason::PassFlight&&support.passFlight==anticipation.passFlight&&support.attackMs==500&&support.releaseMs==1200);
+    for(auto reason:{sustained::Reason::Result,sustained::Reason::Eruption}){layered.reason=reason;assert(!sustained::passAnticipation(layered)&&sustained::supportingIntent(layered).reason==reason);}
     out.reason=sustained::Reason::Eruption;assert(air.merge(out,now,.8f).reason==sustained::Reason::Eruption);
     sample(3,1,4,true);assert(air.weight(now)==1);now+=600;sample(4,1,4,true);assert(air.weight(now)>0&&air.weight(now)<.6f);
     now+=650;sample(4,1,4,true);assert(air.weight(now)==0);
     begin();sample(3,3,4,true);assert(air.weight(now)==0); // Holder/ball 4 is not flight.
+    // The reset can already be observed at the line. A quick throw need not
+    // repeat kind 0 in a sampled live frame before it can swell.
+    sample(1,0,9,true);sample(3,1,1,false);now+=160;sample(3,1,1,false);assert(air.weight(now)==1&&air.airborne());
+    sample(3,1,3,true);assert(!air.airborne());
+    sample(1,1,9,true);sample(3,1,1,false);now+=160;sample(3,1,1,false);assert(air.weight(now)==0); // Stale completion cannot replace reset proof.
+    sample(1,0,9,true);record=789;sample(3,1,1,false);assert(air.weight(now)==0);record=456;
     begin();sample(3,3,1,false);now+=160;sample(3,3,1,false);allowed=false;sample(3,3,1,false);assert(air.weight(now)==0);allowed=true;
     sample(3,3,1,false);assert(air.weight(now)==0); // No mid-flight attachment.
     begin();sample(3,3,1,false);now+=900;sample(3,3,1,false);assert(air.weight(now)==0);

@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 diagnostics work (1.58.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 diagnostics work (1.59.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -26,6 +26,8 @@ Edit `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each optio
 - **Broadcast:** camera movement and extra replay opportunities.
 
 The game still chooses the original peak attendance. Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
+
+Deep throws use a fast native swell while the pass is airborne. It works alongside lineup buildup, settles after the pass ends and adds no pre-catch cheer, shake or volume bonus. `PassFlightAnticipation=0` disables it.
 
 The working build also adds **Upset Watch sound** for credible home underdog bids against Top 25 visitors from Q2 onward. Ranking gap, score and game stage can qualify roars/swells and earned reactions below the normal sound gate, never below 50% actual fullness. Packed-house requirements and volume caps stay unchanged. `UpsetWatchAtmosphere=0` disables this route.
 

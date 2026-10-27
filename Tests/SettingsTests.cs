@@ -27,7 +27,7 @@ class SettingsTests {
    Check(Level("Dynamic Gameday Broadcast","HostileOpeningShakeMaximumPercent",next)==15);
    Check(fresh.Contains("Ordinary opening drives use critical-down fullness"));
    Check(Math.Abs(Level("Atmosphere","MaximumBoostPercent",next)-25)<.001&&Math.Abs(Level("Atmosphere","EruptionBoostPercent",next)-50)<.001);
-   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41&&!fresh.Contains("[Energy]")&&!fresh.Contains("Momentum="));
+   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42&&!fresh.Contains("[Energy]")&&!fresh.Contains("Momentum="));
    Check(!fresh.Contains("MaximumReductionPercent="));
    Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
    Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100);
@@ -102,7 +102,7 @@ class SettingsTests {
    Check(GetPrivateProfileInt("General","ConfigVersion",0,next)==99&&GetPrivateProfileInt("Atmosphere","MaximumBoostDb",0,next)==12&&GetPrivateProfileInt("Energy","Momentum",0,next)==1&&GetPrivateProfileInt("Arrivals","StartPercent",0,next)==70);
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=9\n[Audio]\nStrength=20\n");
    SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41);
+   Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42);
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=10\n[Arrivals]\nStartPercent=60\nFinishPercentOfQuarter=50\nLateSchoolFinishPercentOfQuarter=85\nBigGameBonus=10\n[Audio]\nStrength=35\n");
    SettingsMigration.Ensure(next,old,defaults);
    Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==25&&GetPrivateProfileInt("Arrivals","LateSchoolFinishPercentOfQuarter",0,next)==75&&GetPrivateProfileInt("Arrivals","BigGameBonus",0,next)==10);
@@ -111,7 +111,7 @@ class SettingsTests {
    SettingsMigration.Ensure(next,old,defaults);
    Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0);
    Check(GetPrivateProfileInt("Arrivals","PlayoffStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","ChampionshipStartPercent",0,next)==0&&GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100);
-   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41);
+   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42);
    foreach(int cap in new[]{30,22}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=2\nAudioBalanceVersion=11\n[Retention]\nMaximumDeparturePerQuarter="+cap+"\n");
     SettingsMigration.Ensure(next,old,defaults);
@@ -146,7 +146,7 @@ class SettingsTests {
    File.WriteAllText(next,"[General]\nConfigVersion=1\nReplayBalanceVersion=99\n[Replays]\nFullScreenMinimumYards=20\n");SettingsMigration.Ensure(next,old,defaults);
    Check(GetPrivateProfileInt("Replays","FullScreenMinimumYards",0,next)==20&&GetPrivateProfileInt("General","ReplayBalanceVersion",0,next)==99);
    File.Delete(next);File.WriteAllText(old,"[Attendance]\nEnabled=0\nProfile=BadWeather\n[Audio]\nStrength=17\n");SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Attendance","Enabled",1,next)==0&&GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",99,next)==100&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41);
+   Check(GetPrivateProfileInt("Attendance","Enabled",1,next)==0&&GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",99,next)==100&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42);
    foreach(int strength in new[]{0,8,10}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=3\nAudioBalanceVersion=13\n[Arrivals]\nStartPercent=65\nModerateStartPercent=55\nLateSchoolStartPercent=45\nHalftimeSeatBreakPercent="+strength+"\n[Retention]\nComebackOriginalDeficit=28\nMaximumDeparturePerQuarter=22\n");
     SettingsMigration.Ensure(next,old,defaults);
@@ -174,7 +174,7 @@ class SettingsTests {
    foreach(int cut in new[]{0,12,20}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=17\n[Audio]\nMaximumReductionPercent="+cut+"\nReductionStartPercent=40\n[Atmosphere]\nCameraShake=0\nMaximumBoostPercent=17.5\n[Custom]\nUnknown=keep\n");
     SettingsMigration.Ensure(next,old,defaults);
-    Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41&&GetPrivateProfileInt("Audio","ReductionStartPercent",0,next)==50);
+    Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42&&GetPrivateProfileInt("Audio","ReductionStartPercent",0,next)==50);
     Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",999,next)==(cut==20?100:cut));
     Check(GetPrivateProfileInt("Atmosphere","CameraShake",1,next)==0&&Level("Atmosphere","MaximumBoostPercent",next)==17.5&&File.ReadAllText(next).Contains("Unknown=keep"));
     string curve=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(curve==File.ReadAllText(next));
@@ -219,7 +219,7 @@ class SettingsTests {
    Check(Level("Atmosphere","EruptionShakeStrengthPercent",next)==22.5&&Level("Atmosphere","EruptionShakeImpactPercent",next)==30&&GetPrivateProfileInt("Dynamic Gameday Soundscape","LongGainMinimumYards",0,next)==15);
    string twoGroups=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(twoGroups==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=21\nAttendanceBalanceVersion=6\n[Dynamic Gameday Soundscape]\nReductionStartPercent=25\nBigGameMinimumFullnessPercent=35\n[Dynamic Gameday Broadcast]\n; My custom camera note.\nOrdinaryShakeStrengthPercent=5\nCriticalShakeStrengthPercent=10\nTouchdownShakeDurationSeconds=9\n");SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7);
+   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7);
    Check(GetPrivateProfileInt("Audio","ReductionStartPercent",0,next)==50&&GetPrivateProfileInt("Atmosphere","BigGameMinimumFullnessPercent",0,next)==55);
    Check(Level("Atmosphere","OrdinaryShakeStrengthPercent",next)==5&&Level("Atmosphere","CriticalShakeStrengthPercent",next)==10&&Level("Atmosphere","TouchdownShakeDurationSeconds",next)==11);
    Check(Level("Dynamic Gameday Broadcast","LineupCheerShakeStrengthPercent",next)==5&&File.ReadAllText(next).Contains("My custom camera note."));
@@ -256,7 +256,7 @@ class SettingsTests {
    string fixedFade=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(fixedFade==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=40\nAttendanceBalanceVersion=7\n[Dynamic Gameday Attendance]\n; Most fans allowed to leave permanently in one ordinary quarter: 1-50 points\n; of the original crowd. Postseason games also have their own lower limits.\nMaximumDeparturePerQuarter=35\nLateTrafficEnabled=0\nLateTrafficExtraQuarterAllowance=0\n[Dynamic Gameday Soundscape]\nMaximumBoostPercent=17.5\nSkillMoveReactions=0\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Dynamic Gameday Attendance","MaximumDeparturePerQuarter",next)==35&&Level("Dynamic Gameday Attendance","LateTrafficEnabled",next)==0&&Level("Dynamic Gameday Attendance","LateTrafficExtraQuarterAllowance",next)==0);
-   Check(Level("Dynamic Gameday Soundscape","MaximumBoostPercent",next)==17.5&&Level("Dynamic Gameday Soundscape","SkillMoveReactions",next)==0&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==41);
+   Check(Level("Dynamic Gameday Soundscape","MaximumBoostPercent",next)==17.5&&Level("Dynamic Gameday Soundscape","SkillMoveReactions",next)==0&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42);
    Check(File.ReadAllText(next).Contains("limited extra")&&!File.ReadAllText(next).Contains("; Most fans allowed to leave permanently"));
    string trafficHelp=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(trafficHelp==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=41\n[Dynamic Gameday Soundscape]\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=25\nEruptionBoostPercent=40\nPackedHouseBuildup=0\nUpsetWatchAtmosphere=0\n");SettingsMigration.Ensure(next,old,defaults);
@@ -265,6 +265,11 @@ class SettingsTests {
    string upsetSettings=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(upsetSettings==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=41\n[Dynamic Gameday Soundscape]\nPlayCallAtmosphere=0\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Dynamic Gameday Soundscape","UpsetWatchAtmosphere",next)==1&&Level("Dynamic Gameday Soundscape","PlayCallAtmosphere",next)==0);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=41\n[Dynamic Gameday Soundscape]\n; My pass-swell note.\n; Reuses the roar/swell; no extra volume bonus, cheer or shake before the result.\nPassFlightAnticipation=0\nDuringPlayReactionsEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=25\nEruptionBoostPercent=40\n");SettingsMigration.Ensure(next,old,defaults);
+   Check(Level("Dynamic Gameday Soundscape","PassFlightAnticipation",next)==0&&Level("Dynamic Gameday Soundscape","DuringPlayReactionsEnabled",next)==0);
+   Check(Level("Dynamic Gameday Soundscape","MaximumBoostPercent",next)==17.5&&Level("Dynamic Gameday Soundscape","HighLeverageBoostPercent",next)==25&&Level("Dynamic Gameday Soundscape","EruptionBoostPercent",next)==40);
+   string passHelp=File.ReadAllText(next);Check(passHelp.Contains("0.5-second attack")&&passHelp.Contains("My pass-swell note.")&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==42);
+   SettingsMigration.Ensure(next,old,defaults);Check(passHelp==File.ReadAllText(next));
    Console.WriteLine("PASS: clean/legacy settings, native quieting migration, 3-5/5-10 randomized lineup ceilings, 20-yard defaults/pass-flight option, 11-second TD, firm fullness floor, five-second fade/retired distance option, preserved custom settings/comments, idempotence and future schemas.");return 0;
   }catch(Exception e){Console.Error.WriteLine(e);return 1;}
   finally{foreach(string file in Directory.GetFiles(dir))File.Delete(file);Directory.Delete(dir);}
