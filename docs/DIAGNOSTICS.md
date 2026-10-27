@@ -1,6 +1,6 @@
 # Diagnostics — working Update 3 build
 
-Working build **1.60.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
+Working build **1.61.0**. Update 2 remains the public release. These changes have automated checks but still need an in-game preview test. The native pause-menu label route has been verified in game; the integrated working build still needs its restart checks.
 
 ## Files
 
@@ -16,7 +16,7 @@ Plugins/
     Backups/
     Diagnostics/
     Tools/DgaDiagnostics.exe
-    Runtime-1.60.0/
+    Runtime-1.61.0/
 ```
 
 The launcher copies/upgrades existing settings before retiring the old loose files into Backups. Custom values are preserved. Existing nested settings take precedence if both locations exist; the other copy is backed up. Former INI `.previous`/`.tmp` files and DGA-owned loose logs/control files are kept in Backups too. Other plugins' files are untouched.
@@ -82,7 +82,7 @@ The neutral-site first offensive play gets a positive opening counterpart for wh
 
 After a return loses possession, its old celebration stops and its remaining motion settles briefly. A new defensive recovery can replace it. When a forced-fumble impact becomes a recovery return, it retains its current strength instead of dropping back to the bottom of the buildup.
 
-Check close and wide cameras during ordinary buildup, live returns, an impact and a celebration. Status reports the configured envelope, view-compensation multiplier and resulting movement separately. Every added shake reduces close-ups and increases wider views by no more than two times. This never changes the camera angle, zoom or audio gain. Recorded replays remain excluded. A successful dispatch or render count is diagnostic evidence, not proof of what was audible or visible; the integrated build still needs listening and camera checks in a fresh game.
+Check close and wide cameras during ordinary buildup, live returns, an impact and a celebration. Status reports the configured envelope, view-compensation multiplier and resulting movement separately. Every added shake reduces close-ups and compensates wider views, bounded at four times for extreme projections. This never changes the camera angle, zoom or audio gain. Recorded replays remain excluded. A successful dispatch or render count is diagnostic evidence, not proof of what was audible or visible; the integrated build still needs listening and camera checks in a fresh game.
 
 ## Later live check
 
@@ -158,3 +158,9 @@ The tab is added only after the named active frontend script and its category fa
 Automated fixtures cover row/value serialization, defaults, limits, INI saving/reopening/comments, future-config refusal, unique IDs, category branch alignment and six-argument stock forwarding. The catalog is checked against every user INI key and the actual configuration audit ranges. Read-only inspection verified the menu script and provider in PID 25260. Its captured prologue also caught and corrected an overly strict compatibility guard. The agent made no game-memory writes. The user subsequently restarted into an early 1.60.0 candidate; the corrected staged DLL needs a later restart to replace that candidate.
 
 The integrated tab still needs an installed-build visual and navigation test: confirm placement after Audio Settings, edit/reopen a toggle, a slider, a fractional control and Profile, check keyboard/controller switching and Back, verify Reset on the DGA page, and confirm every stock tab still edits and saves its own settings. Listen to a long run ending in a normal TD and an eruption to check the crowd handoff. The corrected candidate is staged for later installation. The agent has not replaced the installed early candidate.
+
+## 1.61.0 default Road to Glory camera compensation
+
+A 150-second read-only capture of the default RTG player camera verified the gameplay view and shared camera guards across live and post-play phases. The widest observed vertical FOV was 88.507 degrees, requiring 3.090x compensation against the existing 35-degree reference. The former 2x ceiling under-compensated that view. The ceiling is now 4x; the captured view receives its calculated 3.090x, while close-up attenuation, configured strengths, envelopes, eligibility, replay exclusion and sound caps are unchanged.
+
+An explicitly approved ten-second camera-only eruption preview on installed 1.60.0 confirmed real output at the old 2x ceiling. The user described it as suitable for an ordinary play and slightly light. The preview ended normally. Regression tests cover the captured projection for every reaction kind, projected-motion normalization, the extreme-view bound, unchanged source camera data and eruption impact-to-hold progression. Revised 1.61.0 compensation still needs a visual check after installation; this session did not test a naturally triggered RTG eruption or preview a post-play cutaway.

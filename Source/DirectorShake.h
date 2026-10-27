@@ -174,9 +174,10 @@ inline float projectionScale(const std::array<float,16>& p,Kind kind){
     if(!valid)return .35f;
     constexpr float reference=3.1715948f; // 35-degree vertical field of view.
     // Preserve perceived movement on wide views as well as reducing closeups.
-    // The two-times ceiling prevents extreme/ultrawide projections from
-    // requesting an unbounded physical rotation. Configured envelopes stay intact.
-    return (std::clamp)(reference/p[5],0.0f,2.0f);
+    // Captured default RTG reaches 88.5 degrees vertically (3.09x). Allow
+    // that reference-equivalent motion, with a finite ceiling for extreme
+    // projections. Configured envelopes and close-up attenuation stay intact.
+    return (std::clamp)(reference/p[5],0.0f,4.0f);
 }
 inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;

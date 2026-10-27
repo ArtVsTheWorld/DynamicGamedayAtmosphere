@@ -83,6 +83,17 @@ int main(){
     assert(projectionScale(projection,Kind::Eruption)<.27f&&projectionScale(projection,Kind::Touchdown)<.27f);
     for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})assert(projectionScale(projection,kind)<.27f);
     projection[5]=500;assert(projectionScale(projection,Kind::Eruption)<.007f);
+    // Read-only default RTG capture: 88.5-degree vertical FOV. Its screen
+    // displacement per small angular movement should match the reference view.
+    projection[0]=.5773501992f;projection[5]=1.0264003277f;
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher}){
+        const auto scale=projectionScale(projection,kind);
+        assert(scale>3.08f&&scale<3.10f);
+        assert(std::fabs(projection[5]*scale-3.1715948f)<.00001f);
+        projection[5]=.11f;assert(projectionScale(projection,kind)==4);
+        projection[5]=1.0264003277f;
+    }
+    assert(projectionScale(projection,Kind::None)==1);
     projection[5]=NAN;assert(projectionScale(projection,Kind::Eruption)==.35f);
     std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,12,-30,90,1};
     c={123,1,1000,0,5000,Kind::Eruption,30,false};auto output=source;
