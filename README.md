@@ -37,7 +37,14 @@ The working build shows **Stadium Fullness** beside Resume in the regular pause 
 
 ## Problems?
 
-[Open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose) with your plugin/game/MMC versions, matchup, settings and logs. Logs are in `Plugins/DynamicGamedayAtmosphere/Logs/`. Activation errors in `launcher.log` name the failed step and Windows error. Compare the reported MMC/game administrator levels when access is denied.
+If the mod is not working, try these steps in order:
+
+1. **Run MMC as administrator.** Right-click your mod manager and select **Run as administrator**, then launch the game through it.
+2. **Update your mod manager** to the latest available version, then try again.
+3. **Restore the game's executable.** Close the game and MMC, delete `CollegeFB27.exe` from the game's installation folder, then use your game launcher's **Repair** or **Verify/Validate game files** option to restore it. Once repair finishes, launch through MMC again.
+4. **If it still does not work, send Ace all the logs.** Reproduce the issue, then collect every file in `Plugins\DynamicGamedayAtmosphere\Logs` inside your MMC folder. You can ZIP the Logs folder and send it together.
+
+Include your plugin, game and MMC versions, matchup and relevant settings. You can also [open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose). Activation errors in `launcher.log` name the failed step and Windows error; reported MMC/game administrator levels help diagnose access-denied errors.
 
 For missing audio, disable Soundscape's `Enabled` option and restart MMC and the game. Re-enabling it also needs a restart. There is no EXE hash requirement, but an EA update may still require new game bindings.
 
