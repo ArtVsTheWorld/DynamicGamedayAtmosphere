@@ -15,6 +15,8 @@ class Model {
     int phase_=-1,side_=-1;bool ready_=false,live_=false,cleared_=false,proof_=false,used_=false;
 public:
     void reset(){*this=Model{};}
+    bool proof()const{return proof_;}
+    bool cleared()const{return cleared_;}
     live::Outcome observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,const Sample& s,int kind,bool held){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
         if(!allowed||!match||p.simulated||!valid(p.game)||now<last_||(last_&&now-last_>750)){ready_=live_=false;phase_=-1;last_=now;return {};}
@@ -22,7 +24,7 @@ public:
         if(p.game.phase==1){ready_=energy::normalDown(p)&&(p.down==3||p.down==4)&&(p.offense==1||p.game.neutral)&&!p.specialTeams;side_=p.offense;live_=false;object_=s.valid?s.object:0;}
         if(p.game.phase==3&&phase_==1&&ready_){live_=true;began_=now;ended_=0;cleared_=proof_=used_=false;}
         if(live_&&phase_==3&&(p.game.phase==4||p.game.phase==5))ended_=now;
-        bool post=(p.game.phase==4||p.game.phase==5)&&ended_&&now>=ended_&&now-ended_<=1000;
+        bool post=(p.game.phase==4||p.game.phase==5)&&ended_&&now>=ended_&&now-ended_<=5000;
         bool active=live_&&now>=began_&&now-began_<=45000&&(p.game.phase==3||post);
         if(active&&s.valid&&object_&&s.object==object_){
             if(!s.knockout)cleared_=true;

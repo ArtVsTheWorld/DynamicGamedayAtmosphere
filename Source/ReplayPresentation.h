@@ -7,6 +7,7 @@ namespace attendance::replaypresentation {
 using Address=uintptr_t;
 using Read=bool(*)(Address,void*,size_t);
 struct Types {Address logic=0,comparison=0,constant=0,function=0,actorFunction=0;};
+enum class MajorRoute {None,Touchdown,Takeaway,QuickSkip,QuickTouchdown};
 enum class DefenseRoute {None,QuickOffense,TackleForLoss};
 struct Selection {Address fullComparison=0,insetGate=0,denyRoot=0;DefenseRoute defense=DefenseRoute::None;};
 
@@ -41,7 +42,7 @@ public:
             field<int>(bytes.data(),0x28)==op&&function(field<Address>(bytes.data(),8),id)&&constant(field<Address>(bytes.data(),0x18),type,value);
     }
     template<size_t N>bool children(Address node,int op,std::array<Address,N>& out)const{
-        static_assert(N<=5,"Bounded native expression inspection");
+        static_assert(N<=12,"Bounded native expression inspection");
         std::array<unsigned char,0x50> bytes{};std::array<unsigned char,N*16> entries{};
         if(!node||!read_(node,bytes.data(),bytes.size())||field<Address>(bytes.data(),0)!=types_.logic||field<int>(bytes.data(),0x48)!=op)return false;
         Address begin=field<Address>(bytes.data(),8),end=field<Address>(bytes.data(),0x10);
@@ -67,6 +68,27 @@ public:
         return children(node,0,root)&&function(root[0],"570")&&children(root[1],1,plays)&&
             pair(plays[0],"19","20")&&lossGate(plays[1])&&pair(plays[2],"60","20")&&
             children(plays[3],1,sack)&&function(sack[0],"17")&&pair(sack[1],"31","30");
+    }
+    MajorRoute major(Address node)const{
+        std::array<Address,1> one{};
+        if(children(node,0,one)){
+            if(function(one[0],"27"))return MajorRoute::Touchdown;
+            if(compare(one[0],0,"556",4,1))return MajorRoute::QuickSkip;
+        }
+        std::array<Address,2> two{};std::array<Address,1> guard{};
+        if(children(node,0,two)&&function(two[0],"16")&&children(two[1],0,guard)&&compare(guard[0],0,"1042",4,0))return MajorRoute::Takeaway;
+        std::array<Address,3> three{};std::array<Address,9> reasons{};
+        if(children(node,0,three)&&children(three[0],1,reasons)&&compare(reasons[0],4,"178",0,19)&&
+           compare(three[1],0,"157",4,0)&&compare(three[2],0,"556",4,1)){
+            for(size_t i=1;i<reasons.size();++i)if(!compare(reasons[i],5,"540",0,20))return MajorRoute::None;
+            return MajorRoute::QuickTouchdown;
+        }
+        return MajorRoute::None;
+    }
+    bool challengeExcluded(Address node)const{
+        std::array<Address,2> two{};std::array<Address,1> guard{};std::array<unsigned char,0x30> comparison{};std::array<unsigned char,0x18> fn{};
+        return children(node,0,two)&&children(two[1],0,guard)&&read_(guard[0],comparison.data(),comparison.size())&&
+            read_(field<Address>(comparison.data(),8),fn.data(),fn.size())&&field<int>(fn.data(),0x10)==4&&fn[8]==0;
     }
     Selection identify(Address node)const{
         std::array<Address,2> two{};

@@ -70,6 +70,9 @@ int main(){
     }
     {Case c;c.stopped();assert(c.tick(4,{live::Event::HitStick,1,0,0}).event==live::Event::HitStickStop);} // Same-frame hit/result.
     {Case c;c.tip();c.tick(3,{live::Event::HitStick,1,0,0});c.stopped();assert(c.tick(4).event==live::Event::PassBreakup);assert(!c.tick(4).id);}
+    {Case c;c.sample.deflection=99;c.sample.side=-1;c.tick(3);assert(c.model.pendingSide()&&c.model.lookupAfter()==0);
+        c.sample.side=0;c.tick(3);assert(c.model.deflectionProof()&&!c.model.pendingSide());c.stopped();assert(c.tick(4).event==live::Event::PassBreakup);}
+    {Case c;c.sample.deflection=99;c.sample.side=-1;c.tick(3);c.sample.side=1;c.tick(3);c.stopped();assert(!c.tick(4).id);}
     // Small breakup motion: half live strength, 1.8 seconds, with a cheer
     // and a shared roar/swell companion. Native-camera/mute gates stay upstream.
     motion::Input x;x.match=123;x.epoch=1;x.now=1000;x.phase=4;x.allowed=true;x.duringPlay=1;

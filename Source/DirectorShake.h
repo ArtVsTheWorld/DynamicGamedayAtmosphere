@@ -35,6 +35,7 @@ struct Cue {
     float rampFloor=0;
     float reactionScale=1;bool softAccent=false;
     bool forcedImpact=false;
+    bool scoreBuildup=false;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
@@ -48,6 +49,7 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
     bool td=c.kind==Kind::Touchdown||c.kind==Kind::Safety||c.kind==Kind::BlockedKick||c.kind==Kind::Clincher;
     float peakEnd=td?1.0f/9:1.25f/16,settleEnd=td?1.5f/9:2.0f/16,holdEnd=td?5.0f/9:8.0f/16;
     float peak=(std::max)(limit(c.percent),limit(c.impact));
+    if(c.scoreBuildup&&progress<settleEnd)return limit(c.percent);
     if(progress<peakEnd)return peak*smooth(age/(td?80.0f:60.0f));
     if(progress<settleEnd)return peak+(limit(c.percent)-peak)*smooth((progress-peakEnd)/(settleEnd-peakEnd));
     if(progress<holdEnd)return limit(c.percent);
@@ -55,7 +57,7 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
 }
 inline float strength(const Cue& c,uint64_t now){
     float level=envelopeStrength(c,now);
-    unsigned transition=c.forcedImpact?50u:200u;
+    unsigned transition=c.forcedImpact?50u:c.scoreBuildup?300u:200u;
     if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<transition)return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition);
     return level;
 }
@@ -82,9 +84,9 @@ public:
     void reset(){*this=Model{};}
     Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_={};output_={};output_.updated=now;return output_;}
     Cue observe(const Settings& configuredSettings,const Input& x){
-        // A split crowd supplies half the crowd-driven movement for either
+        // A split crowd supplies three quarters of the crowd-driven movement for either
         // team. Scale targets before envelope/transition math, exactly once.
-        Settings settings=configuredSettings;float crowdScale=x.neutral?.5f:1.f;
+        Settings settings=configuredSettings;float crowdScale=x.neutral?.75f:1.f;
         settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
         settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
         settings.live=limit(settings.live)*crowdScale;settings.catchImpact=limit(settings.catchImpact)*crowdScale;
@@ -100,7 +102,11 @@ public:
         if(!x.allowed||!x.match||x.now<last_){last_=x.now;return suspend(x.now);}last_=x.now;
         bool newSnap=x.phase==3&&phase_!=3;phase_=x.phase;
         Cue previous=output_;float previousLevel=strength(previous,x.now);
-        auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;}};
+        auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;
+            bool scoring=cue.kind==Kind::Touchdown||cue.kind==Kind::Eruption;
+            bool earned=previous.kind==Kind::LivePlay||previous.kind==Kind::Touchdown||previous.kind==Kind::Eruption||previous.kind==Kind::Safety;
+            cue.scoreBuildup=scoring&&earned;
+        }};
         if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
             if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;join(lineupCue_);}
             float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening)*crowdScale:x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(configuredSettings,x.critical,x.lineupScale)*crowdScale;
@@ -169,7 +175,7 @@ public:
         else if(clincher&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Clincher,configured(settings,Kind::Clincher),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         else if(blocked&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::BlockedKick,configured(settings,Kind::BlockedKick),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
         else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
-        if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=limit(configured(settings,pulse_.kind)*pulse_.reactionScale);pulse_.impact=limit((pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact)*pulse_.reactionScale);output_=pulse_;}
+        if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=limit(configured(settings,pulse_.kind)*pulse_.reactionScale);pulse_.impact=pulse_.scoreBuildup?pulse_.percent:limit((pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact)*pulse_.reactionScale);output_=pulse_;}
         else if(liveCue_.kind!=Kind::None)output_=liveCue_;else{
             if(lineupCue_.kind!=Kind::None&&previous.kind!=Kind::None&&previous.kind!=Kind::Ordinary&&previous.kind!=Kind::Critical){lineupCue_.transitionFrom=previousLevel;lineupCue_.transitionAt=x.now;}
             output_=lineupCue_;

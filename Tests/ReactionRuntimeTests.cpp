@@ -208,5 +208,33 @@ int main(){
     put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);
     shared.tick(addr(entity),wanted,1040000);assert(sends==initial&&shared.liveDelivered(1));
     wanted.liveCheer=2;wanted.liveType=83;put<int>(addr(instances),59);shared.tick(addr(entity),wanted,1040100);assert(sends==initial&&shared.liveDelivered(2));
+    // Retiring native voices are not playing and must not steal the voice budget.
+    attendance::cheer::Runtime retiring;retiring.configure(image,&api,receive);initial=sends;
+    wanted={};wanted.active=true;wanted.match=801;wanted.epoch=1;wanted.updated=1050000;wanted.liveCheer=1;wanted.liveCheerUntil=1050500;wanted.liveType=83;
+    put<int>(addr(instances),83);put<unsigned char>(addr(instances)+12,1);retiring.tick(addr(entity),wanted,1050000);assert(sends==initial+1);
+    put<unsigned char>(addr(instances)+12,0);put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    // The mock receiver queues without creating a voice. Three observations
+    // and 100ms without a queued/active voice permit exactly one recovery.
+    attendance::cheer::Runtime receipt;receipt.configure(image,&api,receive,report);initial=sends;
+    wanted={};wanted.active=true;wanted.match=802;wanted.epoch=1;wanted.updated=1060000;wanted.playSequence=1;wanted.liveCheer=1;wanted.liveCheerUntil=1060500;wanted.liveType=83;
+    auto receiptTick=[&](uint64_t now){wanted.updated=now;receipt.tick(addr(entity),wanted,now);};
+    receiptTick(1060000);receiptTick(1060030);receiptTick(1060060);assert(sends==initial+1);receiptTick(1060100);assert(sends==initial+2&&reports.back()==attendance::cheer::Delivery::Recovery);
+    receiptTick(1060130);receiptTick(1060160);receiptTick(1060200);assert(sends==initial+2&&reports.back()==attendance::cheer::Delivery::Unregistered);
+    // Native registration stops recovery, even when the short one-shot lease ends.
+    wanted.liveCheer=2;wanted.liveCheerUntil=1061500;receiptTick(1061000);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);receiptTick(1061030);
+    assert(reports.back()==attendance::cheer::Delivery::Registered);receiptTick(1061200);assert(sends==initial+3);
+    put<Address>(addr(entity)+0x120,0);put<Address>(addr(entity)+0x128,0);
+    // A native queue still pending blocks recovery; snap/pause cancel it.
+    unsigned char queue[8]{};put<int>(addr(queue),83);put<int>(addr(queue)+4,1);
+    wanted.liveCheer=3;wanted.liveCheerUntil=1062500;receiptTick(1062000);put(addr(entity)+0xd0,addr(queue));put(addr(entity)+0xd8,addr(queue)+8);
+    receiptTick(1062030);receiptTick(1062060);receiptTick(1062100);assert(sends==initial+4);
+    put<Address>(addr(entity)+0xd0,0);put<Address>(addr(entity)+0xd8,0);++wanted.playSequence;receiptTick(1062130);assert(sends==initial+4);
+    wanted.liveCheer=4;wanted.liveCheerUntil=1063500;receiptTick(1063000);wanted.active=false;receiptTick(1063030);wanted.active=true;receiptTick(1063200);assert(sends==initial+5);
+    // An older matching handle cannot prove a newer overlap request registered.
+    wanted.active=true;wanted.liveCheer=5;wanted.liveCheerUntil=1064500;receiptTick(1064000);
+    put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),83);put<int>(addr(instances)+4,7);receiptTick(1064030);
+    wanted.overlapMilestone=true;wanted.liveCheer=6;wanted.liveCheerUntil=1066500;receiptTick(1066000);assert(reports.back()==attendance::cheer::Delivery::Sent);
+    receiptTick(1066030);assert(reports.back()==attendance::cheer::Delivery::Sent);put<int>(addr(instances)+4,8);receiptTick(1066060);assert(reports.back()==attendance::cheer::Delivery::Registered);
     std::puts("PASS: native duplicate handling, one bounded staggered same-family followup, native-inclusive voice limit/no retry, snap/pause cancellation, eruption priority, cleanup, reentrancy and faults.");
 }

@@ -36,5 +36,7 @@ int main(){
     {Case c;c.model.reset();c.sample.knockout=true;c.tick(1,0);c.tick(3,0);assert(!c.tick(4,4).id);} // Positive old flag.
     {Case c;assert(!c.tick(3,4).id);} // An ordinary dropped pass is not knockout proof.
     {Case c;c.tick(4,3);c.now+=1100;c.sample.knockout=true;assert(!c.tick(4,4).id);}
+    {Case c;c.tick(4,3);for(int n=0;n<20;++n)c.tick(4,3);c.sample.knockout=true;assert(c.tick(4,5).event==live::Event::CatchKnockout);}
+    {Case c;c.tick(4,3);for(int n=0;n<51;++n)c.tick(4,3);c.sample.knockout=true;assert(!c.tick(4,5).id);}
     std::puts("PASS: read-only knockout flag validation, third/fourth home defense and neutral scope, fresh clear/drop proof, postplay settling, dedupe and ordinary-drop/score-context/stale/world/sim rejection.");
 }

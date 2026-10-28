@@ -69,7 +69,7 @@ int main(){
         x.now=3100;x.duringPlay=1;model.observe(custom,x);x.now=3400;cue=model.observe(custom,x);
         assert(cue.kind==motion::Kind::LivePlay&&std::fabs(motion::strength(cue,x.now)-custom.live)<.001f);
         x.phase=4;x.now=3500;x.touchdown=1;model.observe(custom,x);x.now=3800;cue=model.observe(custom,x);
-        assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-custom.touchdownImpact)<.001f);
+        assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-custom.touchdown)<.001f);
         x.allowed=false;x.now=3900;assert(model.observe(custom,x).kind==motion::Kind::None);
     }
     std::cout<<"PASS: independent third-and-10/fourth-down critical motion, stable 3-5/5-10 envelopes, gentle OT/late downs, special teams, side/neutral scope, strict size gates, pause-phase/sim/unknown rejection and 50% big-game opening allowance.\n";

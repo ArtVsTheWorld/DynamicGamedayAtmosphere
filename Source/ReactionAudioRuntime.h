@@ -1,11 +1,12 @@
 #pragma once
 #include "SwellAudioRuntime.h"
+#include <array>
 
 namespace attendance::cheer {
 using Address=uintptr_t;
 using Receiver=Address(__fastcall*)(Address,Address);
 enum class Source {Live,Lineup,Result,Eruption,Followup};
-enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown};
+enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown,Registered,Recovery,Unregistered};
 using Note=void(*)(Source,uint64_t,Delivery);
 inline bool countedVoice(int type){return type==91||type==75||type==83||type==59||type==95||(type>=8&&type<=15);}
 // The two positive, full-size families may serve either side of the ball.
@@ -59,6 +60,42 @@ class Runtime {
     uint64_t liveConsumed_=0,lastLiveAt_=0,lastLiveSequence_=0;std::atomic<uint64_t> liveDelivered_{0},liveResolved_{0};Note note_=nullptr;
     struct Followup {bool active=false;Source source=Source::Result;uint64_t id=0,sequence=0,due=0,until=0;int type=75;};
     Followup followup_;
+    struct Receipt {bool active=false,retried=false;Address owner=0;Source source=Source::Live;uint64_t id=0,sequence=0,began=0,until=0;int type=0;unsigned observations=0;std::array<int,2> priorHandles{};unsigned priorCount=0;};
+    Receipt receipt_;
+    void receipt(Source source,uint64_t id,int type,Address entity,const sustained::Intent& wanted,uint64_t now){
+        if(!wanted.playSequence||source==Source::Lineup)return;
+        receipt_={true,false,entity,source,id,wanted.playSequence,now,now+600,type,0};
+        auto begin=sustained::at<Address>(entity+0x120),end=sustained::at<Address>(entity+0x128);
+        if(end>=begin&&end-begin<=256*16&&(end-begin)%16==0)for(Address p=begin;p<end&&receipt_.priorCount<2;p+=16)
+            if(!sustained::at<unsigned char>(p+12)&&sustained::at<int>(p)==type)receipt_.priorHandles[receipt_.priorCount++]=sustained::at<int>(p+4);
+    }
+    void checkReceipt(Address entity,const sustained::Intent& wanted,uint64_t now){
+        using namespace sustained;
+        if(!receipt_.active)return;
+        auto& r=receipt_;
+        bool same=r.source==Source::Live?wanted.liveCheer==r.id:r.source==Source::Result?wanted.resultCheer==r.id:wanted.celebration==r.id;
+        if(!same||r.sequence!=wanted.playSequence||r.owner!=entity||now<r.began){receipt_={};return;}
+        Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128),queue=at<Address>(entity+0xd0),queueEnd=at<Address>(entity+0xd8);
+        if(end<begin||end-begin>256*16||(end-begin)%16||queueEnd<queue||queueEnd-queue>256*8||(queueEnd-queue)%8){receipt_={};return;}
+        unsigned voices=0;bool queued=false;
+        for(Address p=begin;p<end;p+=16){if(at<unsigned char>(p+12))continue;int type=at<int>(p);
+            bool existing=false;for(unsigned i=0;i<r.priorCount;++i)existing=existing||r.priorHandles[i]==at<int>(p+4);
+            if(type==r.type&&!existing){auto done=r;receipt_={};report(done.source,done.id,Delivery::Registered);return;}
+            if(countedVoice(type))++voices;
+        }
+        for(Address p=queue;p<queueEnd;p+=8){int type=at<int>(p);if(type==r.type)queued=true;if(countedVoice(type))++voices;}
+        ++r.observations;auto age=now-r.began;
+        if(now>r.until){auto done=r;receipt_={};report(done.source,done.id,Delivery::Unregistered);return;}
+        // Receiver success means queued, not played. Recover only after the
+        // native three-attempt queue has discarded this type, on the same
+        // fresh play/owner, once, before any delayed cheer would be intrusive.
+        if(!queued&&age>=100&&r.observations>=3){
+            if(r.retried||voices>=2){auto done=r;receipt_={};report(done.source,done.id,Delivery::Unregistered);return;}
+            r.retried=true;r.began=now;r.observations=0;
+            if(emit(api_,receiver_,image_,entity,r.type)){++sent_;report(r.source,r.id,Delivery::Recovery);}
+            else{auto done=r;receipt_={};healthy_=false;report(done.source,done.id,Delivery::Failed);}
+        }
+    }
     void arm(Source source,uint64_t id,int type,const sustained::Intent& wanted,uint64_t now){
         followup_={};
         if(!wanted.staggered||!wanted.playSequence||type==95)return;
@@ -78,7 +115,7 @@ class Runtime {
         Address begin=sustained::at<Address>(entity+0x120),end=sustained::at<Address>(entity+0x128);
         if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;report(Source::Followup,next.id,Delivery::Failed);return true;}
         unsigned voices=0;
-        for(Address p=begin;p<end;p+=16){int active=sustained::at<int>(p);if(countedVoice(active))++voices;}
+        for(Address p=begin;p<end;p+=16){if(sustained::at<unsigned char>(p+12))continue;int active=sustained::at<int>(p);if(countedVoice(active))++voices;}
         // A matching family is allowed here after the deliberate gap. Keep
         // the existing two-voice budget, including the game's own instances.
         if(voices>=2){report(Source::Followup,next.id,Delivery::VoiceLimit);return true;}
@@ -100,8 +137,9 @@ public:
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& value;explicit Guard(bool& v):value(v){value=true;}~Guard(){value=false;}} guard(executing);
         std::lock_guard<std::mutex> lock(mutex_);
-        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now)){followup_={};return;}
-        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=lastLineupCheer_=liveConsumed_=lastLiveAt_=lastLiveSequence_=0;liveDelivered_=liveResolved_=0;followup_={};}
+        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now)){followup_={};receipt_={};return;}
+        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=lastLineupCheer_=liveConsumed_=lastLiveAt_=lastLiveSequence_=0;liveDelivered_=liveResolved_=0;followup_={};receipt_={};}
+        checkReceipt(entity,wanted,now);if(!healthy_)return;
         bool victory=wanted.celebration&&now<wanted.celebrationUntil&&consumed_!=wanted.celebration;
         bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
@@ -112,7 +150,7 @@ public:
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;bool matching=false;
-            for(Address p=begin;p<end;p+=16){int active=at<int>(p);
+            for(Address p=begin;p<end;p+=16){if(sustained::at<unsigned char>(p+12))continue;int active=at<int>(p);
                 if(equivalentPositive(wanted.liveType,active))matching=true;
                 if(countedVoice(active))++positives;
             }
@@ -123,7 +161,7 @@ public:
             // opportunity now rather than adding a late cheer when one ends.
             if(positives>=2){liveConsumed_=wanted.liveCheer;report(Source::Live,wanted.liveCheer,Delivery::VoiceLimit);return;}
             liveConsumed_=wanted.liveCheer;
-            if(emit(api_,receiver_,image_,entity,wanted.liveType)){++sent_;liveDelivered_=wanted.liveCheer;lastLineupCheer_=now;report(Source::Live,wanted.liveCheer,Delivery::Sent);if(wanted.majorLive)arm(Source::Live,wanted.liveCheer,wanted.liveType,wanted,now);}
+            if(emit(api_,receiver_,image_,entity,wanted.liveType)){++sent_;receipt(Source::Live,wanted.liveCheer,wanted.liveType,entity,wanted,now);liveDelivered_=wanted.liveCheer;lastLineupCheer_=now;report(Source::Live,wanted.liveCheer,Delivery::Sent);if(wanted.majorLive)arm(Source::Live,wanted.liveCheer,wanted.liveType,wanted,now);}
             else{healthy_=false;report(Source::Live,wanted.liveCheer,Delivery::Failed);}
             return;
         }
@@ -154,9 +192,9 @@ public:
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;
-            for(Address p=begin;p<end;p+=16){int active=at<int>(p);if(equivalentPositive(type,active)){++nativeNow;return;}if(countedVoice(active))++positives;}
+            for(Address p=begin;p<end;p+=16){if(sustained::at<unsigned char>(p+12))continue;int active=at<int>(p);if(equivalentPositive(type,active)){++nativeNow;return;}if(countedVoice(active))++positives;}
             if(positives>=2){limited=true;return;}
-            if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else healthy_=false;
+            if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;if(type!=75)receipt(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,type,entity,wanted,now);}else healthy_=false;
         };
         send(result?wanted.resultType:lineup?wanted.lineupType:91);
         // Keep the immediate primary; the optional second layer has one

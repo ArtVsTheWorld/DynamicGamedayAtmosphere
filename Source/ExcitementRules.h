@@ -133,7 +133,7 @@ struct Outcome {Event event=Event::None;bool lateDeparture=false,accepted=false,
     bool highLeverageStop=false,hailMary=false;
     int opponentTimeouts=-1;
     bool safety=false;
-    bool fiveYardLoss=false,blockedFieldGoal=false;
+    bool fiveYardLoss=false,blockedFieldGoal=false,turnoverOnDowns=false;
     bool thirdGoalStop=false,contextEruption=false,contextClincher=false;float contextStrength=1;
 };
 inline bool sealsRegulationTakeaway(const Outcome& result,const State& s){
@@ -310,7 +310,7 @@ struct Tracker {
                             if(!start.specialTeams&&start.down==3&&((p.offense==start.offense&&p.down==4)||p.offense!=start.offense))defensive=preferred(defensive,Event::ThirdStop);
                             if(p.offense!=start.offense||terminalPick){
                                 bool pick=sawPick,fumble=sawFumble;
-                                if(start.down==4&&!start.specialTeams){defensive=preferred(defensive,Event::FourthStop);o.goalLineStop=start.toGoal>=0&&start.toGoal<=5;}
+                                if(start.down==4&&!start.specialTeams){defensive=preferred(defensive,Event::FourthStop);o.turnoverOnDowns=freshResult&&!pick&&!fumble&&p.offense==1-start.offense&&p.down==1;o.goalLineStop=start.toGoal>=0&&start.toGoal<=5;}
                                 if(pick)defensive=preferred(defensive,Event::Turnover);
                                 if(fumble)defensive=preferred(defensive,Event::FumbleRecovery);
                                 if(start.toGoal>=0&&start.toGoal<=5&&((start.down==4&&!start.specialTeams)||pick))defensive=preferred(defensive,Event::GoalLine);

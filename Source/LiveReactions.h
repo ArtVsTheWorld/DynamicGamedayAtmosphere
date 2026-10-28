@@ -2,20 +2,21 @@
 #include "ExcitementRules.h"
 #include "SustainedCrowd.h"
 namespace attendance::live {
-enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss,BlockedFieldGoal,Truck,StiffArm,Hurdle,Juke,Spin,HitStick,BrokenTackle,ThirdGoalStop,CatchKnockout,PassBreakup,HitStickStop};
+enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss,BlockedFieldGoal,Truck,StiffArm,Hurdle,Juke,Spin,HitStick,BrokenTackle,ThirdGoalStop,CatchKnockout,PassBreakup,HitStickStop,DownsStop};
 inline bool skill(Event e){return e==Event::Truck||e==Event::StiffArm||e==Event::Hurdle||e==Event::Juke||e==Event::Spin;}
 inline bool accent(Event e){return skill(e)||e==Event::HitStick||e==Event::BrokenTackle;}
-inline bool softSkill(Event e){return skill(e)||e==Event::BrokenTackle;}
-inline bool cameraReaction(Event e){return e!=Event::None&&e!=Event::FumbleRecovery&&e!=Event::HitStick&&e!=Event::BrokenTackle;}
+inline bool cheerOnlySkill(Event e){return e==Event::Juke||e==Event::Spin;}
+inline bool softSkill(Event e){return (skill(e)&&!cheerOnlySkill(e))||e==Event::BrokenTackle;}
+inline bool cameraReaction(Event e){return !cheerOnlySkill(e)&&e!=Event::None&&e!=Event::FumbleRecovery&&e!=Event::HitStick&&e!=Event::BrokenTackle;}
 inline const char* accentName(Event e){switch(e){case Event::Truck:return "Successful truck";case Event::StiffArm:return "Successful stiff arm";case Event::Hurdle:return "Successful hurdle";case Event::Juke:return "Successful juke";case Event::Spin:return "Successful spin";case Event::HitStick:return "Landed hit-stick tackle";case Event::BrokenTackle:return "Broken tackle";case Event::ThirdGoalStop:return "Third-down goal-line stop";default:return nullptr;}}
-inline const char* name(Event e){if(auto label=accentName(e))return label;switch(e){case Event::PassBreakup:return "Confirmed home defensive pass breakup";case Event::HitStickStop:return "Confirmed third/fourth-down hit-stick stop";case Event::CatchKnockout:return "Home defensive catch knockout";case Event::BlockedFieldGoal:return "Blocked field goal";case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
+inline const char* name(Event e){if(auto label=accentName(e))return label;switch(e){case Event::DownsStop:return "Turnover on downs";case Event::PassBreakup:return "Confirmed home defensive pass breakup";case Event::HitStickStop:return "Confirmed third/fourth-down hit-stick stop";case Event::CatchKnockout:return "Home defensive catch knockout";case Event::BlockedFieldGoal:return "Blocked field goal";case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
 inline int cheerType(const Outcome& event){
     if(event.event==Event::Truck)return 11; // Native BIGHIT_POS, large size.
-    if(event.event==Event::Hurdle)return 83; // Successful clearance: positive cheer plus the gentle buildup.
+    if(event.event==Event::Hurdle||cheerOnlySkill(event.event))return 83; // Successful clearance: positive cheer plus the gentle buildup.
     if(softSkill(event.event))return 0; // A short swell accompanies the softer motion.
     switch(event.event){
-    case Event::PassBreakup:case Event::HitStickStop:case Event::CatchKnockout:case Event::ThirdGoalStop:case Event::HitStick:case Event::BlockedFieldGoal:case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
+    case Event::DownsStop:case Event::PassBreakup:case Event::HitStickStop:case Event::CatchKnockout:case Event::ThirdGoalStop:case Event::HitStick:case Event::BlockedFieldGoal:case Event::Interception:case Event::Sack:case Event::TackleForLoss:case Event::ForcedFumble:case Event::GoalLineStop:case Event::CriticalStop:case Event::FumbleRecovery:return 59;
     // Use the already listening-tested large cheer for explosive completions
     // and gains; ordinary threshold plays keep the conversion family.
     default:return std::isfinite(event.yards)&&event.yards>=40?91:83;
@@ -27,9 +28,9 @@ inline Outcome completedImpact(const energy::Outcome& result,const State& state,
     // A recovery alone is sound-only. Only separate forced-fumble or other
     // defensive-impact proof can request motion; picking up a loose ball cannot.
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
-       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal)||
+       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns)||
        (result.event==energy::Event::FumbleRecovery&&!result.forcedFumble))return {};
-    Event selected=result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:Event::CriticalStop;
+    Event selected=result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
 struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};

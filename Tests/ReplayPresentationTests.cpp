@@ -105,6 +105,19 @@ int main(){
     assert(!state.depth&&!state.selection.denyRoot);
     arena.set(yards+8,14);arena.set(yards+0x10,0);assert(!view.fullEligible(passComparison,15));
     arena.set(yards+8,15);assert(view.fullEligible(passComparison,15)&&!view.fullEligible(passComparison,20));
+    // Major routes must match the complete authored shape; cached padding is ignored.
+    auto tdRoot=logic(0,{function("27")});assert(view.major(tdRoot)==MajorRoute::Touchdown);
+    assert(view.major(logic(1,{function("27")}))==MajorRoute::None);
+    assert(view.major(logic(0,{function("270")}))==MajorRoute::None);
+    assert(view.major(logic(0,{comparison(0,"556",4,1)}))==MajorRoute::QuickSkip);
+    assert(view.major(logic(0,{comparison(0,"556",4,0)}))==MajorRoute::None);
+    auto challenge=comparison(0,"1042",4,0),takeaway=logic(0,{function("16"),logic(0,{challenge})});
+    assert(view.major(takeaway)==MajorRoute::Takeaway&&!view.challengeExcluded(takeaway));
+    auto challengeFn=arena.get<Address>(challenge+8);arena.set(challengeFn+0x10,4);arena.set(challengeFn+8,uint64_t{0xaabbccddeeff0000});
+    assert(view.challengeExcluded(takeaway));arena.set(challengeFn+8,1);assert(!view.challengeExcluded(takeaway));
+    auto quickTd=logic(0,{logic(1,{comparison(4,"178",0,19),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20),comparison(5,"540",0,20)}),comparison(0,"157",4,0),comparison(0,"556",4,1)});
+    assert(view.major(quickTd)==MajorRoute::QuickTouchdown);
+    arena.set(quickTd+0x48,1);assert(view.major(quickTd)==MajorRoute::None);
     // Bad pointers, counts and node types fail closed.
     assert(!view.identify(0).insetGate&&!view.identify(UINTPTR_MAX).fullComparison);
     arena.set(passGate+0x10,UINTPTR_MAX);assert(!view.identify(routinePass).insetGate);

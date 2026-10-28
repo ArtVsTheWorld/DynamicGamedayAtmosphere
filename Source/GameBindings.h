@@ -4,6 +4,10 @@
 // compatibility is not tied to an executable hash. Keep future binding changes
 // here, separately from the configurable atmosphere rules.
 namespace attendance::bindings {
+// Native authored replay lifecycle: complete prologues are checked before hooking.
+inline constexpr uintptr_t ReplayEventNodeUpdate=0x7dc7520,ReplayEventNodeVtable=0xbc841d8;
+inline constexpr uintptr_t ReplayNodeUpdate=0x7dbec50,ReplayNodeVtable=0xbc83708;
+inline constexpr uintptr_t PresentationClient=0x7d66c10,PresentationEvent=0x7d66c40;
 // Final native LegacySoundEntity event receiver and read-only Int32 variant accessor.
 inline constexpr uintptr_t LegacySoundVtable=0xaefc638,LegacySoundReceive=0x10fdc70,VariantValue=0x5b29690,Int32Type=0xf638ea0;
 inline constexpr uintptr_t AudioUpdate=0x28484a0,CrowdQueue=0x3d3fb30;

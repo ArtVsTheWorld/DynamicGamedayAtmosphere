@@ -28,16 +28,19 @@ inline bool stop(const energy::Play& snap,const energy::Play& p,const energy::Ou
 }
 inline void motion(const live::Outcome& event,motion::Input& out){
     if(event.event==live::Event::ForcedFumble){out.duringImpact=true;out.forcedImpact=true;}
-    if(event.event==live::Event::CatchKnockout||event.event==live::Event::PassBreakup){
+    if(event.event==live::Event::DownsStop||event.event==live::Event::CatchKnockout||event.event==live::Event::PassBreakup){
         out.duringImpact=true;out.impactMilliseconds=1800;out.reactionScale*=.5f;
     }
 }
 class Model {
     uintptr_t match_=0,object_=0;unsigned epoch_=0;uint64_t last_=0,sequence_=0,began_=0,ended_=0,serial_=0;
-    int phase_=-1,side_=-1;double seen_=0;bool baseline_=false,ready_=false,live_=false,tip_=false,hit_=false,used_=false;
+    int phase_=-1,side_=-1;double seen_=0,pendingSide_=0;bool baseline_=false,ready_=false,live_=false,tip_=false,hit_=false,used_=false;
 public:
     void reset(){*this=Model{};}
     double seenDeflection()const{return seen_;}
+    double lookupAfter()const{return pendingSide_?0:seen_;}
+    bool deflectionProof()const{return tip_;}
+    bool pendingSide()const{return pendingSide_!=0;}
     live::Outcome observe(const energy::Play& p,const energy::Play& snap,const energy::Outcome& result,
         uintptr_t match,unsigned epoch,uint64_t sequence,uint64_t now,bool allowed,const Sample& s,int kind,bool held,
         const live::Outcome& current,uint64_t previousMotion){
@@ -48,7 +51,7 @@ public:
         last_=now;
         auto prepare=[&](){
             ready_=energy::normalDown(p)&&!p.specialTeams&&(p.down==3||p.down==4)&&(p.offense==1||p.game.neutral);
-            live_=false;side_=p.offense;object_=s.valid?s.object:0;baseline_=s.valid;seen_=s.valid?s.deflection:0;
+            live_=false;pendingSide_=0;side_=p.offense;object_=s.valid?s.object:0;baseline_=s.valid;seen_=s.valid?s.deflection:0;
         };
         if(p.game.phase==1&&!live_)prepare();
         if(p.game.phase==3&&phase_==1&&ready_){live_=true;sequence_=sequence;began_=now;ended_=0;tip_=hit_=used_=false;}
@@ -56,9 +59,11 @@ public:
         bool post=(p.game.phase==4||p.game.phase==5||p.game.phase==1)&&ended_&&now>=ended_&&now-ended_<=5000;
         bool active=live_&&sequence==sequence_&&now>=began_&&now-began_<=45000&&(p.game.phase==3||post);
         if(active&&s.valid){
-            if(s.object!=object_){object_=s.object;baseline_=false;tip_=false;}
+            if(s.object!=object_){object_=s.object;baseline_=false;tip_=false;pendingSide_=0;}
             bool fresh=baseline_&&std::isfinite(s.deflection)&&s.deflection>seen_;
-            if(fresh&&s.side==1-side_)tip_=true;
+            if(fresh&&s.side==1-side_){tip_=true;pendingSide_=0;}
+            else if(fresh&&s.side<0)pendingSide_=s.deflection;
+            if(pendingSide_&&s.deflection==pendingSide_&&s.side>=0){if(s.side==1-side_)tip_=true;pendingSide_=0;}
             seen_=s.deflection;baseline_=true;
         }
         if(active&&current.id&&current.event==live::Event::HitStick&&current.side==1-side_)hit_=true;

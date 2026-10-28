@@ -1,12 +1,16 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.74.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.75.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
 Candidate 1.71 adds softer pre-punt buildup (half strength) and home-offense critical-down buildup (15% softer). These changes need an in-game feel check after installation.
 
-Candidate 1.74 halves neutral crowd motion for both teams, gives each its own opening offensive snap, preserves the snap fade across view changes, uses an en dash in the pause label and excludes released passes from sack reactions. Candidate 1.73 moves home blowout traffic earlier and refreshes help while preserving current custom values. Full-screen replay followed by a separate inset repeat is still under investigation and is not included in this build.
+Candidate 1.75 uses 75% neutral crowd strength for both teams, makes successful spins/jukes cheer-only, and pairs confirmed turnover-on-downs stops with small motion and a cheer. Earned live motion rises into TD/eruption strength over 300 ms without a fresh impact. It also retries a late deflection actor-team lookup, accepts continuously tracked knockout proof up to five seconds after the whistle, and records missing defensive proof in the normal log.
+
+Major TD/takeaway presentation now has a guarded candidate route: decline the replay-less quick TD shortcut only for a freshly confirmed major play, hold the authored inset request until the full native clip sequence finishes, then request a separate inset repeat. Native recording availability, sequence ordering and tradition/RTG routes require live verification. This is not a guarantee of native highlights when no recording exists. Kneels/spikes are excluded from DGA routine replay promotion; native postgame GreatPlayFinder fallback remains unresolved.
+
+Cheer logs distinguish queued requests from registered native voices. A dropped request can receive one recovery within 600 ms on the same play/owner, preserving the two-voice budget; retiring native voices no longer count as active duplicates. Registration is not proof of audible sound.
 
 ## Confirmed so far
 
@@ -27,10 +31,16 @@ The user identified the final logged "defensive sack" as Ole Miss kneeling. This
 
 The Wake/Virginia test exposed a separate native-quieting issue: after an early halftime seat break reduced actual fullness to 48.4%, runtime 1.68 reduced a native 1000 excitement sample to 168.4. Candidate 1.70 uses a fullness/strength blend for the bed ceiling and lets native reaction peaks bypass that ceiling while retaining crowd-presence scaling. The captured 18,829-position fixture is covered in the quieting and borrowed-entity runtime tests. Audible output still needs a live retest.
 
+## Florida/Georgia test, October 28
+
+Runtime 1.70 finished Georgia 42–Florida 23 at a neutral rivalry venue. Attendance started at 65%, reached 100%, and finished at 87% with 13% permanent departures. Both offenses logged airborne anticipation. Florida Play 27's 76-yard TD had the desired whole-play full-screen replay and separate inset repeat, confirmed by the user. Georgia Play 44's 22-yard TD went straight to PAT selection without either replay, also confirmed. Play 75's turnover on downs had cheer dispatch but no motion. The final interception (Play 87, eight seconds left) had visible motion but no audible cheer despite a primary queue dispatch; no native voice acceptance was recorded in 1.70.
+
+The user also saw the final knee repeated in postgame. Three short replay windows appear after the knee. Offline postgame packages request different GreatPlayFinder offsets (2, 1, 0 for three highlights), so this is consistent with a native selection/recording fallback, not proof of why it selected the knee. Candidate 1.75 excludes clock-management plays from DGA routine promotion; native highlight variety remains unverified. The temporary watcher was stopped and evidence preserved under Build/LiveWatch/FloridaGeorgia-20261028.
+
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.74.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.75.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -46,7 +56,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Pass anticipation | Both offenses' eligible deep throws swell while airborne, then hand off to the catch, breakup or incompletion. No pre-catch added cheer/shake or extra volume bonus. |
 | Run/return to score | Live excitement flows into a touchdown/eruption without a quiet dip, duplicate initial hit or restarted lower reaction. |
 | Kickoff/punt returns | Swell/movement builds from 30 yards to the existing peak at 40. A pickup after a fumble does not restart gain shake. |
-| Skills | Regular broken tackles use sound only, without starting or restarting shake. Successful hurdles use a cheer; trucks use the big-hit crowd family. The small skill buildup is gentle and does not repeat on one collision. |
+| Skills | Regular broken tackles use sound only, without starting or restarting shake. Successful hurdles use a cheer; trucks use the big-hit crowd family. Spins and jukes use a cheer without shake or an extra skill swell. The other small skill buildup is gentle and does not repeat on one collision. |
 | Home defense | Confirmed third/fourth-down knockouts and pass breakups get the small paired reaction. A routine incompletion alone does not qualify. Hit-stick motion requires a completed third/fourth-down stop; other-down hits keep sound only. |
 | Forced fumble | A verified home-defense force can react once on any down. Recovery alone adds no shake. An away-defense force at a home venue gets no positive home impact. |
 | Touchdowns/eruption | Routine touchdowns stay routine. The opening TD exception covers only the first two tracked plays, including kickoff. A 60+ yard close-game TD gets a modest TD accent, not an eruption from distance alone. A genuinely sealing/winning event can still take priority. |
@@ -54,9 +64,11 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Beat the traffic | A 17+ home deficit accelerates exits in the last third of Q4; 28+ can begin gently in the last half. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
 | Settings | Edit/reopen a toggle, slider, decimal value and Fan Patience; check Reset, Back and keyboard/controller tab navigation. Stock game settings must still work. The basic tab/fullness toggle is already verified. |
 | Camera/sound gates | Dynamic Camera Effects Off and DGA Camera Shake Off stop added movement. Cannon strength 0 keeps native cannon audio. Pause and recorded replay stay steady; normal effects resume without stale celebrations. |
-| Neutral camera | Both teams receive half-strength crowd movement, including their own first offensive snap. Verify long gain/TD handoffs and the 0.9-second snap fade. Native cannons retain their independent strength. |
+| Neutral camera | Both teams receive crowd movement at 75% of normal strength, including their own first offensive snap. Verify long gain/TD handoffs and the 0.9-second snap fade. Native cannons retain their independent strength. |
 | Sack freshness | A sack followed by an incomplete pass cannot carry the sack shake onto the incompletion. Genuine sacks still react; test with pass-anticipation sound disabled too. |
 | Clock management | Kneels and clock-stopping spikes produce no added pre-snap or sack/stop shake. Genuine sacks and fake-spike plays remain eligible. |
+| Major replays | A confirmed TD/takeaway plays its full native sequence before a separate inset repeat. Check ordinary TD, traditions, picks, forced fumbles and PAT transitions without skipping; preserve `[major-replay]` entries. Missing recordings must fail safely. |
+| Cheer acceptance | `[reaction-audio]` distinguishes queueing, voice registration and one bounded recovery. Listen for the actual third/fourth-down and interception cheer; a log alone cannot confirm audibility. |
 | Session cleanup | Try a timeout, replay, Super Sim and a second game. No stuck loops, old reaction IDs, crowd refills or repeated errors should carry over. |
 
 ## Additional checks before claiming full coverage
@@ -82,7 +94,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.74.0/
+  Runtime-1.75.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.

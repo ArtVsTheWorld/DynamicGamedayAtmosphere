@@ -6,7 +6,7 @@ using namespace attendance::motion;
 int main(){
     // Neutral attenuation is applied exactly once before transitions: fixed
     // floors, random lineup choices, live distance ramps and score handoffs
-    // all retain the same shape/timing at half the normal amplitude.
+    // all retain the same shape/timing at 75% of the normal amplitude.
     for(float choice:{0.f,.5f,1.f})for(int scenario=0;scenario<10;++scenario){
         Model home,split;Settings config;Input a;a.match=321;a.epoch=1;a.allowed=a.venueEligible=a.lineup=true;
         a.phase=1;a.lineupId=1;a.lineupScale=choice;a.critical=scenario==1;a.hostileOpening=scenario==2?13.6f:0;
@@ -19,7 +19,7 @@ int main(){
             if(now==4600){if(scenario==6)a.touchdown=1;if(scenario==7){a.eruption=1;a.eruptionAlive=true;}if(scenario==8)a.safety=1;if(scenario==9)a.clincher=1;}
             auto b=a;b.neutral=true;auto normal=home.observe(config,a),neutral=split.observe(config,b);
             assert(normal.kind==neutral.kind&&normal.began==neutral.began&&normal.until==neutral.until);
-            assert(std::fabs(strength(normal,now)*.5f-strength(neutral,now))<.002f);
+            assert(std::fabs(strength(normal,now)*.75f-strength(neutral,now))<.002f);
         }
     }
     Settings s;assert(s.ordinary==5&&s.critical==10&&s.touchdownMs==11000&&s.lineupCheer==5);
@@ -87,9 +87,10 @@ int main(){
     Model joined;Input j;j.match=777;j.epoch=1;j.allowed=true;j.phase=3;j.now=70000;j.duringPlay=1;
     joined.observe(liveSettings,j);j.now=70200;auto moving=joined.observe(liveSettings,j);assert(strength(moving,j.now)==10);
     j.phase=4;j.now=70400;j.touchdown=1;auto scoredCue=joined.observe(liveSettings,j);assert(scoredCue.kind==Kind::Touchdown&&strength(scoredCue,j.now)==10&&scoredCue.oscillationBegan==moving.oscillationBegan);
-    j.now=70600;scoredCue=joined.observe(liveSettings,j);assert(strength(scoredCue,j.now)==20);
-    j.eruption=1;j.eruptionAlive=true;auto eruptedCue=joined.observe(liveSettings,j);assert(eruptedCue.kind==Kind::Eruption&&strength(eruptedCue,j.now)==20&&eruptedCue.oscillationBegan==moving.oscillationBegan);
-    j.now=70800;eruptedCue=joined.observe(liveSettings,j);assert(strength(eruptedCue,j.now)==30);
+    j.now=70600;scoredCue=joined.observe(liveSettings,j);float joinedTd=10+5*smooth(200.f/300);assert(std::fabs(strength(scoredCue,j.now)-joinedTd)<.001f);
+    j.eruption=1;j.eruptionAlive=true;auto eruptedCue=joined.observe(liveSettings,j);assert(eruptedCue.kind==Kind::Eruption&&std::fabs(strength(eruptedCue,j.now)-joinedTd)<.001f&&eruptedCue.oscillationBegan==moving.oscillationBegan);
+    j.now=70800;eruptedCue=joined.observe(liveSettings,j);assert(std::fabs(strength(eruptedCue,j.now)-(joinedTd+(22.5f-joinedTd)*smooth(200.f/300)))<.001f);
+    j.now=70900;eruptedCue=joined.observe(liveSettings,j);assert(strength(eruptedCue,j.now)==22.5f);
     Model kick;Input k;k.match=888;k.epoch=1;k.allowed=k.lineup=k.venueEligible=k.openingKickoff=true;k.lineupId=1;k.phase=1;k.now=80000;
     kick.observe(liveSettings,k);k.now=81000;assert(strength(kick.observe(liveSettings,k),k.now)==5);
     k.lineup=false;k.phase=3;k.now=82000;auto heldKick=kick.observe(liveSettings,k);assert(!heldKick.tail&&strength(heldKick,k.now)==5);
