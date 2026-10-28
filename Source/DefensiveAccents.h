@@ -27,6 +27,7 @@ inline bool stop(const energy::Play& snap,const energy::Play& p,const energy::Ou
         (p.offense!=snap.offense||(snap.down==3&&p.down==4));
 }
 inline void motion(const live::Outcome& event,motion::Input& out){
+    if(event.event==live::Event::ForcedFumble){out.duringImpact=true;out.forcedImpact=true;}
     if(event.event==live::Event::CatchKnockout||event.event==live::Event::PassBreakup){
         out.duringImpact=true;out.impactMilliseconds=1800;out.reactionScale*=.5f;
     }

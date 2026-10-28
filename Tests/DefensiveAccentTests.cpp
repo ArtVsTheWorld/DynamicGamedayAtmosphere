@@ -79,6 +79,22 @@ int main(){
     sustained::Intent sound;sound.active=true;sound.match=123;sound.epoch=1;sound.updated=x.now;
     assert(pairing::merge(sound,cue,x.now,1,1).intensity>0&&live::cheerType(event)==59);
     x.touchdown=1;x.now=1300;assert(camera.observe(settings,x).kind==motion::Kind::Touchdown);
-    std::puts("PASS: captured defender deflection layout; third/fourth confirmed breakup stops; small paired sound/motion; ordinary-drop/tipped-catch/score/penalty/stale/world/sim rejection; knockout/major-impact dedupe; hit-stick sound-only until a confirmed critical-down stop.");
+    // A confirmed force has the same ceiling and duration, but reaches it
+    // promptly even when taking over an existing pre-snap shake.
+    for(bool buildup:{false,true}){
+        motion::Model fast,ordinary;motion::Input input;input.match=123;input.epoch=1;input.allowed=true;input.phase=1;input.now=1000;
+        input.lineup=input.venueEligible=buildup;input.lineupId=1;
+        fast.observe(settings,input);ordinary.observe(settings,input);input.now=2000;fast.observe(settings,input);ordinary.observe(settings,input);
+        input.phase=3;input.lineup=false;input.now=2100;fast.observe(settings,input);ordinary.observe(settings,input);
+        input.now=2110;input.duringPlay=1;input.duringImpact=true;
+        auto normal=ordinary.observe(settings,input);defense::motion({live::Event::ForcedFumble,1,0,0},input);auto forced=fast.observe(settings,input);
+        assert(forced.percent==normal.percent&&forced.until==normal.until&&forced.began==normal.began);
+        input.now=2145;forced=fast.observe(settings,input);input.forcedImpact=false;normal=ordinary.observe(settings,input);
+        assert(motion::strength(forced,input.now)>motion::strength(normal,input.now));
+        input.forcedImpact=true;input.now=2160;forced=fast.observe(settings,input);assert(std::fabs(motion::strength(forced,input.now)-settings.live)<.001f);
+        assert(forced.until==normal.until&&forced.began==2110); // Same ID cannot restart it.
+        input.allowed=false;input.now=2170;assert(fast.observe(settings,input).kind==motion::Kind::None);
+    }
+    std::puts("PASS: captured defender deflection layout; third/fourth confirmed breakup stops; paired sound/motion; ownership and stale guards; fast forced-fumble onset at unchanged peak/duration and smooth takeover; hit-stick sound-only until a confirmed critical-down stop.");
 }
 

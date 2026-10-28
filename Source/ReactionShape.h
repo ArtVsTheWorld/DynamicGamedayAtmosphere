@@ -12,8 +12,8 @@ inline float tail(float age,float total,float hold){
     hold=(std::clamp)(hold,0.f,total*.5f);
     return age<=hold?1.f:1-smooth((age-hold)/(total-hold));
 }
-inline float impact(float age,float total){
-    return smooth(age/100.f)*tail(age,total,(std::min)(1000.f,total*.2f));
+inline float impact(float age,float total,float attack=100.f){
+    return smooth(age/attack)*tail(age,total,(std::min)(1000.f,total*.2f));
 }
 inline float skillBuildup(float age,float total){return smooth(age/450.f)*tail(age,total,450.f);}
 // A clear onset settles slightly into a sustained cheer, then eases down.

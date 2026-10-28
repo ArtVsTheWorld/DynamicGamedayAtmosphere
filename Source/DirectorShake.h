@@ -34,12 +34,13 @@ struct Cue {
     bool cancelled=false;
     float rampFloor=0;
     float reactionScale=1;bool softAccent=false;
+    bool forcedImpact=false;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
     if(c.kind==Kind::None||!c.match||now<c.updated||now-c.updated>750||now<c.began||!std::isfinite(c.percent))return 0;
     float age=static_cast<float>(now-c.began);
-    if(c.impactOnly){if(now>=c.until||c.until<=c.began+400)return 0;return limit(c.percent)*(c.softAccent?shape::skillBuildup(age,static_cast<float>(c.until-c.began)):shape::impact(age,static_cast<float>(c.until-c.began)));}
+    if(c.impactOnly){if(now>=c.until||c.until<=c.began+400)return 0;return limit(c.percent)*(c.softAccent?shape::skillBuildup(age,static_cast<float>(c.until-c.began)):shape::impact(age,static_cast<float>(c.until-c.began),c.forcedImpact?35.f:100.f));}
     if(c.tail){unsigned total=c.until>c.began?static_cast<unsigned>((std::min)(c.until-c.began,uint64_t{16000})):0;return limit(c.percent)*shape::tail(age,static_cast<float>(total),c.confirmedRun?static_cast<float>(shape::tailHold(total)):0.f);}
     if(c.kind==Kind::Ordinary||c.kind==Kind::Critical||c.kind==Kind::LivePlay)return limit(c.percent)*smooth(age/(c.kind==Kind::LivePlay?200.0f:c.kind==Kind::Critical?600.0f:1000.0f));
     if(now>=c.until||c.until<=c.began||limit(c.percent)<=0)return 0;
@@ -54,7 +55,8 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
 }
 inline float strength(const Cue& c,uint64_t now){
     float level=envelopeStrength(c,now);
-    if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<200)return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/200);
+    unsigned transition=c.forcedImpact?50u:200u;
+    if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<transition)return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition);
     return level;
 }
 struct Input {
@@ -70,6 +72,7 @@ struct Input {
     float hostileOpening=0;uint64_t blockedFieldGoal=0;
     bool cancelLive=false;
     float reactionScale=1;unsigned impactMilliseconds=0;bool supplementalImpact=false;uint64_t clincher=0;float touchdownScale=1;bool softAccent=false;
+    bool forcedImpact=false;
 };
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0,seenClincher_=0;int phase_=0;
@@ -133,6 +136,7 @@ public:
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?duration:45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};
             liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;
             liveCue_.softAccent=x.softAccent;
+            liveCue_.forcedImpact=x.forcedImpact;
             liveCue_.catchReaction=x.duringCatch;join(liveCue_);
         }
         if(live&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay){liveCue_.confirmedRun=true;if(!covered)liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;}
