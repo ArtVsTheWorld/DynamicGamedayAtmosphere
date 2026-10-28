@@ -1,13 +1,13 @@
 # Update 3 - candidate
 
-Working build **1.76.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.77.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
 
 - **In-game settings:** A Gameday Atmosphere tab after Audio Settings, 35 essential controls across Attendance, Soundscape and Broadcast (10/12/13), toggles before numeric controls, no troubleshooting section, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
 - **Gentler pre-snap motion:** Pre-punt buildup is 50% softer; home-offense critical-down buildup is 15% softer. Both retain smooth fades and the configured strength controls.
 - **Split-crowd camera strength:** Crowd-driven shake uses 75% of normal strength for either team at neutral venues. Each team can receive its first-Q1-offensive-play surge once. The snap fade follows the new live camera; pause-menu fullness uses an en dash.
 - **Score motion handoff:** An existing run/catch shake builds into TD/eruption strength over 300 ms, preserving its oscillator and avoiding another impact. Isolated scores keep their configured onset.
-- **Candidate replay sequence:** Confirmed TD/takeaway routes hold the inset until the native full-screen clip sequence ends, then request a separate repeat. Live checks remain required; native recording availability and postgame highlight variety are not guaranteed. Kneels/spikes do not receive DGA routine replay promotion.
+- **Candidate replay sequence:** In verified manual play, confirmed TD/takeaway routes hold the inset until the native full-screen clip sequence ends, then request a separate repeat. Slow Sim keeps native full-screen playback without an added inset request or missing-inset timeout, and mode switches cancel pending inset work. An active native replay blocks timeout fallback. Live checks remain required; native recording availability and postgame highlight variety are not guaranteed. Kneels/spikes do not receive DGA routine replay promotion.
 - **Cheer diagnostics and recovery:** Queue dispatch and native voice registration have separate logs. A silently dropped cheer gets at most one short same-play recovery; native voice/volume limits remain.
 - **Sack classification:** A verified released forward pass blocks a carried-over native sack flag.
 - **Deep-pass anticipation:** A fast supporting swell while either offense's verified deep throw is airborne, with no pre-catch cheer/shake or extra volume bonus.

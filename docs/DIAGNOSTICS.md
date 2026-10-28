@@ -1,6 +1,6 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.76.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.77.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
@@ -8,7 +8,9 @@ Candidate 1.71 adds softer pre-punt buildup (half strength) and home-offense cri
 
 Candidate 1.75 uses 75% neutral crowd strength for both teams, makes successful spins/jukes cheer-only, and pairs confirmed turnover-on-downs stops with small motion and a cheer. Earned live motion rises into TD/eruption strength over 300 ms without a fresh impact. It also retries a late deflection actor-team lookup, accepts continuously tracked knockout proof up to five seconds after the whistle, and records missing defensive proof in the normal log.
 
-Major TD/takeaway presentation now has a guarded candidate route: decline the replay-less quick TD shortcut only for a freshly confirmed major play, hold the authored inset request until the full native clip sequence finishes, then request a separate inset repeat. Native recording availability, sequence ordering and tradition/RTG routes require live verification. This is not a guarantee of native highlights when no recording exists. Kneels/spikes are excluded from DGA routine replay promotion; native postgame GreatPlayFinder fallback remains unresolved.
+Candidate 1.77 verifies native IsInRealtimeSim and IsPlayCallOpen queries. Manual play-call capability is remembered only within the same match/session and cleared on Slow Sim, a missing query or a new game. Slow Sim and unknown UI retain original inset events, without added inset requests or missing-inset timeouts. Full-screen promotion remains independent of inset availability. Native replay-node activity blocks the timeout fallback, and an already-running native inset is acknowledged without dispatching another. Mode changes appear once in the normal log. Final live sequence verification is pending.
+
+Major TD/takeaway presentation in verified manual play has a guarded candidate route: decline the replay-less quick TD shortcut only for a freshly confirmed major play, hold the authored inset request until the full native clip sequence finishes, then request a separate inset repeat. Native recording availability, sequence ordering and tradition/RTG routes require live verification. This is not a guarantee of native highlights when no recording exists. Kneels/spikes are excluded from DGA routine replay promotion; native postgame GreatPlayFinder fallback remains unresolved.
 
 Cheer logs distinguish queued requests from registered native voices. A dropped request can receive one recovery within 600 ms on the same play/owner, preserving the two-voice budget; retiring native voices no longer count as active duplicates. Registration is not proof of audible sound.
 
@@ -43,14 +45,14 @@ The user also saw the final knee repeated in postgame. Three short replay window
 
 Runtime 1.75 completed a 62–31 home win. The external read-only observer captured 73.4 minutes including postgame, 21,726 state samples, 3,737 native cache records and 43 native playback windows. The dedicated DGA worker averaged about 0.49% of one CPU core; this excludes shared game-thread/audio/camera callback time and does not establish total mod overhead or FPS. The observer averaged about 0.95% of one core. Whole-game private memory fluctuated after loading rather than showing a steady increase; it cannot be attributed to DGA.
 
-The user clarified that this was Slow Sim, which has no play-call screen and therefore no inset destination. Missing inset acknowledgements are expected for this mode, not evidence of missing visible replays. The user confirmed pick-six Plays 61 and 90 each played full-screen twice, with mascot/upset-home-crowd cutaways and no player card. The native Cutaway_TurnoverTD_p asset contains two replay choices, consistent with that pattern; the executing package was not captured. Both sixty-second lifecycle timeouts are real logged controller observations, but the controller must check inset availability before expecting or requesting one. Manual-game full-screen-then-separate-inset ordering still needs verification. The user also confirmed Play 98 touchdown shake was fine; recording ended before its replay, so that replay is ungraded. Candidate 1.76 only trims the settings menu and does not add a slow-sim availability guard.
+The user clarified that this was Slow Sim, which has no play-call screen and therefore no inset destination. Missing inset acknowledgements are expected for this mode, not evidence of missing visible replays. The user confirmed pick-six Plays 61 and 90 each played full-screen twice, with mascot/upset-home-crowd cutaways and no player card. The native Cutaway_TurnoverTD_p asset contains two replay choices, consistent with that pattern; the executing package was not captured. Both sixty-second lifecycle timeouts are real logged controller observations, but the controller must check inset availability before expecting or requesting one. Manual-game full-screen-then-separate-inset ordering still needs verification. The user also confirmed Play 98 touchdown shake was fine; recording ended before its replay, so that replay is ungraded. That capture predates the 1.77 mode guard; it remains evidence of the older controller behavior.
 
 All 42 queued live reactions and 9 queued play-result cheers logged native registration; no listener was present to establish audibility. At 49% mapped fullness, a sampled native 1000 excitement peak reached 979.5 output, supporting preservation of peaks above the calmer background ceiling. Final crowd fullness was 45%, giving additional sparse-crowd coverage in a dry home blowout. The home-loss beat-the-traffic trigger was not exercised. Private evidence and separate verified facts/hypotheses are preserved in Build/Overnight-20261028/findings.json, with improvement avenues for typed gameplay events and Update 4 presentation diagnostics. The capture stopped after its planned five-minute postgame window.
 
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.76.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.77.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -77,7 +79,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Neutral camera | Both teams receive crowd movement at 75% of normal strength, including their own first offensive snap. Verify long gain/TD handoffs and the 0.9-second snap fade. Native cannons retain their independent strength. |
 | Sack freshness | A sack followed by an incomplete pass cannot carry the sack shake onto the incompletion. Genuine sacks still react; test with pass-anticipation sound disabled too. |
 | Clock management | Kneels and clock-stopping spikes produce no added pre-snap or sack/stop shake. Genuine sacks and fake-spike plays remain eligible. |
-| Major replays | A confirmed TD/takeaway plays its full native sequence before a separate inset repeat. Check ordinary TD, traditions, picks, forced fumbles and PAT transitions without skipping; preserve `[major-replay]` entries. Missing recordings must fail safely. |
+| Major replays | In manual play, a confirmed TD/takeaway plays its full native sequence before a separate inset repeat. In Slow Sim, keep native full-screen playback without expecting an inset. Switch back to manual and verify no old inset returns. Check ordinary TD, traditions, picks, forced fumbles and PAT transitions without skipping; preserve `[major-replay]` entries. Missing recordings must fail safely. |
 | Cheer acceptance | `[reaction-audio]` distinguishes queueing, voice registration and one bounded recovery. Listen for the actual third/fourth-down and interception cheer; a log alone cannot confirm audibility. |
 | Session cleanup | Try a timeout, replay, Super Sim and a second game. No stuck loops, old reaction IDs, crowd refills or repeated errors should carry over. |
 
@@ -104,7 +106,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.76.0/
+  Runtime-1.77.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.

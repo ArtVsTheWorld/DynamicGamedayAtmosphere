@@ -81,4 +81,7 @@ inline constexpr uintptr_t MuseConstantVtable=0xb6462d0,MuseFunctionVtable=0xbc7
 inline constexpr uintptr_t GameStatesVtable=0xb479070;
 // Read only. UI IsInSuperSimGameplayMode checks this controller's mode +8.
 inline constexpr uintptr_t SuperSimController=0xf8ce5b8,SuperSimVtable=0xb7d8980,SuperSimModeGetter=0x3754ce0;
+// Native APT IsInRealtimeSim / IsPlayCallOpen, independent of game phase.
+inline constexpr uintptr_t ReplaySimApi=0xfa57b10,ReplaySimApiVtable=0xbae0710,ReplayRealtimeQuery=0x920e280;
+inline constexpr uintptr_t ReplayFlowApi=0xfa58810,ReplayFlowApiVtable=0xbadfea0,ReplayPlaycallQuery=0x7ba6d80;
 }

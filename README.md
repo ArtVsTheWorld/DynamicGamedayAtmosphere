@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 diagnostics work (1.76.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 diagnostics work (1.77.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -39,7 +39,7 @@ The working build adds a **Gameday Atmosphere** tab at the far right of the game
 
 An existing live shake now rises into the TD/eruption level over 300 ms, without a new impact or an amplitude dip. Neutral crowd movement uses 75% of normal strength for either team. Successful spins/jukes get a cheer without added shake. Confirmed turnover-on-downs stops get a small paired shake and cheer.
 
-The candidate major-play replay route waits for the full native clip sequence before requesting a separate inset repeat. It requires live verification, and cannot create missing recordings. DGA no longer promotes knees/spikes into routine replays; the native postgame repeated-highlight issue remains under investigation.
+In verified manual play, the candidate major-play replay route waits for the full native clip sequence before requesting a separate inset repeat. Slow Sim keeps native full-screen playback and does not receive added inset requests; unavailable UI queries retain original inset handling. It requires live verification, and cannot create missing recordings. DGA no longer promotes knees/spikes into routine replays; the native postgame repeated-highlight issue remains under investigation.
 
 Quieter games now have a **sound-only reaction route**: verified big plays and results can get a single native cheer or disappointment sound, plus softer skill/pass swells. These do not unlock shake, sustained roar layers, follow-up cheers, eruptions or extra volume. Ordinary broken tackles are sound-only; knees/spikes do not get false sack reactions, and away takeaways clear previous home-positive motion.
 

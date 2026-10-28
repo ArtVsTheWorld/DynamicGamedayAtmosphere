@@ -213,6 +213,9 @@ using ReplayEventNodeUpdate=void(__fastcall*)(A);
 using NativeReplayNodeUpdate=void(__fastcall*)(A,float);
 ReplayEventNodeUpdate originalReplayEventNode=nullptr;NativeReplayNodeUpdate originalNativeReplayNode=nullptr;
 std::atomic<bool> majorReplayBindings{false},majorReplayFailed{false};std::atomic<int> replaySnapType{-1};
+bool replayModeBinding=false;
+attendance::replaymode::Tracker replayModeTracker;
+std::atomic<attendance::replaymode::Mode> replayMode{attendance::replaymode::Mode::Unknown};
 std::mutex majorReplayMutex;attendance::majorreplay::Model majorReplay;attendance::energy::Tracker replayPlayTracker;
 A replayTrackerMatch=0;unsigned replayTrackerEpoch=0;attendance::energy::Play replayObserved;
 void observeMajorReplay(bool dispatch);bool guardedMajorReplay(bool dispatch);
@@ -666,8 +669,8 @@ bool writeReplayBoolean(A address,bool value=true){
 }
 bool __fastcall museLogicEvaluate(A node,A context){
     auto view=replayPresentationView();
-    bool majorRoot=replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays&&routineInsets;
-    if(majorRoot)guardedMajorReplay(false);
+    if(replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed)guardedMajorReplay(false);
+    bool majorRoot=replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays;
     attendance::majorreplay::Kind wantedMajor=attendance::majorreplay::Kind::None;
     if(majorRoot&&replayPresentationAllowed()){
         std::lock_guard<std::mutex> guard(majorReplayMutex);
@@ -675,7 +678,7 @@ bool __fastcall museLogicEvaluate(A node,A context){
     }
     auto majorRoute=majorRoot&&replayPresentationAllowed()?view.major(node):attendance::replaypresentation::MajorRoute::None;
     attendance::replaypresentation::Scope scope(replaySelection,view,node,
-        replaySelection.depth==0&&replayPresentationAllowed(),bigPlayReplays.load(),routineInsets.load(),defensiveReplays.load());
+        replaySelection.depth==0&&replayPresentationAllowed(),bigPlayReplays.load(),routineInsets&&replayMode==attendance::replaymode::Mode::PlayCall,defensiveReplays.load());
     bool valid=originalMuseLogic(node,context);
     if(valid&&majorRoute!=attendance::replaypresentation::MajorRoute::None){
         if(majorRoute==attendance::replaypresentation::MajorRoute::Takeaway&&view.trueBoolean(node+0x38)&&view.challengeExcluded(node)){
@@ -683,7 +686,7 @@ bool __fastcall museLogicEvaluate(A node,A context){
             const auto& start=replayPlayTracker.start;
             if(replayPlayTracker.serial&&attendance::energy::normalDown(start)&&!start.specialTeams&&
                replayObserved.offense==1-start.offense&&replayObserved.resultStamp&&replayObserved.resultStamp!=replayPlayTracker.startStamp){
-                majorReplay.arm(replayTrackerMatch,replayTrackerEpoch,GetTickCount64(),replayPlayTracker.serial,attendance::majorreplay::Kind::Takeaway);
+                majorReplay.arm(replayTrackerMatch,replayTrackerEpoch,GetTickCount64(),replayPlayTracker.serial,attendance::majorreplay::Kind::Takeaway,replayMode.load());
                 wantedMajor=majorReplay.kind();
             }
         }
@@ -1135,6 +1138,12 @@ bool install() {
     signatures=true;
     capacityBinding=bytes(attendance::bindings::StadiumCapacity,{0x40,0x53,0x48,0x83,0xec,0x30,0x33,0xc0,0x48,0x8b,0xda})&&bytes(attendance::bindings::OptionQuery,{0x40,0x53,0x48,0x83,0xec,0x50,0x48,0x8b,0x05,0xdb,0x55,0xbf,0x06,0x49,0x8b,0xd8});
     superSimBinding=bytes(attendance::bindings::SuperSimModeGetter,{0x48,0x8b,0x05,0xd1,0x98,0x17,0x0c,0x48,0x85,0xc0,0x74,0x0d,0x83,0x78,0x08,0x01,0x75,0x07,0xb1,0x01});
+    replayModeBinding=bytes(attendance::bindings::ReplayRealtimeQuery,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x0d,0x48,0x1c,0x06,0x48,0x85,0xc9,0x74,0x10,0xe8,0xdb,0x74,0xcc,0xf9,0x84,0xc0,0x74,0x07,0xb0,0x01,0x48,0x83,0xc4,0x28,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x28,0xc3})&&
+        bytes(0x2ed5770,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0xe8,0x92,0xfa,0xe9,0x00,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x38,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x50,0xf7,0x43,0x08,0xf7,0xff,0xff,0xff,0x0f,0x95,0xc1,0x84,0xc0,0x74,0x1e,0x83,0x7b,0x14,0x00,0x75,0x18,0x84,0xc9,0x75,0x0c,0x38,0x4b,0x2c,0x0f,0x95,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3,0xb0,0x01,0x48,0x83,0xc4,0x20,0x5b,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3})&&
+        bytes(attendance::bindings::ReplayPlaycallQuery,{0x0f,0xb6,0x81,0x49,0x04,0x00,0x00,0xc3})&&
+        at<A>(image+attendance::bindings::ReplaySimApiVtable+0xb8)==image+0x7ba6bb0&&
+        at<A>(image+attendance::bindings::ReplayFlowApiVtable+0x5e0)==image+attendance::bindings::ReplayPlaycallQuery;
+    if(!replayModeBinding)log("major-replay","Native replay-mode queries differ; added inset routing disabled, original presentation retained.");
     if(!superSimBinding)log("simulation-unavailable","Super Sim binding differs; crowd changes will wait for ordinary selection and breaks.");
     pauseBinding=bytes(attendance::bindings::PauseCheck,{0x48,0x8b,0x05,0xa9,0x0c,0x9a,0x07,0x48,0x85,0xc0,0x74,0x08,0x80,0x38,0x00,0x74,0x03,0xb0,0x01,0xc3,0x32,0xc0,0xc3});
     replayBinding=bytes(attendance::bindings::ReplayTimeGetter,{0xc5,0xfb,0x10,0x41,0x40,0xc3})&&
@@ -1568,6 +1577,19 @@ bool majorReplayWorld(attendance::State& state,A& match){
     A config=at<A>(image+0xf6379e0);unsigned char online=1;
     return config&&read(config+0x84,&online,1)&&online==0&&at<A>(match)==image+attendance::bindings::MatchVtable;
 }
+attendance::replaymode::Sample nativeReplayMode(){
+    using namespace attendance::bindings;
+    attendance::replaymode::Sample result;
+    if(!replayModeBinding)return result;
+    A sim=at<A>(image+ReplaySimApi),flow=at<A>(image+ReplayFlowApi);
+    unsigned char open=0;
+    if(at<A>(sim)!=image+ReplaySimApiVtable||at<A>(flow)!=image+ReplayFlowApiVtable||!read(flow+0x449,&open,1)||open>1)return result;
+    __try{
+        result.realtime=reinterpret_cast<bool(__fastcall*)()>(image+ReplayRealtimeQuery)();
+        result.playcallOpen=open!=0;result.known=true;
+    }__except(EXCEPTION_EXECUTE_HANDLER){result={};}
+    return result;
+}
 bool enterNativeInset(){
     __try{
         reinterpret_cast<A(__fastcall*)()>(image+attendance::bindings::PresentationClient)();
@@ -1580,7 +1602,8 @@ bool finishReplayEvent(A node){
 }
 void __fastcall replayEventNode(A node){
     bool handled=false;
-    if(majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays&&routineInsets&&
+    if(majorReplayBindings&&!majorReplayFailed)guardedMajorReplay(false);
+    if(replayMode==attendance::replaymode::Mode::PlayCall&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays&&routineInsets&&
        at<A>(node)==image+attendance::bindings::ReplayEventNodeVtable&&at<int>(node+0x50)==12&&nativeUnpaused()){
         attendance::State state;A match=0;
         if(majorReplayWorld(state,match)&&(state.phase==4||state.phase==5)){
@@ -1614,21 +1637,30 @@ void observeMajorReplay(bool dispatch){
         play.selectedType=playCallBinding?attendance::playcall::View(image,read).type(match,play.offense):-1;
         play.specialTeams=play.selectedType>0&&!attendance::lineup::offensivePlay(play.selectedType);play.simulated=offscreenSimulation(state);
     }
+    auto modeSample=world?nativeReplayMode():attendance::replaymode::Sample{};
+    bool modeChanged=false;attendance::replaymode::Mode presentationMode=attendance::replaymode::Mode::Unknown;
     bool send=false;attendance::majorreplay::Notice notice=attendance::majorreplay::Notice::None;uint64_t sequence=0;
     {
         std::lock_guard<std::mutex> lock(majorReplayMutex);
         if(!world||match!=replayTrackerMatch||epoch!=replayTrackerEpoch){majorReplay.reset();replayPlayTracker.reset();replayTrackerMatch=match;replayTrackerEpoch=epoch;replaySnapType=-1;}
+        presentationMode=replayModeTracker.update(world?match:0,epoch,modeSample);modeChanged=replayMode.exchange(presentationMode)!=presentationMode;
         if(sampled){
             replayObserved=play;auto result=replayPlayTracker.observe(*std::atomic_load(&retentionEventSettings),play);
             if(replayPlayTracker.serial)replaySnapType=replayPlayTracker.start.selectedType;
-            if(majorReplayBindings&&!majorReplayFailed&&bigPlayReplays&&routineInsets&&!play.simulated&&result.accepted&&result.completed){
+            if(majorReplayBindings&&!majorReplayFailed&&bigPlayReplays&&!play.simulated&&result.accepted&&result.completed){
                 int scored=(std::max)(result.homePoints,result.awayPoints);
-                if(scored>=6&&scored<=8)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Touchdown);
-                else if(result.takeaway)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Takeaway);
+                if(scored>=6&&scored<=8)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Touchdown,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown);
+                else if(result.takeaway)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Takeaway,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown);
             }
         }
-        attendance::majorreplay::Input input{match,epoch,now,state.phase,world&&majorReplayBindings&&!majorReplayFailed&&bigPlayReplays&&routineInsets,paused,replay,dispatch};
+        attendance::majorreplay::Input input{match,epoch,now,state.phase,world&&majorReplayBindings&&!majorReplayFailed&&bigPlayReplays,paused,replay,dispatch,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown,modeSample.playcallOpen};
         send=majorReplay.tick(input);notice=majorReplay.takeNotice();sequence=majorReplay.sequence();
+    }
+    if(modeChanged&&world){
+        using M=attendance::replaymode::Mode;
+        log("major-replay",presentationMode==M::RealtimeSim?"Mode: real-time/Slow Sim; native full-screen playback retained, no added inset destination.":
+            presentationMode==M::PlayCall?"Mode: play-call UI verified; separate inset routing available after full-screen playback.":
+            "Mode: play-call destination not verified; original inset events retained, no added inset requests.");
     }
     const char* message=nullptr;using N=attendance::majorreplay::Notice;
     switch(notice){case N::Armed:message="major play confirmed; full-screen native sequence required before inset";break;
@@ -1637,9 +1669,22 @@ void observeMajorReplay(bool dispatch){
       case N::InsetRequested:message="separate inset repeat requested after completed full-screen playback";break;
       case N::InsetStarted:message="native playback observed in play-selection inset stage";break;
       case N::Finished:message="native inset stage ended";break;
+      case N::NativeOnly:message="full-screen native route retained; no added inset expected or requested without a verified play-call destination (Slow Sim, unavailable UI or inset option off)";break;
       case N::Unavailable:message="major sequence could not be completed with available native recording/presentation; original flow retained";break;
       default:break;}
     if(message)log("major-replay","Play #"+std::to_string(sequence)+": "+message+".");
+    if(send){
+        // The destination can disappear between the model tick and native
+        // dispatch (e.g. opening Super Sim). Recheck without treating a normal
+        // mode change as a fault or replaying this request on return.
+        auto current=nativeReplayMode();
+        A wrapper=at<A>(image+attendance::bindings::MatchWrapper);
+        if(!current.known||current.realtime||at<A>(wrapper+16)!=match||audioEpoch.load()!=epoch){
+            std::lock_guard<std::mutex> lock(majorReplayMutex);
+            majorReplay.tick({match,epoch,now,state.phase,true,false,replay,false,attendance::replaymode::Mode::Unknown,false});
+            return;
+        }
+    }
     if(send&&!enterNativeInset()){
         {std::lock_guard<std::mutex> lock(majorReplayMutex);majorReplay.dispatchFailed();}
         majorReplayFailed=true;log("major-replay","Native inset handoff failed; major-play additions stopped, original playback remains active.");
@@ -2541,7 +2586,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("REPLAYS");
     report.field("Replay crowd")<<(replayLoss>=0?std::to_string(100-replayLoss.load())+(replaySuspendsAtmosphere?"% (interactive; live target preserved)":"% (automatic; live target preserved)"):"inactive")<<"\n";
-    report.field("Major-play replay sequence")<<(!majorReplayBindings?"unavailable on this native layout":majorReplayFailed?"stopped after a fault":!extraReplays||!bigPlayReplays||!routineInsets?"native flow; full/inset additions not both enabled":"full native sequence, then separate inset repeat; live verification required")<<"\n";
+    report.field("Major-play replay sequence")<<(!majorReplayBindings?"unavailable on this native layout":majorReplayFailed?"stopped after a fault":!extraReplays||!bigPlayReplays?"native flow; full-screen additions disabled":!routineInsets?"full-screen additions; added insets disabled":replayMode==attendance::replaymode::Mode::RealtimeSim?"Slow Sim: native full-screen sequence, no added inset":replayMode!=attendance::replaymode::Mode::PlayCall?"native full-screen sequence; play-call destination not verified":"full native sequence, then separate inset repeat; live verification required")<<"\n";
     report.field("Extra post-play replays")<<(!replayPresentationInstalled?"unavailable":replayPresentationFailed?"stopped after a fault":!extraReplays?"disabled":"enabled")<<"\n";
     report.field("Routine insets")<<(routineInsets?"on":"off")<<"\n";
     report.field("Full-screen gains")<<(bigPlayReplays?std::to_string(replayMinimumYards.load())+"+ yards":"off")<<"\n";

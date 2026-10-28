@@ -2,10 +2,11 @@
 #include <cassert>
 #include <cstdio>
 using namespace attendance::majorreplay;
+Input manual(uintptr_t match,unsigned epoch,uint64_t now,int phase,bool allowed,bool paused,bool replaying,bool dispatch=true){return {match,epoch,now,phase,allowed,paused,replaying,dispatch,Mode::PlayCall,true};}
 int main(){
  for(auto kind:{Kind::Touchdown,Kind::Takeaway}){
-  Model m;m.arm(123,1,1000,7,kind);assert(m.routing(123,1));
-  assert(m.suppressInset(123,1));Input x{123,1,1100,4,true,false,false};assert(!m.tick(x));
+  Model m;m.arm(123,1,1000,7,kind,Mode::PlayCall);assert(m.routing(123,1));
+  assert(m.suppressInset(123,1));Input x=manual(123,1,1100,4,true,false,false);assert(!m.tick(x));
   m.node(123,1,456,false);x.now=1200;x.replaying=true;assert(!m.tick(x));assert(m.stage()==Stage::Full);
   m.node(123,1,456,true);x.now=2200;x.replaying=false;assert(!m.tick(x));
   if(kind==Kind::Takeaway){x.now=3000;assert(!m.tick(x));m.node(123,1,789,false);x.now=3100;x.replaying=true;assert(!m.tick(x));m.node(123,1,789,true);x.now=4100;x.replaying=false;assert(!m.tick(x));}
@@ -13,21 +14,54 @@ int main(){
   assert(m.suppressInset(123,1));x.now+=50;assert(!m.tick(x));
   x.phase=5;x.replaying=true;x.now+=50;assert(!m.tick(x)&&m.stage()==Stage::Inset);
   x.replaying=false;x.now+=500;assert(!m.tick(x)&&m.stage()==Stage::Done);
-  m.arm(123,1,x.now,7,kind);assert(m.stage()==Stage::Done); // Same result cannot replay.
+  m.arm(123,1,x.now,7,kind,Mode::PlayCall);assert(m.stage()==Stage::Done); // Same result cannot replay.
   x.phase=3;x.now++;assert(!m.tick(x)&&m.stage()==Stage::Idle);
  }
- Model m;m.arm(123,1,1000,8,Kind::Touchdown);Input x{123,1,2000,4,true,true,false};m.tick(x);x.now=122000;assert(!m.tick(x));x.paused=false;x.now++;assert(!m.tick(x)&&m.stage()==Stage::WaitingFull);
+ Model m;m.arm(123,1,1000,8,Kind::Touchdown,Mode::PlayCall);Input x=manual(123,1,2000,4,true,true,false);m.tick(x);x.now=122000;assert(!m.tick(x));x.paused=false;x.now++;assert(!m.tick(x)&&m.stage()==Stage::WaitingFull);
  x.allowed=false;x.now++;assert(!m.tick(x)&&m.stage()==Stage::Idle);
- m.arm(123,1,1000,9,Kind::Touchdown);x={124,1,1100,4,true,false,false};assert(!m.tick(x)&&m.stage()==Stage::Idle);
- m.arm(123,1,1000,9,Kind::Touchdown);assert(!m.suppressInset(123,2));x={123,1,61001,4,true,false,false};assert(!m.tick(x)&&m.stage()==Stage::Unavailable);
- m.reset();m.arm(123,1,1000,9,Kind::Touchdown);assert(m.suppressInset(123,1));assert(m.tick(x)&&m.stage()==Stage::Unavailable);
+ m.arm(123,1,1000,9,Kind::Touchdown,Mode::PlayCall);x=manual(124,1,1100,4,true,false,false);assert(!m.tick(x)&&m.stage()==Stage::Idle);
+ m.arm(123,1,1000,9,Kind::Touchdown,Mode::PlayCall);assert(!m.suppressInset(123,2));x=manual(123,1,61001,4,true,false,false);assert(!m.tick(x)&&m.stage()==Stage::Unavailable);
+ m.reset();m.arm(123,1,1000,9,Kind::Touchdown,Mode::PlayCall);assert(m.suppressInset(123,1));assert(m.tick(x)&&m.stage()==Stage::Unavailable);
  // Full playback can finish immediately before native play selection begins.
- m.reset();m.arm(123,1,1000,10,Kind::Touchdown);m.node(123,1,555,false);
- x={123,1,1100,4,true,false,true};m.tick(x);m.node(123,1,555,true);
- x={123,1,2000,5,true,false,false};assert(!m.tick(x));x.now=2250;assert(m.tick(x));
+ m.reset();m.arm(123,1,1000,10,Kind::Touchdown,Mode::PlayCall);m.node(123,1,555,false);
+ x=manual(123,1,1100,4,true,false,true);m.tick(x);m.node(123,1,555,true);
+ x=manual(123,1,2000,5,true,false,false);assert(!m.tick(x));x.now=2250;assert(m.tick(x));
  // A selector refresh observes completion but cannot dispatch presentation events.
- m.reset();m.arm(123,1,1000,11,Kind::Touchdown);m.node(123,1,555,false);
- x={123,1,1100,4,true,false,true};m.tick(x);m.node(123,1,555,true);
- x={123,1,2000,4,true,false,false,false};m.tick(x);x.now=3000;assert(!m.tick(x));x.dispatch=true;assert(m.tick(x));
- std::puts("PASS: major native full-screen -> separate inset order; two-clip takeaway gaps; no cutoff during playback; once-only PIP, pause exclusion, new snap/world/disable cleanup and unavailable-recording fallback.");
+ m.reset();m.arm(123,1,1000,11,Kind::Touchdown,Mode::PlayCall);m.node(123,1,555,false);
+ x=manual(123,1,1100,4,true,false,true);m.tick(x);m.node(123,1,555,true);
+ x=manual(123,1,2000,4,true,false,false,false);m.tick(x);x.now=3000;assert(!m.tick(x));x.dispatch=true;assert(m.tick(x));
+ // Slow Sim and unknown UI keep full-screen promotion, never intercept Event12,
+ // dispatch PIP, or emit a missing-inset timeout (including a 60s clip).
+ for(auto mode:{Mode::RealtimeSim,Mode::Unknown}){
+  m.reset();m.arm(123,1,1000,20,Kind::Touchdown,mode);
+  assert(m.routing(123,1)&&!m.suppressInset(123,1));assert(m.takeNotice()==Notice::NativeOnly);
+  m.node(123,1,99,false);x=manual(123,1,1100,4,true,false,true);x.mode=mode;x.playcallOpen=false;m.tick(x);
+  x.now=80000;x.phase=5;assert(!m.tick(x)&&m.stage()!=Stage::Inset&&m.stage()!=Stage::Unavailable);
+  m.node(123,1,99,true);x.replaying=false;x.now++;assert(!m.tick(x)&&m.stage()==Stage::Done);
+ }
+ // Stop pending manual work immediately on a mode switch. Returning to manual
+ // does not resurrect an inset for the old play; the next play may arm one.
+ m.reset();m.arm(123,1,1000,21,Kind::Touchdown,Mode::PlayCall);assert(m.suppressInset(123,1));
+ x=manual(123,1,1200,4,true,false,true);x.mode=Mode::RealtimeSim;m.tick(x);assert(!m.suppressInset(123,1));
+ x.mode=Mode::PlayCall;x.now=90000;x.replaying=false;assert(!m.tick(x)&&m.stage()!=Stage::Unavailable);
+ m.arm(123,1,90001,22,Kind::Touchdown,Mode::PlayCall);assert(m.suppressInset(123,1));
+ // No fallback can cut into an active native replay or a still-active node.
+ x=manual(123,1,160002,4,true,false,true);assert(!m.tick(x)&&m.stage()!=Stage::Unavailable);
+ x.replaying=false;m.node(123,1,99,false);x.now++;assert(!m.tick(x));m.node(123,1,99,true);
+ // An authored inset that starts first is acknowledged rather than duplicated.
+ x=manual(123,1,160004,5,true,false,true);assert(!m.tick(x)&&m.stage()==Stage::Inset);
+ x.replaying=false;x.now++;assert(!m.tick(x)&&m.stage()==Stage::Done);
+ // A phase number alone is not enough to infer play-call capability.
+ attendance::replaymode::Tracker modes;using S=attendance::replaymode::Sample;
+ assert(modes.update(123,1,S{true,false,false})==Mode::Unknown);
+ assert(modes.update(123,1,S{true,false,true})==Mode::PlayCall);
+ assert(modes.update(123,1,S{true,false,false})==Mode::PlayCall); // During the snap/full replay.
+ assert(modes.update(123,1,S{true,true,true})==Mode::RealtimeSim); // Sim takes precedence.
+ assert(modes.update(123,1,S{true,false,false})==Mode::Unknown); // No stale manual capability.
+ assert(modes.update(123,1,S{true,false,true})==Mode::PlayCall);
+ assert(modes.update(123,2,S{true,false,false})==Mode::Unknown);
+ assert(modes.update(123,2,S{true,false,true})==Mode::PlayCall);
+ assert(modes.update(123,2,S{})==Mode::Unknown);
+ assert(modes.update(0,2,S{true,false,true})==Mode::Unknown);
+ std::puts("PASS: major native full-screen -> separate inset order; two-clip takeaway gaps; no cutoff during playback; once-only PIP, pause exclusion, new snap/world/disable cleanup unavailable-recording fallback, Slow Sim/unknown UI, native inset adoption and mode-switch cleanup.");
 }

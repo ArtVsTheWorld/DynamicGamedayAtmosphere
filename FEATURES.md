@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.76.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.77.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -362,7 +362,7 @@ Camera controls are under Dynamic Gameday Broadcast in the INI. OrdinaryShakeStr
 
 **Small inset replays:** routine runs and completions can appear in the replay window while you choose your next play, including short gains that normally miss the replay rules. You can keep selecting plays while they run.
 
-**Full-screen replays:** qualifying first-down gains of 15+ yards can use the game's big-play sequence, with presentation graphics and the normal skip control. For a freshly confirmed touchdown or takeaway, the candidate route holds the authored inset request until the native full-screen clip sequence completes, then requests a separate inset repeat. It uses existing recordings and needs live verification, particularly on tradition and RTG routes. DGA routine replay expansion excludes kneels and spikes.
+**Full-screen replays:** qualifying first-down gains of 15+ yards can use the game's big-play sequence, with presentation graphics and the normal skip control. When the native play-call UI has been verified, a freshly confirmed touchdown or takeaway holds the authored inset request until the native full-screen clip sequence completes, then requests a separate inset repeat. Slow Sim keeps native full-screen playback without an added inset request; unknown UI states retain original inset handling. Mode changes cancel pending inset work. This uses existing recordings and needs live verification, particularly on tradition and RTG routes. DGA routine replay expansion excludes kneels and spikes.
 
 **Defensive plays:** sacks favor the full-screen sack sequence, including when you control the offense. Tackles for loss can use the run/pass inset replay instead of the cutaway that normally has no replay. Interceptions and lost fumbles use their native full-screen sequence before the separate inset repeat; serial full-screen angles are kept together. Fumbles recovered by the offense can use routine run/pass insets where that play type is available; strip sacks can use the sack sequence.
 
