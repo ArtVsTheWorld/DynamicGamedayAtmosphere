@@ -29,6 +29,7 @@ struct Play {
     int awayTimeouts=-1;
     bool specialTeams=false;
     int selectedType=-1;bool blockedFieldGoal=false;
+    bool passReleased=false;
 };
 enum class Event { None,FourthDown,GoalLine,PickSix,LateDrive,HomeScore,UpsetWin,
     OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety,BlockedFieldGoal,GameSealingStop,GameSealingFirstDown };
@@ -155,7 +156,7 @@ struct Tracker {
     bool openingSeen=false,openingKickUsed=false,scrimmageUsed=false,openingKick=false,openingSnap=false,wasOvertime=false;
     uint64_t serial=0,lastResultStamp=0;
     bool openingReliable=false,firstTouchdownSeen=false,hadTouchdownAtSnap=false,sawPick=false,sawFumble=false;
-    bool sawSack=false,sawForcedFumble=false,sawBlockedFieldGoal=false;float defensiveLoss=-1000;
+    bool sawSack=false,sawForcedFumble=false,sawBlockedFieldGoal=false,sawPassReleased=false;float defensiveLoss=-1000;
     bool scorePending=false;float scorePendingAt=0;
     uint64_t countedPlay=0;unsigned verifiedPlays=0;
     void reset(){*this=Tracker{};}
@@ -194,7 +195,7 @@ struct Tracker {
             scorePending=false;
             if(haveReady&&eligibleSnap(ready)&&ready.game.quarter==s.quarter&&
                ready.game.homeScore==s.homeScore&&ready.game.awayScore==s.awayScore){
-                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=sawBlockedFieldGoal=false;defensiveLoss=-1000;++serial;
+                start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=sawBlockedFieldGoal=sawPassReleased=false;defensiveLoss=-1000;++serial;
                 hadTouchdownAtSnap=firstTouchdownSeen;
                 openingKick=openingSeen&&!openingKickUsed&&ready.down==0&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1;
                 openingSnap=openingSeen&&!scrimmageUsed&&normalDown(ready)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0;
@@ -203,6 +204,7 @@ struct Tracker {
             }else inPlay=false;
             haveReady=false;
         }
+        if(inPlay&&s.phase==3&&p.passReleased&&p.resultStamp&&p.resultStamp!=startStamp)sawPassReleased=true;
         bool finished=s.phase==4||s.phase==5||s.phase==1||s.phase==7;
         if((inPlay||scorePending)&&finished){
             sawFirstDown=sawFirstDown||p.firstDown;
@@ -299,7 +301,7 @@ struct Tracker {
                             bool sackPosition=p.offense==start.offense&&
                                 (gain==-1000||(std::isfinite(gain)&&gain<=0.01f&&gain>-1000));
                             bool sackOnDowns=freshResult&&start.down==4&&!start.specialTeams&&p.offense==1-start.offense&&p.down==1&&!sawPick&&!sawFumble;
-                            if(sawSack&&!start.specialTeams&&!sawPick&&(sackPosition||sackOnDowns)){defensive=preferred(defensive,Event::Sack);o.sack=true;}
+                            if(sawSack&&!sawPassReleased&&!start.specialTeams&&!sawPick&&(sackPosition||sackOnDowns)){defensive=preferred(defensive,Event::Sack);o.sack=true;}
                             // A fumble during an interception return may belong
                             // to the other defense; do not guess its team.
                             if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}

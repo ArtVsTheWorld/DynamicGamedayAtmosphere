@@ -1490,6 +1490,11 @@ bool playData(A match,attendance::energy::Play& p){
         // distinguishable while the untimed game clock stays at zero.
         stamp^=static_cast<uint64_t>(record);stamp*=1099511628211ull;
         int kind=at<int>(record+0x64);p.resultStamp=stamp;p.interception=kind==2;
+        if(liveReactionBindings&&p.game.phase==3&&(kind==3||kind==1)){
+            A control=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);
+            p.passReleased=at<A>(control)==image+0xb4753f0&&at<int>(control+0x168)==1&&at<A>(control+0x1a0)==0&&
+                at<A>(tracker+0xcd8)==record&&at<int>(record+0x64)==kind;
+        }
         if(fumbleBinding){A ball=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);int substate=at<int>(ball+0x158);
             p.fumble=at<A>(ball)==image+0xb4753f0&&attendance::live::isFumbleState(at<int>(ball+0x168),substate);}
         if(defensiveReactionBindings&&enabled&&audioSetting&&std::atomic_load(&coreSettings)->enabled&&(p.game.phase==4||p.game.phase==5||p.game.phase==1||p.game.phase==7)){
@@ -1612,7 +1617,7 @@ void atmosphereTick(){
     shownUpsetStage=upsetSound.stage;shownUpsetSound=upsetSound.qualified;shownUpsetMinimum=upsetSound.minimum;
     bool hostile=lineupAtmosphere.hostileOpening;
     shownHostileOpening=hostile;
-    if(hostile&&lineupAtmosphere.hostileCheer&&lineupAtmosphere.hostileCheer!=previousHostileCheer)log("opening",p.game.neutral?"Neutral-site opening offensive play: shared crowd cheers, roar and swell; stadium-size camera strength and existing volume limits apply.":"Visitors have the opening offensive play: hostile defensive roar and swell (no added lineup cheer); stadium-size camera strength and existing volume limits apply.");
+    if(hostile&&lineupAtmosphere.hostileCheer&&lineupAtmosphere.hostileCheer!=previousHostileCheer)log("opening",p.game.neutral?"Neutral-site first offensive play for this team: shared crowd cheers, roar and swell; crowd shake at 50% of normal venue strength; existing volume limits apply.":"Visitors have the opening offensive play: hostile defensive roar and swell (no added lineup cheer); stadium-size camera strength and existing volume limits apply.");
     shownBigAtmosphere=attendance::lineup::bigGame(p.game);shownPackedHouse=lineupAtmosphere.packedHouse;shownDrive=lineupAtmosphere.drive.heat;
     shownOpeningDrive=lineupAtmosphere.openingDriveQualified;
     float reactionMinimum=(std::min)(hadMinimum,lineupAtmosphere.playContextActive()?lineupAtmosphere.qualifiedMinimum:1.01f);
@@ -1785,7 +1790,7 @@ void atmosphereTick(){
     // when this play's early accent was already delivered (or native-equivalent).
     if(wanted.resultCheer&&!wanted.scoringReaction&&liveReactionType!=95&&coreAtmosphere.resultSequence==liveSourceSequence&&positiveCheer.liveDelivered(liveReactionId))wanted.resultCheer=0;
     shownLineup=wanted.lineup!=0;
-    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;
+    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;motion.neutral=p.game.neutral;
     auto audioContext=audioWanted();
     // Camera cuts can briefly stop crowd-entity updates. The last verified
     // slider state is still authoritative for this owned match; cue freshness,
@@ -1840,7 +1845,7 @@ void atmosphereTick(){
         playAuditSequence=result.sequence;
         const char* admitted=clockPlay?"kneel/clock-stop play; added reactions suppressed":!audioSetting||!audio->enabled||!audio->lineups?"soundscape/layers disabled":!fullnessReady?"seating measurement unavailable":
             reactionEligible?"eligible":basicReactionEligible?"sound-only; layered atmosphere not qualified":!(hadLayers||lineupAtmosphere.playContextActive())?"no qualifying atmosphere on this play":"fullness or competitiveness gate not met";
-        const char* sackReason=attendance::energy::clockManagement(playTracker.start)?"suppressed for kneel/clock-stop play":result.sack?"confirmed":!playTracker.sawSack?(p.sack?"raw flag present, but no fresh sack proof for this snap":"native sack proof not observed"):
+        const char* sackReason=attendance::energy::clockManagement(playTracker.start)?"suppressed for kneel/clock-stop play":result.sack?"confirmed":playTracker.sawPassReleased&&playTracker.sawSack?"suppressed: verified forward pass released this snap":!playTracker.sawSack?(p.sack?"raw flag present, but no fresh sack proof for this snap":"native sack proof not observed"):
             playTracker.start.offense==0&&!p.game.neutral?"away defense; home crowd does not celebrate":
             playTracker.sawPick?"interception result takes precedence":p.offense!=playTracker.start.offense?"possession changed; sack ownership not established":
             attendance::energy::gainedYards(playTracker.start,p)>0.01f?"contradictory positive yardage":"not selected; check scoring and event settings";
@@ -2454,9 +2459,10 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% before home-offense 0.85x scaling (third-and-10 or shorter; offensive fourth downs)\n";
     report.field("Punt buildup motion")<<"0.5x ordinary strength; return reactions use their own strength\n";
     report.field("Special lineup cheer strength")<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
-    report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; first offensive play, either side":"; away must have the first offensive snap")<<"\n";
+    report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; each team's first offensive play, half-strength crowd motion":"; away must have the first offensive snap")<<"\n";
     report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; small venues use one third of this strength\n";
     report.field("Cannon shake strength")<<motion->cannon<<"%; 0.9-second impact; all nine native cannon variants; no fullness requirement\n";
+    report.field("Neutral-site crowd shake")<<"50% of configured strength for either team; native cannon strength independent\n";
     report.field("Live-play shake strength")<<motion->live<<"%; "<<motion->reactionFadeMs*.001f<<"-second post-play fade\n";
     report.field("Added reaction shape")<<"quick hit, short hold, smooth fade; existing strength/volume limits\n";
     report.field("Immediate long-catch impact")<<motion->catchImpact<<"%; separate from runs/returns and defensive impacts\n";

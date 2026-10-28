@@ -73,6 +73,7 @@ struct Input {
     bool cancelLive=false;
     float reactionScale=1;unsigned impactMilliseconds=0;bool supplementalImpact=false;uint64_t clincher=0;float touchdownScale=1;bool softAccent=false;
     bool forcedImpact=false;
+    bool neutral=false;
 };
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0,seenClincher_=0;int phase_=0;
@@ -80,7 +81,15 @@ class Model {
 public:
     void reset(){*this=Model{};}
     Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_={};output_={};output_.updated=now;return output_;}
-    Cue observe(const Settings& settings,const Input& x){
+    Cue observe(const Settings& configuredSettings,const Input& x){
+        // A split crowd supplies half the crowd-driven movement for either
+        // team. Scale targets before envelope/transition math, exactly once.
+        Settings settings=configuredSettings;float crowdScale=x.neutral?.5f:1.f;
+        settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
+        settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
+        settings.live=limit(settings.live)*crowdScale;settings.catchImpact=limit(settings.catchImpact)*crowdScale;
+        settings.touchdownImpact=limit(settings.touchdownImpact)*crowdScale;settings.eruptionImpact=limit(settings.eruptionImpact)*crowdScale;
+        settings.lineupCheer=limit(settings.lineupCheer)*crowdScale;
         unsigned reactionFade=(std::clamp)(settings.reactionFadeMs,1000u,8000u);
         if(x.match!=match_||x.epoch!=epoch_){reset();match_=x.match;epoch_=x.epoch;}
         bool td=x.touchdown&&x.touchdown!=seenTd_,eruption=x.eruption&&x.eruption!=seenEruption_,safety=x.safety&&x.safety!=seenSafety_;
@@ -94,7 +103,7 @@ public:
         auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;}};
         if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
             if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;join(lineupCue_);}
-            float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening):x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(settings,x.critical,x.lineupScale);
+            float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening)*crowdScale:x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(configuredSettings,x.critical,x.lineupScale)*crowdScale;
             target*=std::isfinite(x.lineupStrengthScale)?(std::clamp)(x.lineupStrengthScale,0.f,1.f):0.f;
             if(std::fabs(target-lineupCue_.percent)>.01f){lineupCue_.transitionFrom=prior;lineupCue_.transitionAt=x.now;}
             lineupCue_.kind=x.critical?Kind::Critical:Kind::Ordinary;
@@ -147,7 +156,7 @@ public:
             }
             if(liveCue_.runBuildup&&!liveCue_.confirmedRun&&!ramp&&x.phase==3&&!liveCue_.tail){float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
             if(!liveCue_.impactOnly&&x.phase!=3&&!liveCue_.tail){float value=(std::max)(strength(liveCue_,x.now),liveCue_.percent*.7f);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
-            liveCue_.updated=x.now;if(!liveCue_.tail)liveCue_.percent=liveCue_.impactOnly&&liveCue_.catchReaction?limit(settings.catchImpact)*liveCue_.reactionScale:ramp?(std::max)(liveCue_.rampFloor,(std::min)(configured(settings,Kind::LivePlay),1.f+(configured(settings,Kind::LivePlay)-1.f)*(std::clamp)((x.runProgress-.0001f)/.9999f,0.f,1.f)))*liveCue_.reactionScale:configured(settings,Kind::LivePlay)*liveCue_.reactionScale;
+            liveCue_.updated=x.now;if(!liveCue_.tail)liveCue_.percent=liveCue_.impactOnly&&liveCue_.catchReaction?limit(settings.catchImpact)*liveCue_.reactionScale:ramp?(std::max)(liveCue_.rampFloor,(std::min)(configured(settings,Kind::LivePlay),crowdScale+(configured(settings,Kind::LivePlay)-crowdScale)*(std::clamp)((x.runProgress-.0001f)/.9999f,0.f,1.f)))*liveCue_.reactionScale:configured(settings,Kind::LivePlay)*liveCue_.reactionScale;
             if(x.now>=liveCue_.until)liveCue_={};
         }
         if(pulse_.kind!=Kind::None&&(x.now>=pulse_.until||newSnap||(pulse_.kind==Kind::Eruption&&!x.eruptionAlive)))pulse_={};

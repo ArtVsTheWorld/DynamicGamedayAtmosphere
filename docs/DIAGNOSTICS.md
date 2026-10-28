@@ -1,12 +1,12 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.73.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.74.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
 Candidate 1.71 adds softer pre-punt buildup (half strength) and home-offense critical-down buildup (15% softer). These changes need an in-game feel check after installation.
 
-Candidate 1.73 moves home blowout traffic earlier and refreshes help while preserving current custom values. Full-screen replay followed by a separate inset repeat is still under investigation and is not included in this build.
+Candidate 1.74 halves neutral crowd motion for both teams, gives each its own opening offensive snap, preserves the snap fade across view changes, uses an en dash in the pause label and excludes released passes from sack reactions. Candidate 1.73 moves home blowout traffic earlier and refreshes help while preserving current custom values. Full-screen replay followed by a separate inset repeat is still under investigation and is not included in this build.
 
 ## Confirmed so far
 
@@ -30,7 +30,7 @@ The Wake/Virginia test exposed a separate native-quieting issue: after an early 
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.73.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.74.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -54,6 +54,8 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Beat the traffic | A 17+ home deficit accelerates exits in the last third of Q4; 28+ can begin gently in the last half. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
 | Settings | Edit/reopen a toggle, slider, decimal value and Fan Patience; check Reset, Back and keyboard/controller tab navigation. Stock game settings must still work. The basic tab/fullness toggle is already verified. |
 | Camera/sound gates | Dynamic Camera Effects Off and DGA Camera Shake Off stop added movement. Cannon strength 0 keeps native cannon audio. Pause and recorded replay stay steady; normal effects resume without stale celebrations. |
+| Neutral camera | Both teams receive half-strength crowd movement, including their own first offensive snap. Verify long gain/TD handoffs and the 0.9-second snap fade. Native cannons retain their independent strength. |
+| Sack freshness | A sack followed by an incomplete pass cannot carry the sack shake onto the incompletion. Genuine sacks still react; test with pass-anticipation sound disabled too. |
 | Clock management | Kneels and clock-stopping spikes produce no added pre-snap or sack/stop shake. Genuine sacks and fake-spike plays remain eligible. |
 | Session cleanup | Try a timeout, replay, Super Sim and a second game. No stuck loops, old reaction IDs, crowd refills or repeated errors should carry over. |
 
@@ -80,7 +82,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.73.0/
+  Runtime-1.74.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.

@@ -2,11 +2,11 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 diagnostics work (1.73.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 diagnostics work (1.74.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
-**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** · [Full feature list](FEATURES.md)
+**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** Â· [Full feature list](FEATURES.md)
 
 ## Install or update
 
@@ -58,6 +58,6 @@ For missing audio, disable Soundscape's `Enabled` option and restart MMC and the
 
 ## Source and updates
 
-[Build instructions](docs/BUILDING.md) · [Updating after an EA patch](docs/UPDATING-THE-GAME.md) · [Release history](RELEASES.md)
+[Build instructions](docs/BUILDING.md) Â· [Updating after an EA patch](docs/UPDATING-THE-GAME.md) Â· [Release history](RELEASES.md)
 
 [Working diagnostics and remaining live checks](docs/DIAGNOSTICS.md)

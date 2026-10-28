@@ -106,6 +106,7 @@ struct Model {
     OpeningDrive openingDrive;bool openingDriveQualified=false;
     upsetsound::Route upsetSound;
     bool hostileOpening=false;uint64_t hostileCheer=0,hostileCheerBegan=0;
+    unsigned neutralOpeningSeen=0;int hostileCheerOffense=-1;
     void reset(){*this=Model{};}
     void handOffResult(){if(carrying&&!continuousMode){carrying=running=false;liveAt=postAt=tailAt=0;weight=0;reason=sustained::Reason::None;}}
     void suspend(){upsetSound={};qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
@@ -133,6 +134,8 @@ struct Model {
         hostileOpening=false;
         if(valid(s)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1&&!p.resumed)openingObserved=true;
         if(p.resumed)openingObserved=false;
+        if(s.neutral&&s.phase==3&&(phase==1||phase==5)&&energy::normalDown(p)&&p.offense>=0&&p.offense<=1)
+            neutralOpeningSeen|=1u<<p.offense;
         if(previousHome>=0&&(s.homeScore!=previousHome||s.awayScore!=previousAway))drivePending=true;
         if(previousQuarter==2&&s.quarter>=3)drivePending=true;
         if(previousQuarter>0&&s.quarter>previousQuarter&&overtime(s))drivePending=true;
@@ -178,7 +181,8 @@ struct Model {
         bool standardRoute=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
         bool upsetFinish=upset&&upsetSound.climax;
         bool special=ot||late>0||upsetFinish,regular=standardRoute||upset;
-        hostileOpening=regular&&c.opening&&((s.neutral&&openingDrive.firstOpeningPlay())||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
+        bool neutralOpener=s.neutral&&openingObserved&&!p.resumed&&!p.simulated&&s.quarter==1&&p.offense>=0&&p.offense<=1&&!(neutralOpeningSeen&(1u<<p.offense));
+        hostileOpening=regular&&c.opening&&(neutralOpener||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
         packedHouse=standardRoute&&!big&&!ot&&late<=0&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
@@ -249,7 +253,7 @@ struct Model {
         }
         if(enterLineup){
             ++cheerSerial;cheerBegan=now;
-            if(hostileOpening&&!hostileCheer){hostileCheer=cheerSerial;hostileCheerBegan=now;}
+            if(hostileOpening&&hostileCheerOffense!=p.offense){hostileCheer=cheerSerial;hostileCheerBegan=now;hostileCheerOffense=p.offense;}
             shakeChoice=static_cast<float>(variety::mix(variationSeed^cheerSerial^0x5348414b45ull)%1001)/1000.0f;
         }
         shakeTier=0;

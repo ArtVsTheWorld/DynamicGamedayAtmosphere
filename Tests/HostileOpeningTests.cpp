@@ -43,6 +43,32 @@ int main(){
         m.observe(c,p,123,1,1000,true,.9f,true,nullptr,6060);p.game.phase=1;p.down=1;
         m.observe(c,p,123,1,2000,true,blocked==6?.89f:.9f,true,nullptr,6060);assert(!m.hostileOpening);
     }
+    // A split neutral crowd welcomes EACH team's first Q1 offensive snap,
+    // once each, even after an opening score. No replayed/sim/resumed opener.
+    for(int first:{0,1})for(float length:{60.f,720.f,1200.f}){
+        auto p=opening(first,length);p.game.neutral=true;lineup::Model layers;
+        auto tick=[&](uint64_t now){layers.observe(config,p,321,1,now,true,1,true,nullptr,61888);};
+        tick(1000);p.game.phase=5;p.down=1;tick(1100);assert(layers.hostileOpening);
+        p.game.phase=1;tick(1200);auto firstCheer=layers.hostileCheer;assert(firstCheer);
+        p.game.phase=3;tick(1300);p.game.seconds-=5;p.game.phase=4;tick(1400);
+        p.game.phase=5;p.down=2;tick(1500);assert(!layers.hostileOpening);
+        p.game.phase=1;tick(1600);p.game.phase=3;tick(1700);
+        p.game.phase=4;p.game.homeScore=first==0?7:0;p.game.awayScore=first==1?7:0;tick(1800);
+        p.game.phase=5;p.offense=1-first;p.down=1;tick(1900);assert(layers.hostileOpening);
+        p.game.phase=1;tick(2000);assert(layers.hostileOpening&&layers.hostileCheer!=firstCheer);
+        sustained::Intent base;base.active=true;base.match=321;base.epoch=1;base.updated=2000;
+        auto sound=layers.merge(base,config,p,2000,1);assert(sound.hostileOpening&&sound.cheers&&sound.lineupCheer==layers.hostileCheer);
+        p.game.phase=3;tick(2100);p.offense=first;tick(2150); // A live possession flip is not another snap.
+        p.game.phase=4;tick(2200);p.game.phase=5;p.down=1;tick(2300);assert(!layers.hostileOpening);
+        p.game.phase=1;tick(2400);p.game.phase=3;tick(2500);p.game.phase=4;tick(2600);
+        p.game.phase=5;p.offense=1-first;tick(2700);assert(!layers.hostileOpening);
+    }
+    for(int blocked=0;blocked<3;++blocked){
+        auto p=opening(0,720);p.game.neutral=true;lineup::Model layers;
+        layers.observe(config,p,321,1,1000,true,1,true,nullptr,61888);
+        p.game.phase=1;p.down=1;p.resumed=blocked==0;p.simulated=blocked==1;if(blocked==2)p.game.quarter=2;
+        layers.observe(config,p,321,1,1100,true,1,true,nullptr,61888);assert(!layers.hostileOpening);
+    }
     // A fresh native sack on fourth down remains identifiable even when the
     // very first settled sample already belongs to the new offense.
     for(int scenario=0;scenario<7;++scenario){energy::Tracker tracker;energy::Settings rules;auto p=opening(1,720);

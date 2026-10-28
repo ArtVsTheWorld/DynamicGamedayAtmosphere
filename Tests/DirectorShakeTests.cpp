@@ -4,6 +4,24 @@
 #include <limits>
 using namespace attendance::motion;
 int main(){
+    // Neutral attenuation is applied exactly once before transitions: fixed
+    // floors, random lineup choices, live distance ramps and score handoffs
+    // all retain the same shape/timing at half the normal amplitude.
+    for(float choice:{0.f,.5f,1.f})for(int scenario=0;scenario<10;++scenario){
+        Model home,split;Settings config;Input a;a.match=321;a.epoch=1;a.allowed=a.venueEligible=a.lineup=true;
+        a.phase=1;a.lineupId=1;a.lineupScale=choice;a.critical=scenario==1;a.hostileOpening=scenario==2?13.6f:0;
+        for(uint64_t now=1000;now<=14500;now+=50){
+            a.now=now;
+            if(now>=3000){a.phase=3;a.lineup=false;}
+            if(now>=3400&&now<4200){a.runBuildup=1;a.runProgress=(now-3400)/800.f;}else a.runBuildup=0;
+            if(now==4000){a.duringPlay=1;a.duringCatch=scenario==3;a.duringImpact=scenario==4||scenario==5;a.softAccent=scenario==4;a.forcedImpact=scenario==5;}
+            if(now>=4400)a.phase=4;
+            if(now==4600){if(scenario==6)a.touchdown=1;if(scenario==7){a.eruption=1;a.eruptionAlive=true;}if(scenario==8)a.safety=1;if(scenario==9)a.clincher=1;}
+            auto b=a;b.neutral=true;auto normal=home.observe(config,a),neutral=split.observe(config,b);
+            assert(normal.kind==neutral.kind&&normal.began==neutral.began&&normal.until==neutral.until);
+            assert(std::fabs(strength(normal,now)*.5f-strength(neutral,now))<.002f);
+        }
+    }
     Settings s;assert(s.ordinary==5&&s.critical==10&&s.touchdownMs==11000&&s.lineupCheer==5);
     assert(lineupStrength(s,false,0)==3&&lineupStrength(s,false,1)==5);
     assert(lineupStrength(s,true,0)==5&&lineupStrength(s,true,1)==10);

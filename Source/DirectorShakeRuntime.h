@@ -37,7 +37,13 @@ class Runtime {
         // Prepare the lineup envelope early, but never apply its movement to
         // the separate presentation views behind the play-selection menu.
         // Earned reactions below still follow all current live render views.
-        if(c.kind==Kind::Ordinary||c.kind==Kind::Critical)return views&&at<uintptr_t>(views+0x68)==view;
+        if(c.kind==Kind::Ordinary||c.kind==Kind::Critical){
+            // The snap can replace the slot-1 lineup camera. Its short fade
+            // must follow the new live view instead of disappearing at the cut.
+            int phase=at<int>(at<uintptr_t>(image_+bindings::GameStates)+0xa0);
+            if(c.tail&&phase==3)return true;
+            return views&&at<uintptr_t>(views+0x68)==view;
+        }
         // Earned effects also follow native player cutaways whose borrowed
         // view is outside the four gameplay slots. The hook's verified camera
         // vtable, live match, pause/replay and cue leases remain mandatory.

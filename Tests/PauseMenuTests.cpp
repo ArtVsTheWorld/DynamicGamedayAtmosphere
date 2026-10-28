@@ -10,7 +10,7 @@ using A=uintptr_t;
 namespace {
 A observedTile=0,observedText=0;bool substitute=true;unsigned selections=0;
 using Clobber=void(*)();Clobber clobber=nullptr;
-const char replacement[]="Resume | Stadium Fullness: 48%";
+const char replacement[]="Resume \xe2\x80\x93 Stadium Fullness: 48%";
 const char* __fastcall select(A tile,A key,A text){
     assert((reinterpret_cast<A>(_AddressOfReturnAddress())&15)==8);
     assert(!std::strcmp(reinterpret_cast<const char*>(key),"display"));
@@ -67,7 +67,7 @@ int main(){
     for(int mismatch=0;mismatch<5;++mismatch){auto x=c;if(mismatch==0)x.measuredMatch++;if(mismatch==1)x.measuredEpoch++;if(mismatch==2)x.mapped=false;if(mismatch==3)x.peak=std::numeric_limits<double>::quiet_NaN();if(mismatch==4)x.loss=101;assert(percent(x)==-1);}
     for(int off=0;off<6;++off){auto x=c;if(off==0)x.enabled=false;if(off==1)x.offlineDynasty=false;if(off==2)x.paused=false;if(off==3)x.replay=true;if(off==4)x.leaving=true;if(off==5)x.match=0;assert(percent(x)==-2);}
     Labels labels;for(int p=-2;p<=100;++p){auto label=labels.get(p);assert((label!=nullptr)==(p>=-1));if(label)assert(strlen(label)<64);}
-    assert(!strcmp(labels.get(-1),"Resume | Stadium Fullness: --"));
+    assert(!strcmp(labels.get(-1),"Resume \xe2\x80\x93 Stadium Fullness: --"));
     assert(labelField("RESUME_GAME","display")&&!labelField("CHALLENGE_PLAY","display")&&!labelField("RESUME_GAME","SubText"));
     executable();std::cout<<"PASS: native pause fullness scope, measured seating/arrivals, stale ownership, disabled/replay/exit guards, unavailable labels and executable selector ABI/register preservation.\n";
 }

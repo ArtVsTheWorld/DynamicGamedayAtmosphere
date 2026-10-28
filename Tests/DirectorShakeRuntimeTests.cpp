@@ -14,6 +14,7 @@ int main(){
     constexpr A image=0x10000000;std::vector<void*> pages;
     auto global=[&](A rva,A value,bool integer=false){A p=(image+rva)&~A(0xffff);bool exists=false;for(auto v:pages)if(addr(*static_cast<char*>(v))==p)exists=true;if(!exists){auto v=VirtualAlloc(reinterpret_cast<void*>(p),65536,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(reinterpret_cast<A>(v)==p);pages.push_back(v);}if(integer)put(image+rva,static_cast<int>(value));else put(image+rva,value);};
     std::vector<A> wrapper(4),match(0x200/8),replay(0x80/8),settings(0x500/8),owner(2),data(0x300/8),views(4*0x68/8),view(0x800/8),foreign(0x800/8);
+    std::vector<A> gameStates(0x200/8);put(addr(gameStates[0])+0xa0,1);global(bindings::GameStates,addr(gameStates[0]));
     unsigned char paused=0;match[0]=image+0xb4781e8;wrapper[2]=addr(match[0]);
     replay[0]=image+bindings::ReplayVtable;settings[0]=image+bindings::CameraSettingsVtable;
     put(addr(settings[0])+0x3e6,static_cast<unsigned short>(1));put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
@@ -48,6 +49,24 @@ int main(){
     }
     // A missing gameplay view does not fall back to a presentation cutaway.
     views[0x68/8]=0;output=source;auto before=r.changed();r.tick(addr(foreign[0]),output.data(),cue,cue.match,2,2000);assert(output==source&&r.changed()==before);views[0x68/8]=addr(view[0]);
+    // An actual snap changes render slots. The existing 900 ms lineup tail
+    // follows that live view without changing phase, timer or native matrix.
+    for(auto kind:{Kind::Ordinary,Kind::Critical}){
+        motion::Model model;motion::Settings config;motion::Input input;input.match=cue.match;input.epoch=2;input.allowed=input.lineup=input.venueEligible=true;
+        input.phase=1;input.lineupId=1;input.critical=kind==Kind::Critical;input.now=1000;model.observe(config,input);
+        input.now=2000;auto lineupBefore=model.observe(config,input);float peak=strength(lineupBefore,input.now);
+        input.phase=3;input.lineup=false;input.now=2100;auto tail=model.observe(config,input);
+        put(addr(gameStates[0])+0xa0,3);
+        for(unsigned age:{0u,225u,450u,675u}){
+            input.now=2100+age;tail=model.observe(config,input);assert(tail.tail&&tail.until==3000);
+            output=source;auto countBefore=r.changed();r.tick(addr(foreign[0]),output.data(),tail,cue.match,2,input.now);
+            assert(output!=source&&r.changed()==countBefore+1&&r.unscaled()<=peak);
+        }
+        // At non-live presentation cuts the old slot restriction still applies.
+        put(addr(gameStates[0])+0xa0,5);output=source;auto prior=r.changed();r.tick(addr(foreign[0]),output.data(),tail,cue.match,2,input.now);assert(output==source&&r.changed()==prior);
+        input.now=3000;assert(model.observe(config,input).kind==Kind::None);
+        put(addr(gameStates[0])+0xa0,1);
+    }
     auto skipped=[&](A target,A currentMatch,unsigned epoch,uint64_t now){output=source;auto count=r.changed();r.tick(target,output.data(),cue,currentMatch,epoch,now);assert(output==source&&r.changed()==count&&view==original);};
     paused=1;skipped(addr(view[0]),cue.match,2,2000);paused=0;
     put(addr(replay[0])+0x38,static_cast<unsigned char>(1));skipped(addr(view[0]),cue.match,2,2000);put(addr(replay[0])+0x38,static_cast<unsigned char>(0));

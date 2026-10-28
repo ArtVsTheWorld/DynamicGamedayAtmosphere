@@ -1,10 +1,12 @@
 # Update 3 - candidate
 
-Working build **1.73.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.74.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
 
 - **In-game settings:** A Gameday Atmosphere tab after Audio Settings, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
 - **Gentler pre-snap motion:** Pre-punt buildup is 50% softer; home-offense critical-down buildup is 15% softer. Both retain smooth fades and the configured strength controls.
+- **Split-crowd camera strength:** Crowd-driven shake is halved for either team at neutral venues. Each team can receive its first-Q1-offensive-play surge once. The snap fade follows the new live camera; pause-menu fullness uses an en dash.
+- **Sack classification:** A verified released forward pass blocks a carried-over native sack flag.
 - **Deep-pass anticipation:** A fast supporting swell while either offense's verified deep throw is airborne, with no pre-catch cheer/shake or extra volume bonus.
 - **More precise reactions:** Gentler skill buildup, a cheer for hurdles, big-hit crowd sound for trucks, and small home-defense third/fourth-down breakup/knockout reactions. Regular broken tackles are sound-only. Hit-stick shake requires a confirmed third/fourth-down stop. Kneels and clock-stopping spikes are excluded from added buildup and sack/stop reactions. Away takeaways clear previous home-positive shake immediately. Delayed forced-fumble detection tracks the original carrier; recovery alone no longer adds shake.
 - **Sharper forced-fumble onset:** Confirmed forces use a 35 ms attack and at most a 50 ms handoff into the impact. Strength, duration, sound and ownership checks remain the same.

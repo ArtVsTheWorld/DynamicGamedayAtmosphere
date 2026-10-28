@@ -35,8 +35,8 @@ class Labels {
     std::array<std::array<char,64>,102> text_{};
 public:
     Labels(){
-        for(int i=0;i<=100;++i)std::snprintf(text_[i].data(),text_[i].size(),"Resume | Stadium Fullness: %d%%",i);
-        std::snprintf(text_[101].data(),text_[101].size(),"Resume | Stadium Fullness: --");
+        for(int i=0;i<=100;++i)std::snprintf(text_[i].data(),text_[i].size(),"Resume \xe2\x80\x93 Stadium Fullness: %d%%",i);
+        std::snprintf(text_[101].data(),text_[101].size(),"Resume \xe2\x80\x93 Stadium Fullness: --");
     }
     const char* get(int value)const{return value>=0&&value<=100?text_[value].data():value==-1?text_[101].data():nullptr;}
 };

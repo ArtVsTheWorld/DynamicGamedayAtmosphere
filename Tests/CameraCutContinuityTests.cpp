@@ -62,5 +62,19 @@ int main(){
         if(scenario==5)bad.simulated=true;
         auto rejected=tracker.observe(rules,bad);assert(!rejected.sack);
     }
+    // A released pass contradicts a stale native sack predicate. Reproduce
+    // a first-down sack followed by a zero-yard second-down incompletion.
+    for(bool released:{false,true})for(int phase:{4,1}){
+        energy::Tracker tracker;energy::Settings pairRules;energy::Play pairPlay;
+        pairPlay.game={1,0,0,1,500,720};pairPlay.game.neutral=true;pairPlay.offense=1;pairPlay.down=1;pairPlay.toFirst=10;pairPlay.fieldSpot=0;pairPlay.attackDirection=1;pairPlay.resultStamp=10;
+        tracker.observe(pairRules,pairPlay);pairPlay.game.phase=3;tracker.observe(pairRules,pairPlay);
+        pairPlay.game.phase=phase;pairPlay.game.seconds=495;pairPlay.down=2;pairPlay.toFirst=17;pairPlay.fieldSpot=-7;pairPlay.resultStamp=11;pairPlay.sack=true;
+        auto first=tracker.observe(pairRules,pairPlay);assert(first.sack&&first.yards==-7);
+        pairPlay.game.phase=1;tracker.observe(pairRules,pairPlay);pairPlay.game.phase=3;pairPlay.game.seconds=490;pairPlay.passReleased=false;tracker.observe(pairRules,pairPlay);
+        pairPlay.resultStamp=12;pairPlay.passReleased=released;tracker.observe(pairRules,pairPlay);
+        pairPlay.game.phase=phase;pairPlay.game.seconds=485;pairPlay.down=3;pairPlay.passReleased=false;
+        auto second=tracker.observe(pairRules,pairPlay);assert(second.completed&&second.sack==!released);
+        if(released)assert(second.event!=energy::Event::Sack&&tracker.sawPassReleased);
+    }
     std::puts("PASS: TD/live impact continuity through cuts, timeout transitions and selection, unchanged expiry/oscillation, fresh-snap and pause/replay cleanup, and once-only late-confirmed defensive sack.");
 }
