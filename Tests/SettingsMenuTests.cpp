@@ -39,7 +39,7 @@ struct Fixture {
 }
 int main(){
     using namespace attendance::settingsmenu::native;
-    assert(Count>=60&&Count<200);std::set<std::wstring> unique;
+    assert(Count==35);std::set<std::wstring> unique;
     Output catalog;ArrayWriter writer{catalog.address()};attendance::settingsmenu::list(writer);assert(writer.okay);
     size_t controls=0,headers=0;
     for(const auto& row:catalog.fields){const auto& fields=row.second;
@@ -56,7 +56,11 @@ int main(){
             assert(selected==1&&resets==1);
         }
     }
-    assert(controls==Count&&headers==4);
+    assert(controls==Count&&headers==3);
+    std::map<std::string,size_t> sizes;std::map<std::string,bool> numericSeen;
+    for(const auto& o:Options){++sizes[o.group];if(o.kind!=Kind::Toggle)numericSeen[o.group]=true;else assert(!numericSeen[o.group]);}
+    assert(sizes.size()==3&&sizes["Attendance"]==10&&sizes["Soundscape"]==12&&sizes["Broadcast"]==13);
+    for(const auto& group:sizes)assert(group.second<=15);
     // Execute the new bytecode fallback's branch semantics: only DGA can pass
     // through the finite native tab switch; every other unknown key returns zero.
     auto patch=categoryFallback();assert(patch[0]==0xb9&&patch[1]==2&&patch[7]==0x66&&patch[8]==0xb8&&patch[16]==0xb9&&patch[18]==0x3e);
@@ -79,6 +83,8 @@ int main(){
     menu.setSlider(17,18,stockCategory.address(),stockKey.address(),42,23);assert(Fixture::passed==2);
     menu.finish(p,0);assert(Fixture::finished==1&&provider[0x62]==0);
     std::ifstream f(path);std::ostringstream text;text<<f.rdbuf();f.close();assert(text.str().find("keep this comment")!=std::string::npos&&text.str().find("Custom=keep")!=std::string::npos);
+    // Saving this trimmed menu cannot rewrite advanced values omitted from it.
+    wchar_t hidden[32]{};GetPrivateProfileStringW(L"Dynamic Gameday Soundscape",L"MaximumBoostPercent",L"",hidden,32,path.c_str());assert(std::wcscmp(hidden,L"23.25")==0);
     // Reopening reads saved values. A newer config schema never gets overwritten.
     menu.initialize(p,category.address());for(size_t i=0;i<Count;++i)assert(Fixture::current(menu,i)==Options[i].low);
     WritePrivateProfileStringW(L"General",L"ConfigVersion",L"3",path.c_str());

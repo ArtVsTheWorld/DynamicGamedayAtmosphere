@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MenuCatalogTests(unittest.TestCase):
-    def test_catalog_covers_user_ini_without_upgrade_markers(self):
+    def test_curated_catalog_is_unique_subset_without_upgrade_markers(self):
         config = configparser.ConfigParser()
         config.optionxform = str
         config.read(ROOT / 'Source/DynamicGamedayAtmosphere.ini')
@@ -16,7 +16,11 @@ class MenuCatalogTests(unittest.TestCase):
         source = (ROOT / 'Source/SettingsMenuOptions.inc').read_text()
         pairs = re.findall(r'\{[^\n]*?L"([^"]+)",L"([^"]+)"', source)
         self.assertEqual(len(pairs), len(set(pairs)))
-        self.assertEqual(set(pairs), expected)
+        self.assertTrue(set(pairs) < expected)
+        self.assertEqual(len(pairs), 35)
+        self.assertTrue(all(section != 'Logging' for section, key in pairs))
+        self.assertNotIn(('Dynamic Gameday Soundscape', 'MaximumBoostPercent'), pairs)
+        self.assertNotIn(('Dynamic Gameday Attendance', 'MaximumDeparturePerQuarter'), pairs)
 
     def test_numeric_bounds_match_configuration_audit(self):
         audit = (ROOT / 'Tests/ConfigurationOptions.inc').read_text()
@@ -29,7 +33,25 @@ class MenuCatalogTests(unittest.TestCase):
             values = re.search(r',([\d.]+),([\d.]+),([\d.]+),Kind::(\w+)\}', line)
             if name and values and values[4] != 'Profile':
                 actual[name.group(1, 2)] = tuple(map(float, values.group(1, 2, 3)))
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual, {pair: expected[pair] for pair in actual})
+
+    def test_three_sections_cap_and_toggle_order(self):
+        catalog = (ROOT / 'Source/SettingsMenuOptions.inc').read_text()
+        groups = {}
+        for line in catalog.splitlines():
+            row = re.match(r'\{"([^\"]+)".*Kind::(\w+)\}', line)
+            if row:
+                groups.setdefault(row[1], []).append(row[2])
+        self.assertEqual(list(groups), ['Attendance', 'Soundscape', 'Broadcast'])
+        self.assertEqual([len(x) for x in groups.values()], [10, 12, 13])
+        for controls in groups.values():
+            self.assertLessEqual(len(controls), 15)
+            numeric_seen = False
+            for kind in controls:
+                if kind == 'Toggle':
+                    self.assertFalse(numeric_seen, 'toggles must precede numeric/dropdown controls')
+                else:
+                    numeric_seen = True
 
 
 if __name__ == '__main__':

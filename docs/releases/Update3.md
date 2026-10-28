@@ -1,8 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.75.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.76.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
 
-- **In-game settings:** A Gameday Atmosphere tab after Audio Settings, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
+- **In-game settings:** A Gameday Atmosphere tab after Audio Settings, 35 essential controls across Attendance, Soundscape and Broadcast (10/12/13), toggles before numeric controls, no troubleshooting section, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
 - **Gentler pre-snap motion:** Pre-punt buildup is 50% softer; home-offense critical-down buildup is 15% softer. Both retain smooth fades and the configured strength controls.
 - **Split-crowd camera strength:** Crowd-driven shake uses 75% of normal strength for either team at neutral venues. Each team can receive its first-Q1-offensive-play surge once. The snap fade follows the new live camera; pause-menu fullness uses an en dash.

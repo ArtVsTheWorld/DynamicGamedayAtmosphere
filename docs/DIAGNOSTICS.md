@@ -1,6 +1,6 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.75.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.76.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
@@ -11,6 +11,8 @@ Candidate 1.75 uses 75% neutral crowd strength for both teams, makes successful 
 Major TD/takeaway presentation now has a guarded candidate route: decline the replay-less quick TD shortcut only for a freshly confirmed major play, hold the authored inset request until the full native clip sequence finishes, then request a separate inset repeat. Native recording availability, sequence ordering and tradition/RTG routes require live verification. This is not a guarantee of native highlights when no recording exists. Kneels/spikes are excluded from DGA routine replay promotion; native postgame GreatPlayFinder fallback remains unresolved.
 
 Cheer logs distinguish queued requests from registered native voices. A dropped request can receive one recovery within 600 ms on the same play/owner, preserving the two-voice budget; retiring native voices no longer count as active duplicates. Registration is not proof of audible sound.
+
+Candidate 1.76 trims the in-game menu to Attendance (10 controls), Soundscape (12) and Broadcast (13), with toggles first and numeric controls below. Advanced INI values remain supported and are not rewritten by editing this smaller menu. No troubleshooting controls appear in the game menu.
 
 ## Confirmed so far
 
@@ -37,10 +39,18 @@ Runtime 1.70 finished Georgia 42–Florida 23 at a neutral rivalry venue. Attend
 
 The user also saw the final knee repeated in postgame. Three short replay windows appear after the knee. Offline postgame packages request different GreatPlayFinder offsets (2, 1, 0 for three highlights), so this is consistent with a native selection/recording fallback, not proof of why it selected the knee. Candidate 1.75 excludes clock-management plays from DGA routine promotion; native highlight variety remains unverified. The temporary watcher was stopped and evidence preserved under Build/LiveWatch/FloridaGeorgia-20261028.
 
+## Overnight slow-sim test, October 28
+
+Runtime 1.75 completed a 62–31 home win. The external read-only observer captured 73.4 minutes including postgame, 21,726 state samples, 3,737 native cache records and 43 native playback windows. The dedicated DGA worker averaged about 0.49% of one CPU core; this excludes shared game-thread/audio/camera callback time and does not establish total mod overhead or FPS. The observer averaged about 0.95% of one core. Whole-game private memory fluctuated after loading rather than showing a steady increase; it cannot be attributed to DGA.
+
+The main unresolved release check is major replay ordering. Seventeen major sequences armed, fifteen logged inset requests, and none logged an inset-stage acknowledgement. Pick-six Plays 61 and 90 reached the sixty-second lifecycle timeout while native playback was still present. Requests and game phases do not prove rendered full-screen/inset order. Review same-play interception-to-score upgrades, clip completion counts, native event acceptance and timeout fallback before claiming this feature is reliable. Candidate 1.76 only trims the settings menu; it does not repair these observed replay issues.
+
+All 42 queued live reactions and 9 queued play-result cheers logged native registration; no listener was present to establish audibility. At 49% mapped fullness, a sampled native 1000 excitement peak reached 979.5 output, supporting preservation of peaks above the calmer background ceiling. Final crowd fullness was 45%, giving additional sparse-crowd coverage in a rainy home blowout. The home-loss beat-the-traffic trigger was not exercised. Private evidence and separate verified facts/hypotheses are preserved in Build/Overnight-20261028/findings.json, with improvement avenues for typed gameplay events and Update 4 presentation diagnostics. The capture stopped after its planned five-minute postgame window.
+
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.75.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.76.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -94,7 +104,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.75.0/
+  Runtime-1.76.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.
