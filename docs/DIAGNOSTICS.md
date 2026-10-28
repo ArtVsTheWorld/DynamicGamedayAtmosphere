@@ -1,6 +1,10 @@
 # Update 3 testing and diagnostics
 
-Working diagnostic candidate **1.79.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.80.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+
+Candidate 1.80 closes a reproduced sparse-camera gap: a new live camera's first native HFA event previously passed through until the next worker update discovered the camera. First-event interception now learns the verified event IDs inside the borrowed native callback and preserves the requested native tier for later restoration, including when the channel row is created afterward. Compatible non-HFA broadcast/replay views no longer stop filtering supported live views. Regression checks cover these transitions, stale leases, ownership changes, unrelated channels and balanced references. The fix has not yet been verified in game.
+
+Added DGA event motion still requires layered admission. Native HFA camera motion separately remains allowed at or above `NativeShakeMinimumFullnessPercent` (default 50% actual mapped fullness), even when layered admission fails. Cannon impacts remain an intentional independent exception. An integration regression verifies that a 60%-full small venue below its layered requirement cannot emit a fresh added TD/live/eruption cue, cannot replay a blocked event later, and immediately cancels an existing cue when admission is removed. These checks do not establish the cause of a particular visual shake without matching camera evidence.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
@@ -18,9 +22,9 @@ Candidate 1.76 trims the in-game menu to Attendance (10 controls), Soundscape (1
 
 Candidate 1.78 tunes the existing rainy home-win catch-up target only in the last half of Q4: a lead above 21 ramps to full severity at 35+. A non-stacking quarter-cap exception adds at most 10 points (proportionally less for low custom caps), with ranked and postseason floors preserved. Scores change pressure without an immediate deduction. A representative NIU-like Q4 simulation using 72.3% opening seating density moved from ~37% to 26.8% visible fullness. Live acceptance is pending.
 
-Latest 1.77 live findings: the user accepted the settings menu's operation and appearance; Play 52's 10-yard TD had both full-screen and separate inset playback, confirmed by the user and logs. The unskipped Play 44 TD (20 yards, Q3 3:07) had neither: touchdown selection remains an intermittent release blocker, not fixed in 1.78. Slow Sim rendered replay confirmation remains pending. No native-camera event trace identified the reported brief below-gate TD shake, though its DGA cue was inactive and no cannon was logged.
+The user accepted the settings menu's operation and appearance. Earlier 1.77 unskipped Play 44 (20-yard TD, Q3 3:07) showed neither replay; later 1.79 captures produced four user-confirmed full-screen-then-inset successes, including home scores after Super Sim in Q1 and Q3. The user now accepts this stability for Update 3 and ended blocker investigation. The intermittent failure remains an accepted limitation, not a proven fix. Slow Sim rendered replay confirmation remains pending. No native-camera event trace identified the earlier brief below-gate TD shake, though its DGA cue was inactive and no cannon was logged.
 
-Candidate 1.79 adds a bounded TD-selection diagnostic using the existing expression/event/replay-node hooks, without changing routing. Before score confirmation it retains recognized native TD/takeaway/quick-route decisions in a fixed 128-row per-play buffer. Only confirmed TDs flush to normal `[replay-select]` logs. Entries include monotonic tick, opaque node identity, phase, native/final cached Boolean, whether modifications were allowed, armed kind/stage, start/current score, native result freshness and replay activity. Native inset-event interception and replay-node entry/completion are included. This identifies selector families, not the exact executing presentation package or audible/rendered output. New play/match/epoch state clears old evidence. A paired read-only replay-clock capture is needed for recording timelines. The build is diagnostic; the TD blocker is not yet fixed.
+Candidate 1.79 added a bounded TD-selection diagnostic using the existing expression/event/replay-node hooks, without changing routing; 1.80 retains it. Before score confirmation it retains recognized native TD/takeaway/quick-route decisions in a fixed 128-row per-play buffer. Only confirmed TDs flush to normal `[replay-select]` logs. Entries include monotonic tick, opaque node identity, phase, native/final cached Boolean, whether modifications were allowed, armed kind/stage, start/current score, native result freshness and replay activity. Native inset-event interception and replay-node entry/completion are included. This identifies selector families, not the exact executing presentation package or audible/rendered output. New play/match/epoch state clears old evidence. A paired read-only replay-clock capture is needed for recording timelines. Successful captures do not establish an intermittent-routing fix.
 
 ## Confirmed so far
 
@@ -58,7 +62,7 @@ All 42 queued live reactions and 9 queued play-result cheers logged native regis
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.78.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.80.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -69,7 +73,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Check | Expected result |
 | --- | --- |
 | Sparse native peaks | Around 48-52% fullness, native big-play excitement can rise above the calmer background ceiling. No abrupt peak collapse at 50%; empty-crowd scaling, six-second background blend and volume caps remain. |
-| Sound-only route | Below the layered gate, confirmed gains/defensive plays/scores get one native reaction; skills and airborne passes can get softer swells. No shake, passive roar, follow-up cheer, eruption or extra volume. Native disappointment applies to home mistakes and away scores. |
+| Sound-only route | Below the layered gate, confirmed gains/defensive plays/scores get one native reaction; skills and airborne passes can get softer swells. No added crowd shake, passive roar, follow-up cheer, eruption or extra volume. Native HFA shake has its separate fullness cutoff; cannon impacts are independent. Native disappointment applies to home mistakes and away scores. |
 | Cannon | One numbered [cannon] entry per admitted native blast, reporting variant and configured strength. Native sound is not duplicated. A request is not proof of visible shake. |
 | Pass anticipation | Both offenses' eligible deep throws swell while airborne, then hand off to the catch, breakup or incompletion. No pre-catch added cheer/shake or extra volume bonus. |
 | Run/return to score | Live excitement flows into a touchdown/eruption without a quiet dip, duplicate initial hit or restarted lower reaction. |
@@ -79,7 +83,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Forced fumble | A verified home-defense force can react once on any down. Recovery alone adds no shake. An away-defense force at a home venue gets no positive home impact. |
 | Touchdowns/eruption | Routine touchdowns stay routine. The opening TD exception covers only the first two tracked plays, including kickoff. A 60+ yard close-game TD gets a modest TD accent, not an eruption from distance alone. A genuinely sealing/winning event can still take priority. |
 | Upset Watch | A credible home bid against a Top 25 visitor can gain sound from Q2 at its separate fullness gate, never below 50%. It does not grant packed-house status or raise volume caps. |
-| Rainy home win | In ordinary home games, a wet 22+ lead builds extra departure pressure in the last half of Q4; 35+ reaches full severity. No instant per-score loss, dry/close/early changes, neutral/postseason expansion or refill. Verify a finish near 25–30% visible fullness for a comparable starting density/story; this is not a universal forced target. |
+| Rainy home win | In ordinary home games, a wet 22+ lead builds extra departure pressure in the last half of Q4; 35+ reaches full severity. No instant per-score loss, dry/close/early changes, neutral/postseason expansion or refill. Verify a finish near 25â€“30% visible fullness for a comparable starting density/story; this is not a universal forced target. |
 | Beat the traffic | A 17+ home deficit accelerates exits in the last third of Q4; 28+ can begin gently in the last half. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
 | Settings | Edit/reopen a toggle, slider, decimal value and Fan Patience; check Reset, Back and keyboard/controller tab navigation. Stock game settings must still work. The basic tab/fullness toggle is already verified. |
 | Camera/sound gates | Dynamic Camera Effects Off and DGA Camera Shake Off stop added movement. Cannon strength 0 keeps native cannon audio. Pause and recorded replay stay steady; normal effects resume without stale celebrations. |

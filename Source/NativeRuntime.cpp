@@ -2686,7 +2686,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards; shake ramps over the previous five yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
     report.field("Pass-in-flight anticipation")<<shownPassGate.load()<<"; verified flights this match "<<shownPassFlights<<"\n";
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
-    report.field("Native shake requires")<<nativeShakeMinimum<<"% fullness (0 disables the native filter)\n";
+    report.field("Native shake requires")<<nativeShakeMinimum<<"% fullness (separate from added layered motion; 0 disables the native filter)\n";
     report.field("Camera shake enabled")<<(audio->cameraShake?"yes":"no")<<"\n";
     report.field("Ordinary buildup strength")<<(std::min)(3.0f,motion->ordinary)<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
     report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% before home-offense 0.85x scaling (third-and-10 or shorter; offensive fourth downs)\n";
@@ -2713,6 +2713,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
         report.field("Callbacks / replay callbacks")<<ticks<<" / "<<replayCallbacks<<"\n";
         report.field("Renderer calls")<<shownVisibilityCalls<<"\n";
         report.field("Camera output changes")<<presentationCamera.changed()<<"\n";
+        report.field("Native HFA filter / restore")<<sparseNativeCamera.filtered()<<" intercepted events / "<<sparseNativeCamera.restores()<<" restorations\n";
         report.field("Roar starts / stops")<<sustainedAudio.starts()<<" / "<<sustainedAudio.stops()<<"\n";
         report.field("Native cheers requested")<<positiveCheer.sent()<<" (binding "<<(cheerAvailable&&positiveCheer.healthy()?"ready":"unavailable")<<")\n";
         report.field("Replay eligibility changes")<<insetEligibilityChanges<<" / "<<fullEligibilityChanges<<" / "<<defensiveRouteChanges<<" (inset / full / defense; not replay totals)\n";

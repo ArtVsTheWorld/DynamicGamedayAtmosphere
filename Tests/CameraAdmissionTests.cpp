@@ -72,5 +72,23 @@ int main(){
         assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-custom.touchdown)<.001f);
         x.allowed=false;x.now=3900;assert(model.observe(custom,x).kind==motion::Kind::None);
     }
-    std::cout<<"PASS: independent third-and-10/fourth-down critical motion, stable 3-5/5-10 envelopes, gentle OT/late downs, special teams, side/neutral scope, strict size gates, pause-phase/sim/unknown rejection and 50% big-game opening allowance.\n";
+    // Sound-only venues above the independent native HFA cutoff still cannot
+    // produce a DGA impact, even with fresh scoring/live event IDs. Losing
+    // layered admission also cancels an already-active impact immediately.
+    p=fixture();p.game.quarter=3;p.game.phase=1;
+    constexpr uint64_t smallVenue=19375;
+    lineup::Model layers;layers.observe(c,p,789,1,1000,true,.60f,true,nullptr,smallVenue);
+    assert(!layers.playContextActive());
+    bool eligible=lineup::reactionEligible(p.game,.60f,true,layers.playContextActive(),layers.qualifiedMinimum);
+    assert(!eligible&&!lineup::cameraAdmission(c,p,.60f,true,smallVenue,3).allowed);
+    motion::Model gated;motion::Input gatedInput;gatedInput.match=789;gatedInput.epoch=1;gatedInput.now=1000;gatedInput.phase=4;
+    gatedInput.allowed=gatedInput.duringAllowed=eligible;gatedInput.touchdown=gatedInput.duringPlay=gatedInput.eruption=1;gatedInput.eruptionAlive=true;
+    assert(gated.observe(settings,gatedInput).kind==motion::Kind::None);
+    gatedInput.now=1100;gatedInput.allowed=gatedInput.duringAllowed=true;
+    assert(gated.observe(settings,gatedInput).kind==motion::Kind::None); // No delayed blocked event.
+    gatedInput.now=1200;gatedInput.eruption=0;gatedInput.touchdown=2;
+    assert(gated.observe(settings,gatedInput).kind==motion::Kind::Touchdown);
+    gatedInput.now=1300;gatedInput.allowed=false;
+    assert(gated.observe(settings,gatedInput).kind==motion::Kind::None);
+    std::cout<<"PASS: independent camera admission, sparse event rejection/cancellation, stable buildup envelopes, special teams, side/neutral scope and strict size/phase/sim gates.\n";
 }
