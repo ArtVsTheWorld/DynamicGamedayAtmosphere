@@ -1,5 +1,6 @@
 #pragma once
 #include "AttendanceContext.h"
+#include "StartingAttendance.h"
 namespace attendance::arrivals {
 struct Settings {
     int enabled=1,startPercent=55,lateStartPercent=40;
@@ -11,7 +12,7 @@ inline bool fcsTeam(int team){return attendance::fcsTeam(team);}
 inline bool fcsOpponent(const State& s){return fcsTeam(s.team1)||(s.neutral&&fcsTeam(s.team0));}
 inline Group schoolGroup(const State& s){
     if(s.neutral)return Group::Standard;
-    switch(s.team0){case 1212:case 1158:case 1137:case 1156:return Group::Severe;default:return Group::Standard;}
+    return turnout::lateArrivalSchool(s.team0)?Group::Severe:Group::Standard;
 }
 inline bool lateSchool(const State& s){return schoolGroup(s)==Group::Severe;}
 inline float adjustment(const Settings& c,const State& raw){
@@ -30,6 +31,11 @@ inline int baselinePercent(const Settings& c,const State& s){
     return bigGameMatchup(s)?(std::max)(60,c.bigGameStart):schoolGroup(s)==Group::Severe?c.lateStartPercent:c.startPercent;
 }
 inline int openingPercent(const Settings& c,const State& s){
+    if(s.startingAttendance&&!s.playoff&&!s.conferenceChampionship){
+        // Turnout already accounts for opponent, weather, rivalry and night.
+        // Avoid applying those penalties again or multiplying it by the legacy55%.
+        return turnout::kickoffPercent(s.team0,s.neutral,s.night);
+    }
     int minimum=bigGameMatchup(s)?60:30;
     return (std::clamp)(static_cast<int>(std::lround(baselinePercent(c,s)+adjustment(c,s))),minimum,100);
 }

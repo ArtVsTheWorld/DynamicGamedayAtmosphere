@@ -1,6 +1,6 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.80.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.81.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.80 closes a reproduced sparse-camera gap: a new live camera's first native HFA event previously passed through until the next worker update discovered the camera. First-event interception now learns the verified event IDs inside the borrowed native callback and preserves the requested native tier for later restoration, including when the channel row is created afterward. Compatible non-HFA broadcast/replay views no longer stop filtering supported live views. Regression checks cover these transitions, stale leases, ownership changes, unrelated channels and balanced references. The fix has not yet been verified in game.
 
@@ -25,6 +25,20 @@ Candidate 1.78 tunes the existing rainy home-win catch-up target only in the las
 The user accepted the settings menu's operation and appearance. Earlier 1.77 unskipped Play 44 (20-yard TD, Q3 3:07) showed neither replay; later 1.79 captures produced four user-confirmed full-screen-then-inset successes, including home scores after Super Sim in Q1 and Q3. The user now accepts this stability for Update 3 and ended blocker investigation. The intermittent failure remains an accepted limitation, not a proven fix. Slow Sim rendered replay confirmation remains pending. No native-camera event trace identified the earlier brief below-gate TD shake, though its DGA cue was inactive and no cannon was logged.
 
 Candidate 1.79 added a bounded TD-selection diagnostic using the existing expression/event/replay-node hooks, without changing routing; 1.80 retains it. Before score confirmation it retains recognized native TD/takeaway/quick-route decisions in a fixed 128-row per-play buffer. Only confirmed TDs flush to normal `[replay-select]` logs. Entries include monotonic tick, opaque node identity, phase, native/final cached Boolean, whether modifications were allowed, armed kind/stage, start/current score, native result freshness and replay activity. Native inset-event interception and replay-node entry/completion are included. This identifies selector families, not the exact executing presentation package or audible/rendered output. New play/match/epoch state clears old evidence. A paired read-only replay-clock capture is needed for recording timelines. Successful captures do not establish an intermittent-routing fix.
+
+## Starting-turnout candidate 1.81
+
+Before release, install the staged candidate with both game and MMC closed and start a fresh regular-season Dynasty game. This feature cannot safely retrofit an already generated seating baseline. Check the normal `[starting-attendance]` log and status for EA/revised counts and local kickoff. A missing fresh-input message means EA fallback, not a successful override.
+
+- Compare the same day/night fixture: EA count should be identical while DGA adds 7 points before bounds; 19:00 local is the inclusive threshold. A Pacific schedule shown in Eastern time must use its converted local kickoff.
+- Compare dry/light/medium/heavy weather at an outdoor venue; verify the count reduction and visible seat baseline, then verify a fully roofed venue does not receive the precipitation deduction.
+- Test one increase beyond EA's sparse turnout and one reduction below a native sellout. Capture normal/replay/streamed/postgame views and confirm actual seat density rather than treating the requested count as rendered proof.
+- Repeated copies/reloads of the same fixture retain variation; a different game with reused pointers must acquire its own matching inputs. An unknown weather value, stale sample or changed signature keeps EA behavior.
+- Verify that regular neutral games use both teams symmetrically and that rivalry remains a bounded bonus. Check a conference championship, bowl/CFP and practice/preseason load for unchanged EA turnout and legacy arrival behavior.
+- Check Midgame Save, including a 0-0 save, late DLL attachment, quitting and returning to the same matchup, and the advanced turnout switch off. No fresh arrivals or crowd reconstruction should be invented midgame.
+- Listen for preserved reaction peaks and inspect fullness/shake admission after the revised kickoff crowd settles. Existing density floors and camera-effects accessibility rules still apply.
+
+The shipped tuning record uses Initial 20, Home 60, Away 0.33 and Rivalry 30 (the schema default for Rivalry is 20). Examples are explicit synthetic fixtures using those values, not predictions for a loaded save. The night/time and launch boundary were inspected live read-only; the actual 1.81 count override is not yet user-verified.
 
 ## Confirmed so far
 

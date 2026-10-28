@@ -1,7 +1,9 @@
 # Update 3 - candidate
 
-Working build **1.80.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.81.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
 
+- **Ranked rivalries:** A rivalry with either side in the Top 25 qualifies as a big game for opening and layered atmosphere. Both-unranked rivalries retain ordinary/packed-house admission; departure patience and postseason attendance rules are unchanged.
+- **Regular-season starting turnout:** New offline Dynasty launches use school demand, season record, opponent/rivalry/opener appeal, local-time night detection, weather and stable fixture variation. Native simulation/save attendance is observed rather than edited. Revised-turnout arrivals start 90% seated by day/97% at night (78%/88% at established late-arrival schools). Postseason and other non-regular routes stay unchanged; missing fresh inputs fall back to EA. Changed-count seating/replay/resume acceptance remains pending. See [formula and examples](../../FEATURES.md#starting-turnout---first-pass-candidate).
 - **In-game settings:** A Gameday Atmosphere tab after Audio Settings, 35 essential controls across Attendance, Soundscape and Broadcast (10/12/13), toggles before numeric controls, no troubleshooting section, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
 - **Sparse native-camera filtering:** The first HFA event on a newly created live camera is filtered immediately, including before its event row exists. Compatible broadcast/replay camera classes are skipped without disabling the filter for supported live views. The native 50% fullness cutoff remains separate from DGA's layered-atmosphere requirements; a below-layered game can still have native camera shake above that cutoff.

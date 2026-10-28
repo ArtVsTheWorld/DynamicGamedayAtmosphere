@@ -74,6 +74,7 @@
 #include "AttendanceMixer.h"
 #include "NativeAtmosphereContext.h"
 #include "NativeCapacity.h"
+#include "NativeStartingAttendance.h"
 #include "RenderedOccupancy.h"
 #include "ReactionAudioRuntime.h"
 #include "ResumeBridge.h"
@@ -110,6 +111,13 @@ std::shared_ptr<const attendance::occupancy::Snapshot> stadiumOccupancy=std::mak
 std::shared_ptr<const attendance::occupancy::Rendered> renderedOccupancy=std::make_shared<attendance::occupancy::Rendered>();
 std::mutex capacityMutex;uint64_t lastCapacityAttempt=0;
 std::atomic<bool> capacityBinding{false},shownPackedHouse{false};std::atomic<float> shownDrive{0};
+using InitialFormula=int(__fastcall*)(A,A);
+using InitialOptionSet=bool(__fastcall*)(A,unsigned,A);
+InitialFormula originalInitialFormula=nullptr;InitialOptionSet originalInitialOptionSet=nullptr;
+std::mutex initialMutex;attendance::turnout::Seeds initialSeeds;
+std::shared_ptr<const attendance::turnout::Applied> initialApplied=std::make_shared<attendance::turnout::Applied>();
+std::atomic<bool> initialBinding{false},initialSetting{true},initialCaptureFault{false};
+std::atomic<int> shownKickoffMinutes{-1};
 std::shared_ptr<const attendance::core::Settings> coreSettings=std::make_shared<attendance::core::Settings>();
 std::shared_ptr<const attendance::energy::Settings> retentionEventSettings=std::make_shared<attendance::energy::Settings>();
 std::atomic<float> crowdBoost{0};
@@ -515,6 +523,8 @@ bool signatures=false;
 bool read(A p,void* out,size_t n);
 void __fastcall periodChanged(A manager,int next);
 std::vector<unsigned char> cleanEntry(A rva){
+    if(rva==attendance::turnout::native::Formula)return {attendance::turnout::native::FormulaPrefix.begin(),attendance::turnout::native::FormulaPrefix.end()};
+    if(rva==attendance::turnout::native::OptionSet)return {attendance::turnout::native::SetterPrefix.begin(),attendance::turnout::native::SetterPrefix.end()};
     if(rva==attendance::bindings::ReplayEventNodeUpdate)return {0x40,0x53,0x48,0x83,0xec,0x30,0x48,0x63,0x41,0x50,0x48,0x8b,0xd9,0x66,0xc7,0x41,0x1a,0x02,0x00};
     if(rva==attendance::bindings::ReplayNodeUpdate)return {0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x7c,0x24,0x18,0x55,0x48,0x8b,0xec,0x48,0x83,0xec,0x50};
     if(rva==attendance::bindings::CrowdVisibility)return {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x6c,0x24,0x10,0x48,0x89,0x74,0x24,0x18};
@@ -582,7 +592,7 @@ void log(const char* event,const std::string& message) {
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="cannon"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="starting-attendance"&&kind!="cannon"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -594,6 +604,52 @@ void log(const char* event,const std::string& message) {
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
 template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
+int __fastcall initialFormula(A manager,A record){
+    int native=originalInitialFormula(manager,record);
+    // Observation only: simulated/saved attendance always receives EA's result.
+    if(enabled&&initialSetting&&std::atomic_load(&settings)->enabled&&attendance::turnout::native::offline(image))try{
+        attendance::turnout::Seed seed;
+        if(attendance::turnout::native::capture(image,manager,record,native,seed)){
+            std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.remember(seed,GetTickCount64());
+        }else {
+            {std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.clear();}
+            if(!initialCaptureFault.exchange(true))log("starting-attendance-inactive","Native matchup inputs unavailable; that launch keeps EA's attendance. No saved/simulated attendance changed.");
+        }
+    }catch(...){if(!initialCaptureFault.exchange(true))log("starting-attendance-inactive","Input observation failed; native attendance remains available.");}
+    return native;
+}
+void initialLaunch(){
+    using namespace attendance::turnout;
+    Launch launch;
+    if(!enabled||!initialSetting||!std::atomic_load(&settings)->enabled||mode!=0||!native::launch(image,launch))return;
+    Seed seed;{std::lock_guard<std::mutex> guard(initialMutex);if(!initialSeeds.find(launch,GetTickCount64(),seed)){
+        log("starting-attendance","EA attendance preserved: no fresh matching launch inputs (late attach, resume, or unsupported setup).");return;
+    }}
+    if(!seed.regular||seed.resumed){log("starting-attendance","EA attendance preserved: postseason, non-regular-season or resumed game.");return;}
+    if(seed.homeStadium<0){log("starting-attendance","EA attendance preserved: native home-venue inputs unavailable.");return;}
+    launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
+    Result result=calculate(seed,launch);
+    if(!result.applied){log("starting-attendance","EA attendance preserved: postseason, non-regular-season, resumed game, or incomplete inputs.");return;}
+    std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
+    auto api=native::Api::engine(image);api.set=originalInitialOptionSet;
+    if(!native::setAttendance(image,result.attendance,&api)){
+        native::setAttendance(image,launch.ea,&api);
+        log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
+    }
+    std::atomic_store(&initialApplied,publish);
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff. Saved/simulated attendance unchanged.";
+    log("starting-attendance",message.str());
+}
+bool __fastcall initialOptionSet(A service,unsigned key,A reference){
+    A caller=reinterpret_cast<A>(_ReturnAddress());
+    bool result=originalInitialOptionSet(service,key,reference);
+    if(key==0x9f2e6900&&service==at<A>(image+attendance::turnout::native::OptionService))try{
+        if(caller==image+attendance::turnout::native::LaunchResetReturn){
+            std::shared_ptr<const attendance::turnout::Applied> empty=std::make_shared<attendance::turnout::Applied>();std::atomic_store(&initialApplied,empty);
+        }else if(result&&caller==image+attendance::turnout::native::LaunchReadyReturn)initialLaunch();
+    }catch(...){log("starting-attendance-inactive","Launch turnout unavailable; other atmosphere features remain active.");}
+    return result;
+}
 const char* __fastcall pauseMenuText(A tile,A key,A){
     try{
         if(!enabled||!pauseMenuSetting||!pauseMenuAvailable||mode!=0||!pauseBinding||!replayBinding)return nullptr;
@@ -1320,6 +1376,25 @@ bool install() {
         if(settingsMenuAvailable)settingsMenu.original(reinterpret_cast<A>(settingsMenuOriginal));
     }
     if(!settingsMenuAvailable)log("settings-menu-inactive","In-game settings bindings differ; use the DGA INI for this game layout.");
+    if(capacityBinding&&bytes(attendance::turnout::native::Formula,cleanEntry(attendance::turnout::native::Formula))&&
+       bytes(attendance::turnout::native::OptionSet,cleanEntry(attendance::turnout::native::OptionSet))&&
+       bytes(attendance::turnout::native::LaunchCopy,{attendance::turnout::native::LaunchPrefix.begin(),attendance::turnout::native::LaunchPrefix.end()})&&
+       bytes(0x7f146e8,{0xba,0,0x69,0x2e,0x9f,0x49,0x8b,0xcf,0xe8,0x4b,0x72,0x18,0x01})&&
+       bytes(0x7f13845,{0xba,0,0x69,0x2e,0x9f,0x66,0x89,0x85,0x98,0,0,0,0x49,0x8b,0xcf,0xe8,0xe7,0x80,0x18,0x01})&&
+       bytes(0x7f1420b,{0xba,0,0x25,0x1d,0x9e,0x49,0x8b,0xcf,0xe8,0x28,0x77,0x18,0x01})&&
+       bytes(0x37f18a0,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20})&&
+       bytes(0x85ffd60,{0x40,0x55,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8b,0xec})&&
+       bytes(0x909b700,{0x40,0x53,0x48,0x83,0xec,0x60,0x48,0x8b,0x05,0xab,0xd3,0xbe,0x06,0x49,0x8b,0xd8})&&
+       bytes(0x7da8956,{0x3d,0x74,0x04,0,0,0x48,0x8b,0xcb,0x0f,0x9d,0xc2})){
+        size_t first=patches.size();
+        initialBinding=makePatch(attendance::turnout::native::Formula,reinterpret_cast<void*>(initialFormula),reinterpret_cast<void**>(&originalInitialFormula),17)&&
+            makePatch(attendance::turnout::native::OptionSet,reinterpret_cast<void*>(initialOptionSet),reinterpret_cast<void**>(&originalInitialOptionSet),15);
+        if(!initialBinding){
+            while(patches.size()>first){VirtualFree(patches.back().trampoline,0,MEM_RELEASE);patches.pop_back();}
+            originalInitialFormula=nullptr;originalInitialOptionSet=nullptr;
+        }
+    }
+    if(!initialBinding)log("starting-attendance-inactive","Starting-turnout bindings unavailable; EA's native attendance and existing arrivals remain active.");
     if(!commitPatches())return false;
     if(cameraBindings){
         originalCameraView=reinterpret_cast<CameraViewCopy>(image+attendance::bindings::CameraViewCopy);presentationCamera.configure(image);
@@ -1382,6 +1457,11 @@ bool context(attendance::State& s){
     int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
     if(team0<0||team0>=2047||team1<0||team1>=2047)return false;
     s.team0=team0;s.team1=team1;
+    int kickoff=-1;
+    if(option(0x9f4be400,2,kickoff)&&kickoff>=0&&kickoff<1440){s.night=kickoff>=1140;shownKickoffMinutes=kickoff;}else shownKickoffMinutes=-1;
+    auto initial=std::atomic_load(&initialApplied);
+    s.startingAttendance=!s.playoff&&!s.conferenceChampionship&&s.bowl==127&&initial->owns(team0,team1)&&initial->launch.stadium==at<int>(weather+0x358);
+    if(s.startingAttendance)s.night=initial->result.night;
     // This native reader supplies HomeTeamRank/AwayTeamRank to the game UI.
     using Rank=int(__fastcall*)(A,int);
     auto rank=reinterpret_cast<Rank>(image+0xa0ad090);
@@ -1432,6 +1512,7 @@ void readSettings(){
         return value.value;
     };
     c->enabled=number(L"Attendance",L"Enabled",1,0,1)!=0;
+    initialSetting=number(L"Attendance",L"InitialAttendanceEnabled",1,0,1)!=0;
     pauseMenuSetting=number(L"Dynamic Gameday Broadcast",L"PauseMenuFullness",1,0,1)!=0;
     extraReplays=number(L"Replays",L"Enabled",1,0,1)!=0;
     routineInsets=number(L"Replays",L"InsetAfterRoutinePlays",1,0,1)!=0;
@@ -2558,6 +2639,11 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Pause-menu displays")<<pauseMenuDisplays.load()<<"\n";
     report.field("Mode")<<(mode==0?"automatic":mode==1?"manual test":"restored")<<"\n";
     report.field("Team IDs (home/away)")<<shownTeam0<<" / "<<shownTeam1<<"\n";
+    auto turnoutPlan=std::atomic_load(&initialApplied);
+    int localKickoff=shownKickoffMinutes.load();
+    report.field("Local kickoff")<<(localKickoff<0?"unavailable":std::to_string(localKickoff/60)+":"+(localKickoff%60<10?"0":"")+std::to_string(localKickoff%60)+(localKickoff>=1140?"; night game":"; daytime kickoff"))<<"\n";
+    report.field("Starting attendance")<<(!initialSetting?"EA; revised turnout disabled":!initialBinding?"EA; revised-turnout binding unavailable":turnoutPlan->owns(shownTeam0,shownTeam1)?"revised regular-season turnout":"EA; postseason/non-regular, resumed, late attach, or waiting for fresh launch")<<"\n";
+    if(turnoutPlan->owns(shownTeam0,shownTeam1))report.field("EA / revised planned attendance")<<turnoutPlan->launch.ea<<" / "<<turnoutPlan->result.attendance<<" fans; "<<turnoutPlan->result.percent<<"% of capacity before arrivals/departures\n";
     report.field("Ranks (home/away)")<<shownRank0<<" / "<<shownRank1<<" (game-supplied ranks; 0 means unavailable)\n";
     report.field("Rivalry")<<(shownRivalry?"yes":"no")<<"\n";
     report.field("Venue")<<(shownNeutral?"neutral":"home stadium")<<"\n";
@@ -2641,7 +2727,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("DYNAMIC GAMEDAY ATTENDANCE - SETTINGS");
     report.field("Attendance enabled")<<(config->enabled?"yes":"no")<<"\n";
     report.field("First-quarter arrivals")<<(arrivalEnabled?"enabled":"disabled")<<"\n";
-    report.field("Opening school baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% / big game "<<arrivalBigStart<<"% (60% minimum)\n";
+    report.field("Legacy opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% / big game "<<arrivalBigStart<<"% (60% minimum)\n";
     report.field("Arrival finish points")<<"normal "<<arrivalFinish<<"% / severe "<<arrivalLateFinish<<"% through Q1\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";
@@ -2765,7 +2851,7 @@ DWORD WINAPI worker(void*) {
         status<<"Dynamic Gameday Atmosphere " GAMEDAY_VERSION "\nGame process ID: "<<GetCurrentProcessId()<<"\nActivation: INACTIVE\nReason: "<<reason<<"\nSee DynamicGamedayAtmosphere.log for the failing code check.\n";
         return 1;
     }
-    log("ready","Ready. First-quarter arrivals fill toward the game's original attendance. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
+    log("ready","Ready. Regular-season starting turnout and local night detection ready when native launch inputs qualify; other games retain EA turnout. First-quarter arrivals fill toward that planned crowd. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
     log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Full crowd boost +25%; high-leverage moments up to +35%; chants up to +15%; winning eruptions capped at +50%.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
     unsigned long long last=0,lastScan=0,lastPauseDisplays=0;int lastPauseValue=-2;bool replayFaultNoted=false;

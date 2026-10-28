@@ -4,6 +4,7 @@
 // compatibility is not tied to an executable hash. Keep future binding changes
 // here, separately from the configurable atmosphere rules.
 namespace attendance::bindings {
+inline constexpr uintptr_t StartingAttendanceFormula=0x8566710,StartingAttendanceLaunch=0x909b940;
 // Native authored replay lifecycle: complete prologues are checked before hooking.
 inline constexpr uintptr_t ReplayEventNodeUpdate=0x7dc7520,ReplayEventNodeVtable=0xbc841d8;
 inline constexpr uintptr_t ReplayNodeUpdate=0x7dbec50,ReplayNodeVtable=0xbc83708;

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.79.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.81.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -10,7 +10,7 @@ The crowd fills in, reacts to the matchup and thins as the game gets out of reac
 
 ### What the crowd percentages mean
 
-Attendance targets and permanent-departure percentages are based on the crowd the game originally planned to show. If the game chose 40,000 fans, a 50% target means about 20,000 of those fans, even if the stadium holds 80,000. Temporary halftime break percentages refer to the fans still present.
+Attendance targets and permanent-departure percentages are based on the chosen starting turnout: DGA's revised count on a qualifying regular-season launch, or EA's count otherwise. If the game chose 40,000 fans, a 50% target means about 20,000 of those fans, even if the stadium holds 80,000. Temporary halftime break percentages refer to the fans still present.
 
 **Sound follows the occupied share of the mapped stands.** The mod records how many crowd positions the game originally filled, then applies live arrivals, departures and temporary seat breaks to that baseline. If the game filled 90% of its mapped seating and 80% of that crowd remains, audio uses about 72% fullness.
 
@@ -18,15 +18,60 @@ This uses the whole verified seating layout, not just the fans visible to the cu
 
 Soundscape additions wait until the stadium's seating layout is verified. During that wait, the game keeps its own sound. Original-attendance percentages and the stadium's listed real-world capacity do not substitute for measured seating fullness.
 
-The game still chooses the original attendance. This mod changes how much of that crowd is visible over the course of the game. Attendance rules apply to the stadium crowd as a whole.
+The launch chooses expected turnout once. Arrivals, halftime breaks and departures then control how much of that chosen crowd is present. Attendance rules apply to the stadium crowd as a whole.
 
 Fans who permanently leave stay gone. First-quarter arrivals, temporary halftime seat breaks and viewing an earlier replay are separate from permanent departures.
+
+### Starting turnout - first-pass candidate
+
+Fresh regular-season **offline Dynasty** launches now have a revised expected turnout. The native calculation is observed without changing its result; the override is confined to the playable game's launch options, before native match conditions and seating are generated. EA's simulated attendance and saved season-game attendance records are unchanged. Play Now is not enabled by this change.
+
+The first pass starts with school demand: 80% from a smooth normalized Toughest Places rank and 20% from program prestige. Missing atmosphere ranks use prestige alone. Current team rank affects opponent appeal rather than directly deciding how loyal the home following is. The season-record adjustment grows gradually through six games, so an opening loss has little effect.
+
+| Input | First-pass adjustment |
+| --- | --- |
+| School/venue demand | 45-95% of capacity, before other adjustments |
+| Home season record | -10 to +8 percentage points; reduced early in the season |
+| Top-25 visitor | About +2 to +8 points |
+| Visitor ranked below 100 / stock FCS | -4 / -8 points |
+| Rivalry / home opener | +10 / +4 points; combined matchup appeal capped at +15 |
+| Night kickoff | +7 points at or after **19:00 stadium-local time** |
+| Light / medium / heavy precipitation | -5 / -9 / -14 points; no weather deduction for a fully roofed venue |
+| Fixture variation | -3 to +3 points, fixed by teams, stadium, week and season |
+
+The result stays within 30-100% of capacity. Regular-season neutral games use both teams' demand and form, with the same rivalry bonus and normal 30-100% bounds. **Postseason, conference championships, preseason/practice and other non-regular games keep their existing turnout and arrival behavior.** Missing/invalid inputs or an unobserved fresh launch fall back to EA.
+
+Kickoff normally has90% of the expected crowd seated, or 97% at night. The existing late-arrival schools use 78%/88%. Remaining arrivals follow the existing Q1 timing. For example, an 80% turnout target starts at 72% capacity by day, rather than multiplying it by the legacy 55% opening fraction and starting at 44%. These numbers describe planned turnout; sound and shake still use verified actual seating density and their existing gates.
+
+The normal `[starting-attendance]` log reports EA's count, revised count, capacity, local kickoff and each contribution. `InitialAttendanceEnabled=0` under `[Dynamic Gameday Attendance]` restores EA turnout for future launches while retaining existing arrivals/departures. It is an advanced INI switch; the 35-control menu is unchanged. Changes do not rebuild an already running game's initial crowd.
+
+The native 19:00 check and Pacific Dynasty timezone conversion were captured read-only. This candidate has automated coverage; a changed-count stadium load, streamed seating and replay/resume acceptance are still required before release.
+
+The following are **illustrative fixtures**, using a 139-team league and explicit inputs from the reproducible comparison tool, rather than forecasts for the current save. The ordinary example has a 3-3 home team, atmosphere rank 70, prestige 6, home rank 50 and visitor rank 60. Percentages are of capacity; settled turnout is separate from kickoff arrivals. The opener uses week 1, so its fixed variation also differs.
+
+| Example | EA settled | DGA settled | DGA at kickoff |
+| --- | ---: | ---: | ---: |
+| Middle-demand ordinary game | 67.4% | 74.5% | 67.0% |
+| Same matchup - night | 67.4% | 81.5% | 79.0% |
+| Same matchup - heavy rain | 67.4% | 60.5% | 54.4% |
+| Same matchup - rivalry | 97.4% | 84.5% | 76.0% |
+| Rivalry with a Top10 visitor | 100.0% | 89.5% | 80.5% |
+| Same ordinary matchup - EA game-of-week flag | 100.0% | 74.5% | 67.0% |
+| Middle-demand home opener | 87.0% | 82.5% | 74.2% |
+| Struggling low-demand home team | 30.0% | 43.9% | 39.5% |
+| Same struggling matchup - heavy rain | 30.0% | 30.0% | 27.0% |
+| Elite support and winning season | 100.0% | 100.0% | 90.0% |
+| CFP example - preserved | 100.0% | 100.0% | Legacy unchanged |
+| Regular-season neutral rivalry | 30.0% | 56.8% | 51.1% |
+
+EA has no night or rain deduction in the traced starting-turnout calculation. Its rivalry bonus is 30 points, and a home opener fills 60% of the remaining gap to 100. DGA uses the adjustments above instead. The comparison source is `Tools/CompareStartingAttendance.cpp`; the build emits `StartingAttendanceExamples.csv` with every contribution and the input ranks/record.
+
 
 ### Where fans stay and leave
 
 Thinning follows the seating layout. Seats farther from the field generally empty sooner, while closer seats keep more fans. Density tapers gradually across the rows. Areas around the stadium fill and empty at different rates, with stronger differences between fuller and thinner areas, including the closer seating. Small groups and individual stragglers remain among the emptier seats. The variation stays fixed for the game, so it does not reshuffle on each update or when viewing a replay.
 
-This changes where the remaining fans sit, not how many the attendance rules allow. It never fills seats the game originally left empty.
+This changes where the remaining fans sit, not how many the attendance rules allow. After native seating is generated from the chosen turnout, live thinning never fills seats that were empty in that baseline.
 
 Arrivals, permanent departures and temporary halftime absences share the same seating pattern. Earlier replays use that pattern with the attendance recorded for the play; leaving the replay restores the live crowd. Resumed games rebuild the pattern from the stadium's seats and use the restored or estimated attendance.
 
@@ -37,6 +82,8 @@ Using Midgame Save to record a normal game preserves the smaller crowd prepared 
 If the mod cannot verify a crowd's seating layout, that crowd keeps the previous scattered thinning. Small groups of people beside the field also keep their usual treatment.
 
 ### First-quarter arrivals
+
+Revised regular-season launches use the90%/97% kickoff fractions described above (78%/88% at late-arrival schools). The following starting percentages describe the **legacy fallback and unchanged non-regular/postseason route**. Arrival finish timing remains shared.
 
 The smaller crowd and seating pattern are prepared during pregame and carried through kickoff. The game still chooses the peak crowd: the mod never fills seats the game originally left empty.
 
@@ -53,7 +100,7 @@ In ordinary matchups, ranking quality and separation, rivalry status, rain/snow 
 
 Big games override the school's starting percentage, while the school still determines its fill time. A severe-late school in a ranked matchup therefore starts at 60% but continues filling through three quarters of Q1. Championship departure floors remain separate from the opening crowd; they do not force a 60% opening up to 80%.
 
-Rivalry alone is no longer a big-game atmosphere trigger and no longer grants extra departure or halftime patience. It still raises opening attendance. A packed rivalry can qualify for the same packed-house effects as any other full stadium.
+A rivalry with at least one Top 25 team is a big game for opening and layered atmosphere. Both-unranked rivalries keep the ordinary or packed-house route. This atmosphere classification does not add departure or halftime patience; rivalry still contributes to starting turnout. All measured-fullness and camera-effects gates remain active.
 
 Arrivals are stronger early, followed by a smaller tail of stragglers. Permanent departures can keep the stadium below its original peak even after scheduled arrivals finish. Arrivals never bring back fans who permanently left.
 

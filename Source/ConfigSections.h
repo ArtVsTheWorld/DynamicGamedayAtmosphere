@@ -5,6 +5,7 @@ struct Route {const wchar_t* section;const wchar_t* key;};
 inline Route route(const wchar_t* section,const wchar_t* key){
     if(!_wcsicmp(section,L"Atmosphere")&&(!_wcsicmp(key,L"SkillMoveReactions")||!_wcsicmp(key,L"StaggeredMajorCheers")||!_wcsicmp(key,L"PackedBigGameReactions")||!_wcsicmp(key,L"UpsetWatchAtmosphere")))return {L"Dynamic Gameday Soundscape",key};
     if(!_wcsicmp(section,L"Attendance")&&!_wcsicmp(key,L"Enabled"))return {L"Dynamic Gameday Attendance",L"Enabled"};
+    if(!_wcsicmp(section,L"Attendance")&&!_wcsicmp(key,L"InitialAttendanceEnabled"))return {L"Dynamic Gameday Attendance",L"InitialAttendanceEnabled"};
     if(!_wcsicmp(section,L"Attendance")&&!_wcsicmp(key,L"Profile"))return {L"Dynamic Gameday Attendance",L"Profile"};
     if(!_wcsicmp(section,L"Retention")&&!_wcsicmp(key,L"FormulaStrength"))return {L"Dynamic Gameday Attendance",L"FormulaStrength"};
     if(!_wcsicmp(section,L"Retention")&&!_wcsicmp(key,L"MaximumDeparturePerQuarter"))return {L"Dynamic Gameday Attendance",L"MaximumDeparturePerQuarter"};

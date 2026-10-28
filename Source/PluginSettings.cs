@@ -8,6 +8,7 @@ namespace DynamicGamedayAtmosphere {
         sealed class LayoutKey {public string OldSection,OldKey,Section,Key;public LayoutKey(string os,string ok,string ns,string nk){OldSection=os;OldKey=ok;Section=ns;Key=nk;}}
         static readonly LayoutKey[] Layout={
             new LayoutKey("Attendance","Enabled","Dynamic Gameday Attendance","Enabled"),
+            new LayoutKey("Attendance","InitialAttendanceEnabled","Dynamic Gameday Attendance","InitialAttendanceEnabled"),
             new LayoutKey("Attendance","Profile","Dynamic Gameday Attendance","Profile"),
             new LayoutKey("Retention","FormulaStrength","Dynamic Gameday Attendance","FormulaStrength"),
             new LayoutKey("Retention","MaximumDeparturePerQuarter","Dynamic Gameday Attendance","MaximumDeparturePerQuarter"),
