@@ -13,16 +13,21 @@ int run(int deficit,int initial,int extra,int length=720,int cadence=30,bool wet
 }
 int main(){
     for(int length:{60,360,720,1200}){
-        State s{4,0,42,5,length*.25f,float(length)};s.homeTimeouts=0;s.offense=1;
+        State s{4,0,42,5,length*.5f,float(length)};s.homeTimeouts=0;s.offense=1;
         assert(!traffic::extraQuarterAllowance(s,-1,10)&&!traffic::blowoutUrgency(s));
         s.seconds=length*.225f;assert(traffic::extraQuarterAllowance(s,-1,10)==10&&traffic::blowoutUrgency(s)>0);
         assert(traffic::extraQuarterAllowance(s,-1,100)==10&&traffic::extraQuarterAllowance(s,-1,0)==0);
-        s.seconds=length*.25f+.01f;assert(!traffic::extraQuarterAllowance(s,-1,10));
+        s.seconds=length*.5f+.01f;assert(!traffic::extraQuarterAllowance(s,-1,10));
+        s.seconds=length*.45f;assert(traffic::activation(s)>0&&traffic::activation(s)<.35f);
+        s.seconds=length/3.f;assert(std::fabs(traffic::activation(s)-.35f)<.0001f);
+        for(int deficit:{17,21,27}){s.awayScore=deficit;s.seconds=length/3.f+.01f;assert(!traffic::lateHomeGame(s));
+            s.seconds=length/3.f;assert(!traffic::activation(s));s.seconds=length*.30f;assert(traffic::activation(s)>.99f);}
+        s.awayScore=16;s.seconds=length/3.f;assert(!traffic::lateHomeGame(s));
         for(int deficit:{0,8,16,17,21,27,28,35,42,70}){s.awayScore=deficit;s.seconds=0;int value=traffic::extraQuarterAllowance(s,-1,10);
             assert(value>=0&&value<=10);if(deficit<28)assert(value==0);else assert(value>0);}
     }
     State s{4,0,35,5,120,720};s.homeTimeouts=0;s.offense=1;
-    for(int blocked=0;blocked<7;++blocked){State x=s;if(blocked==0)x.playoff=true;if(blocked==1)x.neutral=true;if(blocked==2)x.quarter=3;if(blocked==3)x.quarter=5;if(blocked==4)x.phase=7;if(blocked==5)x.homeScore=42;if(blocked==6)x.seconds=181;assert(!traffic::extraQuarterAllowance(x,-1,10));}
+    for(int blocked=0;blocked<7;++blocked){State x=s;if(blocked==0)x.playoff=true;if(blocked==1)x.neutral=true;if(blocked==2)x.quarter=3;if(blocked==3)x.quarter=5;if(blocked==4)x.phase=7;if(blocked==5)x.homeScore=42;if(blocked==6)x.seconds=361;assert(!traffic::extraQuarterAllowance(x,-1,10));}
     // Better comeback context never increases the traffic allowance.
     s.awayScore=28;s.seconds=170;s.offense=0;s.homeTimeouts=3;auto hopeful=traffic::extraQuarterAllowance(s,-1,10);s.offense=1;s.homeTimeouts=0;assert(traffic::extraQuarterAllowance(s,-1,10)>=hopeful);
     // Postseason targets retain their original scale and activation ramp.

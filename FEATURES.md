@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.72.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.73.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -136,7 +136,7 @@ Ordinary departures stop in overtime. The existing crowd remains rather than bei
 
 ### Late-Q4 traffic
 
-During the last quarter of Q4, home crowds can leave faster when a comeback is slipping away. With 12-minute quarters, this is the final three minutes. A larger deficit, less time, fewer timeouts and the opponent having possession make departures more urgent. Home possession, a nearby scoring opportunity and a recent home score add patience. That recent-scoring boost fades with game time, and an opponent score cancels it. Unknown possession or timeout data uses a patient fallback.
+Home deficits of 17+ can start faster traffic departures in the last third of Q4. Deficits of 28+ can begin gently in the last half, reaching 35% of the traffic activation by the last third, then ramping up. With 12-minute quarters, those starts are 4:00 and 6:00 remaining. Postseason and smaller-deficit traffic windows keep their previous timing. A larger deficit, less time, fewer timeouts and the opponent having possession make departures more urgent. Home possession, a nearby scoring opportunity and a recent home score add patience. That recent-scoring boost fades with game time, and an opponent score cancels it. Unknown possession or timeout data uses a patient fallback.
 
 The system moves toward a crowd target, so it does not subtract another percentage every time it updates. For a home deficit of 17 or more, urgency builds over the opening tenth of this window and severe losses move more quickly toward the applicable crowd floor. Its response takes roughly 10–15 game seconds with 12-minute quarters, scaled for other lengths. Hidden seat-update windows still control when changes become visible. Fans who already left do not return after a score. Winning home crowds keep their existing patience. Postseason crowds receive a smaller traffic target only in clear blowouts; neutral-site games retain their symmetric rules.
 

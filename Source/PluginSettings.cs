@@ -592,6 +592,7 @@ namespace DynamicGamedayAtmosphere {
             stock.Add("; Minimum seating fullness for both-Top-25/postseason buildup after the opening: 35-85.");
             stock.Add("; Most fans allowed to leave permanently in one ordinary quarter: 1-50 points");
             stock.Add("; of the original crowd. Postseason games also have their own lower limits.");
+            foreach(string note in new[]{"; In the last quarter of Q4, fans leave faster when a home comeback looks unlikely.","; With 12-minute quarters, this begins inside the final three minutes.","; trails by 28+ in the final 25% of Q4 (last 3 minutes with 12-minute quarters).","; Default 10 gives 5-10%, chosen once per call. Below 5 uses the configured value; 0 disables it."})stock.Add(note);
             var lines=new List<string>();section="";
             foreach(string raw in existing.Replace("\r","").Split('\n')){
                 string next=Section(raw);if(next!=null)section=next;
@@ -755,7 +756,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=Number(existing,"General","AudioBalanceVersion",0)<43&&Number(defaults,"General","AudioBalanceVersion",0)>=43&&
+            bool refreshHelp=Number(existing,"General","AudioBalanceVersion",0)<44&&Number(defaults,"General","AudioBalanceVersion",0)>=44&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
             upgraded=RetuneGamedayDefaults(upgraded,defaults);
@@ -812,6 +813,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,40);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,42);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,43);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,44);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

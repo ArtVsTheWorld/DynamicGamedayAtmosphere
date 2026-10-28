@@ -1,10 +1,12 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.72.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.73.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
 Candidate 1.71 adds softer pre-punt buildup (half strength) and home-offense critical-down buildup (15% softer). These changes need an in-game feel check after installation.
+
+Candidate 1.73 moves home blowout traffic earlier and refreshes help while preserving current custom values. Full-screen replay followed by a separate inset repeat is still under investigation and is not included in this build.
 
 ## Confirmed so far
 
@@ -28,7 +30,7 @@ The Wake/Virginia test exposed a separate native-quieting issue: after an early 
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.72.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.73.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -49,7 +51,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Forced fumble | A verified home-defense force can react once on any down. Recovery alone adds no shake. An away-defense force at a home venue gets no positive home impact. |
 | Touchdowns/eruption | Routine touchdowns stay routine. The opening TD exception covers only the first two tracked plays, including kickoff. A 60+ yard close-game TD gets a modest TD accent, not an eruption from distance alone. A genuinely sealing/winning event can still take priority. |
 | Upset Watch | A credible home bid against a Top 25 visitor can gain sound from Q2 at its separate fullness gate, never below 50%. It does not grant packed-house status or raise volume caps. |
-| Beat the traffic | A 17+ home deficit accelerates exits in the last quarter of Q4. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
+| Beat the traffic | A 17+ home deficit accelerates exits in the last third of Q4; 28+ can begin gently in the last half. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
 | Settings | Edit/reopen a toggle, slider, decimal value and Fan Patience; check Reset, Back and keyboard/controller tab navigation. Stock game settings must still work. The basic tab/fullness toggle is already verified. |
 | Camera/sound gates | Dynamic Camera Effects Off and DGA Camera Shake Off stop added movement. Cannon strength 0 keeps native cannon audio. Pause and recorded replay stay steady; normal effects resume without stale celebrations. |
 | Clock management | Kneels and clock-stopping spikes produce no added pre-snap or sack/stop shake. Genuine sacks and fake-spike plays remain eligible. |
@@ -78,7 +80,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.72.0/
+  Runtime-1.73.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.
