@@ -2599,6 +2599,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Arrival finish points")<<"normal "<<arrivalFinish<<"% / severe "<<arrivalLateFinish<<"% through Q1\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";
+    report.field("Rainy home-win departures")<<"last half of Q4; 22+ lead, full severity at 35+; up to 10 extra quarter points; shared floors preserved\n";
     report.field("Late blowout extra quarter allowance")<<config->lateTrafficQuarterExtra<<" points maximum; 28+ home deficit; gentle last-half start / stronger last third of Q4; floors/postseason limits preserved\n";
     attendance::State trafficState;int trafficCap=0,trafficLimit=0,trafficLoss=0;
     {std::lock_guard<std::mutex> guard(historyMutex);trafficState=departureModel.previous;if(attendance::valid(trafficState)){trafficCap=departureModel.quarterLimit(trafficState,attendance::elapsedGameTime(trafficState),config->quarterCap);trafficLimit=(std::min)(attendance::lossCeiling(trafficState),departureModel.periodStartLoss+trafficCap);trafficLoss=departureModel.committedLoss;}}

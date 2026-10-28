@@ -31,6 +31,13 @@ inline float homePatience(const State& s,float elapsed){
     float inferior=inferiorOpponent(s);
     return home+0.58f*inferior*(1-home)-0.06f*context::comparableHomeWin(s);
 }
+inline float rainyHomeWinWeight(const State& s,float elapsed){
+    // Ease away winning-fan protection late in a decided rainy game, using
+    // observed game time rather than a fixed deduction after each score.
+    if(!valid(s)||s.neutral||s.playoff||s.quarter!=4||s.phase==7||!badWeather(s)||s.homeScore-s.awayScore<=21)return 0;
+    return context::smooth((s.homeScore-s.awayScore-21)/14.f)*
+        context::smooth((elapsed-3.5f*s.quarterSeconds)/(.5f*s.quarterSeconds));
+}
 inline float matchupFactor(const Settings& c,const State& s){
     Profile profile=profileFor(c,s);
     return profile==Profile::Reduced?0.75f+inferiorOpponent(s)*(badWeather(s)?0.5f:0.25f):profile==Profile::BadWeather?1.25f:1.0f;
@@ -67,7 +74,8 @@ inline double catchupTarget(const Settings& c,const State& s,const History& h,fl
     double progress=(std::clamp)((elapsed-3*s.quarterSeconds)/s.quarterSeconds,0.0f,1.0f);
     // Ease into moderate/major blowouts without a steep 21-to-24-point jump.
     float activation=context::smooth((margin-16)/4.0f)*context::smooth((margin-8)/24.0f);
-    return -std::log(1-loss)*(0.5+0.5*progress)*homePatience(s,elapsed)*matchupFactor(c,s)*
+    double wetWin=1+.65*rainyHomeWinWeight(s,elapsed);
+    return -std::log(1-loss)*(0.5+0.5*progress)*homePatience(s,elapsed)*wetWin*matchupFactor(c,s)*
         rankMultiplier(s)*stayFactor(s,h)*activation*context::lateOpportunity(s)*(s.neutral?0.75f:1.0f)*(1+0.05f*context::variation(s))*
         (std::clamp)(c.formulaStrength,0,200)*0.01;
 }
@@ -118,6 +126,7 @@ struct Model {
     int fourthBreakGroup=0;bool fourthBreakNotice=false;
     float lastHomeScoreAt=-1;bool trafficQueued=false;
     int trafficQuarterPolicy=0;
+    bool rainyWinQuarterPolicy=false;
     int windowBudget=100;
     float windowAt=-1;int windowHome=-1,windowAway=-1;
     int visibleLow=0,visibleHigh=100,visibleBudget=100;
@@ -154,9 +163,14 @@ struct Model {
     int quarterLimit(const State& raw,float time,int maximumPerQuarter)const{
         int cap=(std::clamp)(maximumPerQuarter,1,50);
         if(raw.playoff)return (std::min)(cap,championship(raw)?10:20);
-        if(raw.quarter!=4||time<3.75f*raw.quarterSeconds||time>4*raw.quarterSeconds)return cap;
+        if(raw.quarter!=4||time<3*raw.quarterSeconds||time>4*raw.quarterSeconds)return cap;
         State s=raw;s.seconds=4*s.quarterSeconds-time;
-        return cap+traffic::extraQuarterAllowance(s,lastHomeScoreAt,trafficQuarterPolicy);
+        int wet=rainyWinQuarterPolicy?static_cast<int>(std::lround((std::min)(10,cap/4)*rainyHomeWinWeight(s,time))):0;
+        int traffic=time>=3.75f*raw.quarterSeconds?traffic::extraQuarterAllowance(s,lastHomeScoreAt,trafficQuarterPolicy):0;
+        // Mutually exclusive home-win/home-loss allowances, never stacked.
+        // Custom low quarter caps get a proportionately smaller exception;
+        // ranked and postseason crowd floors retain their final authority.
+        return cap+(std::max)(wet,traffic);
     }
     void boundPressure(const State& s,float time,int maximumPerQuarter){
         int period=(std::min)(4,1+static_cast<int>(time/s.quarterSeconds+0.00001f));
@@ -178,6 +192,7 @@ struct Model {
         float now=elapsedGameTime(s);
         if(seen&&(now+0.01f<elapsed||s.homeScore<previous.homeScore||s.awayScore<previous.awayScore||s.quarterSeconds!=length))return false;
         trafficQuarterPolicy=enabled&&c.enabled&&c.formulaStrength>0&&c.lateTraffic&&stayFactor(s,h)>0?(std::clamp)(c.lateTrafficQuarterExtra,0,10):0;
+        rainyWinQuarterPolicy=enabled&&c.enabled&&c.formulaStrength>0&&stayFactor(s,h)>0;
         if(!enabled||!c.enabled||!c.formulaStrength||stayFactor(s,h)<=0||s.quarter>4){
             // Protection stops future exits and cancels fractional pressure;
             // already-earned exits do not depend on the next camera window.
@@ -298,6 +313,7 @@ inline const char* reason(const Settings& c,const State& s,const History& h,bool
     if(h.watchStage>0)return "upset interest is slowing departures";
     if(traffic)return "late traffic; deficit, clock, possession, timeouts and recent scoring";
     if(s.playoff)return s.quarter==4&&std::abs(s.homeScore-s.awayScore)>8?"late postseason traffic departures":"patient postseason crowd";
+    if(catchup&&rainyHomeWinWeight(s,elapsedGameTime(s))>0)return "late rainy home blowout; winning-fan protection reduced gradually";
     if(catchup)return s.quarter<4?"home blowout; earlier departures catching up to the score":"late blowout; departures catching up to the score";
     if(std::abs(s.homeScore-s.awayScore)<=8)return "competitive game; routine departures only";
     if(profileFor(c,s)==Profile::BadWeather)return "score, time remaining and bad weather";

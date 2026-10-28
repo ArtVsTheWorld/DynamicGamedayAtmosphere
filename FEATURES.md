@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.77.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.78.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -455,3 +455,7 @@ Kickoff/punt return swells begin at 30 yards and reach their existing peak at 40
 The standalone diagnostics tool offers bounded sound/camera previews and read-only compatibility reports. Previews do not change attendance, scores, clocks or gameplay HFA, and do not prove automatic event detection. The pause menu displays measured Stadium Fullness beside Resume. Logs, status, history, backups and extracted runtime files live inside the DGA folder; only the plugin DLL stays directly in Plugins. Launcher errors identify the failing operation and use bounded retry backoff.
 
 See the [current release checklist](docs/DIAGNOSTICS.md) for confirmed observations, remaining live checks and support steps, and the [Update 3 candidate notes](docs/releases/Update3.md) for the changes since Update 2.
+
+### Late rainy home wins (1.78 candidate)
+
+In an ordinary home game, a lead above 21 in rain or snow gradually reduces winning-fan protection during the last half of Q4, reaching full severity at 35+. This strengthens the existing time-based departure target; a score does not directly remove a fixed number of fans. A narrow quarter-cap allowance of up to 10 extra points (less for low custom caps) is shared rather than stacked with home-loss allowances. Shared crowd floors, safe update windows, dry/close/early games, neutral venues and postseason rules retain their existing behavior. Live tuning verification is pending.

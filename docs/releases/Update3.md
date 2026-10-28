@@ -1,6 +1,6 @@
 # Update 3 - candidate
 
-Working build **1.77.0**. Not published; final full-game checks are pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.78.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
 
 - **In-game settings:** A Gameday Atmosphere tab after Audio Settings, 35 essential controls across Attendance, Soundscape and Broadcast (10/12/13), toggles before numeric controls, no troubleshooting section, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
@@ -16,6 +16,7 @@ Working build **1.77.0**. Not published; final full-game checks are pending. Upd
 - **Sparse crowds keep their reaction peaks:** Calmer background sound remains, but native big-play peaks can rise above the bed ceiling. The ceiling blends with empty seats and strength instead of switching fully on just below 50%. Crowd scaling and volume limits remain.
 - **Quieter games still react:** Verified plays can receive a single native cheer or disappointment sound below the atmosphere gate, with softer skill/pass swells. Shake, fuller roar layers, follow-up cheers, eruptions and volume bonuses keep their existing requirements.
 - **Better game stories:** Upset Watch sound for credible home bids against Top 25 visitors and faster beat-the-traffic departures in a home blowout: the last third of Q4 for 17+ deficits, with a gentle last-half start for 28+. Existing packed-house requirements, volume caps and crowd floors remain.
+- **Rainy home blowouts:** In the last half of Q4, a home lead above 21 gradually weakens winning-fan protection, reaching full severity at 35+. Scores raise the existing departure target; no fixed crowd deduction occurs on the scoring play. A separate, non-stacking exception permits up to 10 extra original-crowd points above the normal quarter cap (less with a low custom cap), with hard crowd floors intact. Dry games, close games, earlier quarters, neutral venues and postseason rules retain their existing behavior.
 - **More selective eruptions:** The opening-touchdown exception covers only the game's first two tracked plays, including kickoff. A 60+ yard close-game touchdown gets a modest standard-TD accent; decisive winning plays can still erupt.
 - **Stadium cannons:** Their own strength control, default 15%, using the shared route for all nine native variants. Normal logs report detected blasts once, with sequence, variant and strength.
 - **Clearer troubleshooting:** Exact activation failure stages, throttled retries, organized plugin-owned files, controlled previews and read-only compatibility reports.
@@ -23,3 +24,9 @@ Working build **1.77.0**. Not published; final full-game checks are pending. Upd
 **Updating resets old DGA INI values once.** The original is backed up automatically under `Plugins/DynamicGamedayAtmosphere/Backups`. Current defaults replace the old values; reapply desired settings afterward. Later launches and routine updates preserve those new settings. Close MMC and the game before replacing the plugin DLL, then restart both.
 
 Offline Dynasty is the verified mode. Other modes, every cannon venue and every rare play are not implied to have been tested. See the [current checklist](../DIAGNOSTICS.md) for the distinction between automated coverage, observed game signals and confirmed live behavior.
+
+## Current live acceptance
+
+The user confirmed the curated settings menu works and looks good on 1.77. In TeamBuilder-home versus NIU, Play 52's 10-yard TD showed the full-screen replay followed by the inset, matching the lifecycle logs. Play 44's 20-yard TD at Q3 3:07 showed neither replay without skipping: the intermittent TD-selection failure remains a release blocker and is not fixed by 1.78. Slow Sim rendered replay/mode-switch confirmation is pending the next test game.
+
+The 1.78 rainy-win departure change has automated coverage and a representative score-path comparison (~37% to 26.8% visible fullness using the observed 72.3% opening density); it has not been run in the user's installed game. Other pending checks include audible late-down breakup/knockout and late-interception cheers, natural home forced-fumble onset, the earlier home-losing traffic window and advertised RTG/rare-event paths. A brief below-gate TD shake had no DGA cue/cannon in the log; native camera attribution remains unconfirmed. Native repeated-kneel postgame highlights are a separate unresolved limitation. Custom stadium music is future feature research, not implemented in Update 3.
