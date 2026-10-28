@@ -563,7 +563,7 @@ void log(const char* event,const std::string& message) {
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="cannon"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -1534,7 +1534,7 @@ void atmosphereTick(){
     updateDiagnostic(now);
     static unsigned loggedCannons=0;auto fired=cannonStarts.load();if(fired!=loggedCannons){
         loggedCannons=fired;auto blast=std::atomic_load(&cannonBlast);float strength=std::atomic_load(&cameraSettings)->cannon;
-        std::ostringstream message;message<<"Native cannon variant "<<blast->effect-9<<" started; ";
+        std::ostringstream message;message<<"Native cannon #"<<fired<<", variant "<<blast->effect-9<<" started; ";
         if(strength>0)message<<strength<<"% short impact requested alongside the existing cannon audio, with no extra sound or volume boost.";
         else message<<"cannon shake disabled (0%); existing cannon audio unchanged.";
         log("cannon",message.str());
