@@ -15,6 +15,7 @@ class Fumbles {
     bool ready_=false,live_=false,armed_=false,used_=false,pending_=false,forced_=false,sawLoose_=false,recoveryUsed_=false;
 public:
     void reset(){*this=Fumbles{};}
+    bool homeBallLost()const{return live_&&pending_&&fumbler_==0;}
     RunBuildup recoveryBuildup(uint64_t)const{return {};}
     Outcome observe(const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t now,bool allowed,const ForcedEvent& event,int kind,int ball,bool held,bool fumbleState=false,fumblecontact::Proof contact={}){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}

@@ -8,6 +8,25 @@ int main(){
     for(auto event:{live::Event::StiffArm,live::Event::Juke,live::Event::Spin,live::Event::BrokenTackle})assert(live::cheerType({event,1,0,0})==0);
     assert(live::cheerType({live::Event::Hurdle,1,0,0})==83);
     assert(live::cheerType({live::Event::HitStick,1,0,0})==59);
+    // A regular broken tackle keeps its short sound but cannot start or
+    // refresh motion. A separately earned long run/TD keeps its own envelope.
+    assert(!live::cameraReaction(live::Event::BrokenTackle));
+    for(auto event:{live::Event::Truck,live::Event::StiffArm,live::Event::Hurdle,live::Event::Juke,live::Event::Spin})assert(live::cameraReaction(event));
+    {motion::Settings config;motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
+        x.duringPlay=live::cameraReaction(live::Event::BrokenTackle)?1:0;
+        assert(model.observe(config,x).kind==motion::Kind::None);
+        x.now=1100;x.duringPlay=2;auto run=model.observe(config,x);assert(run.kind==motion::Kind::LivePlay);
+        x.now=1200;x.duringPlay=live::cameraReaction(live::Event::BrokenTackle)?3:0;auto kept=model.observe(config,x);
+        assert(kept.began==run.began&&kept.until==run.until&&kept.reactionScale==run.reactionScale);
+        x.now=1300;x.phase=4;x.touchdown=4;auto td=model.observe(config,x);assert(td.kind==motion::Kind::Touchdown);
+        x.now=1400;x.duringPlay=live::cameraReaction(live::Event::BrokenTackle)?5:0;kept=model.observe(config,x);
+        assert(kept.kind==motion::Kind::Touchdown&&kept.began==td.began&&kept.until==td.until);
+        skillswell::Model sound;energy::Play play;play.game={2,14,14,3,300,720};play.down=1;play.offense=0;
+        sound.observe(play,123,1,1000,true,{live::Event::BrokenTackle,1,0,0},1);
+        sustained::Intent intent;intent.active=true;intent.match=123;intent.epoch=1;intent.updated=1200;
+        sound.observe(play,123,1,1200,true,{},0);auto out=sound.merge(intent,1200,1);
+        assert(out.supporting&&out.intensity>0&&!out.liveCheer&&!out.resultCheer);
+    }
     motion::Settings settings;motion::Model camera;motion::Input in;in.match=123;in.epoch=1;in.phase=3;in.now=1000;
     in.allowed=in.duringAllowed=in.duringImpact=in.softAccent=true;in.duringPlay=1;in.impactMilliseconds=2000;in.reactionScale=.5f;
     auto cue=camera.observe(settings,in);assert(cue.softAccent&&cue.impactOnly&&motion::strength(cue,1000)==0);

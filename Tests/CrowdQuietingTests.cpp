@@ -22,10 +22,10 @@ int main(){
     for(float factor:{0.f,.1f,.3f,.7f,1.f}){
         float previousNative=0;
         for(int n=0;n<=1001;++n){float value=apply(static_cast<float>(n),factor);assert(value+.001f>=previousNative);previousNative=value;}
-        assert(apply(1000,factor)<=1000*factor);
+        assert(apply(1000,factor)==1000*factor);
         assert(apply(350,factor)==350*factor); // Ordinary bed remains as tested.
     }
-    assert(apply(1000,.25f)<200&&apply(1000,.25f)>180);
+    assert(apply(1000,.25f)==250); // No extra peak trim beyond crowd presence.
     for(int phase:{1,2,3,4,5})assert(audiblePhase(phase,true,false)&&!audiblePhase(phase,false,false));
     for(int phase:{6,7})assert(audiblePhase(phase,false,false)&&audiblePhase(phase,true,false)&&!audiblePhase(phase,true,true));
     for(int phase:{0,8,9})assert(!audiblePhase(phase,true,false));
@@ -56,5 +56,25 @@ int main(){
     assert(cap(large,c.positions)>100); // A large, sparse bowl with thousands of fans is not forced under 100.
     c.fullness=0;assert(target(c)==0);c.fullness=.5f;assert(target(c)==1);
     assert(ceiling(0)>1000&&cap(1000,0)==1000); // Unknown geometry is not guessed.
-    std::puts("PASS: native quieting curve, tested calibration, full-crowd neutrality, native peak scaling, leases and six-second fades.");
+    // Captured Wake regression: a small halftime seat break crossed 50%,
+    // previously forcing a native 1000 peak all the way down to 168.4.
+    c.positions=18829;c.strength=1;c.start=.5f;c.fullness=.484f;
+    float peak=finish(apply(1000,target(c)),1000,c.positions,capBlend(c));
+    float bed=finish(apply(350,target(c)),350,c.positions,capBlend(c));
+    assert(peak>940&&peak<1000&&bed>320&&bed<350);
+    assert(capBlend(c)<.004f);
+    c.fullness=.49999f;assert(capBlend(c)<.000001f);
+    c.fullness=.5f;assert(capBlend(c)==0);c.fullness=.50001f;assert(capBlend(c)==0);
+    for(uint64_t size:{7468ull,18829ull,100000ull})for(float fullness:{0.f,.1f,.25f,.484f,.49999f,.5f,.50001f,1.f}){
+        c.positions=size;c.fullness=fullness;
+        float last=0;
+        for(int n=0;n<=1001;++n){float input=static_cast<float>(n);float output=finish(apply(input,target(c)),input,size,capBlend(c));
+            assert(output>=0&&output<=input&&output+.001f>=last);last=output;
+            if(!fullness)assert(output==0);
+            if(fullness>=.5f)assert(output==input);
+        }
+    }
+    c.fullness=.1f;c.strength=0;assert(capBlend(c)==0);c.strength=.5f;
+    float partial=capBlend(c);c.strength=1;assert(std::fabs(partial*2-capBlend(c))<.0001f);
+    std::puts("PASS: native quieting bed calibration, attendance-scaled reaction peaks, smooth 50%/size/strength cap blend, Wake 1000-to-168 regression, monotone/empty/full bounds, leases and six-second fades.");
 }

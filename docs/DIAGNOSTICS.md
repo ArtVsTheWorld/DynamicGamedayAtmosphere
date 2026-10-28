@@ -1,10 +1,10 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.69.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.70.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 ## Confirmed so far
 
-- Candidate 1.69 passed 105 automated test groups, including 511 real native-reader configuration cases, plus 7 Python tests and isolated MMC adapter checks. Installation/rollback is checked in a disposable fixture; the real upgrade and full-game checks below still need user verification.
+- Candidate 1.70 passed the full native/managed checks, including 511 real native-reader configuration cases, plus 7 Python tests and isolated MMC adapter checks. The Wake sparse-peak regression, below-gate sound route, kneel/spike exclusion, broken-tackle motion and away-takeaway cleanup have automated coverage. Installation/rollback is checked in a disposable fixture; the real upgrade and full-game checks below still need user verification.
 - The user verified the in-game Gameday Atmosphere tab and pause-menu fullness toggle on 1.61. Later controls and complete navigation still need a final-build check.
 - Texas cannon movement was confirmed in game. The 1.67 log records native cannon starts with 15%, 20%, 25% and 30% settings. All nine authored cannon selectors have offline coverage; other stadiums have not been manually verified.
 - Airborne home passes were captured; the 1.67 log records new verified airborne passes. An earlier away pass also logged anticipation. Audible timing on both offenses still needs listening on the final build.
@@ -12,10 +12,19 @@ Working candidate **1.69.0**. Update 2 (1.54.0) remains the public release. This
 - Truck, hurdle, knockout and deflection signals were observed in game. Capturing a signal or logging a request alone does not establish the final audible/visible effect.
 - The native Dynamic Camera Effects setting was verified read-only. The revised default RTG camera projection has automated coverage; its natural eruption strength still needs a visual check.
 
+## Texas/Ole Miss test, October 27
+
+Runtime 1.68 resumed from Midgame Save and finished Ole Miss 45, Texas 37. Attendance restored at 100% without fresh opening arrivals and finished at 89%. Both offenses logged airborne-pass anticipation (19 verified flights in the resumed process). Standard touchdowns, replay restoration, Super Sim/halftime attendance transitions and final sound/camera cleanup were observed in logs. These entries establish requests/state, not perceived output.
+
+The user identified the final logged "defensive sack" as Ole Miss kneeling. This is a false positive, not successful sack coverage. Candidate 1.70 excludes native knee/clock-stop play types from buildup and result impacts, and makes regular broken tackles sound-only. Verified away takeaways also clear previous home-positive motion immediately instead of retaining a short fade. The new sound-only route addresses sparse-game reaction gaps; verify these fixes and the sound-only output live before release. The earlier process crash remains unresolved; no new error was logged during the resumed game. Positive home forced-fumble and pass-breakup output, and other rare-event checks below, remain outstanding.
+
+
+The Wake/Virginia test exposed a separate native-quieting issue: after an early halftime seat break reduced actual fullness to 48.4%, runtime 1.68 reduced a native 1000 excitement sample to 168.4. Candidate 1.70 uses a fullness/strength blend for the bed ceiling and lets native reaction peaks bypass that ceiling while retaining crowd-presence scaling. The captured 18,829-position fixture is covered in the quieting and borrowed-entity runtime tests. Audible output still needs a live retest.
+
 ## Before the two test games
 
 1. Close MMC and the game. Copy the candidate plugin DLL into MMC's Plugins folder, then restart both.
-2. Confirm the launch/runtime log identifies 1.69.0 and activation succeeds. A startup/version line alone is not activation proof.
+2. Confirm the launch/runtime log identifies 1.70.0 and activation succeeds. A startup/version line alone is not activation proof.
 3. On first Update 3 startup, verify the old INI is backed up and the new file has current defaults. Edit one setting, restart once more, and confirm it stays changed without another reset.
 4. Use the normal log setting, Debug=0. Cannon entries should now appear without technical logging.
 
@@ -25,11 +34,13 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 
 | Check | Expected result |
 | --- | --- |
+| Sparse native peaks | Around 48-52% fullness, native big-play excitement can rise above the calmer background ceiling. No abrupt peak collapse at 50%; empty-crowd scaling, six-second background blend and volume caps remain. |
+| Sound-only route | Below the layered gate, confirmed gains/defensive plays/scores get one native reaction; skills and airborne passes can get softer swells. No shake, passive roar, follow-up cheer, eruption or extra volume. Native disappointment applies to home mistakes and away scores. |
 | Cannon | One numbered [cannon] entry per admitted native blast, reporting variant and configured strength. Native sound is not duplicated. A request is not proof of visible shake. |
 | Pass anticipation | Both offenses' eligible deep throws swell while airborne, then hand off to the catch, breakup or incompletion. No pre-catch added cheer/shake or extra volume bonus. |
 | Run/return to score | Live excitement flows into a touchdown/eruption without a quiet dip, duplicate initial hit or restarted lower reaction. |
 | Kickoff/punt returns | Swell/movement builds from 30 yards to the existing peak at 40. A pickup after a fumble does not restart gain shake. |
-| Skills | Successful hurdles use a cheer; trucks use the big-hit crowd family. The small skill buildup is gentle and does not repeat on one collision. |
+| Skills | Regular broken tackles use sound only, without starting or restarting shake. Successful hurdles use a cheer; trucks use the big-hit crowd family. The small skill buildup is gentle and does not repeat on one collision. |
 | Home defense | Confirmed third/fourth-down knockouts and pass breakups get the small paired reaction. A routine incompletion alone does not qualify. Hit-stick motion requires a completed third/fourth-down stop; other-down hits keep sound only. |
 | Forced fumble | A verified home-defense force can react once on any down. Recovery alone adds no shake. An away-defense force at a home venue gets no positive home impact. |
 | Touchdowns/eruption | Routine touchdowns stay routine. The opening TD exception covers only the first two tracked plays, including kickoff. A 60+ yard close-game TD gets a modest TD accent, not an eruption from distance alone. A genuinely sealing/winning event can still take priority. |
@@ -37,6 +48,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Beat the traffic | A 17+ home deficit accelerates exits in the last quarter of Q4. Hopeless 28+ losses may use up to 10 extra original-crowd points above the normal quarter allowance. Floors, safe update windows and postseason limits remain. |
 | Settings | Edit/reopen a toggle, slider, decimal value and Fan Patience; check Reset, Back and keyboard/controller tab navigation. Stock game settings must still work. The basic tab/fullness toggle is already verified. |
 | Camera/sound gates | Dynamic Camera Effects Off and DGA Camera Shake Off stop added movement. Cannon strength 0 keeps native cannon audio. Pause and recorded replay stay steady; normal effects resume without stale celebrations. |
+| Clock management | Kneels and clock-stopping spikes produce no added pre-snap or sack/stop shake. Genuine sacks and fake-spike plays remain eligible. |
 | Session cleanup | Try a timeout, replay, Super Sim and a second game. No stuck loops, old reaction IDs, crowd refills or repeated errors should carry over. |
 
 ## Additional checks before claiming full coverage
@@ -62,7 +74,7 @@ Plugins/DynamicGamedayAtmosphere/
   History/
   Diagnostics/
   Tools/DgaDiagnostics.exe
-  Runtime-1.69.0/
+  Runtime-1.70.0/
 ```
 
 The one-time Update 3 reset saves the exact original INI in Backups before replacing it. SettingsResetVersion=3 records the release-family reset and must stay unchanged in routine builds. Later custom settings persist. The launcher waits for a running game to close before moving/resetting older settings. Locked settings or unavailable backups stop preparation without discarding the original. Game saves, native settings and unrelated plugins are untouched.

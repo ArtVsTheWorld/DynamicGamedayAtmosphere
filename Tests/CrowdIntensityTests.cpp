@@ -87,10 +87,10 @@ int main(){
     IntensityRuntime smallVenue;smallVenue.configure(image,lock,unlock,publish);
     low.active=true;low.fullness=.30f;low.positions=7468;low.presentation=true;low.updated=70000;
     put(current+0xc4,1000.f);smallVenue.tick(current,intent,123,1,70000,low);
-    assert(smallVenue.output()<100&&at<float>(current+0xc4)==1000); // Sparse intro is capped on its very first callback.
+    assert(smallVenue.output()>400&&smallVenue.output()<500&&at<float>(current+0xc4)==1000); // Native peak retains crowd-scaled dynamics even on the first intro callback.
     low.presentation=false;
-    for(uint64_t now=70100;now<=77000;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);assert(smallVenue.output()<100);}
-    low.positions=10001;low.updated=77100;smallVenue.tick(current,intent,123,1,77100,low);assert(smallVenue.output()<100.01f);
+    for(uint64_t now=70100;now<=77000;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);assert(smallVenue.output()>400&&smallVenue.output()<500);}
+    low.positions=10001;low.updated=77100;smallVenue.tick(current,intent,123,1,77100,low);assert(smallVenue.output()>400&&smallVenue.output()<500);
     low.fullness=.5f;
     for(uint64_t now=77200;now<=83400;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);}
     assert(smallVenue.output()==1000); // At the threshold, both filters restore smoothly.
@@ -100,6 +100,16 @@ int main(){
     low.positions=7468;low.strength=0;
     for(uint64_t now=90000;now<=96400;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);}
     assert(smallVenue.output()==1000);
+    // Actual Wake status: 48.4%, 18,829 mapped positions, native 1000 peak.
+    // Test the real borrowed-entity runtime, with no added reaction or gain.
+    low.strength=1;low.fullness=.484f;low.positions=18829;
+    for(uint64_t now=96500;now<=103000;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);}
+    assert(smallVenue.native()==1000&&smallVenue.output()>940&&smallVenue.output()<1000);
+    put(current+0xc4,350.f);low.updated=103100;smallVenue.tick(current,intent,123,1,103100,low);
+    assert(smallVenue.output()>320&&smallVenue.output()<350); // Background remains calmer.
+    low.fullness=.5001f;
+    for(uint64_t now=103200;now<=109600;now+=100){low.updated=now;smallVenue.tick(current,intent,123,1,now,low);}
+    assert(smallVenue.output()==350&&at<float>(current+0xc4)==350&&locks==unlocks);
     assert(VirtualFree(reinterpret_cast<void*>(current),0,MEM_RELEASE));
     std::puts("PASS: output-only excitement, gradual attack, native floors, reentrancy, lease/disable restoration, publisher replacement, retired objects and native-call faults.");
 }

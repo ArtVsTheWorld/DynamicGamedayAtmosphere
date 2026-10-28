@@ -6,7 +6,7 @@ enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedF
 inline bool skill(Event e){return e==Event::Truck||e==Event::StiffArm||e==Event::Hurdle||e==Event::Juke||e==Event::Spin;}
 inline bool accent(Event e){return skill(e)||e==Event::HitStick||e==Event::BrokenTackle;}
 inline bool softSkill(Event e){return skill(e)||e==Event::BrokenTackle;}
-inline bool cameraReaction(Event e){return e!=Event::None&&e!=Event::FumbleRecovery&&e!=Event::HitStick;}
+inline bool cameraReaction(Event e){return e!=Event::None&&e!=Event::FumbleRecovery&&e!=Event::HitStick&&e!=Event::BrokenTackle;}
 inline const char* accentName(Event e){switch(e){case Event::Truck:return "Successful truck";case Event::StiffArm:return "Successful stiff arm";case Event::Hurdle:return "Successful hurdle";case Event::Juke:return "Successful juke";case Event::Spin:return "Successful spin";case Event::HitStick:return "Landed hit-stick tackle";case Event::BrokenTackle:return "Broken tackle";case Event::ThirdGoalStop:return "Third-down goal-line stop";default:return nullptr;}}
 inline const char* name(Event e){if(auto label=accentName(e))return label;switch(e){case Event::PassBreakup:return "Confirmed home defensive pass breakup";case Event::HitStickStop:return "Confirmed third/fourth-down hit-stick stop";case Event::CatchKnockout:return "Home defensive catch knockout";case Event::BlockedFieldGoal:return "Blocked field goal";case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
@@ -146,13 +146,17 @@ class Model {
     uintptr_t match_=0,record_=0;unsigned epoch_=0;int phase_=-1,side_=-1;
     uint64_t last_=0,began_=0,serial_=0,whistle_=0;bool ready_=false,snapped_=false,reset_=false,flight_=false,used_=false;
     float spot_=0,line_=0;int direction_=0;bool caught_=false,fourth_=false,fourthUsed_=false;
-    RunBuildup buildup_;bool observedRun_=false,afterCatchRun_=false,gainCancelled_=false;float catchAirYards_=-1,catchGain_=0;
+    RunBuildup buildup_;bool observedRun_=false,afterCatchRun_=false,gainCancelled_=false,homePossessionLost_=false;float catchAirYards_=-1,catchGain_=0;
     float runnerLast_=0,measuredGain_=0;uint64_t runnerAt_=0;
 public:
     void reset(){*this=Model{};}
-    void suspend(){ready_=snapped_=reset_=flight_=used_=fourthUsed_=false;phase_=-1;record_=0;whistle_=0;buildup_={};observedRun_=afterCatchRun_=false;catchAirYards_=-1;catchGain_=0;}
+    void suspend(){ready_=snapped_=reset_=flight_=used_=fourthUsed_=false;phase_=-1;record_=0;whistle_=0;buildup_={};observedRun_=afterCatchRun_=homePossessionLost_=false;catchAirYards_=-1;catchGain_=0;}
     RunBuildup runBuildup()const{return buildup_;}
     bool fourthConverted()const{return fourthUsed_;}
+    bool homePossessionLost()const{return homePossessionLost_;}
+    void defensiveHandoff(const Outcome& event){
+        if(event.id&&event.side==0&&(event.event==Event::ForcedFumble||event.event==Event::Interception))homePossessionLost_=false;
+    }
     void cancelRunBuildup(bool forPlay=false){buildup_={};gainCancelled_=gainCancelled_||forPlay;}
     float catchAirYards()const{return catchAirYards_;}
     float gain()const{return measuredGain_;}bool ranAfterCatch()const{return afterCatchRun_;}
@@ -163,12 +167,16 @@ public:
         if(last_&&now>=last_&&now-last_>750)suspend();
         if(!allowed||!c.enabled||!match||!valid(p.game)||p.simulated||now<last_){last_=now;suspend();return out;}last_=now;
         bool normal=energy::normalDown(p);
-        if(p.game.phase==1){ready_=normal;side_=p.offense;spot_=p.fieldSpot;direction_=p.attackDirection;snapped_=false;whistle_=0;buildup_={};observedRun_=afterCatchRun_=false;catchAirYards_=-1;catchGain_=0;
+        if(p.game.phase==1){ready_=normal;side_=p.offense;spot_=p.fieldSpot;direction_=p.attackDirection;snapped_=false;whistle_=0;buildup_={};observedRun_=afterCatchRun_=homePossessionLost_=false;catchAirYards_=-1;catchGain_=0;
             fourth_=p.down==4&&goingForIt&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&std::isfinite(p.toFirst)&&p.toFirst>=0&&p.toFirst<=100;line_=p.toFirst;}
         if(p.game.phase==3&&phase_==1&&ready_&&normal&&p.offense==side_){
             snapped_=true;began_=now;record_=record;reset_=flight_=used_=caught_=fourthUsed_=gainCancelled_=false;whistle_=0;runnerLast_=spot_;runnerAt_=now;measuredGain_=0;
         }
-        if(p.fumble)cancelRunBuildup(true);
+        if(p.fumble){
+            if(snapped_&&reset_&&p.game.phase==3&&side_==0&&p.offense==side_&&!p.game.neutral)homePossessionLost_=true;
+            cancelRunBuildup(true);
+        }
+        if(completed&&completed->accepted&&completed->completed&&completed->takeaway&&completed->side==1&&!p.game.neutral)homePossessionLost_=true;
         if(snapped_&&now>=began_&&now-began_>45000){snapped_=false;buildup_={};}
         bool post=p.game.phase==4||p.game.phase==5;
         if(post&&phase_==3&&snapped_&&now>=prior&&now-prior<=250)whistle_=now;
@@ -187,6 +195,9 @@ public:
             // followed by a held ball-3 receiver. The preceding kind-0 reset
             // prevents last play's completion or the snap from proving flight.
             if(reset_&&(ball==4||((kind==3||kind==1)&&ball==1&&!held)||(kind==1&&ball==3&&held)))flight_=true;
+            // Reject the old home buildup immediately, including the native
+            // label-handoff frame before offense changes to the interceptor.
+            if(reset_&&flight_&&kind==2&&!used_&&side_==0&&!p.game.neutral){homePossessionLost_=true;cancelRunBuildup(true);used_=true;}
             if(reset_&&!used_&&!gainCancelled_&&std::isfinite(spot_)&&std::fabs(spot_)<=50.01f&&(direction_==1||direction_==-1)){
                 bool own=side_==0||p.game.neutral;
                 float catchTolerance=(std::max)(3.5f,prior&&now>=prior?20.f*static_cast<float>(now-prior)*.001f:3.5f);

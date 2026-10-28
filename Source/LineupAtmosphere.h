@@ -27,7 +27,7 @@ inline float bigRequirement(const core::Settings& c,const State& s,uint64_t posi
 inline bool cameraVenue(const core::Settings& c,const State& s,float fraction,bool fullnessKnown,uint64_t positions=0){
     return fullnessKnown&&positions>=512&&std::isfinite(fraction)&&((bigGame(s)&&fraction>=bigRequirement(c,s,positions))||(c.packedHouse&&packed::qualifies(positions,fraction,fullnessKnown)));
 }
-inline bool offensivePlay(int selectedType){return selectedType>0&&!((selectedType>=21&&selectedType<=25)||selectedType==105||selectedType==106||selectedType==154||selectedType==155||selectedType==37||selectedType==38);}
+inline bool offensivePlay(int selectedType){return selectedType>0&&!((selectedType>=21&&selectedType<=25)||selectedType==105||selectedType==106||selectedType==154||selectedType==155||energy::clockManagementType(selectedType));}
 inline bool criticalCamera(const energy::Play& p,int selectedType){
     if(!energy::normalDown(p))return false;
     if(p.down==3)return std::isfinite(p.toFirst)&&p.toFirst>=0&&p.toFirst<=10.01f;
@@ -35,6 +35,7 @@ inline bool criticalCamera(const energy::Play& p,int selectedType){
     return true;
 }
 inline bool shakePlay(const energy::Play& p,int type,bool openingKickoff){
+    if(energy::clockManagementType(type))return false;
     if(p.down==-1)return false; // PATs and two-point tries.
     if(type==23||type==24)return openingKickoff;
     if(type==25||p.down==0)return false;

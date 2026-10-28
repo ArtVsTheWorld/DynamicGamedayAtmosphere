@@ -88,6 +88,13 @@ inline int priority(Event e){
 }
 inline Event preferred(Event a,Event b){return priority(b)>priority(a)?b:a;}
 inline bool normalDown(const Play& p){return p.down>=1&&p.down<=4&&(p.offense==0||p.offense==1);}
+// Verified OffensePlayType values: QBRunKneel=37, PassStopClock=38.
+// Fake spikes (107) remain ordinary live plays.
+inline bool clockManagementType(int type){return type==37||type==38;}
+inline bool clockManagement(const Play& p){return clockManagementType(p.selectedType);}
+inline bool clockManagementContext(const Play& current,const Play& snap,uint64_t sequence){
+    return clockManagement(current)||((current.game.phase==3||current.game.phase==4||current.game.phase==5||current.game.phase==7)&&sequence&&clockManagement(snap));
+}
 // The native line of scrimmage is available even without a selected-player
 // presentation context. Use the direction verified before the snap, since the
 // first-down line can move behind the ball while the result is being presented.
@@ -263,18 +270,18 @@ struct Tracker {
                 bool fresh=!overtime(s)||(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp);
                 if(!scoreUsed&&fresh){
                     o.completed=true;o.sequence=serial;
-                    if(normalDown(start)&&normalDown(p)&&start.offense==p.offense){o.side=start.offense;o.firstDown=earnedFirstDown(start,p,sawFirstDown);o.yards=gainedYards(start,p);}
+                    if(normalDown(start)&&normalDown(p)&&start.offense==p.offense){o.side=start.offense;o.firstDown=!clockManagement(start)&&earnedFirstDown(start,p,sawFirstDown);o.yards=gainedYards(start,p);}
                     if(normalDown(start)&&(p.offense!=start.offense||terminalPick)&&(sawPick||sawFumble)){
                         o.takeaway=true;o.side=1-start.offense;o.defendingLead=o.side==0?start.game.homeScore-start.game.awayScore:start.game.awayScore-start.game.homeScore;o.opponentToGoal=start.toGoal;
                     }
                     o.setback=!s.neutral&&((start.offense==0&&p.offense==1)||(start.offense==1&&p.offense==1&&p.down==1&&sawFirstDown));
                     if((c.eruptions||c.momentum)&&normalDown(start)){
-                        if(offenseSupported&&earnedFirstDown(start,p,sawFirstDown)){
+                        if(offenseSupported&&!clockManagement(start)&&earnedFirstDown(start,p,sawFirstDown)){
                             if(gainedYards(start,p)>=9.99f){o.event=preferred(o.event,Event::ExplosiveGain);o.side=start.offense;}
                             if(start.down==3){o.event=preferred(o.event,Event::ThirdDownConversion);o.side=start.offense;}
                             if(start.down==4&&!start.specialTeams){o.event=preferred(o.event,Event::FourthDown);o.side=start.offense;}
                         }
-                        if(defenseSupported){
+                        if(defenseSupported&&!clockManagement(start)){
                             Event defensive=Event::None;
                             if(freshResult&&sawBlockedFieldGoal&&start.selectedType==21){o.blockedFieldGoal=true;defensive=Event::BlockedFieldGoal;}
                             // A fresh native sack can settle before its field
@@ -292,7 +299,7 @@ struct Tracker {
                             bool sackPosition=p.offense==start.offense&&
                                 (gain==-1000||(std::isfinite(gain)&&gain<=0.01f&&gain>-1000));
                             bool sackOnDowns=freshResult&&start.down==4&&!start.specialTeams&&p.offense==1-start.offense&&p.down==1&&!sawPick&&!sawFumble;
-                            if(sawSack&&!sawPick&&(sackPosition||sackOnDowns)){defensive=preferred(defensive,Event::Sack);o.sack=true;}
+                            if(sawSack&&!start.specialTeams&&!sawPick&&(sackPosition||sackOnDowns)){defensive=preferred(defensive,Event::Sack);o.sack=true;}
                             // A fumble during an interception return may belong
                             // to the other defense; do not guess its team.
                             if(sawForcedFumble&&!sawPick){defensive=preferred(defensive,Event::ForcedFumble);o.forcedFumble=true;}

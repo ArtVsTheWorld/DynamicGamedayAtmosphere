@@ -32,6 +32,22 @@ inline float cap(float intensity,uint64_t positions){
     if(soft<=.000001f)return (std::min)(intensity,maximum);
     return knee+(maximum-knee)*(-std::expm1(-(intensity-knee)/(maximum-knee)));
 }
+inline float peakWeight(float native){
+    float x=(std::clamp)((native-350.f)/650.f,0.f,1.f);
+    return x*x*(3-2*x);
+}
+inline float capBlend(const Intent& value){
+    if(!knownSize(value.positions))return 0;
+    float start=(std::clamp)(value.start,.01f,.50f);
+    float empty=1-(std::clamp)(value.fullness/start,0.f,1.f);
+    return (std::clamp)(value.strength,0.f,1.f)*empty*empty*(3-2*empty);
+}
+inline float finish(float output,float native,uint64_t positions,float blend){
+    // The size ceiling calms the bed, not the native big-play peak. Restore
+    // that peak progressively; attendance scaling remains in apply().
+    float weight=(std::clamp)(blend,0.f,1.f)*(1-peakWeight(native));
+    return output+(cap(output,positions)-output)*weight;
+}
 inline float target(const Intent& value){
     float start=(std::clamp)(value.start,.01f,.50f);
     float fraction=(std::clamp)(value.fullness/start,0.0f,1.0f);
@@ -45,14 +61,10 @@ inline float target(const Intent& value){
     return 1-(std::clamp)(value.strength,0.0f,1.0f)*(1-adjusted);
 }
 inline float apply(float native,float factor){
-    // The same native-intensity correction follows ambience AND native peaks.
-    // No high-excitement exemption: a sparse crowd can react without returning
-    // to full-stadium intensity. This is not a mute or a volume percentage.
-    float x=(std::clamp)((native-350.0f)/650.0f,0.0f,1.0f);
-    float peak=x*x*(3-2*x);
-    // Preserve the tested ordinary bed. Trim native peaks progressively more
-    // in sparse crowds, with up to 35% extra reduction at the lowest presence.
-    return native*factor*(1-.35f*(1-factor)*peak);
+    // Preserve the tested bed curve and the native peak's dynamic range.
+    // Peaks still scale with actual crowd presence; an empty stadium cannot
+    // regain full-crowd intensity just because the game supplied a big peak.
+    return native*(std::clamp)(factor,0.f,1.f);
 }
 class Fade {
     float value_=1,target_=1,left_=0;

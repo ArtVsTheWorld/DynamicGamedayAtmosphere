@@ -68,17 +68,17 @@ public:
             if(!state.lowered&&calmer.presentation)state.quiet.reset(target);
             factor=state.quiet.advance(target,dt);
         }else state.quiet.reset();
-        bool capWanted=lower&&quiet::knownSize(calmer.positions)&&calmer.strength>0&&calmer.fullness<calmer.start;
+        float capWanted=lower?quiet::capBlend(calmer):0;
         float capWeight=0;
         if(lower){
-            if(!state.lowered&&calmer.presentation)state.size.reset(capWanted?1.f:0.f);
-            capWeight=state.size.advance(capWanted?1.f:0.f,dt);
+            if(!state.lowered&&calmer.presentation)state.size.reset(capWanted);
+            capWeight=state.size.advance(capWanted,dt);
         }else state.size.reset(0);
         state.lowered=lower;
         float bed=lower?quiet::apply(native,factor):native;
         // A qualifying added reaction takes priority over a calmer bed.
         float output=bed+((std::max)(bed,desired)-bed)*state.weight;
-        if(capWeight>0)output+=(quiet::cap(output,calmer.positions)-output)*capWeight;
+        if(capWeight>0)output=quiet::finish(output,native,calmer.positions,capWeight);
         bool override=std::fabs(output-native)>0.01f;
         if(!override)output=native; // Finish restoration at the exact native value.
         if(override||state.applied){

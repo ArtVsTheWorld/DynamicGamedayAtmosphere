@@ -575,6 +575,16 @@ namespace DynamicGamedayAtmosphere {
             foreach(string note in new[]{"; Random motion ceiling on critical downs during packed-house/big-game buildup.","; Third down needs 7 or fewer yards."})stock.Add(note);
             foreach(string note in new[]{"; Gives eligible play-call buildup extra energy early in Q1, then settles it.","; This is part of the play-call system, not a separate pregame sound loop."})stock.Add(note);
             foreach(string note in new[]{"; Changes fade over about six seconds. Native reactions follow the same quieting as ambience.","; Pauses, replays and unsupported audio routes return to the game's own intensity."})stock.Add(note);
+            // Retired stock help from the previous Update 3 candidate.
+            stock.Add("; Added reactions inherit the size-based fullness requirement of their qualifying play.");
+            stock.Add("; Adds anticipation while a verified pass is in flight on an eligible layered play.");
+            stock.Add("; Below the fullness threshold, venues with up to 10,000 mapped positions settle below 100 excitement.");
+            stock.Add("; Changes fade over about six seconds. High native excitement receives an extra sparse-crowd peak trim.");
+            stock.Add("; Keeps the existing atmosphere/fullness gates; no extra volume bonus, cheer or shake before the result.");
+            stock.Add("; Landed hit sticks retain their impact. A fresh credited hurdle may settle after the whistle.");
+            stock.Add("; This ceiling rises smoothly with stadium size. Sparse large bowls retain more crowd presence.");
+            stock.Add("; Uses the same qualifying atmosphere/fullness, cooldowns and volume limits.");
+            stock.Add("; hurdles, jukes, spins and broken tackles. Trucks use the native big-hit crowd sound.");
             stock.Add("; Changes fade over about six seconds. Strong native reactions keep their excitement.");
             stock.Add("; Required fullness scales from 99% at 6,060 positions to 60% at 61,888.");
             stock.Add("; Smaller venues use 99%; larger venues use 60%. Empty positions count toward size.");
@@ -745,7 +755,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=Number(existing,"General","AudioBalanceVersion",0)<42&&Number(defaults,"General","AudioBalanceVersion",0)>=42&&
+            bool refreshHelp=Number(existing,"General","AudioBalanceVersion",0)<43&&Number(defaults,"General","AudioBalanceVersion",0)>=43&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
             upgraded=RetuneGamedayDefaults(upgraded,defaults);
@@ -801,6 +811,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=Retune1558(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,40);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,42);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,43);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

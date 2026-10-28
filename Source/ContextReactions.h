@@ -20,7 +20,7 @@ inline bool kneelable(const energy::Play& after,int side){
     return timeouts>=0&&timeouts<=2&&s.seconds<=(3-timeouts)*40.f;
 }
 inline energy::Outcome apply(energy::Outcome r,const energy::Play& snap,const energy::Play& after,float fullness,uint64_t positions,bool enabled=true){
-    if(!r.accepted||!r.completed||!r.sequence||!energy::normalDown(snap))return r;
+    if(!r.accepted||!r.completed||!r.sequence||!energy::normalDown(snap)||energy::clockManagement(snap))return r;
     bool own=snap.offense==1||after.game.neutral;
     bool noScore=!r.homePoints&&!r.awayPoints;
     bool stopped=noScore&&!r.firstDown&&!snap.specialTeams&&(after.offense!=snap.offense||after.down>snap.down);

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.69.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.70.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -178,7 +178,7 @@ Sound uses measured occupied seating, including arrivals, departures and tempora
 
 The volume cuts in this table apply only to venues with 12,000 or fewer mapped positions. Larger venues receive the calmer native crowd, with no added crowd-category volume cut. The boosts above 75% remain available at all stadium sizes.
 
-Below 50% fullness, the mod selects calmer crowd ambience through the game's own excitement control. Native peaks are restrained too. Sparse venues with 10,000 or fewer mapped positions settle below 100 excitement; that ceiling rises smoothly with stadium size, reaching the normal 1,000 range at 61,888 positions. A large stadium with thousands of fans retains more presence than a tiny crowd. These are mapped crowd positions, not a listed real-world seating capacity. Changes blend over about six seconds.
+Below 50% fullness, the mod selects calmer background ambience through the game's own excitement control. The background ceiling blends in progressively with empty seats and quieting strength, without switching fully on just below the threshold. Native big-play peaks progressively bypass that background ceiling while keeping the ordinary crowd-presence scaling; an empty stadium stays at its lowest excitement. This preserves the difference between a calmer bed and an earned cheer. The bed ceiling also rises with stadium size. These are mapped crowd positions, not a listed real-world seating capacity. Background changes blend over about six seconds.
 
 Only venues with **12,000 or fewer verified mapped seating positions** receive the separate gentle crowd-volume cut. It starts below the same threshold and grows linearly to a maximum of 25% at zero fullness. This also reaches chants through the game's crowd category. It never mutes the category, compounds over time or changes the saved crowd-volume setting. Larger venues use native intensity quieting alone below 50% fullness. The cut can be reduced or disabled separately in the INI. Above 50% it adds no cut, and existing boost limits stay unchanged.
 
@@ -186,7 +186,7 @@ Native intensity changes crowd character rather than applying an exact loudness 
 
 The boosts above 75% adjust the sound signal; perceived loudness depends on the sound and your settings. High-leverage moments can reach +35% total and eruptions +50% total. Boosts do not stack on top of those caps.
 
-Added sound layers require a qualifying situation and its stadium-size-based fullness threshold. Added reactions and celebration movement inherit the requirement of the play that qualified. The game's own reactions, ordinary fullness-based volume and quieting continue independently.
+Full sound layers require a qualifying situation and its stadium-size-based fullness threshold. Below that gate, verified plays can receive one native cheer or disappointment sound, and skills/airborne passes can use short softer swells. This sound-only route adds no passive roar, follow-up cheer, shake, eruption or volume bonus. Full reactions and celebration movement retain their existing requirements. Native reactions, fullness-based volume and sparse-crowd quieting remain separate.
 
 ### Upset Watch sound
 
@@ -250,7 +250,7 @@ The game's own Stadium Pulse camera shake is also suppressed below 50% actual se
 
 ### Skill moves, hits and important stops
 
-Confirmed successful trucks, stiff arms, hurdles, jukes, spins and broken tackles can receive a short cheer and movement accent. Landed hit sticks get a sound accent; their shake requires a confirmed third- or fourth-down stop. Move attempts alone do not count. These use the same atmosphere, fullness and home/neutral rules as other added reactions, with at least 0.9 seconds between accents and at most three per play. Success plus broken-tackle evidence from the same collision becomes one accent. A skill accent never restarts an already-running long-gain shake; touchdowns and eruptions take priority. SkillMoveReactions turns these accents on or off. Truck, stiff-arm and hurdle success signals, broken tackles and landed hit sticks were observed live; final-build sound/motion and the remaining skill signals still need targeted checks.
+Confirmed successful trucks, stiff arms, hurdles, jukes and spins can receive a short sound and movement accent. Regular broken tackles use a short swell without adding or restarting shake. A separately earned long-gain or touchdown reaction can continue on the same play. Landed hit sticks get a sound accent; their shake requires a confirmed third- or fourth-down stop. Move attempts alone do not count. Sound-only accents can work below the atmosphere gate; movement keeps its existing fullness and home/neutral rules, with at least 0.9 seconds between accents and at most three per play. Success plus broken-tackle evidence from the same collision becomes one accent. Kneel-downs and clock-stopping spikes do not get added buildup or sack/stop reactions. Verified away takeaways clear the previous home-positive motion immediately. A skill accent never restarts an already-running long-gain shake; touchdowns and eruptions take priority. SkillMoveReactions turns these accents on or off. Truck, stiff-arm and hurdle success signals, broken tackles and landed hit sticks were observed live; final-build sound/motion and the remaining skill signals still need targeted checks.
 
 A third-down defensive stop inside the five receives the normal impact. A fourth-down goal-line stand receives a slightly stronger impact. Fourth-down conversion reactions start when the live ball crosses the first-down line; a later qualifying run or catch-and-run remains eligible for its own accent. Native voice limits still apply.
 
