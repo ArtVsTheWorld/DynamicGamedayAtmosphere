@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.70.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.71.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -332,9 +332,9 @@ The game supplies a dedicated conference-championship flag. These games use play
 
 ### Camera movement
 
-Ordinary eligible play calls choose one stable random shake level from 3-5%. Critical downs choose 5-10%. A special immediate-cheer call uses 5% unless the stronger critical-down range applies. These settings control camera movement, not volume, Stadium Pulse or gameplay home-field advantage.
+Ordinary eligible play calls choose one stable random shake level from 3-5%. Critical downs choose 5-10% before a 15% reduction for the home offense (4.25-8.5% by default). Home-defense and neutral-site critical downs keep the full range. A special immediate-cheer call uses 5% unless the stronger critical-down range applies. These settings control camera movement, not volume, Stadium Pulse or gameplay home-field advantage.
 
-Ordinary anticipation movement requires a qualifying big game, packed house or opening drive; eligible overtime and late winning drives can also use this gentle range. Close critical downs can receive 5-10% movement at their qualifying atmosphere threshold, without a packed-house label. Third down needs ten or fewer yards and an offensive play; fourth down needs an offensive go-for-it call. Overtime/late-drive ordinary downs stay gentle; their qualifying third/fourth downs can receive the critical range. Field goals and punts can receive ordinary movement. PATs and ordinary kickoffs do not; a big game's opening kickoff can use the gentle level on either kicking or receiving formations and carry it briefly through the whistle. It uses the big-game opening fullness requirement, so packed-house status is not needed. A qualifying return builds from 30 yards to full reaction strength and one cheer at 40.
+Ordinary anticipation movement requires a qualifying big game, packed house or opening drive; eligible overtime and late winning drives can also use this gentle range. Close critical downs can receive 5-10% movement at their qualifying atmosphere threshold, without a packed-house label. Third down needs ten or fewer yards and an offensive play; fourth down needs an offensive go-for-it call. Overtime/late-drive ordinary downs stay gentle; their qualifying third/fourth downs can receive the critical range. Field goals can receive ordinary movement. Pre-punt buildup uses half the ordinary movement (1.5-2.5% by default); earned return reactions keep their own strength. PATs and ordinary kickoffs do not; a big game's opening kickoff can use the gentle level on either kicking or receiving formations and carry it briefly through the whistle. It uses the big-game opening fullness requirement, so packed-house status is not needed. A qualifying return builds from 30 yards to full reaction strength and one cheer at 40.
 
 At base duration, a touchdown opens at 20%, settles to 15%, holds through about six seconds, then fades out by eleven seconds. An eruption opens at 30%, settles to 22.5%, holds through about eight seconds, and fades out by sixteen seconds. Play distance does not extend these profiles. Every added shake softens automatically on close-ups and compensates for wider views, with a bounded adjustment. The game keeps its camera angle and zoom; camera compensation never changes audio volume.
 

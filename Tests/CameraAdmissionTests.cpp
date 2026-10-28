@@ -40,8 +40,8 @@ int main(){
     auto p=fixture();p.game.quarter=5;p.game.seconds=0;motion::Settings settings;
     for(bool critical:{false,true}){
         p.down=critical?3:1;p.toFirst=10;auto admit=lineup::cameraAdmission(c,p,.50f,true,61888,3);assert(admit.allowed&&admit.critical==critical);
-        motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.phase=1;x.now=1000;x.allowed=x.lineup=true;x.lineupId=1;x.lineupScale=.5f;x.venueEligible=admit.allowed;x.critical=admit.critical;
-        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=critical?7.5f:4.0f;
+        motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.phase=1;x.now=1000;x.allowed=x.lineup=true;x.lineupId=1;x.lineupScale=.5f;x.venueEligible=admit.allowed;x.critical=admit.critical;x.lineupStrengthScale=admit.strengthScale;
+        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=(critical?7.5f:4.0f)*admit.strengthScale;
         assert(std::fabs(motion::strength(cue,x.now)-level)<.001f);
         x.phase=3;x.lineup=false;x.now=2100;assert(model.observe(settings,x).tail);x.now=3000;assert(model.observe(settings,x).kind==motion::Kind::None);
     }
@@ -49,5 +49,28 @@ int main(){
     p=fixture();p.game.quarter=1;p.game.seconds=720;p.game.rank0=6;p.game.rank1=11;
     assert(lineup::cameraAdmission(c,p,.50f,true,6060,3).allowed);
     assert(lineup::cameraAdmission(c,p,.90f,true,6060,3).allowed);
+    // Home-offense critical downs soften; home-defense/neutral critical downs
+    // keep their strength. Punts soften independently of side and custom ceiling.
+    for(bool neutral:{false,true})for(int side:{0,1})for(int type:{3,21,22})for(int down:{1,3,4})for(float ceiling:{0.f,4.f,10.f,30.f}){
+        p=fixture();p.offense=side;p.game.neutral=neutral;p.down=down;
+        auto admit=lineup::cameraAdmission(c,p,1,true,61888,type);assert(admit.allowed);
+        float scale=type==22?.5f:admit.critical&&!neutral&&side==0?.85f:1.f;
+        assert(admit.strengthScale==scale);
+        auto custom=settings;custom.ordinary=custom.critical=ceiling;
+        motion::Model model;motion::Input x;x.match=456;x.epoch=1;x.now=1000;x.phase=1;x.allowed=x.lineup=x.venueEligible=true;
+        x.lineupId=1;x.lineupScale=.5f;x.critical=admit.critical;x.lineupStrengthScale=admit.strengthScale;
+        model.observe(custom,x);x.now=2000;auto cue=model.observe(custom,x);
+        float expected=motion::lineupStrength(custom,admit.critical,.5f)*scale;
+        assert(std::fabs(motion::strength(cue,x.now)-expected)<.001f);
+        x.phase=3;x.lineup=false;x.now=2100;cue=model.observe(custom,x);
+        assert(std::fabs(motion::strength(cue,x.now)-expected)<.001f);
+        x.now=2550;cue=model.observe(custom,x);assert(std::fabs(motion::strength(cue,x.now)-expected*.5f)<.001f);
+        // A return/long run and touchdown use their own settings after buildup.
+        x.now=3100;x.duringPlay=1;model.observe(custom,x);x.now=3400;cue=model.observe(custom,x);
+        assert(cue.kind==motion::Kind::LivePlay&&std::fabs(motion::strength(cue,x.now)-custom.live)<.001f);
+        x.phase=4;x.now=3500;x.touchdown=1;model.observe(custom,x);x.now=3800;cue=model.observe(custom,x);
+        assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-custom.touchdownImpact)<.001f);
+        x.allowed=false;x.now=3900;assert(model.observe(custom,x).kind==motion::Kind::None);
+    }
     std::cout<<"PASS: independent third-and-10/fourth-down critical motion, stable 3-5/5-10 envelopes, gentle OT/late downs, special teams, side/neutral scope, strict size gates, pause-phase/sim/unknown rejection and 50% big-game opening allowance.\n";
 }

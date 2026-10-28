@@ -1796,6 +1796,7 @@ void atmosphereTick(){
     auto cameraAdmission=attendance::lineup::cameraAdmission(*audio,p,remaining,fullnessReady,fullnessReady?rendered->seats:0,selectedPlayType,openingKickoff,lineupAtmosphere.openingDriveQualified);
     motion.lineup=(p.game.phase==1||p.game.phase==5)&&lineupAtmosphere.shakeTier>0&&(p.game.phase==5||lineupAtmosphere.layeredActive())&&cameraAdmission.allowed;
     motion.lineupId=lineupAtmosphere.cameraLineupId();motion.critical=cameraAdmission.critical;
+    motion.lineupStrengthScale=cameraAdmission.strengthScale;
     motion.lineupScale=lineupAtmosphere.cameraChoice();motion.lineupCheer=lineupAtmosphere.cheerMoment;
     motion.hostileOpening=hostile?attendance::motion::hostileOpeningStrength(fullnessReady?rendered->seats:0,std::atomic_load(&cameraSettings)->hostileOpeningMaximum):0;
     motion.openingKickoff=openingKickoff&&(selectedPlayType==23||selectedPlayType==24);
@@ -2450,7 +2451,8 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Native shake requires")<<nativeShakeMinimum<<"% fullness (0 disables the native filter)\n";
     report.field("Camera shake enabled")<<(audio->cameraShake?"yes":"no")<<"\n";
     report.field("Ordinary buildup strength")<<(std::min)(3.0f,motion->ordinary)<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
-    report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% (third-and-10 or shorter; offensive fourth downs)\n";
+    report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% before home-offense 0.85x scaling (third-and-10 or shorter; offensive fourth downs)\n";
+    report.field("Punt buildup motion")<<"0.5x ordinary strength; return reactions use their own strength\n";
     report.field("Special lineup cheer strength")<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
     report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; first offensive play, either side":"; away must have the first offensive snap")<<"\n";
     report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; small venues use one third of this strength\n";

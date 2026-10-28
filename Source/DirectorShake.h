@@ -63,6 +63,7 @@ struct Input {
     bool venueEligible=false,duringAllowed=true,openingKickoff=false;
     uint64_t lineupId=0,touchdown=0,eruption=0,duringPlay=0;
     float lineupScale=1;bool lineupCheer=false,duringImpact=false,duringCatch=false;
+    float lineupStrengthScale=1;
     uint64_t runBuildup=0;float runProgress=0;
     uint64_t safety=0;
     unsigned distanceExtraMs=0;
@@ -91,6 +92,7 @@ public:
         if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
             if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;join(lineupCue_);}
             float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening):x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(settings,x.critical,x.lineupScale);
+            target*=std::isfinite(x.lineupStrengthScale)?(std::clamp)(x.lineupStrengthScale,0.f,1.f):0.f;
             if(std::fabs(target-lineupCue_.percent)>.01f){lineupCue_.transitionFrom=prior;lineupCue_.transitionAt=x.now;}
             lineupCue_.kind=x.critical?Kind::Critical:Kind::Ordinary;
             lineupCue_.percent=target;lineupCue_.hostileOpening=x.hostileOpening;lineupCue_.updated=x.now;

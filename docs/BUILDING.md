@@ -8,7 +8,7 @@ From the repository folder:
 .\Source\Build.ps1 -Automatic
 ```
 
-This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release1700` for working build 1.70.0. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release1710` for working build 1.71.0. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
 
 To compile the MMC adapter and make a download:
 

@@ -75,7 +75,8 @@ inline float bigGamePremium(const State& s,float fraction,float close){
     float finish=s.quarter==4&&s.quarterSeconds>0?1-(std::clamp)(s.seconds/(s.quarterSeconds*.25f),0.0f,1.0f):0;
     return (.20f+(s.playoff||s.conferenceChampionship?.05f:0)+.10f*finish)*close*presence;
 }
-struct CameraAdmission {bool allowed=false,critical=false;};
+inline constexpr float PuntCameraScale=.50f,HomeOffenseCriticalCameraScale=.85f;
+struct CameraAdmission {bool allowed=false,critical=false;float strengthScale=1;};
 inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Play& p,float fraction,bool known,uint64_t positions,int selectedType,bool openingKickoff=false,bool openingDrive=false){
     CameraAdmission out;
     if(!known||!std::isfinite(fraction)||fraction<0||fraction>1||!c.enabled||!c.lineups||!c.cameraShake||core::normalLimit(c)<=0||!valid(p.game)||p.simulated||
@@ -85,6 +86,10 @@ inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Pla
     bool important=energy::normalDown(p)&&p.down>=3&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&offensivePlay(selectedType)&&criticalCamera(p,selectedType);
     out.critical=important&&(fraction>=packed::standardMinimum(positions)||special);
     out.allowed=venue||special||out.critical||(c.opening&&openingDrive&&fraction>=packed::standardMinimum(positions));
+    // Scale only pre-snap motion. Sound and earned live/result reactions
+    // retain their own strengths; the motion model carries this into its tail.
+    if(selectedType==22)out.strengthScale=PuntCameraScale;
+    else if(out.critical&&!p.game.neutral&&p.offense==0)out.strengthScale=HomeOffenseCriticalCameraScale;
     return out;
 }
 struct Model {
