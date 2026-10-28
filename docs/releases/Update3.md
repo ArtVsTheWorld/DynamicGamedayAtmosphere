@@ -1,6 +1,6 @@
 # Update 3 - candidate
 
-Working build **1.78.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.79.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
 
 - **In-game settings:** A Gameday Atmosphere tab after Audio Settings, 35 essential controls across Attendance, Soundscape and Broadcast (10/12/13), toggles before numeric controls, no troubleshooting section, simpler option names/help, and Stadium Fullness beside Resume in the pause menu.
 - **Smoother sound and shake:** Live runs, catches, returns, touchdowns and eruptions hand off without restarting a full-size swell. Added movement is paired with crowd sound, follows appropriate live camera cuts, respects Dynamic Camera Effects and stays out of recorded replay.
@@ -30,3 +30,5 @@ Offline Dynasty is the verified mode. Other modes, every cannon venue and every 
 The user confirmed the curated settings menu works and looks good on 1.77. In TeamBuilder-home versus NIU, Play 52's 10-yard TD showed the full-screen replay followed by the inset, matching the lifecycle logs. Play 44's 20-yard TD at Q3 3:07 showed neither replay without skipping: the intermittent TD-selection failure remains a release blocker and is not fixed by 1.78. Slow Sim rendered replay/mode-switch confirmation is pending the next test game.
 
 The 1.78 rainy-win departure change has automated coverage and a representative score-path comparison (~37% to 26.8% visible fullness using the observed 72.3% opening density); it has not been run in the user's installed game. Other pending checks include audible late-down breakup/knockout and late-interception cheers, natural home forced-fumble onset, the earlier home-losing traffic window and advertised RTG/rare-event paths. A brief below-gate TD shake had no DGA cue/cannon in the log; native camera attribution remains unconfirmed. Native repeated-kneel postgame highlights are a separate unresolved limitation. Custom stadium music is future feature research, not implemented in Update 3.
+
+Diagnostic candidate 1.79 adds bounded selector/event/replay-node tracing for confirmed TDs only. It does not change routing or claim to fix the intermittent TD replay failure.

@@ -80,6 +80,7 @@
 #include "AttendanceTimeline.h"
 #include "ReplayUpdateHook.h"
 #include "ReplayPresentation.h"
+#include "ReplaySelectionTrace.h"
 #include "MajorReplay.h"
 #include "PauseMenu.h"
 #include "NativeSettingsMenu.h"
@@ -218,6 +219,7 @@ attendance::replaymode::Tracker replayModeTracker;
 std::atomic<attendance::replaymode::Mode> replayMode{attendance::replaymode::Mode::Unknown};
 std::mutex majorReplayMutex;attendance::majorreplay::Model majorReplay;attendance::energy::Tracker replayPlayTracker;
 A replayTrackerMatch=0;unsigned replayTrackerEpoch=0;attendance::energy::Play replayObserved;
+std::mutex replayTraceMutex;attendance::replaytrace::Buffer replayTrace;
 void observeMajorReplay(bool dispatch);bool guardedMajorReplay(bool dispatch);
 void __fastcall replayEventNode(A node);void __fastcall nativeReplayNode(A node,float delta);
 
@@ -575,7 +577,7 @@ bool commitPatches(){
 void log(const char* event,const std::string& message) {
     std::lock_guard<std::mutex> guard(logMutex);
     const std::string kind=event;
-    if(!debugLog&&kind!="defensive-proof"&&kind!="major-replay"&&kind!="starting"&&kind!="ready"&&kind!="inactive"&&kind!="fault"&&kind!="quarter-break"&&
+    if(!debugLog&&kind!="defensive-proof"&&kind!="major-replay"&&kind!="replay-select"&&kind!="starting"&&kind!="ready"&&kind!="inactive"&&kind!="fault"&&kind!="quarter-break"&&
        kind!="two-minute"&&kind!="departures"&&kind!="arrivals"&&kind!="halftime"&&kind!="opening"&&kind!="eruption"&&
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
@@ -667,9 +669,40 @@ bool writeReplayBoolean(A address,bool value=true){
     __try{*reinterpret_cast<unsigned char*>(address)=static_cast<unsigned char>(value);return true;}
     __except(EXCEPTION_EXECUTE_HANDLER){replayPresentationFailed=true;return false;}
 }
+void recordReplaySelection(A node,int family,int native,int output,bool allowed,int phase){
+    if(!enabled||mode!=0||at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)return;
+    A wrapper=at<A>(image+attendance::bindings::MatchWrapper),match=at<A>(wrapper+16);
+    if(at<A>(match)!=image+attendance::bindings::MatchVtable)return;
+    attendance::replaytrace::Record r;r.node=node;r.at=GetTickCount64();r.family=family;r.phase=phase;r.native=native;r.output=output;r.allowed=allowed;
+    uint64_t sequence=0;unsigned epoch=audioEpoch.load();
+    {
+        std::lock_guard<std::mutex> lock(majorReplayMutex);
+        if(replayTrackerMatch!=match||replayTrackerEpoch!=epoch)return;
+        sequence=replayPlayTracker.serial;r.armed=static_cast<int>(majorReplay.kind());r.stage=static_cast<int>(majorReplay.stage());
+        r.startHome=replayPlayTracker.start.game.homeScore;r.startAway=replayPlayTracker.start.game.awayScore;r.down=replayPlayTracker.start.down;
+        r.result=replayObserved.resultStamp;r.startResult=replayPlayTracker.startStamp;
+    }
+    r.home=at<int>(match+0x1d8);r.away=at<int>(match+0x1dc);
+    A replay=at<A>(image+attendance::bindings::ReplayManager);r.replaying=at<A>(replay)==image+attendance::bindings::ReplayVtable&&at<unsigned char>(replay+0x38)!=0;
+    std::lock_guard<std::mutex> lock(replayTraceMutex);replayTrace.add(match,epoch,sequence,r);
+}
+void flushReplaySelection(){
+    std::array<attendance::replaytrace::Record,128> rows{};std::array<uint64_t,128> sequences{};unsigned count=0;
+    {std::lock_guard<std::mutex> lock(replayTraceMutex);replayTrace.flush([&](uint64_t sequence,const auto& r){if(count<rows.size()){rows[count]=r;sequences[count++]=sequence;}});}
+    for(unsigned i=0;i<count;++i){const auto& r=rows[i];
+        const char* family=r.family==1?"TD predicate":r.family==2?"takeaway predicate":r.family==3?"quick-presentation selector":r.family==4?"quick-TD selector":r.family==10?"native inset event":r.family==11?"native replay node entered":r.family==12?"native replay node completed":"other";
+        std::ostringstream out;out<<"Play #"<<sequences[i]<<"; tick "<<r.at<<"; "<<family<<"; identity 0x"<<std::hex<<r.node<<std::dec
+            <<"; phase "<<r.phase<<"; native/output "<<r.native<<"/"<<r.output<<"; modifications allowed "<<r.allowed
+            <<"; armed kind/stage "<<r.armed<<"/"<<r.stage<<"; score "<<r.startHome<<"-"<<r.startAway<<" -> "<<r.home<<"-"<<r.away
+            <<"; snap down "<<r.down<<"; result fresh "<<(r.result&&r.result!=r.startResult)<<"; playback active "<<r.replaying<<".";
+        log("replay-select",out.str());
+    }
+}
 bool __fastcall museLogicEvaluate(A node,A context){
     auto view=replayPresentationView();
     if(replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed)guardedMajorReplay(false);
+    int selectorPhase=at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0);
+    auto traceRoute=replaySelection.depth==0&&majorReplayBindings&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3?view.major(node):attendance::replaypresentation::MajorRoute::None;
     bool majorRoot=replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays;
     attendance::majorreplay::Kind wantedMajor=attendance::majorreplay::Kind::None;
     if(majorRoot&&replayPresentationAllowed()){
@@ -680,6 +713,7 @@ bool __fastcall museLogicEvaluate(A node,A context){
     attendance::replaypresentation::Scope scope(replaySelection,view,node,
         replaySelection.depth==0&&replayPresentationAllowed(),bigPlayReplays.load(),routineInsets&&replayMode==attendance::replaymode::Mode::PlayCall,defensiveReplays.load());
     bool valid=originalMuseLogic(node,context);
+    int nativeValue=valid&&traceRoute!=attendance::replaypresentation::MajorRoute::None?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1;
     if(valid&&majorRoute!=attendance::replaypresentation::MajorRoute::None){
         if(majorRoute==attendance::replaypresentation::MajorRoute::Takeaway&&view.trueBoolean(node+0x38)&&view.challengeExcluded(node)){
             std::lock_guard<std::mutex> guard(majorReplayMutex);
@@ -697,6 +731,8 @@ bool __fastcall museLogicEvaluate(A node,A context){
         if(promote&&view.falseBoolean(node+0x38)&&writeReplayBoolean(node+0x38))++fullEligibilityChanges;
         if(decline&&view.trueBoolean(node+0x38)&&writeReplayBoolean(node+0x38,false))++fullEligibilityChanges;
     }
+    if(traceRoute!=attendance::replaypresentation::MajorRoute::None)
+        recordReplaySelection(node,static_cast<int>(traceRoute),nativeValue,valid?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1,replayPresentationAllowed(),selectorPhase);
     // A Logic Eval's return means its cached variant is valid, not that its
     // Boolean is true. The native parent reads this cache after Eval returns.
     if(valid&&node==replaySelection.selection.insetGate&&extraReplays&&routineInsets&&!replayPresentationFailed&&
@@ -1611,6 +1647,8 @@ void __fastcall replayEventNode(A node){
             handled=majorReplay.suppressInset(match,audioEpoch.load());
         }
     }
+    if(at<A>(node)==image+attendance::bindings::ReplayEventNodeVtable&&at<int>(node+0x50)==12)
+        recordReplaySelection(node,10,0,handled?1:0,replayMode==attendance::replaymode::Mode::PlayCall,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     if(handled){if(finishReplayEvent(node))return;majorReplayFailed=true;}
     originalReplayEventNode(node);
 }
@@ -1621,7 +1659,11 @@ void __fastcall nativeReplayNode(A node,float delta){
         std::lock_guard<std::mutex> guard(majorReplayMutex);
         track=majorReplay.owns(match,epoch);if(track)majorReplay.node(match,epoch,node,false);
     }
+    bool traceNode=at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)!=3;
+    if(traceNode)recordReplaySelection(node,11,at<unsigned short>(node+0x1a),-1,track,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     originalNativeReplayNode(node,delta);
+    if(traceNode&&at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)==3)
+        recordReplaySelection(node,12,3,3,track,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     if(track&&at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)==3){
         std::lock_guard<std::mutex> guard(majorReplayMutex);majorReplay.node(match,epoch,node,true);
     }
@@ -1649,7 +1691,10 @@ void observeMajorReplay(bool dispatch){
             if(replayPlayTracker.serial)replaySnapType=replayPlayTracker.start.selectedType;
             if(majorReplayBindings&&!majorReplayFailed&&bigPlayReplays&&!play.simulated&&result.accepted&&result.completed){
                 int scored=(std::max)(result.homePoints,result.awayPoints);
-                if(scored>=6&&scored<=8)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Touchdown,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown);
+                if(scored>=6&&scored<=8){
+                    majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Touchdown,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown);
+                    std::lock_guard<std::mutex> traceLock(replayTraceMutex);replayTrace.confirm(match,epoch,result.sequence);
+                }
                 else if(result.takeaway)majorReplay.arm(match,epoch,now,result.sequence,attendance::majorreplay::Kind::Takeaway,routineInsets?presentationMode:attendance::replaymode::Mode::Unknown);
             }
         }
@@ -1720,6 +1765,7 @@ void updateDiagnostic(uint64_t now){
 void atmosphereTick(){
     auto now=GetTickCount64();uint64_t interval=lastAtmospherePhase==3||lastAtmospherePhase==4?16:50;
     if(now-lastAtmosphereTick<interval)return;lastAtmosphereTick=now;
+    flushReplaySelection();
     updateDiagnostic(now);
     static unsigned loggedCannons=0;auto fired=cannonStarts.load();if(fired!=loggedCannons){
         loggedCannons=fired;auto blast=std::atomic_load(&cannonBlast);float strength=std::atomic_load(&cameraSettings)->cannon;

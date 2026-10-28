@@ -1,6 +1,6 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.78.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working diagnostic candidate **1.79.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.72 also sharpens forced-fumble onset without changing strength or detection requirements. A live feel check is pending.
 
@@ -19,6 +19,8 @@ Candidate 1.76 trims the in-game menu to Attendance (10 controls), Soundscape (1
 Candidate 1.78 tunes the existing rainy home-win catch-up target only in the last half of Q4: a lead above 21 ramps to full severity at 35+. A non-stacking quarter-cap exception adds at most 10 points (proportionally less for low custom caps), with ranked and postseason floors preserved. Scores change pressure without an immediate deduction. A representative NIU-like Q4 simulation using 72.3% opening seating density moved from ~37% to 26.8% visible fullness. Live acceptance is pending.
 
 Latest 1.77 live findings: the user accepted the settings menu's operation and appearance; Play 52's 10-yard TD had both full-screen and separate inset playback, confirmed by the user and logs. The unskipped Play 44 TD (20 yards, Q3 3:07) had neither: touchdown selection remains an intermittent release blocker, not fixed in 1.78. Slow Sim rendered replay confirmation remains pending. No native-camera event trace identified the reported brief below-gate TD shake, though its DGA cue was inactive and no cannon was logged.
+
+Candidate 1.79 adds a bounded TD-selection diagnostic using the existing expression/event/replay-node hooks, without changing routing. Before score confirmation it retains recognized native TD/takeaway/quick-route decisions in a fixed 128-row per-play buffer. Only confirmed TDs flush to normal `[replay-select]` logs. Entries include monotonic tick, opaque node identity, phase, native/final cached Boolean, whether modifications were allowed, armed kind/stage, start/current score, native result freshness and replay activity. Native inset-event interception and replay-node entry/completion are included. This identifies selector families, not the exact executing presentation package or audible/rendered output. New play/match/epoch state clears old evidence. A paired read-only replay-clock capture is needed for recording timelines. The build is diagnostic; the TD blocker is not yet fixed.
 
 ## Confirmed so far
 
