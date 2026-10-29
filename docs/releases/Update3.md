@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.89.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.90.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **Sack flag carryover (1.90):** A changed result record no longer rearms a sack predicate already true at the next snap, including after a strip-sack changes possession. DGA also tracks the completed-play index selected by the native predicate; an old selected play cannot confirm a new sack. A new selected play preserves genuine back-to-back sacks, and a temporary false value for the same old selector cannot rearm it. The selector is read through guarded pointers/layout/getter bytes, without adding live-play native calls. Existing released-pass, kneel, special-team, ownership and measured-loss gates remain. The log identifies a carried flag without a verified reset. Regression coverage passes; the reported strip-sack-to-minus-two-run sequence still needs installed-build verification.
 
 - **First-game resume recognition (1.89):** Midgame Save can identify the first active game after a process restart as game0. DGA now accepts that zero-based generation and tracks initialization separately, so a verified applied resume reaches history restoration exactly once. PID, freshness, clock/score and matching applied-game checks remain. Live1.88 stayed at80% because its parser rejected game0 before reaching the corrected history matcher; the stored89% source remains intact. Regression checks cover this complete captured-signal-to-history path.
 

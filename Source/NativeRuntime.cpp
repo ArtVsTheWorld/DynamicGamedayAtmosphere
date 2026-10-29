@@ -72,6 +72,7 @@
 #include "SkillSwell.h"
 #include "ContextReactions.h"
 #include "NativePlayCall.h"
+#include "NativeSackFacts.h"
 #include "AttendanceMixer.h"
 #include "NativeAtmosphereContext.h"
 #include "NativeCapacity.h"
@@ -1659,6 +1660,9 @@ void readSettings(){
     if(missingAudio&&!missingAudioReported)log("configuration","Soundscape is requested but native audio hooks are unavailable. If it was off at launch, restart MMC/game; otherwise check binding failures above.");
     missingAudioReported=missingAudio;
 }
+int sackPlayIdentity(A tracker){
+    return attendance::sackfacts::selectedPlay(image,tracker,read);
+}
 bool defensiveFacts(bool& sack,bool& forcedFumble){
     // These are the game's presentation predicates. The sentinel requests
     // any sacker rather than filtering to a selected player; no gameplay writes.
@@ -1669,6 +1673,8 @@ bool defensiveFacts(bool& sack,bool& forcedFumble){
     }__except(EXCEPTION_EXECUTE_HANDLER){sack=forcedFumble=false;return false;}
 }
 bool playData(A match,attendance::energy::Play& p){
+    p.sackSampled=false;
+    p.sackPlay=-1;
     if(!playBindingsAvailable)return false;
     if(!read(match+0x1d0,&p.down,4)||!read(match+0x1c8,&p.offense,4))return false;
     if(p.down < -2||p.down>13||p.offense<0||p.offense>1)return false;
@@ -1724,17 +1730,22 @@ bool playData(A match,attendance::energy::Play& p){
         if(fumbleBinding){A ball=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);int substate=at<int>(ball+0x158);
             p.fumble=at<A>(ball)==image+0xb4753f0&&attendance::live::isFumbleState(at<int>(ball+0x168),substate);}
         if(defensiveReactionBindings&&enabled&&audioSetting&&std::atomic_load(&coreSettings)->enabled&&(p.game.phase==4||p.game.phase==5||p.game.phase==1||p.game.phase==7)){
-            // Query a result once per native identity/phase, not every frame.
-            // A later postplay phase can settle facts unavailable at the whistle.
+            // The predicate's completed-play selector has its own identity,
+            // separate from the mutable current result hash.
             static thread_local A cachedMatch=0;static thread_local unsigned cachedEpoch=0;
             static thread_local uint64_t cachedStamp=0;static thread_local int cachedPhase=-1;
+            static thread_local int cachedPlay=-1;
             static thread_local bool cachedSack=false,cachedForced=false;
             unsigned generation=audioEpoch.load();
-            if(cachedMatch!=match||cachedEpoch!=generation||cachedStamp!=stamp||cachedPhase!=p.game.phase){
+            int selected=sackPlayIdentity(tracker);
+            if(cachedMatch!=match||cachedEpoch!=generation||cachedStamp!=stamp||cachedPhase!=p.game.phase||cachedPlay!=selected){
                 cachedMatch=match;cachedEpoch=generation;cachedStamp=stamp;cachedPhase=p.game.phase;
+                cachedPlay=selected;
                 if(!defensiveFacts(cachedSack,cachedForced)){defensiveReactionBindings=false;log("defensive-reactions-unavailable","Native result check failed; flag-based sack/fumble reactions disabled. Measured five-yard losses and other effects remain supported.");}
             }
-            p.sack=cachedSack;p.forcedFumble=cachedForced&&p.fumble;
+            p.sackPlay=sackPlayIdentity(tracker);
+            p.sackSampled=defensiveReactionBindings&&selected>=0&&p.sackPlay==selected;
+            p.sack=cachedSack&&p.sackSampled;p.forcedFumble=cachedForced&&p.fumble;
         }
     }
     liveDown=p.down;liveOffense=p.offense;liveHomeTimeouts=p.homeTimeouts;return true;
@@ -2210,7 +2221,7 @@ void atmosphereTick(){
             reactionEligible?"eligible":basicReactionEligible?"sound-only; layered atmosphere not qualified":!(hadLayers||lineupAtmosphere.playContextActive())?"no qualifying atmosphere on this play":"fullness or competitiveness gate not met";
         if((playTracker.start.down==3||playTracker.start.down==4)&&!result.homePoints&&!result.awayPoints&&!result.firstDown&&!result.takeaway)
             log("defensive-proof","Play #"+std::to_string(result.sequence)+": knockout summary "+(knockoutSample.valid?"valid":"unavailable")+", current flag "+(knockoutSample.knockout?"on":"off")+", fresh knockout "+(catchKnockouts.proof()?"latched":"not observed")+"; defender deflection "+(defensiveAccents.deflectionProof()?"latched":defensiveAccents.pendingSide()?"waiting for defender ownership":"not observed")+"; result kind "+std::to_string(liveKind)+"; ball holder "+(ballHeld?"present":"none")+"; selected added reaction "+attendance::live::name(liveResult.event)+".");
-        const char* sackReason=attendance::energy::clockManagement(playTracker.start)?"suppressed for kneel/clock-stop play":result.sack?"confirmed":playTracker.sawPassReleased&&playTracker.sawSack?"suppressed: verified forward pass released this snap":!playTracker.sawSack?(p.sack?"raw flag present, but no fresh sack proof for this snap":"native sack proof not observed"):
+        const char* sackReason=attendance::energy::clockManagement(playTracker.start)?"suppressed for kneel/clock-stop play":result.sack?"confirmed":playTracker.sackAtSnap&&!playTracker.sackRearmed(p)?"suppressed: native sack predicate still belongs to the previous play":playTracker.sawPassReleased&&playTracker.sawSack?"suppressed: verified forward pass released this snap":!playTracker.sawSack?(p.sack?"raw flag present, but no fresh sack proof for this snap":"native sack proof not observed"):
             playTracker.start.offense==0&&!p.game.neutral?"away defense; home crowd does not celebrate":
             playTracker.sawPick?"interception result takes precedence":p.offense!=playTracker.start.offense?"possession changed; sack ownership not established":
             attendance::energy::gainedYards(playTracker.start,p)>0.01f?"contradictory positive yardage":"not selected; check scoring and event settings";

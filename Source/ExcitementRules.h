@@ -25,11 +25,12 @@ struct Play {
     float fieldSpot=std::numeric_limits<float>::quiet_NaN();int attackDirection=0;
     uint64_t resultStamp=0;
     bool interception=false,firstDown=false,fumble=false,simulated=false,resumed=false;
-    bool sack=false,forcedFumble=false;
+    bool sack=false,forcedFumble=false,sackSampled=false;
     int awayTimeouts=-1;
     bool specialTeams=false;
     int selectedType=-1;bool blockedFieldGoal=false;
     bool passReleased=false;
+    int sackPlay=-1;
 };
 enum class Event { None,FourthDown,GoalLine,PickSix,LateDrive,HomeScore,UpsetWin,
     OpeningReturn,OpeningTouchdown,LastSecondLead,Turnover,FourthStop,TakeLead,TieScore,LongTouchdown,BackfieldStop,ThirdStop,ExplosiveGain,OvertimeWin,ConversionStop,OvertimeConversion,ThirdDownConversion,GameWinningScore,EarlyTouchdown,OvertimeTakeaway,LateTakeaway,FumbleRecovery,ExplosiveTouchdown,Sack,ForcedFumble,HailMaryTouchdown,MadeFieldGoal,Safety,BlockedFieldGoal,GameSealingStop,GameSealingFirstDown };
@@ -157,6 +158,13 @@ struct Tracker {
     uint64_t serial=0,lastResultStamp=0;
     bool openingReliable=false,firstTouchdownSeen=false,hadTouchdownAtSnap=false,sawPick=false,sawFumble=false;
     bool sawSack=false,sawForcedFumble=false,sawBlockedFieldGoal=false,sawPassReleased=false;float defensiveLoss=-1000;
+    bool sackAtSnap=false,sackCleared=false;
+    int sackPlayAtSnap=-1;
+    int lastSackPlay=-1,blockedSackPlay=-1;
+    bool sackRearmed(const Play& p)const{
+        if(blockedSackPlay>=0&&p.sackPlay==blockedSackPlay)return false;
+        return !sackAtSnap||sackCleared||(sackPlayAtSnap>=0&&p.sackPlay>=0&&p.sackPlay!=sackPlayAtSnap);
+    }
     bool scorePending=false;float scorePendingAt=0;
     uint64_t countedPlay=0;unsigned verifiedPlays=0;
     void reset(){*this=Tracker{};}
@@ -196,6 +204,9 @@ struct Tracker {
             if(haveReady&&eligibleSnap(ready)&&ready.game.quarter==s.quarter&&
                ready.game.homeScore==s.homeScore&&ready.game.awayScore==s.awayScore){
                 start=ready;startStamp=p.resultStamp;inPlay=played=true;scoreUsed=resultUsed=sawFirstDown=sawPick=sawFumble=sawSack=sawForcedFumble=sawBlockedFieldGoal=sawPassReleased=false;defensiveLoss=-1000;++serial;
+                blockedSackPlay=lastSackPlay;
+                sackAtSnap=ready.sack||(ready.sackPlay>=0&&ready.sackPlay==lastSackPlay);
+                sackCleared=!sackAtSnap;sackPlayAtSnap=ready.sackPlay;
                 hadTouchdownAtSnap=firstTouchdownSeen;
                 openingKick=openingSeen&&!openingKickUsed&&ready.down==0&&s.quarter==1&&s.homeScore==0&&s.awayScore==0&&s.seconds>=s.quarterSeconds-1;
                 openingSnap=openingSeen&&!scrimmageUsed&&normalDown(ready)&&s.quarter==1&&s.homeScore==0&&s.awayScore==0;
@@ -205,10 +216,19 @@ struct Tracker {
             haveReady=false;
         }
         if(inPlay&&s.phase==3&&p.passReleased&&p.resultStamp&&p.resultStamp!=startStamp)sawPassReleased=true;
+        // Remember raw native sack identities even when that defense's reaction
+        // is unsupported or the flag briefly drops before the following snap.
+        if(p.sack&&p.sackPlay>=0)lastSackPlay=p.sackPlay;
+        // The completed-play selector can lag the current result hash after a
+        // strip-sack. Neither a new hash nor a temporary false value for that
+        // same old selector establishes a new sack. Prefer its native play ID;
+        // unknown-ID snapshots may rearm only on an explicitly sampled reset.
+        if((inPlay||scorePending)&&p.sackSampled&&!p.sack&&
+           (sackPlayAtSnap<0||(p.sackPlay>=0&&p.sackPlay!=sackPlayAtSnap)))sackCleared=true;
         bool finished=s.phase==4||s.phase==5||s.phase==1||s.phase==7;
         if((inPlay||scorePending)&&finished){
             sawFirstDown=sawFirstDown||p.firstDown;
-            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawBlockedFieldGoal=sawBlockedFieldGoal||p.blockedFieldGoal;sawSack=sawSack||p.sack;sawForcedFumble=sawForcedFumble||p.forcedFumble;}
+            if(p.resultStamp&&p.resultStamp!=startStamp&&p.resultStamp!=lastResultStamp){sawPick=sawPick||p.interception;sawFumble=sawFumble||p.fumble;sawBlockedFieldGoal=sawBlockedFieldGoal||p.blockedFieldGoal;sawSack=sawSack||(p.sack&&sackRearmed(p));sawForcedFumble=sawForcedFumble||p.forcedFumble;}
             // Save fresh loss proof before a fourth-down result flips the
             // field-position perspective. Stale result snapshots and
             // kicking plays cannot manufacture this defensive impact.

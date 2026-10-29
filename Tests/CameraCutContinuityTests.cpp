@@ -71,8 +71,9 @@ int main(){
         pairPlay.game.phase=phase;pairPlay.game.seconds=495;pairPlay.down=2;pairPlay.toFirst=17;pairPlay.fieldSpot=-7;pairPlay.resultStamp=11;pairPlay.sack=true;
         auto first=tracker.observe(pairRules,pairPlay);assert(first.sack&&first.yards==-7);
         pairPlay.game.phase=1;tracker.observe(pairRules,pairPlay);pairPlay.game.phase=3;pairPlay.game.seconds=490;pairPlay.passReleased=false;tracker.observe(pairRules,pairPlay);
+        pairPlay.sack=false;pairPlay.sackSampled=true;tracker.observe(pairRules,pairPlay); // Verified reset allows a genuine consecutive sack.
         pairPlay.resultStamp=12;pairPlay.passReleased=released;tracker.observe(pairRules,pairPlay);
-        pairPlay.game.phase=phase;pairPlay.game.seconds=485;pairPlay.down=3;pairPlay.passReleased=false;
+        pairPlay.game.phase=phase;pairPlay.game.seconds=485;pairPlay.down=3;pairPlay.passReleased=false;pairPlay.sack=true;
         auto second=tracker.observe(pairRules,pairPlay);assert(second.completed&&second.sack==!released);
         if(released)assert(second.event!=energy::Event::Sack&&tracker.sawPassReleased);
     }
