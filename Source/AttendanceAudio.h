@@ -12,6 +12,12 @@ inline constexpr std::array<unsigned short,8> Groups={9,12,13,14,15,16,17,18};
 inline constexpr std::array<const char*,8> Names={"Crowd","Anticipation_Home_Pass","Beds","Chants/Response","Reactions","StudentSection","Sweeteners","Swells"};
 inline float smooth(float x){x=(std::clamp)(x,0.f,1.f);return x*x*(3-2*x);}
 inline float quarter(float x){return std::round(x*4)*.25f;}
+// Halve the missing signal, rather than halving dB: a .335 native gain
+// becomes .6675. Keep positive detail gains unchanged.
+inline std::array<float,7> halfCuts(std::array<float,7> anchor){
+ for(auto& db:anchor)if(db<0)db=20*std::log10(.5f+.5f*std::pow(10.f,db/20));
+ return anchor;
+}
 inline float venueWeight(uint64_t seats){return (std::clamp)(std::log(static_cast<float>((std::max)(seats,uint64_t(6060)))/6060.f)/std::log(61888.f/6060.f),0.f,1.f);}
 inline float crossover(uint64_t seats){return .70f-.40f*venueWeight(seats);}
 struct Mix {
@@ -26,8 +32,8 @@ inline Mix mix(float fullness,uint64_t seats,float maximumPercent=30,float stren
  out.valid=true;fullness=(std::min)(fullness,1.f);maximumPercent=(std::clamp)(maximumPercent,0.f,30.f);float cap=volume::boostDb(maximumPercent);
  if(fullness==0){out.mute=true;out.gain[0]=-60;}
  else {
-  constexpr std::array<float,7> low={-11.75f,-9.5f,-9.5f,-7.75f,-17.5f,.75f,-19.f};
-  constexpr std::array<float,7> mid={-5.75f,-8.25f,-8.25f,-4.75f,-8.25f,-2.25f,-8.75f};
+  static const auto low=halfCuts({-11.75f,-9.5f,-9.5f,-7.75f,-17.5f,.75f,-19.f});
+  static const auto mid=halfCuts({-5.75f,-8.25f,-8.25f,-4.75f,-8.25f,-2.25f,-8.75f});
   constexpr std::array<float,7> powers={2,2.8f,2.8f,1.6f,2.8f,.8f,3};
   constexpr float a=3.f/7,b=5.f/7;std::array<float,7> net{};float point=crossover(seats);
   if(fullness<point){

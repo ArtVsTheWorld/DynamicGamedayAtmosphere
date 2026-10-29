@@ -31,7 +31,7 @@ struct Fixture {
 int main(){
  Fixture a,b;manager=a.m;attendance::balance::Runtime mix;mix.configure(image,create,release,source,clockValue);
  mix.tick(a.owner+0x40,true,attendance::balance::mix(.7f,6060));assert(!creates);
- auto sparse=attendance::balance::mix(.3f,6060);mix.tick(a.owner+0x40,true,sparse);assert(creates==1&&mix.netDb(1)==-9.5f&&mix.chantDb()==-9.5f);
+ auto sparse=attendance::balance::mix(.3f,6060);mix.tick(a.owner+0x40,true,sparse);assert(creates==1&&mix.netDb(1)==-3.5f&&mix.chantDb()==-3.5f);
  for(unsigned i=0;i<100;++i)mix.tick(a.owner+0x40,true,sparse);assert(creates==1);
  expectMute=true;mix.tick(a.owner+0x40,true,attendance::balance::mix(0,6060));assert(mix.muted()); // Mute bypasses transition throttle.
  expectMute=false;mix.tick(a.owner+0x40,false,sparse);assert(!handle&&creates==releases&&!mix.muted());

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 2.0.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 2.0.1 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -212,7 +212,7 @@ The native Crowd bus and its seven children now use one synchronized preset. Ful
 
 The vanilla crossover varies from about70% fullness in the smallest mapped stadium to30% in the largest. Above it, fuller crowds rise toward a30% signal-gain cap. Below it, continuous Beds and matching Chants thin, collective Reactions stay more present, and individual fan detail retains its own presence. Native event dynamics remain variable. The individual-detail gain control remains acoustically inconclusive after a high-gain listening test; no18dB test gain is included.
 
-The accepted6060-position mix uses native levels at70%, about+1dB at90%, Beds/Chants-8.25dB at50%, and final Beds/Chants-9.5dB at30%. Reactions at30% use-7.75dB; individual detail uses+0.75dB. Those are gain offsets, not perceived-loudness percentages. Higher-capacity venues use the same density profile around their earlier crossover and reach a larger packed-crowd lift.
+The6060-position mix uses native levels at70%, about+1dB at90%, and revised Beds/Chants-3.25dB at50% and-3.5dB at30%. The sparse negative-anchor signal reductions are half the previous cuts, subject to quarter-dB rounding. Reactions at30% use-3dB; individual detail retains+0.75dB. Those are gain offsets, not perceived-loudness percentages. Higher-capacity venues use the same density profile around their earlier crossover and reach a larger packed-crowd lift.
 
 Zero occupied seats explicitly mute Crowd. Ordinary pauses, interactive replay, disabled soundscape and ownership loss retire the preset; intros/postgame and automatic replays use the appropriate current/recorded crowd. Native excitement is never reduced by a sparse-crowd ceiling. Earned upward excitement and native reaction events retain their existing eligibility, timing and shake gates. No graph-volume reduction, independent chant cut or extra eruption bus-volume multiplier is stacked.
 

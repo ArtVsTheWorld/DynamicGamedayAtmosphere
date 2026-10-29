@@ -1,6 +1,6 @@
 # Releases
 
-Staged Update 3 test candidate: **2.0.0**, with the occupied-seat native audio mix and retired excitement limiter. Not published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
+Staged Update 3 test candidate: **2.0.1**, with the occupied-seat native audio mix and retired excitement limiter. Sparse-crowd cuts are reduced in 2.0.1: the smallest venue at 30% now gets about two-thirds of native bed signal. Not published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
 
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 

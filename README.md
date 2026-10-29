@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.0). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. Attendance, AP/prestige demand, section patterns and native HFA admission retain the 1.99 policy. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 test candidate (2.0.1). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. Attendance, AP/prestige demand, section patterns and native HFA admission retain the 1.99 policy. Update 2 remains the latest public release; this candidate is staged for testing, not published.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
