@@ -635,7 +635,8 @@ void initialLaunch(){
     using namespace attendance::turnout;
     Launch launch;
     if(!enabled||!initialSetting||!std::atomic_load(&settings)->enabled||mode!=0)return;
-    if(!native::launch(image,launch)){log("starting-attendance-inactive","Shared launch boundary reached, but final native options could not be verified; EA turnout preserved.");return;}
+    const char* failure=nullptr;
+    if(!native::launch(image,launch,nullptr,&failure)){log("starting-attendance-inactive",std::string("Shared launch check failed: ")+(failure?failure:"unknown")+"; EA turnout preserved.");return;}
     Seed seed;{std::lock_guard<std::mutex> guard(initialMutex);if(!initialSeeds.find(launch,GetTickCount64(),seed)){
         log("starting-attendance","EA attendance preserved: no fresh matching launch inputs (late attach, resume, or unsupported setup).");return;
     }}

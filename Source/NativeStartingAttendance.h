@@ -138,22 +138,40 @@ inline bool option(const Reader& r,A service,unsigned key,const char* name,unsig
     }
     return false;
 }
+// Named frontend IsInOrLoadingInToOnlineGame (adapter vslot1e0) combines
+// these native leaves: app state5 OR state4. Unlike gameplay config+84, this
+// state exists during setup. Mirror the reads; do not execute another API.
+inline constexpr A OnlineState=0xf3f5d48,OnlineLeaf=0x3009c10,OnlineLoadingLeaf=0x3009a50;
+inline constexpr std::array<unsigned char,11> OnlinePrefix={0x83,0x3d,0x31,0xc1,0x3e,0x0c,5,0x0f,0x94,0xc0,0xc3};
+inline constexpr std::array<unsigned char,11> OnlineLoadingPrefix={0x83,0x3d,0xf1,0xc2,0x3e,0x0c,4,0x0f,0x94,0xc0,0xc3};
 inline bool offline(A image){
-    Reader r{image};int mode=-1;A config=0;unsigned char online=1;
-    return r.value(image+0xd9e3818,mode)&&mode==14&&r.value(image+0xf6379e0,config)&&config&&r.value(config+0x84,online)&&online==0;
+    Reader r{image};int mode=-1,state=-1;A config=0;unsigned char online=1;
+    std::array<unsigned char,11> live{},loading{};
+    if(!r.value(image+0xd9e3818,mode)||mode!=14||!r.value(image+OnlineState,state)||state<0||state>5||state==4||state==5||
+       !r.read(image+OnlineLeaf,live.data(),live.size())||live!=OnlinePrefix||
+       !r.read(image+OnlineLoadingLeaf,loading.data(),loading.size())||loading!=OnlineLoadingPrefix||
+       !r.value(image+0xf6379e0,config))return false;
+    // Null is normal before the gameplay configuration is constructed. An
+    // existing object must still explicitly say offline; unreadable is unsafe.
+    return !config||(r.value(config+0x84,online)&&online==0);
 }
-inline bool launch(A image,Launch& l,const Api* custom=nullptr){
+inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** failure=nullptr){
+    auto fail=[&](const char* reason){if(failure)*failure=reason;return false;};if(failure)*failure=nullptr;
     Api api=custom?*custom:Api::engine(image);
     Reader r{image};A service=0;unsigned h=0,a=0,stadium=0,ea=0,time=0,precip=0,rivalry=1023,bowl=127;
-    if(!offline(image)||!r.value(image+OptionService,service)||
-       !option(r,service,0x9e8d2700,"gameHomeTeamId",2,h)||!option(r,service,0x9e1d2700,"gameAwayTeamId",2,a)||
-       !option(r,service,0xce7a6400,"gameStadiumId",2,stadium)||!option(r,service,0x9e1d2500,"gameAttendance",4,ea)||
-       !option(r,service,0x9f4be400,"gameTimeOfDay",2,time)||!option(r,service,0x9f7c2700,"gameWeatherPrecipitation",1,precip)||
-       !option(r,service,0x9f2e6900,"gameRivalryId",2,rivalry)||!option(r,service,0x9e2b2900,"gameBowlId",1,bowl)||bowl!=127)return false;
+    if(!offline(image))return fail("offline Dynasty/loading-state guard");
+    if(!r.value(image+OptionService,service)||!service)return fail("launch option service");
+    struct Field {unsigned key;const char* name;unsigned width;unsigned* value;};
+    const Field fields[]={{0x9e8d2700,"gameHomeTeamId",2,&h},{0x9e1d2700,"gameAwayTeamId",2,&a},
+        {0xce7a6400,"gameStadiumId",2,&stadium},{0x9e1d2500,"gameAttendance",4,&ea},
+        {0x9f4be400,"gameTimeOfDay",2,&time},{0x9f7c2700,"gameWeatherPrecipitation",1,&precip},
+        {0x9f2e6900,"gameRivalryId",2,&rivalry},{0x9e2b2900,"gameBowlId",1,&bowl}};
+    for(const auto& field:fields)if(!option(r,service,field.key,field.name,field.width,*field.value))return fail(field.name);
+    if(bowl!=127)return fail("gameBowlId is postseason");
     l.home=static_cast<int>(h);l.away=static_cast<int>(a);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);
     l.minutes=static_cast<int>(time);l.precipitation=static_cast<int>(precip);l.rivalry=rivalry!=1023;
     A unused=0;int capacity=0;
-    if(stadium>=1023||!api.capacity||!sustained::obtain(unused,api.capacity,l.stadium,&capacity)||unused!=0)return false;
+    if(stadium>=1023||!api.capacity||!sustained::obtain(unused,api.capacity,l.stadium,&capacity)||unused!=0)return fail("native stadium capacity query");
     l.capacity=capacity;return true;
 }
 inline bool setAttendance(A image,int count,const Api* custom=nullptr){
