@@ -6,7 +6,7 @@
 #include "../Source/HalftimeExitConversion.h"
 #include "../Source/LineupAtmosphere.h"
 #include "../Source/VenueMotion.h"
-#include "../Source/CrowdQuieting.h"
+#include "../Source/AttendanceAudio.h"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -70,8 +70,7 @@ Run simulate(const Fixture& f,uint64_t seats,int length=720,int window=30,bool d
                 probe.down=3;p.critical=lineup::cameraAdmission(atmosphere,probe,density,true,seats,3,false,firstDrive).allowed;
                 probe.down=1;probe.toGoal=30;probe.offense=0;p.late=lineup::cameraAdmission(atmosphere,probe,density,true,seats,3,false,false).allowed&&lineup::lateDrive(probe)>0;
                 p.upset=upsetsound::evaluate(s,seats,density,true,true).qualified;
-                quiet::Intent input;input.fullness=density;input.positions=seats;float factor=quiet::target(input);
-                p.nativePeak=quiet::finish(quiet::apply(1000,factor),1000,seats,quiet::capBlend(input));
+                p.nativePeak=1000; // Native excitement is no longer reduced; bus gain is separate.
                 assert(p.nativePeak>=0&&p.nativePeak<=1000);assert(density>=core::ReactionMinimumFullness||(!p.ordinary&&!p.critical&&!p.opening&&!p.late));
                 run.points.push_back(p);
             }

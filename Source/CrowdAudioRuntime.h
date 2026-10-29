@@ -5,11 +5,11 @@
 #include <mutex>
 #include <unordered_map>
 #include "CrowdAudioModel.h"
+#include "AudioIntent.h"
 #include "GameBindings.h"
 
 namespace attendance::audio {
 using Address=uintptr_t;
-struct Wanted {Address match=0;unsigned epoch=0;bool active=false;float remaining=1,strength=1.0f,emphasis=1,arrivalFraction=1,reductionStart=0.35f;};
 struct alignas(16) Parameter {uint32_t id,padding[3];float value;uint32_t tail[3];};
 static_assert(sizeof(Parameter)==32);
 using Update=Address(__fastcall*)(Address,Address,Address,Address);

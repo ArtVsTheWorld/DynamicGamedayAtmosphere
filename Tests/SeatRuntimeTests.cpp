@@ -391,17 +391,17 @@ int main(){
     assert(playTracker.serial==0); // Intro did not invent a play or score.
     assert(playTracker.openingSeen&&playTracker.openingReliable&&!playTracker.seen); // Fresh intro proof survives until the first gameplay phase.
     activeLoss=80;auto liveWanted=audioWanted();assert(std::fabs(audibleFullness(liveWanted)-.2f)<.00001f);
-    auto introVolume=audioVolumeWanted();assert(!introVolume.active&&std::fabs(introVolume.remaining-.2f)<.00001f&&introVolume.strength==.25f&&introVolume.reductionStart==.5f);
+    auto introVolume=audioBusMix();assert(introVolume.valid&&introVolume.key==attendance::balance::mix(.2f,56099).key);
     {std::shared_ptr<const attendance::occupancy::Rendered> small=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,12000,12000});
-        std::atomic_store(&renderedOccupancy,small);assert(audioVolumeWanted().active);
-        small=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,12001,12001});std::atomic_store(&renderedOccupancy,small);assert(!audioVolumeWanted().active);
+        std::atomic_store(&renderedOccupancy,small);assert(audioBusMix().valid);
+        small=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch.load(),audioEpoch.load(),1,12001,12001});std::atomic_store(&renderedOccupancy,small);assert(audioBusMix().valid);
         std::atomic_store(&renderedOccupancy,fullSeats);}
     replayLoss=10;assert(std::fabs(audibleFullness(liveWanted)-.9f)<.00001f); // Automatic clip follows recorded crowd.
-    auto clipVolume=audioVolumeWanted();assert(!clipVolume.active&&std::fabs(clipVolume.remaining-.9f)<.00001f);
+    auto clipVolume=audioBusMix();assert(clipVolume.valid&&clipVolume.key==attendance::balance::mix(.9f,56099).key);
     replaySuspendsAtmosphere=true;assert(std::fabs(audibleFullness(liveWanted)-.2f)<.00001f);
-    assert(!audioVolumeWanted().active); // Interactive replay never inherits a category-volume override.
+    assert(!audioBusMix().valid); // Interactive replay never inherits a category-volume override.
     replaySuspendsAtmosphere=false;replayLoss=-1;activeLoss=0;
-    world.phase(1);assert(!audioVolumeWanted().active); // Ordinary gameplay pause restores native volume.
+    world.phase(1);assert(!audioBusMix().valid); // Ordinary gameplay pause restores native volume.
     world.phase(8);testPut(reinterpret_cast<A>(world.manager.data())+8,6);testPut(reinterpret_cast<A>(world.clock.data())+0x28,0.f);
     testPut(world.wrapper[2]+0x1d8,21);testPut(world.wrapper[2]+0x1dc,14);world.paused=0;lastAtmosphereTick=0;atmosphereTick();
     assert(audioPresentationPhase()==7&&at<int>(reinterpret_cast<A>(world.states.data())+0xa0)==8);
@@ -425,15 +425,15 @@ int main(){
     assert(text.find("DEBUG - TECHNICAL COUNTERS")==std::string::npos);
     auto audioLine=text.substr(text.find("Crowd audio:"),text.find('\n',text.find("Crowd audio:"))-text.find("Crowd audio:"));
     assert(audioLine.find("enabled")!=std::string::npos); // Layer switch does not disable the common attendance cut.
-    assert(text.find("Crowd measured:")!=std::string::npos&&text.find("Chant volume boost:")!=std::string::npos);
+    assert(text.find("Crowd measured:")!=std::string::npos&&text.find("Chants gain:")!=std::string::npos);
     {std::ofstream f(logsFolder/"status-preview.txt");f<<text;}
     debugLog=true;std::ostringstream technical;writeStatus(technical,GetTickCount64());assert(technical.str().find("DEBUG - TECHNICAL COUNTERS")!=std::string::npos);debugLog=false;
     // Execute the actual native INI reader against mixed legacy/current settings.
     dataFolder=logsFolder/L"SettingsCase";std::filesystem::create_directories(dataFolder);
     {std::ofstream ini(dataFolder/L"DynamicGamedayAtmosphere.ini");ini<<"[Attendance]\nEnabled=1\n[Atmosphere]\nMaximumBoostPercent=25\nCriticalShakeStrengthPercent=8\n[Dynamic Gameday Attendance]\nEnabled=0\nArrivalsEnabled=0\nStartPercent=42\n[Dynamic Gameday Soundscape]\nEnabled=0\nLayeredAtmosphereEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=22\nEruptionBoostPercent=35\nChantMaximumBoostPercent=11\nLongCompletionMinimumYards=21\nDuringPlayReactionsEnabled=0\n[Dynamic Gameday Broadcast]\nCameraShake=0\nDuringPlayShakeStrengthPercent=12\nExtraReplaysEnabled=0\n";}
-    readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==50&&!audioSetting&&!extraReplays&&crowdReductionPercent==25);
+    readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==50&&!audioSetting&&!extraReplays&&busMixStrength==100);
     auto nativeConfig=std::atomic_load(&coreSettings);auto liveConfig=std::atomic_load(&liveReactionSettings);auto motionConfig=std::atomic_load(&cameraSettings);
-    assert(!nativeConfig->enabled&&!nativeConfig->cameraShake&&nativeConfig->maximumPercent==17.5f&&nativeConfig->highLeveragePercent==22&&nativeConfig->eruptionPercent==35&&nativeConfig->chantMaximumPercent==11);
+    assert(!nativeConfig->enabled&&!nativeConfig->cameraShake&&busMaximumBoost==17.5f&&nativeConfig->maximumPercent==17.5f&&nativeConfig->highLeveragePercent==22&&nativeConfig->eruptionPercent==35&&nativeConfig->chantMaximumPercent==11);
     assert(!liveConfig->enabled&&liveConfig->minimumCatchYards==21&&motionConfig->live==12&&motionConfig->critical==8);
     // Default (non-debug) reports must retain a useful incompatible-code reason.
     debugLog=false;assert(!requiredBytes(0x3c,{0xab,0xcd}));

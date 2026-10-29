@@ -1,7 +1,6 @@
 #pragma once
 #include <map>
 #include "SwellAudioRuntime.h"
-#include "CrowdQuieting.h"
 
 namespace attendance::sustained {
 class IntensityRuntime {
@@ -9,7 +8,7 @@ public:
     using Lock=void(__fastcall*)(Address);
     using Publish=void(__fastcall*)(Address,const float*,bool);
 private:
-    struct State {Address asset=0,publisher=0;bool applied=false,lowered=false;float weight=0;uint64_t last=0;Address match=0;unsigned epoch=0;quiet::Fade quiet,size{0};};
+    struct State {Address asset=0,publisher=0;bool applied=false;float weight=0;uint64_t last=0;Address match=0;unsigned epoch=0;};
     Address image_=0;Lock lock_=nullptr,unlock_=nullptr;Publish publish_=nullptr;
     std::map<Address,State> states_;std::mutex mutex_;
     std::atomic<float> native_{0},output_{0};std::atomic<unsigned> restores_{0};std::atomic<bool> healthy_{true};
@@ -19,7 +18,7 @@ public:
         unlock_=unlock?unlock:reinterpret_cast<Lock>(image+bindings::IntensityUnlock);
         publish_=publish?publish:reinterpret_cast<Publish>(image+bindings::IntensityPublish);
     }
-    void tick(Address entity,const Intent& wanted,Address match,unsigned epoch,uint64_t now,const quiet::Intent& calmer={}){
+    void tick(Address entity,const Intent& wanted,Address match,unsigned epoch,uint64_t now){
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& flag;explicit Guard(bool& value):flag(value){flag=true;}~Guard(){flag=false;}} executingGuard(executing);
         // Only the native update's borrowed entity is touched. Stored addresses
@@ -55,30 +54,9 @@ public:
         // current native output immediately rather than keeping a stale lift.
         float attack=wanted.liveCheer?.05f:wanted.reason==Reason::PassFlight?.15f:wanted.reason==Reason::Result||wanted.reason==Reason::Eruption||lineupReason(wanted.reason)?.25f:2.0f;
         state.weight=active?(std::min)(1.0f,state.weight+dt/attack):0;
-        // Quieting is restricted to the selector verified in the listening
-        // test. An unknown route keeps native sound; there is no gain fallback.
-        Address selector=at<Address>(publisher+0x18);
-        bool route=(at<unsigned>(publisher+0x28)&4)==0&&at<Address>(selector)==image_+0xb0b49b0&&at<int>(selector+0x40)==0;
-        bool lower=healthy_&&route&&quiet::fresh(calmer,match,epoch,now);
-        float factor=1;
-        if(lower){
-            float target=quiet::target(calmer);
-            // A newly streamed intro/outro starts at its measured crowd level,
-            // rather than playing a full-stadium burst before a six-second fade.
-            if(!state.lowered&&calmer.presentation)state.quiet.reset(target);
-            factor=state.quiet.advance(target,dt);
-        }else state.quiet.reset();
-        float capWanted=lower?quiet::capBlend(calmer):0;
-        float capWeight=0;
-        if(lower){
-            if(!state.lowered&&calmer.presentation)state.size.reset(capWanted);
-            capWeight=state.size.advance(capWanted,dt);
-        }else state.size.reset(0);
-        state.lowered=lower;
-        float bed=lower?quiet::apply(native,factor):native;
-        // A qualifying added reaction takes priority over a calmer bed.
-        float output=bed+((std::max)(bed,desired)-bed)*state.weight;
-        if(capWeight>0)output=quiet::finish(output,native,calmer.positions,capWeight);
+        // Density is mixed on native buses. This path only raises earned
+        // reactions; it never suppresses the native excitement envelope.
+        float output=native+((std::max)(native,desired)-native)*state.weight;
         bool override=std::fabs(output-native)>0.01f;
         if(!override)output=native; // Finish restoration at the exact native value.
         if(override||state.applied){

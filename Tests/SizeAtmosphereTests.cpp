@@ -52,6 +52,6 @@ int main(){
         assert(standard<=previous&&standard>=.55f&&standard<=.90f&&special>=.50f&&special<=.85f);
         assert(std::fabs(standard-special-.05f)<.000001f&&packed::minimum(n)>standard);previous=standard;}
     // Ordinary volume curves are independent of stadium size/context gates.
-    assert(balance::crowdBoost(.75f)==0&&balance::crowdBoost(1)==25&&balance::chantBoost(1)==15);
+    assert(balance::crowdBoost(.75f)==0&&balance::crowdBoost(1)==25&&balance::mix(1,6060).net(1)==balance::mix(1,6060).net(2));
     std::cout<<"PASS: 90-to-55/85-to-50 size gates, all five contexts at exact boundaries, inherited reaction thresholds, 50/55% eruptions and postgame carry, big-game opening allowance/unknown-layout rejection, venue-only anticipation motion and unchanged ordinary volume.\n";
 }

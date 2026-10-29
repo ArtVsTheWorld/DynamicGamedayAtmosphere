@@ -49,7 +49,7 @@ int main(){
     sample={123,1,501,60000,100000};assert(std::fabs(occupancy::fraction(sample,123,1,.8f)-.48f)<.00001f);
     for(int size:{5000,30000,100000})for(int count:{0,1,25,50,75,100})for(int retained:{0,30,60,80,100}){
         sample={123,1,501,size*count/100,size};float f=occupancy::fraction(sample,123,1,retained*.01f);
-        assert(f>=0&&f<=1&&std::fabs(f-count*.01f*retained*.01f)<.00021f);assert(balance::crowdBoost(f)<=25&&balance::chantBoost(f)<=15);
+        assert(f>=0&&f<=1&&std::fabs(f-count*.01f*retained*.01f)<.00021f);assert(balance::crowdBoost(f)<=25&&balance::mix(f,6060).net(1)==balance::mix(f,6060).net(2));
     }
     for(void* page:pages)assert(VirtualFree(page,0,MEM_RELEASE));
     std::puts("PASS: native attendance option/capacity lookup, verified ownership/types, read faults and DB failures, transition rejection, zero crowds, exact occupancy math and recycled-match isolation.");

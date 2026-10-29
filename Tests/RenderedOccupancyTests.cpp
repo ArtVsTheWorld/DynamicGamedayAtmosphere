@@ -43,7 +43,7 @@ int main(){
     float before=1;
     for(int retained=100;retained>=0;--retained){
         float f=occupancy::fraction(seats,nominal,123,7,retained*.01f);
-        assert(f<=before&&f>=0&&balance::crowdBoost(f)<=25&&balance::chantBoost(f)<=15);before=f;
+        assert(f<=before&&f>=0&&balance::crowdBoost(f)<=25&&balance::mix(f,6060).net(1)==balance::mix(f,6060).net(2));before=f;
     }
     for(int nativeCount:{1000,40000,50000}){
         nominal.attendance=nativeCount;assert(occupancy::fraction(seats,nominal,123,7,.96f)==density);

@@ -37,8 +37,7 @@
 #include "SeatBaseline.h"
 #include "CrowdDispatch.h"
 #include "CrowdPartResolver.h"
-#include "CrowdAudioRuntime.h"
-#include "ChantAudioModel.h"
+#include "AudioIntent.h"
 #include "ChantMixerRuntime.h"
 #include "CrowdIntensityRuntime.h"
 #include "NativeReactionTrace.h"
@@ -103,7 +102,7 @@ std::atomic<int> logLimitMB{2};
 std::atomic<bool> debugLog{false};
 std::mutex historyMutex;attendance::History gameHistory;attendance::MatchLifecycle matchLifecycle;
 std::atomic<bool> shownComeback{false},shownUpset{false},contextReady{false};
-std::atomic<float> audioEmphasis{1};
+std::atomic<int> busMixStrength{100};std::atomic<float> busMaximumBoost{30};
 std::mutex atmosphereMutex;
 attendance::energy::Tracker playTracker;
 attendance::core::Model coreAtmosphere;
@@ -250,11 +249,11 @@ void __fastcall replayEventNode(A node);void __fastcall nativeReplayNode(A node,
 SetPeriod originalPeriod=nullptr;
 SetVisibility originalSet=nullptr;
 unsigned long long restoreAt=0;
-attendance::audio::Runtime crowdAudio;
-attendance::audio::Update originalAudioUpdate=nullptr;
+std::atomic<uint64_t> nativeAudioCallbacks{0};
+using NativeAudioUpdate=A(__fastcall*)(A,A,A,A);NativeAudioUpdate originalAudioUpdate=nullptr;
 std::atomic<bool> audioHookInstalled{false},audioSetting{true};
 std::atomic<int> nativeCrowdSlider{-1};std::atomic<bool> notedAudioState{false};
-std::atomic<int> nativeQuietPercent{100},audioReductionStart{50},crowdReductionPercent{25};
+
 attendance::balance::Runtime attendanceMixer;
 attendance::mix::Continuity audioContinuity;
 std::atomic<bool> chantAvailable{false};
@@ -340,7 +339,8 @@ using IntensityUpdate=void(__fastcall*)(A);
 IntensityUpdate originalIntensityUpdate=nullptr;
 attendance::sustained::Api::Send originalCrowdSend=nullptr;
 attendance::audio::Wanted audioWanted();
-attendance::audio::Wanted audioVolumeWanted();
+attendance::balance::Mix audioBusMix();
+
 void audioNote(const char* message);
 void log(const char* event,const std::string& message);
 void sustainedNote(const char* message);
@@ -384,15 +384,7 @@ void __fastcall intensityUpdate(A entity){
     originalIntensityUpdate(entity);
     auto wanted=audioWanted();
     try {
-        auto now=GetTickCount64(),audibleAt=lastAudibleUpdate.load();
-        attendance::quiet::Intent calmer;calmer.match=wanted.match;calmer.epoch=wanted.epoch;calmer.updated=now;
-        int phase=audioPresentationPhase();
-        calmer.active=wanted.active&&mode==0&&audioAudible&&now>=audibleAt&&now-audibleAt<=750&&
-            attendance::quiet::audiblePhase(phase,nativeUnpaused(),replaySuspendsAtmosphere.load());
-        calmer.fullness=audibleFullness(wanted);calmer.presentation=phase==6||phase==7;
-        calmer.strength=nativeQuietPercent.load()*.01f;calmer.start=wanted.reductionStart;
-        auto density=std::atomic_load(&renderedOccupancy);calmer.positions=density->owns(wanted.match,wanted.epoch)?density->seats:0;
-        crowdIntensity.tick(entity,wantedSwell(),wanted.match,wanted.epoch,now,calmer);
+        crowdIntensity.tick(entity,wantedSwell(),wanted.match,wanted.epoch,GetTickCount64());
     }
     catch(...){crowdIntensity.fail();audioNote("intensity-fault: temporary excitement stopped; native output will be restored on its next update");}
 }
@@ -434,7 +426,7 @@ void sparseCameraTick(){
     auto admission=std::atomic_load(&nativeCameraAdmission);
     lease.suppress=sparseNativeCamera.healthy()&&wanted.active&&enabled&&mode==0&&density->owns(wanted.match,wanted.epoch)&&
         attendance::nativecamera::suppress(*admission,wanted.match,wanted.epoch,now,audibleFullness(wanted),nativeShakeMinimum.load())&&
-        attendance::quiet::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load());
+        attendance::balance::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load());
     std::shared_ptr<const attendance::sparsecamera::Lease> published=std::make_shared<attendance::sparsecamera::Lease>(lease);std::atomic_store(&sparseCameraLease,published);
     // Admitted contexts add no camera query/ref traffic. A recently suppressed view
     // gets a final borrowed-camera pass to restore the game's latest HFA event.
@@ -504,7 +496,7 @@ A __fastcall crowdSend(A manager,A result,A event){
 }
 void logAudioState(int volume);
 A __fastcall audioUpdate(A owner,A a,A b,A c){
-    A result=crowdAudio.tick(owner,a,b,c);
+    A result=originalAudioUpdate(owner,a,b,c);++nativeAudioCallbacks;
     int volume=0;SIZE_T count=0;
     bool audible=owner>=0x10040&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(owner-0x40+attendance::bindings::CrowdSlider),&volume,4,&count)&&count==4&&volume>0&&volume<=100;
     nativeCrowdSlider=count==4&&volume>=0&&volume<=100?volume:-1;
@@ -522,18 +514,7 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
         auto soundAt=GetTickCount64();std::shared_ptr<const attendance::pairing::SoundLease> sound=std::make_shared<attendance::pairing::SoundLease>(attendance::pairing::SoundLease{wanted.match,wanted.epoch,soundAt,wanted.active&&audible&&(sustainedAudio.audible(wanted,soundAt)||supportingSwell.audible(wanted,soundAt))});std::atomic_store(&motionSound,sound);
     }catch(...){sustainedAudio.fail();supportingSwell.fail();audioNote("swell-fault: new starts stopped; cleanup will retry on the next audio update");}
     if(chantAvailable)try {
-        auto wanted=audioWanted();auto config=std::atomic_load(&coreSettings);
-        float present=audibleFullness(wanted);
-        bool active=wanted.active&&audible&&config->enabled&&mode!=2;
-        float percent=(std::max)(attendance::balance::crowdBoost(present,config->maximumPercent),attendance::volume::boostPercent(crowdBoost.load()));
-        float ceiling=attendance::core::callbackLimit(*config,shownAudioLimit.load(),GetTickCount64(),shownDecisiveUntil.load(),shownHighUntil.load());
-        auto preview=std::atomic_load(&diagnosticPreview);
-        if(preview->sound&&preview->playing(wanted.match,wanted.epoch,GetTickCount64())&&nativeUnpaused()&&audioPresentationPhase()==1&&replayLoss<0&&!replaySuspendsAtmosphere&&config->enabled){
-            float configured=preview->preset==attendance::diagnostic::Preset::Eruption?attendance::core::eruptionLimit(*config):preview->preset==attendance::diagnostic::Preset::Critical?attendance::core::highLeverageLimit(*config):attendance::core::normalLimit(*config);
-            ceiling=(std::max)(ceiling,configured);percent=(std::max)(percent,preview->boost);
-        }
-        percent=(std::min)(percent,attendance::volume::boostPercent(ceiling));
-        attendanceMixer.tick(owner,active,percent,attendance::balance::chantBoost(present,config->chantMaximumPercent));
+        auto mix=audioBusMix();attendanceMixer.tick(owner,mix.valid,mix);
     }catch(...){chantAvailable=false;audioNote("audio-fault: attendance boost mixer stopped after exception");}
 
     return result;
@@ -886,20 +867,17 @@ attendance::audio::Wanted audioWanted(){
     wanted.active=wanted.active&&rendered->owns(wanted.match,wanted.epoch);
     wanted.remaining=rendered->owns(wanted.match,wanted.epoch)?wanted.remaining*rendered->peak():.75f;
     wanted.arrivalFraction=rendered->owns(wanted.match,wanted.epoch)?wanted.arrivalFraction*rendered->peak():.75f;
-    // Gentle secondary volume correction. The native callback independently
-    // clamps this to 25%, including at zero fullness.
-    wanted.strength=crowdReductionPercent.load()*.01f;wanted.reductionStart=audioReductionStart.load()*0.01f;wanted.emphasis=audioEmphasis.load();
     return wanted;
 }
-attendance::audio::Wanted audioVolumeWanted(){
-    auto wanted=audioWanted();float present=audibleFullness(wanted);
-    auto rendered=std::atomic_load(&renderedOccupancy);
-    auto now=GetTickCount64(),audibleAt=lastAudibleUpdate.load();
-    wanted.active=wanted.active&&mode==0&&audioAudible&&now>=audibleAt&&now-audibleAt<=750&&
-        attendance::quiet::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load())&&
-        rendered->owns(wanted.match,wanted.epoch)&&attendance::audio::volumeCutVenue(rendered->seats);
-    wanted.remaining=wanted.arrivalFraction=present;return wanted;
+
+attendance::balance::Mix audioBusMix(){
+    auto wanted=audioWanted();auto density=std::atomic_load(&renderedOccupancy);
+    auto now=GetTickCount64(),last=lastAudibleUpdate.load();
+    if(!wanted.active||mode!=0||!audioAudible||now<last||now-last>750||!density->owns(wanted.match,wanted.epoch)||
+       !attendance::balance::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load()))return {};
+    return attendance::balance::mix(audibleFullness(wanted),density->seats,busMaximumBoost.load(),static_cast<float>(busMixStrength.load()));
 }
+
 void audioNote(const char* message){log("audio",message);}
 void settingsMenuNote(const char* message){log("settings-menu",message);}
 void reactionNote(attendance::cheer::Source source,uint64_t id,attendance::cheer::Delivery delivery){
@@ -1188,7 +1166,7 @@ void resetMatch(){
     arrivalMissing=0;arrivalReconcilePending=false;visibilityRetry=false;captureArrivalBaseline=false;pregameRendererRetry=postgameRendererRetry=false;shownAmbienceLift=shownOpeningWeight=0;shownAudioLimit=attendance::core::NormalMaximumDb;shownDecisiveUntil=shownHighUntil=0;visibilityGeneration=0;
     shownHalftime=shownArriving=0;shownNeutral=false;shownConference=shownHfa=shownConferenceKnown=shownBigAtmosphere=false;shownTeam0=shownTeam1=-1;
     shownVisibilityCalls=shownVisibilityControllers=0;shownOriginalFans=shownVisibleFans=shownExpectedFans=shownNativeExtra=shownOtherExtra=shownExtraVisible=0;visibilityMeasured=false;
-    audioEmphasis=1;shownComeback=shownUpset=false;contextReady=false;
+    shownComeback=shownUpset=false;contextReady=false;
     shownRank0=shownRank1=shownPrecipitation=0;shownRivalry=shownPlayoff=shownFcs=false;
     {std::lock_guard<std::mutex> guard(crowdMutex);startingCrowds.clear();originalSeatLayouts.reset();}
     seatPatternPending=false;shownSeatPatterns=shownSeatFallbacks=0;
@@ -1395,10 +1373,9 @@ bool install() {
        !makePatch(attendance::bindings::PresentationUpdate,reinterpret_cast<void*>(presentationUpdate),reinterpret_cast<void**>(&originalPresentationUpdate),15)||
        !makePatch(attendance::bindings::CrowdVisibility,reinterpret_cast<void*>(visibility),reinterpret_cast<void**>(&originalSet),15)||
        !makePatch(attendance::bindings::PeriodChange,reinterpret_cast<void*>(periodChanged),reinterpret_cast<void**>(&originalPeriod),18))return false;
-    const std::vector<unsigned char> audioQueue={0x40,0x53,0x48,0x83,0xec,0x40,0x48,0x89,0x7c,0x24,0x60};
-    if(audioSetting&&bytes(attendance::bindings::AudioUpdate,cleanEntry(attendance::bindings::AudioUpdate))&&bytes(attendance::bindings::CrowdQueue,audioQueue)){
+    if(audioSetting&&bytes(attendance::bindings::AudioUpdate,cleanEntry(attendance::bindings::AudioUpdate))){
         if(!makePatch(attendance::bindings::AudioUpdate,reinterpret_cast<void*>(audioUpdate),reinterpret_cast<void**>(&originalAudioUpdate),16))return false;
-        crowdAudio.configure(image,originalAudioUpdate,audioVolumeWanted,audioNote);audioHookInstalled=true;
+        audioHookInstalled=true;
         if(swellBindings()){
             if(!makePatch(attendance::bindings::SwellSend,reinterpret_cast<void*>(crowdSend),reinterpret_cast<void**>(&originalCrowdSend),17))return false;
             auto api=attendance::sustained::Api::native(image);api.send=originalCrowdSend;
@@ -1422,7 +1399,7 @@ bool install() {
         if(bytes(attendance::bindings::MixerCreate,{0x4c,0x8b,0xdc,0x53,0x55,0x48,0x83,0xec,0x78})&&
            bytes(attendance::bindings::MixerRelease,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20})){
             attendanceMixer.configure(image);chantAvailable=true;
-        }else log("chants-inactive","Native chant mixer layout differs; general crowd audio remains available");
+        }else log("chants-inactive","Native crowd-bus mixer layout differs; native crowd audio remains unchanged");
     }else log("audio-inactive",audioSetting?"Native audio layout differs; visible attendance remains available":"Soundscape disabled at startup; native audio callbacks left untouched. Restart after enabling Soundscape.");
     if(pauseBinding&&replayBinding&&
        bytes(attendance::bindings::CameraSet,{0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20})&&
@@ -1587,9 +1564,7 @@ void readSettings(){
     defensiveReplays=number(L"Replays",L"DefensiveHighlights",1,0,1)!=0;
     replayMinimumYards=number(L"Replays",L"FullScreenMinimumYards",15,10,60);
     audioSetting=number(L"Audio",L"Enabled",1,0,1)!=0;
-    nativeQuietPercent=number(L"Audio",L"NativeQuietingStrengthPercent",100,0,100);
-    crowdReductionPercent=number(L"Audio",L"CrowdVolumeReductionPercent",25,0,25);
-    audioReductionStart=number(L"Audio",L"ReductionStartPercent",50,1,50);
+    busMixStrength=number(L"Dynamic Gameday Soundscape",L"CrowdMixStrengthPercent",100,0,100);
     arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",55,50,60);
     arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",45,40,50);
     arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",50,10,100);
@@ -1653,7 +1628,8 @@ void readSettings(){
     core->eruptions=number(L"Atmosphere",L"WinningEruptions",1,0,1)!=0;
     core->packedHouse=number(L"Atmosphere",L"PackedHouseBuildup",1,0,1)!=0;
     core->driveEscalation=number(L"Atmosphere",L"DriveEscalation",1,0,1)!=0;
-    core->maximumPercent=percentage(L"Atmosphere",L"MaximumBoostPercent",attendance::core::NormalMaximumPercent,attendance::core::NormalMaximumPercent);
+    busMaximumBoost=percentage(L"Atmosphere",L"MaximumBoostPercent",30,30);
+    core->maximumPercent=(std::min)(busMaximumBoost.load(),attendance::core::NormalMaximumPercent);
     core->highLeveragePercent=percentage(L"Atmosphere",L"HighLeverageBoostPercent",attendance::core::HighLeverageMaximumPercent,attendance::core::HighLeverageMaximumPercent);
     core->eruptionPercent=percentage(L"Atmosphere",L"EruptionBoostPercent",attendance::core::EruptionMaximumPercent,attendance::core::EruptionMaximumPercent);
     std::shared_ptr<const attendance::core::Settings> nextCore=core;std::atomic_store(&coreSettings,nextCore);
@@ -2156,7 +2132,7 @@ void atmosphereTick(){
     shownHighUntil=coreAtmosphere.highLeverage?now+750:0;
     shownEruption=coreAtmosphere.erupting;
     shownPostgameCarry=!coreAtmosphere.postgameMenu&&(coreAtmosphere.postgameHeld||(coreAtmosphere.postgameAt>=0&&time-coreAtmosphere.postgameAt<10));
-    audioEmphasis=1;
+
     bool live=p.game.phase==1||p.game.phase==3||p.game.phase==4||p.game.phase==5||p.game.phase==6||p.game.phase==7;
     bool active=mode==0&&fullnessReady&&remaining>0&&audio->enabled;
     auto wanted=coreAtmosphere.intent(*audio,p,match,audioEpoch.load(),now,active&&enabled&&audioSetting);
@@ -2585,7 +2561,7 @@ void decision(){
     if(changeWindow&&!pregame){std::lock_guard<std::mutex> guard(historyMutex);warning=gameHistory.takeWarning();}
     if(freeze!=shownComeback.load())log("protection",freeze?"Comeback protection active; crowd departures are reduced or paused.":"Comeback protection ended; future checkpoints may remove more fans.");
     shownComeback=freeze;shownUpset=upsetWatch;
-    audioEmphasis=1;
+
     lastQuarter=s.quarter;lastClock=s.seconds;lastScore0=s.homeScore;lastScore1=s.awayScore;
     int command=pregame?0:request.exchange(0);const auto c=std::atomic_load(&settings);
     if(command==5){mode=0;restoreAt=0;} // Automatic changes settle at the next safe selection/break.
@@ -2681,7 +2657,7 @@ void quarterBreak(int previous,int next){
     attendance::arrivals::Change arrivals;
     {std::lock_guard<std::mutex> guard(historyMutex);if(!gameHistory.observe(*c,s,true)||!gameHistory.takeQuarter(previous,next))return;arrivals=arrivalModel.finish();}
     if(arrivals.changed){arrivalReconcilePending=true;log("arrivals","First-quarter arrivals complete at the quarter break; normal departures now apply.");}
-    audioEmphasis=1;
+
     lastMatch=match;lastGeneration=entityGeneration.load();lastQuarter=next;lastClock=s.seconds;lastScore0=s.homeScore;lastScore1=s.awayScore;
     audioMatch=match;
     {std::lock_guard<std::mutex> guard(historyMutex);departureModel.beginWindow(s,c->transitionCap);departureModel.anchorVisible(static_cast<int>(currentLoss),arrivalMissing.load());}
@@ -2786,17 +2762,18 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Scenario attendance")<<(shownResumeSource==2?"restored from crowd history":shownResumeSource==1?"estimated at resumed start":"ordinary game")<<"\n";
 
     report.section("CROWD AUDIO - CURRENT LEVELS");
-    report.field("Crowd audio")<<(!audioHookInstalled?"unavailable":!audioSetting||!config->enabled?"disabled":(!crowdAudio.healthy()||!attendanceMixer.healthy())?"stopped after a fault":"enabled")<<"\n";
+    report.field("Crowd audio")<<(!audioHookInstalled?"unavailable":!audioSetting||!config->enabled?"disabled":!attendanceMixer.healthy()?"stopped after a fault":"enabled")<<"\n";
     if(mapped)report.field("Audio stadium fullness")<<100*(std::min)(liveAudio.remaining,liveAudio.arrivalFraction)<<"% of mapped seating\n";
     else report.field("Audio stadium fullness")<<"measuring seats; added soundscape waiting\n";
     report.field("Native crowd volume setting")<<nativeCrowdSlider<<"% (-1 means not observed)\n";
-    report.field("Native audio callbacks")<<crowdAudio.callbacks()<<"; crowd gain writes "<<crowdAudio.writes()<<"; mixer "<<(attendanceMixer.healthy()?"healthy":"stopped after fault")<<"\n";
-    report.field("General crowd volume boost")<<"+"<<attendance::volume::boostPercent(attendanceMixer.db())<<"%\n";
-    report.field("Chant volume boost")<<"+"<<attendance::volume::boostPercent(attendanceMixer.chantDb())<<"%\n";
-    report.field("Small-crowd sound")<<(!intensityAvailable?"native control unavailable":!crowdIntensity.healthy()?"native quieting stopped after a fault":nativeQuietPercent==0?"native quieting disabled":"calmer native crowd")<<"\n";
-    report.field("Crowd volume reduction")<<100*(1-crowdAudio.gain())<<"% (25% hard limit)\n";
-    report.field("Venue volume-cut policy")<<(!mapped?"waiting for verified layout":attendance::audio::volumeCutVenue(density->seats)?"eligible; 12,000 or fewer mapped positions":"intensity only; more than 12,000 mapped positions")<<"\n";
-    report.field("Sparse-venue bed ceiling");if(mapped&&nativeQuietPercent>0)state<<attendance::quiet::ceiling(density->seats)<<"; blended by empty seats below "<<audioReductionStart<<"%; native reaction peaks retain crowd scaling\n";else state<<"inactive / no verified seating size\n";
+    report.field("Native audio callbacks")<<nativeAudioCallbacks<<"; native bus presets "<<attendanceMixer.creations()<<" / "<<attendanceMixer.releases()<<" retired; mixer "<<(attendanceMixer.healthy()?"healthy":"stopped after fault")<<"\n";
+    report.field("Crowd mix")<<"eight native buses; no graph-volume cuts or separate chant cut\n";
+    const char* busNames[]={"Pass anticipation gain","Continuous Beds gain","Chants gain","Collective Reactions gain","Student section gain","Individual detail gain","Swells gain"};
+    for(unsigned i=0;i<7;++i)report.field(busNames[i])<<attendanceMixer.netDb(i)<<" dB versus native\n";
+    report.field("Empty crowd mute")<<(attendanceMixer.muted()?"active":"inactive")<<"\n";
+    report.field("Vanilla crossover");if(mapped)state<<100*attendance::balance::crossover(density->seats)<<"% mapped fullness (size-dependent)\n";else state<<"waiting for verified mapped seats\n";
+    report.field("Old excitement limiter")<<"removed; native excitement preserved, earned upward reactions retained\n";
+    report.field("Legacy crowd parameter writes")<<"disabled\n";
     report.field("Mapped seating baseline")<<(mapped?std::to_string(density->original)+" / "+std::to_string(density->seats)+" occupied positions":"waiting for verified layout")<<"\n";
     report.field("Packed-house fullness needed");if(mapped)state<<100*attendance::packed::minimum(density->seats)<<"% for "<<density->seats<<" stored positions\n";else state<<"waiting for verified layout\n";
     report.field("Native attendance / capacity")<<(known?std::to_string(population->attendance)+" / "+std::to_string(population->capacity):"waiting for verified values")<<" (reference only; sound uses mapped seating)\n";
@@ -2869,10 +2846,8 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("DYNAMIC GAMEDAY SOUNDSCAPE - SETTINGS");
     report.field("Atmosphere layers")<<(audio->enabled?"enabled":"disabled")<<"\n";
-    report.field("Ordinary boost limit")<<"+"<<audio->maximumPercent<<"%\n";
-    report.field("High-leverage boost limit")<<"+"<<audio->highLeveragePercent<<"% total (never below ordinary level)\n";
-    report.field("Eruption boost limit")<<"+"<<audio->eruptionPercent<<"% total (never below ordinary level)\n";
-    report.field("Chant boost limit")<<"+"<<audio->chantMaximumPercent<<"%\n";
+    report.field("Crowd bus gain limit")<<"+"<<busMaximumBoost<<"% total; no extra high-leverage/eruption gain stacked\n";
+    report.field("Chant policy")<<"same gain as Beds; separate legacy chant value ignored\n";
     attendance::State gate{shownQuarter.load(),shownScore0.load(),shownScore1.load(),shownPhase.load(),shownSeconds.load(),900};
     gate.rank0=shownRank0;gate.rank1=shownRank1;gate.rivalry=shownRivalry;gate.playoff=shownPlayoff;gate.conferenceChampionship=shownConference;gate.bowl=shownBowl;gate.night=localKickoff>=1140;
     float gateQuarter=at<float>(at<A>(at<A>(image+attendance::bindings::ClockManager)+0x28)+0x2c);if(gateQuarter>0)gate.quarterSeconds=gateQuarter;
@@ -2882,9 +2857,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Big-game required fullness");if(mapped)state<<100*attendance::lineup::bigRequirement(*audio,gate,density->seats)<<"% (day size gate "<<100*attendance::lineup::bigMinimum(*audio,density->seats)<<"%)\n";else state<<"waiting for verified layout\n";
     report.field("Critical / goal-line requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::standardMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
     report.field("OT / late-drive requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::specialMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
-    report.field("Native quieting begins below")<<audioReductionStart<<"% seating fullness\n";
-    report.field("Native quieting strength")<<nativeQuietPercent<<"%\n";
-    report.field("Maximum crowd volume reduction")<<crowdReductionPercent<<"% (below the same fullness threshold)\n";
+    report.field("Audio density policy")<<"occupied seats plus fullness; sparse listening anchors; maximum +30% gain, zero crowd mute\n";
     report.field("Play-call / packed / drive")<<(audio->lineups?"on":"off")<<" / "<<(audio->packedHouse?"on":"off")<<" / "<<(audio->driveEscalation?"on":"off")<<"\n";
     report.field("Last verified reaction distance")<<shownReactionDistance<<" yards; no distance-based fade extension\n";
     report.field("Opening / OT / eruptions")<<(audio->opening?"on":"off")<<" / "<<(audio->overtime?"on":"off")<<" / "<<(audio->eruptions?"on":"off")<<"\n";
@@ -2978,7 +2951,7 @@ DWORD WINAPI worker(void*) {
         return 1;
     }
     log("ready","Ready. Regular-season starting turnout and local night detection ready when native launch inputs qualify; other games retain EA turnout. First-quarter arrivals fill toward that planned crowd. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
-    log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Full crowd boost +25%; high-leverage moments up to +35%; chants up to +15%; winning eruptions capped at +50%.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
+    log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Native bus mix uses fullness and occupied seats; gain capped at +30%; no extra chant cut or native excitement limiter.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
     unsigned long long last=0,lastScan=0,lastPauseDisplays=0;int lastPauseValue=-2;bool replayFaultNoted=false;
     while(enabled){

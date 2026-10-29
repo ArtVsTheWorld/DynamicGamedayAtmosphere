@@ -1,10 +1,10 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.99.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 2.0.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
-The crowd fills in, reacts to the matchup and thins as the game gets out of reach. Play calls bring a buildup of crowd noise and pre-snap camera shake. Stadium fullness controls volume. Big games, packed ordinary stadiums, close critical downs, scoring threats, overtime and late scoring drives can get layered buildup. Winning moments receive longer celebrations. More plays also get the game's own replay presentation.
+The crowd fills in, reacts to the matchup and thins as the game gets out of reach. Play calls bring a buildup of crowd noise and pre-snap camera shake. Stadium fullness and occupied seats control the native crowd-bus mix. Big games, packed ordinary stadiums, close critical downs, scoring threats, overtime and late scoring drives can get layered buildup. Winning moments receive longer celebrations. More plays also get the game's own replay presentation.
 
 ## Dynamic Gameday Attendance
 
@@ -208,33 +208,17 @@ Each seeded game fixes its own halftime timetable. Temporary departures ramp ove
 
 ### Volume follows the fans
 
-Sound uses measured occupied seating, including arrivals, departures and temporary seat breaks. It does not use the percentage of the game's original attendance or a listed real-world stadium capacity.
+The native Crowd bus and its seven children now use one synchronized preset. Fullness and verified mapped occupied positions determine the mix. It does not use the percentage of original attendance or listed real-world venue capacity.
 
-| Stadium fullness | Ordinary crowd volume | Chant volume |
-| --- | --- | --- |
-| 100% | +25% | +15% |
-| 95% | +20% | +12% |
-| 90% | +15% | +9% |
-| 85% | +10% | +6% |
-| 80% | +5% | +3% |
-| 50-75% | Normal | Normal |
-| 40% | Calmer crowd; 5% volume cut | 5% volume cut |
-| 30% | Calmer crowd; 10% volume cut | 10% volume cut |
-| 20% | Calmer crowd; 15% volume cut | 15% volume cut |
-| 10% | Calmer crowd; 20% volume cut | 20% volume cut |
-| 0% | Lowest excitement; 25% volume cut | 25% volume cut |
+The vanilla crossover varies from about70% fullness in the smallest mapped stadium to30% in the largest. Above it, fuller crowds rise toward a30% signal-gain cap. Below it, continuous Beds and matching Chants thin, collective Reactions stay more present, and individual fan detail retains its own presence. Native event dynamics remain variable. The individual-detail gain control remains acoustically inconclusive after a high-gain listening test; no18dB test gain is included.
 
-The volume cuts in this table apply only to venues with 12,000 or fewer mapped positions. Larger venues receive the calmer native crowd, with no added crowd-category volume cut. The boosts above 75% remain available at all stadium sizes.
+The accepted6060-position mix uses native levels at70%, about+1dB at90%, Beds/Chants-8.25dB at50%, and final Beds/Chants-9.5dB at30%. Reactions at30% use-7.75dB; individual detail uses+0.75dB. Those are gain offsets, not perceived-loudness percentages. Higher-capacity venues use the same density profile around their earlier crossover and reach a larger packed-crowd lift.
 
-Below 50% fullness, the mod selects calmer background ambience through the game's own excitement control. The background ceiling blends in progressively with empty seats and quieting strength, without switching fully on just below the threshold. Native big-play peaks progressively bypass that background ceiling while keeping the ordinary crowd-presence scaling; an empty stadium stays at its lowest excitement. This preserves the difference between a calmer bed and an earned cheer. The bed ceiling also rises with stadium size. These are mapped crowd positions, not a listed real-world seating capacity. Background changes blend over about six seconds.
+Zero occupied seats explicitly mute Crowd. Ordinary pauses, interactive replay, disabled soundscape and ownership loss retire the preset; intros/postgame and automatic replays use the appropriate current/recorded crowd. Native excitement is never reduced by a sparse-crowd ceiling. Earned upward excitement and native reaction events retain their existing eligibility, timing and shake gates. No graph-volume reduction, independent chant cut or extra eruption bus-volume multiplier is stacked.
 
-Only venues with **12,000 or fewer verified mapped seating positions** receive the separate gentle crowd-volume cut. It starts below the same threshold and grows linearly to a maximum of 25% at zero fullness. This also reaches chants through the game's crowd category. It never mutes the category, compounds over time or changes the saved crowd-volume setting. Larger venues use native intensity quieting alone below 50% fullness. The cut can be reduced or disabled separately in the INI. Above 50% it adds no cut, and existing boost limits stay unchanged.
+**Crowd Mix Strength** replaces the removed excitement-reduction slider;100 uses the full profile and0 retains native levels for nonempty crowds. Old advanced limiter/cut/chant values are preserved for compatibility but no longer affect this mix. Player volume sliders and commentary/field buses remain untouched. Live larger-venue listening and the zero-occupancy mute endpoint remain to be verified after installation.
 
-Native intensity changes crowd character rather than applying an exact loudness percentage. Quieting also applies during intros and postgame. A newly loaded presentation crowd starts at its measured level rather than briefly sounding full. Automatic replay clips use their recorded crowd fullness. Ordinary gameplay pauses and interactive replay return to native intensity and crowd-category volume. If a control is unavailable, that adjustment is skipped. Strength, starting fullness and the separate volume cut are adjustable in the INI. Zero intensity selects the lowest excitement; it is not a guaranteed mute of every crowd sound.
-
-The boosts above 75% adjust the sound signal; perceived loudness depends on the sound and your settings. High-leverage moments can reach +35% total and eruptions +50% total. Boosts do not stack on top of those caps.
-
-Full sound layers require a qualifying situation and its stadium-size-based fullness threshold. Below that gate, verified plays can receive one native cheer or disappointment sound, and skills/airborne passes can use short softer swells. This sound-only route adds no passive roar, follow-up cheer, shake, eruption or volume bonus. Full reactions and celebration movement retain their existing requirements. Native reactions, fullness-based volume and sparse-crowd quieting remain separate.
+Full sound layers require a qualifying situation and its stadium-size-based fullness threshold. Below that gate, verified plays can receive one native cheer or disappointment sound, and skills/airborne passes can use short softer swells. This sound-only route adds no passive roar, follow-up cheer, shake, eruption or volume bonus. Full reactions and celebration movement retain their existing requirements. Native event dynamics and the crowd-bus mix remain separate.
 
 ### Upset Watch sound
 

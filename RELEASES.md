@@ -1,5 +1,7 @@
 # Releases
 
+Staged Update 3 test candidate: **2.0.0**, with the occupied-seat native audio mix and retired excitement limiter. Not published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
+
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 
 | Public release | Working build | Source tag | Notes |
