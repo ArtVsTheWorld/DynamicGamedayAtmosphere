@@ -27,7 +27,7 @@ int main(){
         energy::Play p;p.game={quarter,14+margin,14,1,seconds,720};p.game.neutral=neutral;p.offense=neutral?0:1;p.down=down;p.toFirst=5;p.toGoal=40;p.fieldSpot=-20;p.attackDirection=1;p.resultStamp=1;
         energy::Tracker tracker;energy::Settings settings;tracker.observe(settings,p);p.game.phase=3;tracker.observe(settings,p);
         p.game.phase=4;p.resultStamp=2;p.game.seconds-=1;p.down=down==3?4:1;if(down==4)p.offense=1-p.offense;p.fieldSpot=-19;p.toFirst=4;
-        auto stop=tracker.observe(settings,p);bool expected=(quarter==2||quarter==4)&&margin<=8&&seconds<=120;
+        auto stop=tracker.observe(settings,p);bool expected=quarter==4&&margin<=8&&seconds<=120;
         assert(stop.completed&&stop.highLeverageStop==expected);
         if(expected){auto profile=postplay::choose(stop,p.game);assert(profile.layered&&profile.strength>=.95f&&core::resultReaction(stop)==59);}
     }
@@ -45,5 +45,5 @@ int main(){
     score.event=energy::Event::LastSecondLead;core::Model winner;assert(winner.react(c,score,10,end,true)&&winner.event==energy::Event::LastSecondLead); // Existing winning eruption wins priority.
     motion::Model camera;motion::Settings motionSettings;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=10000;x.duringPlay=1;x.duringImpact=true;
     camera.observe(motionSettings,x);x.now+=200;auto cue=camera.observe(motionSettings,x);assert(motion::strength(cue,x.now)==10&&cue.impactOnly);
-    std::puts("PASS: close big/packed halftime patience, ordinary peak/Q3 return timing, skipped-clock Sim, temporary pacing at the break, Q2/Q4 one-score 120-second stops, layered defensive profile/impact, verified Hail Mary touchdowns and existing eruption priority.");
+    std::puts("PASS: close big/packed halftime patience, ordinary peak/Q3 return timing, skipped-clock Sim, temporary pacing at the break, Q4-only one-score 120-second stops, layered defensive profile/impact, verified Hail Mary touchdowns and existing eruption priority.");
 }

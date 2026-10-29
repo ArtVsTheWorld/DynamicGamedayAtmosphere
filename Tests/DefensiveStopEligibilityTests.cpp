@@ -7,7 +7,7 @@ int main(){
         energy::Settings rules;energy::Tracker tracker;energy::Play p;p.game={quarter,14,14,1,60,720};p.down=down;p.offense=1;p.toGoal=4;p.toFirst=4;p.resultStamp=1;p.specialTeams=type>0&&!lineup::offensivePlay(type);
         tracker.observe(rules,p);p.game.phase=3;tracker.observe(rules,p);p.game.phase=1;p.game.seconds=55;p.offense=0;p.down=1;p.resultStamp=2;
         auto result=tracker.observe(rules,p);assert(result.completed&&!result.takeaway);
-        bool ordinary=!p.specialTeams;assert(result.highLeverageStop==ordinary);
+        bool ordinary=!p.specialTeams;assert(result.highLeverageStop==(ordinary&&quarter==4));
         assert(result.goalLineStop==(ordinary&&down==4));
         if(!ordinary)assert(result.event!=energy::Event::ThirdStop&&result.event!=energy::Event::FourthStop&&result.event!=energy::Event::GoalLine);
     }

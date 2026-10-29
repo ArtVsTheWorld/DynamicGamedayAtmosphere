@@ -23,9 +23,9 @@ Address __fastcall construct(Address e,Address,Address d){
     put(addr(parameter)+0x20,reinterpret_cast<Address>(badParameter?"wrong":"reacType"));return e;
 }
 void __fastcall eventEnd(Address){++eventEnds;}
-void __fastcall set(Address v,int n){assert(n==91||n==75||n==83||n==59||n==95||n==11);put(v,n);}
+void __fastcall set(Address v,int n){assert(attendance::population::reactionFamily(n));put(v,n);}
 Address __fastcall receive(Address target,Address){
-    assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(type==91||type==75||type==83||type==59||type==95||type==11);received.push_back(type);++sends;
+    assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(attendance::population::reactionFamily(type));received.push_back(type);++sends;
     if(reenter&&recursive)recursive->tick(addr(entity),wanted,wanted.updated);
     if(fault){fault=false;RaiseException(EXCEPTION_ACCESS_VIOLATION,0,0,nullptr);}return 0;
 }
@@ -111,6 +111,7 @@ int main(){
     for(uint64_t now=500400;now<=540000;now+=100)earlyTick(now);assert(sends==initial+2); // No additional late cheer during the longer roar.
     wanted.lineupCheer=2;wanted.lineupCheerBegan=550000;wanted.lineupCheerUntil=551850;wanted.cheers=false;earlyTick(550350);assert(sends==initial+2);
     wanted.cheers=true;earlyTick(552000);assert(sends==initial+2); // A quick snap cannot create a delayed lineup cheer.
+    for(int family:{2,14,18,20,22,23,25})for(int size=0;size<4;++size){assert(attendance::cheer::emit(api,receive,image,addr(entity),family*4+size));balanced();}
     for(int unverified:{87,99,107})assert(!attendance::cheer::emit(api,receive,image,addr(entity),unverified));balanced();
     attendance::cheer::Runtime earlyLive;earlyLive.configure(image,&api,receive,report);unsigned liveBefore=sends;
     wanted={};wanted.active=true;wanted.match=990;wanted.epoch=1;wanted.updated=600000;wanted.liveCheer=1;wanted.liveCheerUntil=600500;wanted.liveType=83;

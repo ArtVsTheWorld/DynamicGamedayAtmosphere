@@ -1,8 +1,8 @@
 #pragma once
 #include "LineupAtmosphere.h"
 namespace attendance::situational {
-enum class Event {None,FailedConversion,DeepIncomplete,DeepDefensiveIncomplete,DeepVisitorCatch,HomeInterception,HomeTackleForLoss,HomeTurnover,MissedHomeFieldGoal,MissedVisitorFieldGoal};
-inline const char* name(Event e){switch(e){case Event::FailedConversion:return "Home failed conversion";case Event::DeepIncomplete:return "Home deep incompletion";case Event::DeepDefensiveIncomplete:return "Deep defensive incompletion / breakup";case Event::DeepVisitorCatch:return "Visitor deep completion";case Event::MissedHomeFieldGoal:return "Home missed field goal";case Event::MissedVisitorFieldGoal:return "Opponent missed field goal";case Event::HomeTurnover:return "Home turnover";case Event::HomeInterception:return "Home pass intercepted";case Event::HomeTackleForLoss:return "Home defensive tackle for loss";default:return "inactive";}}
+enum class Event {None,FailedConversion,DeepIncomplete,DeepDefensiveIncomplete,DeepVisitorCatch,HomeInterception,HomeTackleForLoss,HomeTurnover,MissedHomeFieldGoal,MissedVisitorFieldGoal,AwayShowboat};
+inline const char* name(Event e){switch(e){case Event::AwayShowboat:return "Away live ballcarrier showboat (native boos)";case Event::FailedConversion:return "Home failed conversion";case Event::DeepIncomplete:return "Home deep incompletion";case Event::DeepDefensiveIncomplete:return "Deep defensive incompletion / breakup";case Event::DeepVisitorCatch:return "Visitor deep completion";case Event::MissedHomeFieldGoal:return "Home missed field goal";case Event::MissedVisitorFieldGoal:return "Opponent missed field goal";case Event::HomeTurnover:return "Home turnover";case Event::HomeInterception:return "Home pass intercepted";case Event::HomeTackleForLoss:return "Home defensive tackle for loss";default:return "inactive";}}
 struct Outcome {uint64_t id=0;int type=95;Event event=Event::None;};
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t sequence_=0,last_=0,serial_=0;

@@ -715,6 +715,16 @@ namespace DynamicGamedayAtmosphere {
             }
             return String.Join(Environment.NewLine,lines);
         }
+        static string Retune1940(string existing,string defaults,string original){
+            if(Number(original,"General","AudioBalanceVersion",0)>=45||Number(defaults,"General","AudioBalanceVersion",0)<45)return existing;
+            var lines=new List<string>();string section="";
+            foreach(string raw in existing.Replace("\r","").Split('\n')){
+                string next=Section(raw);if(next!=null)section=next;
+                bool stock=section=="Dynamic Gameday Soundscape"&&Key(raw)=="LongGainMinimumYards"&&Number(existing,section,"LongGainMinimumYards",0)==15;
+                lines.Add(stock?"LongGainMinimumYards=20":raw);
+            }
+            return String.Join(Environment.NewLine,lines);
+        }
         static string Merge(string existing,string defaults){
             var lines=new List<string>(existing.Replace("\r","").Split('\n'));string section="";
             var pending=new List<string>();
@@ -791,7 +801,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<44&&Number(defaults,"General","AudioBalanceVersion",0)>=44)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<45&&Number(defaults,"General","AudioBalanceVersion",0)>=45)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -850,6 +860,8 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,42);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,43);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,44);
+            upgraded=Retune1940(upgraded,defaults,existing);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,45);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

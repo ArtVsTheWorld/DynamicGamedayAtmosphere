@@ -36,11 +36,11 @@ int main(){
     // A held pickup must not revive a long-run ramp from pre-fumble yardage.
     live::Model run;live::Settings limits;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=0;p.fieldSpot=-30;p.attackDirection=1;
     uint64_t now=1000;auto sample=[&](int phase,float yards,bool held){now+=100;p.game.phase=phase;return run.observe(limits,p,123,1,now,true,456,0,held?2:5,NAN,-30+yards,held);};
-    sample(1,0,true);sample(3,0,true);for(int n=1;n<=12;++n)sample(3,static_cast<float>(n),true);assert(run.runBuildup().id);
-    run.cancelRunBuildup(true);p.fumble=true;sample(3,12,false);p.fumble=false;
-    for(int n=13;n<=35;++n){assert(!sample(3,static_cast<float>(n),true).id);assert(!run.runBuildup().id);}
+    sample(1,0,true);sample(3,0,true);for(int n=1;n<=14;++n)sample(3,static_cast<float>(n),true);assert(run.runBuildup().id);
+    run.cancelRunBuildup(true);p.fumble=true;sample(3,14,false);p.fumble=false;
+    for(int n=15;n<=35;++n){assert(!sample(3,static_cast<float>(n),true).id);assert(!run.runBuildup().id);}
     sample(4,35,true);sample(1,0,true);sample(3,0,true);live::Outcome fresh;
-    for(int n=1;n<=15;++n){auto event=sample(3,static_cast<float>(n),true);if(event.id)fresh=event;}
+    for(int n=1;n<=20;++n){auto event=sample(3,static_cast<float>(n),true);if(event.id)fresh=event;}
     assert(fresh.event==live::Event::LongRun);
     std::puts("PASS: recovery-only motion and buildup removed; defensive recovery audio retained; forced-fumble impact/dedup preserved; own pickups cannot revive prior gain motion; next snap rearms normally.");
 }

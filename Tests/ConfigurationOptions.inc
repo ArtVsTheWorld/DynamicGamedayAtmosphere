@@ -61,7 +61,7 @@ inline NumericOption options[]={
 {L"Dynamic Gameday Broadcast",L"CannonShakeStrengthPercent",15.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->cannon);}},
 {L"Dynamic Gameday Soundscape",L"DuringPlayReactionsEnabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&liveReactionSettings)->enabled);}},
 {L"Dynamic Gameday Soundscape",L"LongCompletionMinimumYards",20.0,10.0,60.0,1,[]()->double{return static_cast<double>(std::atomic_load(&liveReactionSettings)->minimumCatchYards);}},
-{L"Dynamic Gameday Soundscape",L"LongGainMinimumYards",15.0,10.0,60.0,1,[]()->double{return static_cast<double>(std::atomic_load(&liveReactionSettings)->minimumGainYards);}},
+{L"Dynamic Gameday Soundscape",L"LongGainMinimumYards",20.0,10.0,60.0,1,[]()->double{return static_cast<double>(std::atomic_load(&liveReactionSettings)->minimumGainYards);}},
 {L"Dynamic Gameday Soundscape",L"PassFlightAnticipation",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&liveReactionSettings)->passFlight);}},
 {L"Dynamic Gameday Soundscape",L"SituationalCrowdReactions",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(situationalReactionsEnabled);}},
 {L"Dynamic Gameday Soundscape",L"ChantMaximumBoostPercent",15.0,0,15.0,1,[]()->double{return static_cast<double>(std::atomic_load(&coreSettings)->chantMaximumPercent);}},

@@ -71,6 +71,8 @@
 #include "CatchKnockout.h"
 #include "DefensiveAccents.h"
 #include "DefensiveMotion.h"
+#include "CrowdPopulation.h"
+#include "Showboating.h"
 #include "SkillSwell.h"
 #include "ContextReactions.h"
 #include "NativePlayCall.h"
@@ -280,6 +282,7 @@ attendance::skills::Model skillReactions;
 attendance::knockout::Model catchKnockouts;
 attendance::defense::Model defensiveAccents;
 attendance::defensivemotion::Model defensiveMotion;
+attendance::showboating::Model showboating;
 std::atomic<bool> passBreakupBinding{false};
 attendance::skillswell::Model skillSwell;
 attendance::contextreaction::Model contextReactions;
@@ -1174,7 +1177,7 @@ void resetMatch(){
     attendanceSeed=0;publishSessionPlan(0,attendance::State{});
     {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.active=0;}
     {std::lock_guard<std::mutex> guard(historyMutex);gameHistory.reset();arrivalModel.reset();halftimeModel.reset();halftimeExitConversion.reset();shownHalftimeConverted=0;departureModel.reset();matchLifecycle.reset();}
-    {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();finalReactionCarry.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
+    {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();finalReactionCarry.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.reset();showboating.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
     shownLineup=shownPackedHouse=shownOpeningDrive=shownHostileOpening=false;shownDrive=0;shownDistanceExtra=0;shownReactionDistance=0;
     shownUpsetStage=0;shownUpsetSound=false;shownUpsetMinimum=1.01f;
     shownPassFlights=0;shownPassGate="waiting for an eligible snap";
@@ -1637,7 +1640,7 @@ void readSettings(){
     auto liveSettings=std::make_shared<attendance::live::Settings>();
     liveSettings->enabled=number(L"Dynamic Gameday Soundscape",L"DuringPlayReactionsEnabled",1,0,1)!=0;
     liveSettings->minimumCatchYards=static_cast<float>(number(L"Dynamic Gameday Soundscape",L"LongCompletionMinimumYards",20,10,60));
-    liveSettings->minimumGainYards=static_cast<float>(number(L"Dynamic Gameday Soundscape",L"LongGainMinimumYards",15,10,60));
+    liveSettings->minimumGainYards=static_cast<float>(number(L"Dynamic Gameday Soundscape",L"LongGainMinimumYards",20,10,60));
     liveSettings->passFlight=number(L"Dynamic Gameday Soundscape",L"PassFlightAnticipation",1,0,1)!=0;
     situationalReactionsEnabled=number(L"Dynamic Gameday Soundscape",L"SituationalCrowdReactions",1,0,1)!=0;
     std::shared_ptr<const attendance::live::Settings> nextLive=liveSettings;std::atomic_store(&liveReactionSettings,nextLive);
@@ -1931,7 +1934,7 @@ void atmosphereTick(){
         finishLiveAudit("pause, replay or game-scene interruption");shownOpeningDrive=shownHostileOpening=false;
         shownUpsetStage=0;shownUpsetSound=false;shownUpsetMinimum=1.01f;
         shownPassGate="paused, replaying or game scene unavailable";
-        finalReactionCarry.suspend();lineupAtmosphere.suspend();openingKickoffAtmosphere.suspend();liveReactions.suspend();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.suspend();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionUntil=0;shownLineup=false;lastAtmospherePhase=-1;
+        finalReactionCarry.suspend();lineupAtmosphere.suspend();openingKickoffAtmosphere.suspend();liveReactions.suspend();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.suspend();showboating.suspend();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionUntil=0;shownLineup=false;lastAtmospherePhase=-1;
         std::shared_ptr<const attendance::motion::Cue> quietCamera=std::make_shared<attendance::motion::Cue>(cameraMotion.suspend(now));std::atomic_store(&cameraCue,quietCamera);
         shownHighUntil=0;
         crowdBoost=audioContinuity.gap(wanted.match,now/1000.0,wanted.active&&mode==0&&std::atomic_load(&coreSettings)->enabled,attendance::core::normalLimit(*std::atomic_load(&coreSettings)));
@@ -1965,7 +1968,7 @@ void atmosphereTick(){
     p.game.neutral=shownNeutral;p.game.team0=shownTeam0;p.game.team1=shownTeam1;p.game.bowl=shownBowl;applySessionPlan(p.game,match);
     if(p.game.phase==3){std::lock_guard<std::mutex> guard(historyMutex);matchLifecycle.live();}
     std::lock_guard<std::mutex> guard(atmosphereMutex);
-    if(atmosphereMatch!=match){shownPassFlights=0;playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();finalReactionCarry.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=match;}
+    if(atmosphereMatch!=match){shownPassFlights=0;playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();finalReactionCarry.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();defensiveMotion.reset();showboating.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=match;}
     if(liveAuditId&&now>=liveAuditUntil)finishLiveAudit(positiveCheer.healthy()?"no eligible crowd callback in the immediate reaction window":"crowd reaction control stopped after a fault");
     // The tracker rejects rewound/corrected scores and clocks for event
     // detection only. Verified live ambience still needs its normal handoff;
@@ -2053,6 +2056,10 @@ void atmosphereTick(){
             playTracker.sawForcedFumble=true;
             attendance::live::noteForcedResult(result,playTracker.serial,forcedLive);
         }}
+    auto showboatSample=ballHeld?attendance::showboating::snapshot(image,read):attendance::showboating::Sample{};
+    auto showboat=showboating.observe(playTracker.start,p,match,epoch,playTracker.serial,now,
+        reactionEligible&&liveAllowed&&liveSettings->enabled,ballHeld,showboatSample);
+    if(showboat.id)log("showboat",std::string(showboat.side==0?"Home":"Away")+" carrier: fresh native PChat_Loco_Celebration animation event during live possession; "+(showboat.side==0?"slow buildup admitted; stronger earned reactions retain priority.":"native GEN_BOO requested if the immediate sound slot is free; no positive home shake."));
     hailMaryPass.observe(playTracker.serial,liveReactions.catchAirYards());
     result.hailMary=hailMaryPass.scored(result,playTracker.start);
     if(!liveResult.id)liveResult=returnResult;
@@ -2078,8 +2085,9 @@ void atmosphereTick(){
     liveReactions.defensiveHandoff(liveResult);
     auto situation=situationalReactions.observe(p,playTracker.start,result,match,epoch,playTracker.serial,now,
         liveAllowed&&liveSettings->enabled&&situationalReactionsEnabled&&(attendance::lineup::offensivePlay(selectedPlayType)||selectedPlayType==21),liveKind,ballState,catchSpot,runnerSpot,ballHeld,selectedPlayType);
+    if(showboat.id&&showboat.side==1&&!liveResult.id&&!situation.id)situation={showboat.id,103,attendance::situational::Event::AwayShowboat};
     auto basicResult=soundOnlyReactions.observe(result,playTracker.start,p,match,epoch,basicReactionEligible,reactionEligible,
-        liveSourceSequence==result.sequence&&liveReactionType>0&&liveReactionType!=95,situationalReactionsEnabled);
+        liveSourceSequence==result.sequence&&liveReactionType>0&&!attendance::population::negative(liveReactionType),situationalReactionsEnabled);
     if(liveResult.id){
         if(reactionEligible&&attendance::live::cameraReaction(liveResult.event)&&!attendance::defensivemotion::routed(liveResult.event)){liveMotionSequence=playTracker.serial;liveMotionEvent=liveResult.event;}
         liveReactionMilestone=liveReactions.fourthConverted()&&(liveResult.event==attendance::live::Event::RunAfterCatch||liveResult.event==attendance::live::Event::LongRun||liveResult.event==attendance::live::Event::CompletedPass);
@@ -2156,6 +2164,13 @@ void atmosphereTick(){
     wanted=passFlight.merge(wanted,now,remaining);
     auto gainBuildup=liveReactions.runBuildup();
     auto kickBuildup=returnReactions.buildup();if(kickBuildup.id)gainBuildup=kickBuildup;
+    auto tauntBuildup=showboating.buildup(now);
+    if(tauntBuildup.id){
+        auto existingCamera=std::atomic_load(&cameraCue);
+        bool earnedLive=existingCamera->kind==attendance::motion::Kind::LivePlay&&!existingCamera->runBuildup;
+        if(gainBuildup.id)gainBuildup.progress=(std::max)(gainBuildup.progress,tauntBuildup.progress);
+        else if(!earnedLive)gainBuildup=tauntBuildup;
+    }
     returnAtmosphere.observe(p,match,epoch,now,liveAllowed&&liveSettings->enabled,liveResult,ballHeld,forcedLive.id&&forcedLive.event==attendance::live::Event::ForcedFumble,std::atomic_load(&cameraSettings)->reactionFadeMs,gainBuildup,reactionDistance.extension(),reactionDistance.ownsDuration());
     if(reactionEligible)wanted=returnAtmosphere.merge(wanted,now,remaining);
     if(wanted.reason==attendance::sustained::Reason::Result)wanted.reactionId=playTracker.serial;
@@ -2163,10 +2178,10 @@ void atmosphereTick(){
     auto presentation=presentationAtmosphere.observe(*audio,p.game,match,epoch,now,active&&enabled&&audioSetting,
         fullnessReady,fullnessReady?audibleFullness(audioWanted()):remaining,fullnessReady?rendered->seats:0,coreAtmosphere.postgameMenu);
     if(presentation.active&&!wanted.celebration&&wanted.reason==attendance::sustained::Reason::None)wanted=presentation;
-    if(wanted.active&&(p.game.phase==3||p.game.phase==4||p.game.phase==5||((p.game.phase==1||p.game.phase==7)&&liveReactionPost))&&basicReactionEligible&&liveReactionId&&now<liveReactionUntil&&!wanted.celebration){wanted.liveCheer=liveReactionId;wanted.liveCheerUntil=liveReactionUntil;wanted.liveType=liveReactionType;if(reactionEligible&&liveReactionType!=95)wanted.intensity=(std::max)(wanted.intensity,950*std::sqrt(remaining));}
+    if(wanted.active&&(p.game.phase==3||p.game.phase==4||p.game.phase==5||((p.game.phase==1||p.game.phase==7)&&liveReactionPost))&&basicReactionEligible&&liveReactionId&&now<liveReactionUntil&&!wanted.celebration){wanted.liveCheer=liveReactionId;wanted.liveCheerUntil=liveReactionUntil;wanted.liveType=liveReactionType;if(reactionEligible&&!attendance::population::negative(liveReactionType))wanted.intensity=(std::max)(wanted.intensity,950*std::sqrt(remaining));}
     // Keep the result roar/eruption, but do not add a second ordinary cheer
     // when this play's early accent was already delivered (or native-equivalent).
-    if(wanted.resultCheer&&!wanted.scoringReaction&&liveReactionType!=95&&coreAtmosphere.resultSequence==liveSourceSequence&&positiveCheer.liveDelivered(liveReactionId))wanted.resultCheer=0;
+    if(wanted.resultCheer&&!wanted.scoringReaction&&!attendance::population::negative(liveReactionType)&&coreAtmosphere.resultSequence==liveSourceSequence&&positiveCheer.liveDelivered(liveReactionId))wanted.resultCheer=0;
     shownLineup=wanted.lineup!=0;
     auto stopMotion=defensiveMotion.observe(playTracker.start,p,result,liveResult,match,epoch,playTracker.serial,now,
         reactionEligible&&liveAllowed&&liveSettings->enabled,supplementalPrevious?0:liveMotionSequence);
@@ -2174,7 +2189,7 @@ void atmosphereTick(){
     uint64_t motionId=attendance::defensivemotion::cameraId(liveResult,liveReactionId,stopMotion);
     if(stopMotion.id){liveMotionSequence=playTracker.serial;liveMotionEvent=stopMotion.event;
         log("defensive-motion","Play #"+std::to_string(playTracker.serial)+": "+attendance::live::name(stopMotion.event)+"; shared confirmed loss/stop route; one camera request.");}
-    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;motion.neutral=p.game.neutral;motion.venueScale=attendance::motion::venueScale(fullnessReady?rendered->seats:0);
+    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;motion.neutral=p.game.neutral;motion.venueScale=attendance::motion::occupiedScale(fullnessReady?rendered->seats:0,remaining);
     auto audioContext=audioWanted();
     // Camera cuts can briefly stop crowd-entity updates. The last verified
     // slider state is still authoritative for this owned match; cue freshness,
@@ -2225,6 +2240,7 @@ void atmosphereTick(){
     auto welcome=openingWelcome.observe(*audio,p,match,epoch,now,active&&enabled&&audioSetting&&!clockPlay,fullnessReady,remaining,&result);
     if(basicReactionEligible&&!reactionEligible)wanted=attendance::soundonly::restrain(wanted,remaining);
     wanted=attendance::openingwelcome::Model::merge(wanted,welcome);
+    if(fullnessReady)wanted=attendance::population::layers(wanted,rendered->seats,remaining);
     auto carried=finalReactionCarry.observe(p.game,match,epoch,playTracker.serial,now,
         active&&enabled&&audioSetting&&!p.simulated&&!lostHomeMotion&&!coreAtmosphere.postgameMenu,
         audio->cameraShake&&audioAudible&&swellAvailable&&(sustainedAudio.healthy()||supportingSwell.healthy()),
@@ -2799,7 +2815,9 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged":sparseNativeCamera.active()?"shake suppressed for sparse crowd":"normal; sparse-crowd filter ready")<<" (gameplay HFA unchanged)\n";
     report.field("Cannon sound observer")<<(cannonAvailable?"ready":"unavailable")<<"; confirmed native blasts "<<cannonStarts.load()<<"\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
-    {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::venueScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0)<<"x; neutral crowd adds 0.75x; native cannon impact is separate\n";}
+    {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds 0.75x; native cannon impact is separate\n";}
+    {auto venue=std::atomic_load(&renderedOccupancy);float full=venue->owns(audioMatch.load(),audioEpoch.load())?venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:0;
+        report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";}
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
     report.field("Presentation atmosphere")<<(presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Opening?"pregame buildup":presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Postgame?"postgame stadium atmosphere":"inactive")<<"\n";
@@ -2863,7 +2881,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Game Dynamic Camera Effects")<<(!cameraOptionsReady?"unavailable":at<unsigned short>(nativeCameraSettings+0x3e6)&&at<unsigned short>(nativeCameraSettings+0x41a)?"on":"off; all added camera motion blocked")<<"\n";
     report.field("Play-call profile")<<"40 seconds including its fade\n";
     report.field("Long catch minimum")<<std::atomic_load(&liveReactionSettings)->minimumCatchYards<<" yards at the catch\n";
-    report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards; shake ramps over the previous five yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
+    report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards; shake ramps over the previous seven yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
     report.field("Pass-in-flight anticipation")<<shownPassGate.load()<<"; verified flights this match "<<shownPassFlights<<"\n";
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
     report.field("Native shake requires")<<nativeShakeMinimum<<"% fullness (separate from added layered motion; 0 disables the native filter)\n";

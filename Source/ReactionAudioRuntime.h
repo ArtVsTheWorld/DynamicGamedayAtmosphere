@@ -1,5 +1,6 @@
 #pragma once
 #include "SwellAudioRuntime.h"
+#include "CrowdPopulation.h"
 #include <array>
 
 namespace attendance::cheer {
@@ -8,7 +9,7 @@ using Receiver=Address(__fastcall*)(Address,Address);
 enum class Source {Live,Lineup,Result,Eruption,Followup};
 enum class Delivery {Sent,NativePlaying,VoiceLimit,Failed,Expired,Cooldown,Registered,Recovery,Unregistered};
 using Note=void(*)(Source,uint64_t,Delivery);
-inline bool countedVoice(int type){return type==91||type==75||type==83||type==59||type==95||(type>=8&&type<=15);}
+inline bool countedVoice(int type){return population::reactionFamily(type)||(type>=8&&type<=15);}
 // The two positive, full-size families may serve either side of the ball.
 // Stable play/event identity prevents callback-by-callback rerolls. Dedicated
 // disappointment, big-hit and scoring families keep their authored purpose.
@@ -18,12 +19,15 @@ inline int variedPositive(int type,uint64_t play,uint64_t event,unsigned epoch){
     mix^=mix>>30;mix*=0xbf58476d1ce4e5b9ull;mix^=mix>>27;
     return mix&1?59:83;
 }
-inline bool equivalentPositive(int requested,int active){return requested==active||((requested==59||requested==83)&&(active==59||active==83));}
+inline bool equivalentPositive(int requested,int active){
+    bool compatible=requested>=0&&active>=0&&((requested/4==14||requested/4==20)&&(active/4==14||active/4==20));
+    return requested==active||compatible||(population::reactionFamily(requested)&&requested/4==active/4&&active%4>=requested%4);
+}
 // Eruption, conversion and defensive-stop families passed listening tests. Their native
 // owner limits each reaction to 25 seconds; no borrowed entity is retained.
 inline bool emit(const sustained::Api& api,Receiver receiver,Address image,Address entity,int type=91){
     using namespace sustained;
-    if(type!=91&&type!=75&&type!=83&&type!=59&&type!=95&&type!=11)return false;
+    if(!population::reactionFamily(type))return false;
     Address asset=at<Address>(entity+0x38),system=at<Address>(asset+0x20)&~Address(4);
     Address list=at<Address>(system+0x20),description=0;
     unsigned count=at<unsigned>(list-4)&0x7fffffff;
@@ -98,8 +102,8 @@ class Runtime {
     }
     void arm(Source source,uint64_t id,int type,const sustained::Intent& wanted,uint64_t now){
         followup_={};
-        if(!wanted.staggered||!wanted.playSequence||type==95)return;
-        followup_={true,source,id,wanted.playSequence,now+900,now+1800,wanted.deepCheers?75:type};
+        if(!wanted.staggered||!wanted.playSequence||population::negative(type))return;
+        followup_={true,source,id,wanted.playSequence,now+900,now+1800,wanted.deepCheers?population::reactionType(75,wanted.populationSize):type};
     }
     bool follow(Address entity,const sustained::Intent& wanted,uint64_t now){
         if(!followup_.active)return false;
@@ -132,7 +136,11 @@ public:
         image_=image;api_=api?*api:sustained::Api::native(image);
         receiver_=receiver?receiver:reinterpret_cast<Receiver>(image+bindings::ReactionReceive);note_=note;
     }
-    void tick(Address entity,const sustained::Intent& wanted,uint64_t now){
+    void tick(Address entity,const sustained::Intent& input,uint64_t now){
+        auto wanted=input;
+        wanted.liveType=population::reactionType(wanted.liveType,wanted.populationSize);
+        wanted.resultType=population::reactionType(wanted.resultType,wanted.populationSize);
+        wanted.lineupType=population::reactionType(wanted.lineupType,wanted.populationSize);
         using namespace sustained;
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& value;explicit Guard(bool& v):value(v){value=true;}~Guard(){value=false;}} guard(executing);
@@ -144,7 +152,7 @@ public:
         bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
             followup_={};
-            if(wanted.liveType!=83&&wanted.liveType!=59&&wanted.liveType!=95&&wanted.liveType!=91&&wanted.liveType!=11)return;
+            if(!population::reactionFamily(wanted.liveType))return;
             if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
             Address asset=at<Address>(entity+0x38);if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
@@ -188,13 +196,14 @@ public:
         else{lineup_=wanted.lineupCheer;lastLineupCheer_=now;}
         unsigned sentNow=0,nativeNow=0;bool limited=false;
         auto send=[&](int type){
+            type=population::reactionType(type,wanted.populationSize);
             // Re-read after each send: the native instance array may reallocate.
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
             unsigned positives=0;
             for(Address p=begin;p<end;p+=16){if(sustained::at<unsigned char>(p+12))continue;int active=at<int>(p);if(equivalentPositive(type,active)){++nativeNow;return;}if(countedVoice(active))++positives;}
             if(positives>=2){limited=true;return;}
-            if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;if(type!=75)receipt(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,type,entity,wanted,now);}else healthy_=false;
+            if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;if(type/4!=18)receipt(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,type,entity,wanted,now);}else healthy_=false;
         };
         send(result?wanted.resultType:lineup?wanted.lineupType:91);
         // Keep the immediate primary; the optional second layer has one

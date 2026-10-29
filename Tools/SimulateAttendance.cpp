@@ -97,14 +97,14 @@ int main(int argc,char** argv){
     std::ofstream points(dir/"game-curves.csv"),summary(dir/"scenario-summary.csv"),checks(dir/"checks.txt"),sensitivity(dir/"sensitivity.csv"),inputs(dir/"fixture-inputs.csv");
     inputs<<"scenario,support_percentile,home_rank,away_rank,precipitation,score_path,night,rivalry,severe_late,neutral,postseason_kind,nominal_capacity\n";
     sensitivity<<"scenario,seats,quarter_length,hidden_window_reference_seconds,final_departures_pct_of_peak,final_capacity_pct\n";
-    points<<"scenario,seats,elapsed_reference_seconds,fullness_pct,ideal_arrivals_only_pct,permanent_departures_pct_of_peak,temporary_absences_pct_of_peak,home,away,ordinary_down_camera,critical_down_camera,opening_route,late_drive_route,upset_sound_route,native1000_output\n";
+    points<<"scenario,seats,elapsed_reference_seconds,fullness_pct,ideal_arrivals_only_pct,permanent_departures_pct_of_peak,temporary_absences_pct_of_peak,home,away,ordinary_down_camera,critical_down_camera,opening_route,late_drive_route,upset_sound_route,native1000_output,occupied_seats,crowd_motion_factor\n";
     summary<<"scenario,seats,peak_capacity_pct,kickoff_share_of_peak,final_capacity_pct,final_departures_pct_of_peak,size_factor,first_ordinary_time,first_critical_time,quarter_length,window_interval\n";
     unsigned games=0;
     for(const auto& f:fixtures)for(uint64_t seats:{6060ull,30000ull,61888ull}){
         if(seats==6060)inputs<<f.name<<','<<100*f.standing<<','<<f.rank<<','<<f.opponent<<','<<f.rain<<','<<f.path<<','<<f.night<<','<<f.rivalry<<','<<f.severe<<','<<f.neutral<<','<<f.postseason<<",60000\n";
         auto r=simulate(f,seats,720,30,true);float ordinary=-1,critical=-1;
         for(const auto& p:r.points){if(p.ordinary&&ordinary<0)ordinary=p.t;if(p.critical&&critical<0)critical=p.t;
-            points<<f.name<<','<<seats<<','<<p.t<<','<<p.fullness<<','<<p.ideal<<','<<p.loss<<','<<p.temporary<<','<<p.home<<','<<p.away<<','<<p.ordinary<<','<<p.critical<<','<<p.opening<<','<<p.late<<','<<p.upset<<','<<p.nativePeak<<'\n';}
+            points<<f.name<<','<<seats<<','<<p.t<<','<<p.fullness<<','<<p.ideal<<','<<p.loss<<','<<p.temporary<<','<<p.home<<','<<p.away<<','<<p.ordinary<<','<<p.critical<<','<<p.opening<<','<<p.late<<','<<p.upset<<','<<p.nativePeak<<','<<seats*p.fullness*.01f<<','<<motion::occupiedScale(seats,p.fullness*.01f)<<'\n';}
         int opening=f.postseason?static_cast<int>(std::lround(r.points.front().fullness)):r.peak.kickoff;
         summary<<f.name<<','<<seats<<','<<r.peak.percent<<','<<opening<<','<<r.finalFullness<<','<<r.finalLoss<<','<<motion::venueScale(seats)<<','<<ordinary<<','<<critical<<",720,30\n";
         for(int length:{60,300,720,1200})for(int cadence:{10,30,120}){

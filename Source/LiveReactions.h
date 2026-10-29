@@ -33,7 +33,7 @@ inline Outcome completedImpact(const energy::Outcome& result,const State& state,
     Event selected=result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
-struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};
+struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=20;bool passFlight=true;};
 struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
 // Verified native traces: kind 3 / ball 1 / no holder is the pass in flight.
 // Ball 4 can already name the receiver before the stats record becomes kind 1;
@@ -231,11 +231,11 @@ public:
                     std::fabs(runnerSpot-runnerLast_)<=3.5f+30.f*static_cast<float>(now-runnerAt_)*.001f;
                 if(coherent){runnerLast_=runnerSpot;runnerAt_=now;if(gain>=0&&gain<=110)measuredGain_=(std::max)(measuredGain_,gain);}
                 if(coherent&&caught_&&gain-catchGain_>.5f)afterCatchRun_=true;
-                float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):15;
-                float rampStart=minimum-5;
+                float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):20;
+                float rampStart=minimum-7;
                 bool runningGain=!caught_||afterCatchRun_;
                 if((!used_||buildup_.id)&&own&&coherent&&runningGain&&std::fabs(runnerSpot)<=60&&gain>=rampStart&&gain<=110){
-                    float progress=(std::clamp)((gain-rampStart)/5.f,.0001f,1.f);
+                    float progress=(std::clamp)((gain-rampStart)/7.f,.0001f,1.f);
                     if(progress>=buildup_.progress)buildup_={began_,progress,gain};
                 }
                 if(!out.id&&!used_&&own&&coherent&&std::fabs(runnerSpot)<=60&&gain<=110&&

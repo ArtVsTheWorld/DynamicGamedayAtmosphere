@@ -338,7 +338,7 @@ struct Tracker {
                             if(priority(defensive)>priority(o.event)){o.event=defensive;o.side=1-start.offense;}
                             bool stopped=!start.specialTeams&&((start.down==3&&((p.offense==start.offense&&p.down==4)||p.offense!=start.offense))||(start.down==4&&p.offense!=start.offense));
                             o.highLeverageStop=stopped&&std::abs(start.game.homeScore-start.game.awayScore)<=8&&
-                                (start.game.quarter==2||start.game.quarter==4)&&start.game.seconds>=0&&start.game.seconds<=120;
+                                start.game.quarter==4&&start.game.seconds>=0&&start.game.seconds<=120;
                         }
                     }
                     if((c.eruptions||c.momentum)&&overtimeTry(start)&&p.offense!=start.offense&&(start.offense==1||s.neutral)){

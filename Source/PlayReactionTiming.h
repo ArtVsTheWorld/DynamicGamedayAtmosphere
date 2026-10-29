@@ -31,7 +31,7 @@ public:
             // on that new ball while waiting for a fresh verified sequence.
             owned_=returning_=position_=false;yards_=0;extra_=0;sampleAt_=0;return;
         }
-        float gainMinimum=std::isfinite(settings.minimumGainYards)?(std::clamp)(settings.minimumGainYards,10.f,60.f):15.f;
+        float gainMinimum=std::isfinite(settings.minimumGainYards)?(std::clamp)(settings.minimumGainYards,10.f,60.f):20.f;
         float catchMinimum=std::isfinite(settings.minimumCatchYards)?(std::clamp)(settings.minimumCatchYards,10.f,60.f):20.f;
         if(newPlay)minimum_=threshold_=gainMinimum;
         if(event.id&&event.event==live::Event::LongCatch)minimum_=threshold_=catchMinimum;

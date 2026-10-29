@@ -70,12 +70,12 @@ int main(){
     {Case c(3);c.finish();assert(!c.tick(4,{live::Event::CatchKnockout,1,1,0}).id);} // Wrong defender.
     {Case c(3);c.finish();c.p.down=3;assert(!c.tick(4,{live::Event::CatchKnockout,1,0,0}).id);} // Stop not established.
     for(int kind=0;kind<4;++kind){Case c(kind==0?4:3);c.finish(kind==3?-7.f:0);
-        c.result.goalLineStop=kind==0;c.result.thirdGoalStop=kind==1;c.result.highLeverageStop=kind==2;
+        c.result.goalLineStop=kind==0;c.result.thirdGoalStop=kind==1;c.result.highLeverageStop=kind==2;if(kind==2){c.snap.game.quarter=c.p.game.quarter=4;}
         auto out=c.tick(4,{live::Event::PassBreakup,1,0,0});
-        assert(out.event==(kind==0?live::Event::GoalLineStop:kind==1?live::Event::ThirdGoalStop:kind==2?live::Event::CriticalStop:live::Event::TackleForLoss));
+        assert(out.event==(kind==0?live::Event::GoalLineStop:kind==1?live::Event::PassBreakup:kind==2?live::Event::CriticalStop:live::Event::TackleForLoss));
     }
     for(int down:{3,4}){Case c(down);c.finish(-7);c.result.goalLineStop=down==4;c.result.thirdGoalStop=down==3;
-        assert(c.tick(4).event==(down==4?live::Event::GoalLineStop:live::Event::ThirdGoalStop));} // Preserve goal-line profile over overlapping loss.
+        assert(c.tick(4).event==(down==4?live::Event::GoalLineStop:live::Event::TackleForLoss));} // Preserve goal-line profile over overlapping loss.
     // Ownership, accepted penalties, score correction, clock plays, gate loss,
     // replay/pause/gaps and resume cannot manufacture or queue defensive motion.
     for(int bad=0;bad<20;++bad){Case c(3);c.finish(-6);

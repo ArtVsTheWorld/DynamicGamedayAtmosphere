@@ -4,6 +4,8 @@
 // compatibility is not tied to an executable hash. Keep future binding changes
 // here, separately from the configurable atmosphere rules.
 namespace attendance::bindings {
+// Read-only live carrier/animation tag layout; guarded type getter and asset identities.
+inline constexpr uintptr_t ShowboatPlayerType=0x2ec5710,ShowboatPlayerVtable=0xb3248e8,ShowboatAudioTagVtable=0xada4b20,ShowboatEnumValueVtable=0xae46318;
 inline constexpr uintptr_t StartingAttendanceFormula=0x8566710,StartingAttendanceLaunch=0x909b940,StartingAttendanceBoundary=0x7f146f8;
 // Native authored replay lifecycle: complete prologues are checked before hooking.
 inline constexpr uintptr_t ReplayEventNodeUpdate=0x7dc7520,ReplayEventNodeVtable=0xbc841d8;

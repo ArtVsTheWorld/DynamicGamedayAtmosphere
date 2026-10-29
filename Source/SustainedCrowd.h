@@ -30,6 +30,7 @@ struct Intent {
     uint64_t skillAccent=0;
     uint64_t reactionHoldUntil=0,reactionUntil=0;
     bool earnedReaction=false;
+    int populationSize=3; // Default preserves standalone/diagnostic callers.
 };
 inline bool passAnticipation(const Intent& wanted){return wanted.passFlight&&wanted.reason!=Reason::None&&!wanted.celebration&&!wanted.motionCompanion&&wanted.reason!=Reason::Result&&wanted.reason!=Reason::Eruption;}
 inline Intent supportingIntent(Intent wanted){

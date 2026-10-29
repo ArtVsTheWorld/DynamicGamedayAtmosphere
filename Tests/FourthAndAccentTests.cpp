@@ -11,15 +11,15 @@ int main(){
         tick(1000,1,0,2,0,-30,true);tick(1100,3,0,2,0,-30,true);tick(1200,3,1,1,0,NAN,false);
         auto fourth=tick(1300,3,1,3,-27,-27,true);assert(fourth.event==live::Event::FourthConversion&&fourth.yards==3);
         assert(!tick(1400,3,1,3,-27,-26,true).id);
-        live::Outcome yac;for(int i=1;i<=14;++i){auto out=tick(1400+i*100,3,1,3,-27,-26.f+i,true);if(out.id)yac=out;}
-        assert(yac.event==live::Event::RunAfterCatch&&yac.yards>=15&&yac.id!=fourth.id);
-        assert(!tick(2900,3,1,3,-27,-11,true).id);
+        live::Outcome yac;for(int i=1;i<=20;++i){auto out=tick(1400+i*100,3,1,3,-27,-26.f+i,true);if(out.id)yac=out;}
+        assert(yac.event==live::Event::RunAfterCatch&&yac.yards>=20&&yac.id!=fourth.id);
+        assert(!tick(3500,3,1,3,-27,-5,true).id);
     }
     // A fourth-down run conversion is also separate from its long-gain milestone.
     {live::Model m;live::Settings c;energy::Play p;p.game={3,14,14,1,100,720};p.offense=0;p.down=4;p.toFirst=1;p.fieldSpot=-20;p.attackDirection=1;
         auto tick=[&](uint64_t now,int phase,float runner){p.game.phase=phase;return m.observe(c,p,123,1,now,true,456,0,9,0,runner,true,true);};
         tick(1000,1,-20);tick(1100,3,-20);assert(tick(1200,3,-18).event==live::Event::FourthConversion);
-        live::Outcome run;for(int i=1;i<=14;++i){auto a=tick(1200+i*100,3,-18.f+i);if(a.id)run=a;}assert(run.event==live::Event::LongRun);}
+        live::Outcome run;for(int i=1;i<=20;++i){auto a=tick(1200+i*100,3,-18.f+i);if(a.id)run=a;}assert(run.event==live::Event::LongRun);}
     motion::Settings settings;motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
     m.observe(settings,x);x.now=1100;x.duringPlay=1;x.duringImpact=x.supplementalImpact=true;x.impactMilliseconds=2400;x.reactionScale=.7f;
     auto a=m.observe(settings,x);assert(a.kind==motion::Kind::LivePlay&&a.impactOnly&&a.percent==7&&a.until==3500);

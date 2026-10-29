@@ -18,15 +18,15 @@ int main(){
         float caught=p.fieldSpot+airYards*direction;auto reaction=tick(3,1,3,true,caught);
         if(airYards>=20){assert(reaction.event==live::Event::LongCatch&&reaction.yards==airYards);assert(!tick(3,1,3,true,caught+direction).id);}
         else {assert(!reaction.id);live::Outcome burst;
-            for(int yards=3;yards<=15;++yards){auto event=tick(3,1,3,true,p.fieldSpot+yards*direction);if(event.id)burst=event;}
-            assert(burst.event==live::Event::RunAfterCatch&&burst.yards==15&&m.runBuildup().progress==1);
+            for(int yards=3;yards<=20;++yards){auto event=tick(3,1,3,true,p.fieldSpot+yards*direction);if(event.id)burst=event;}
+            assert(burst.event==live::Event::RunAfterCatch&&burst.yards==20&&m.runBuildup().progress==1);
         }
     }
     // A runner may already be in held ball state 2 on the first live sample;
     // requiring a transient live ball-9 frame misses that entire run.
     {auto p=fixture();live::Model runs;uint64_t now=1000;runs.observe(cutoffs,p,123,1,now,true,456,0,9,p.fieldSpot,p.fieldSpot,true);
-        p.game.phase=3;live::Outcome out;for(int yards=0;yards<=15;++yards){now+=100;auto hit=runs.observe(cutoffs,p,123,1,now,true,456,0,2,p.fieldSpot,p.fieldSpot+yards,true);if(hit.id)out=hit;}
-        assert(out.event==live::Event::LongRun&&out.yards==15);}
+        p.game.phase=3;live::Outcome out;for(int yards=0;yards<=20;++yards){now+=100;auto hit=runs.observe(cutoffs,p,123,1,now,true,456,0,2,p.fieldSpot,p.fieldSpot+yards,true);if(hit.id)out=hit;}
+        assert(out.event==live::Event::LongRun&&out.yards==20);}
     // A stale completion cannot create a catch without this play's reset.
     // A fresh held ball-3 receiver can confirm one if its brief flight sample
     // was missed, but an airborne provisional kind-1 record cannot.

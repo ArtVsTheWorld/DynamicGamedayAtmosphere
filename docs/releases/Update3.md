@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.93.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.94.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **Occupied crowds and live reactions (1.94):** occupied mapped seats now set shake strength and added reaction-audio presence/size; fullness retains qualification and sparse-background roles. Home live showboating uses a slow bounded buildup; away showboating requests native GEN_BOO. Detection requires a fresh verified carrier animation tag, with cached/post-play/kick/clock/sim rejection. Dedicated goal-line motion requires fourth down; high-leverage stops require Q4. Runs, scrambles and short catch-and-runs ramp from 13 to 20 yards, with a cheer at 20. Former stock 15-yard settings migrate once; custom thresholds stay preserved. See the [1.94 review](../reviews/Update3-1.94.md).
 
 - **Simplified defensive motion (1.93):** sacks and runs share a confirmed five-yard-loss trigger; short/unknown-yardage sacks retain audio and replay classification but do not independently shake. Qualifying third/fourth-down stops, knockouts, breakups and hit sticks share one completed-result motion decision, with preserved goal-line/high-leverage priority and contact profiles. Early contact proof waits for confirmation; gates and interruptions cannot queue a later duplicate. Forced fumbles, interceptions and scores retain their distinct routes. See the [review and live checklist](../reviews/Update3-1.93.md).
 

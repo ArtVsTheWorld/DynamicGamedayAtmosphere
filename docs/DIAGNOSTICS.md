@@ -1,6 +1,8 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.93.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.94.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+
+Candidate 1.94 first needs a qualified home-carrier showboat below the long-gain cutoff, then an away-carrier showboat for GEN_BOO. Check slow buildup, stronger-effect priority, no stale repeats and no reaction below the layered gate. Compare occupied-seat counts through arrivals in one venue, the 13/20-yard gain boundaries, a third/fourth-down goal-line stop and a Q2/Q4 high-leverage stop. Status reports occupied crowd and audio tier; request logs are not rendered/audible proof. See [1.94 evidence and scope](reviews/Update3-1.94.md).
 
 Candidate 1.93 needs a qualified home-defense or neutral-site comparison: a five-plus-yard sack, five-plus-yard run loss, short sack, and an important third/fourth-down stop with contact flavor. Verify one prompt impact after the confirmed loss/stop, no standalone impact for a short sack, and no new impact on an ordinary third-down incompletion. Repeat below the layer gate and through a pause/replay interruption. The new `[defensive-motion]` entry records the shared request, not rendered-shake proof. Sound/replay sack classification stays independent. See [1.93 scope and regression coverage](reviews/Update3-1.93.md).
 

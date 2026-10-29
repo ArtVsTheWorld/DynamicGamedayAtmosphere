@@ -87,7 +87,7 @@ int main(){
     // New default profile: exact 20-yard crossings and critical fourth downs
     // celebrate at the line to gain, without waiting for a completed result.
     for(int direction:{-1,1})for(int side:{0,1}){
-        live::Settings defaults;assert(defaults.minimumCatchYards==20&&defaults.minimumGainYards==15);
+        live::Settings defaults;assert(defaults.minimumCatchYards==20&&defaults.minimumGainYards==20);
         defaults.minimumGainYards=20;live::Model detector;energy::Play play;play.game={4,20,20,1,120,720};play.game.neutral=true;
         play.offense=side;play.down=4;play.toFirst=2;play.fieldSpot=direction==1?-20.0f:20.0f;play.attackDirection=direction;
         uint64_t time=10000;bool go=true;

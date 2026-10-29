@@ -42,11 +42,10 @@ public:
         bool loss=result_.fiveYardLoss&&std::isfinite(result_.yards)&&result_.yards>=-100&&result_.yards<=-4.99f;
         bool stop=defense::stop(snap_,p,result_,sequence);
         auto event=live::Event::None;
-        if(stop&&result_.goalLineStop)event=live::Event::GoalLineStop;
-        else if(stop&&result_.thirdGoalStop)event=live::Event::ThirdGoalStop;
+        if(stop&&snap_.down==4&&result_.goalLineStop)event=live::Event::GoalLineStop;
         else if(loss)event=live::Event::TackleForLoss;
         else if(stop){
-            if(result_.highLeverageStop)event=live::Event::CriticalStop;
+            if(result_.highLeverageStop&&snap_.game.quarter==4)event=live::Event::CriticalStop;
             else if(flavor_!=live::Event::None)event=flavor_;
             else if(result_.turnoverOnDowns)event=live::Event::DownsStop;
         }
