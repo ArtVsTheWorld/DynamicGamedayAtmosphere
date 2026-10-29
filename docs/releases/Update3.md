@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.87.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.88.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **Midgame Save crowd continuity (1.88):** Loading-only crowd records cannot supply resumed attendance. Actual live-play history or a previously verified restoration is required; old archives are checked for real clock progression before reuse. Clock matching allows the existing five-second sampling interval, with the latest record winning equal-clock matches. A confirmed pause records the exact visible crowd, and arrivals hold their restored level until the game clock advances. The captured 1.87 failure now selects the original 89% crowd in regression checks; an installed-build reload remains pending.
 
 - **Captured stadium capacity (1.87):** Starting turnout uses the capacity already read from the selected stadium record, after matching home/away/stadium/native attendance. This replaces an early broadcast capacity query that failed during loading. Bounds and native fallback remain; attendance tuning is unchanged.
 - **Loading transition (1.86):** Fresh Dynasty input capture and turnout application carry verified mode identity across the brief -1 loading sentinel. Context expires after ten seconds and is revoked by other modes or unreadable state; count writes require fresh matching game inputs. Duplicate online/gameplay-config checks were removed from starting turnout; MMC already governs online availability. Input capture and fallback reasons appear in the normal log.

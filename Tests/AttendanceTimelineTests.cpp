@@ -35,7 +35,7 @@ int main(){
         auto policy=timeline::replayPolicy(active,paused,menu);
         assert(policy.historical==active);assert(policy.suspendAtmosphere==(active&&(paused||menu)));
     }
-    timeline::Archive a;auto context=game(1,720);a.begin(1,context);
+    timeline::Archive a;auto context=game(1,720);a.begin(1,context,true);
     timeline::Point p;p.state=context;p.time=0;p.temporary=25;assert(a.record(p));
     p.time=100;p.temporary=0;assert(a.record(p));
     p.state=game(3,720,14,35);p.time=1000;p.loss=25;p.periodStart=10;assert(a.record(p));
@@ -88,7 +88,7 @@ int main(){
     auto ccGame=game(4,100,21,42);postseason(ccGame,false,true);assert(restoredConference.resume(ccGame,found));ccGame.conferenceChampionship=false;assert(!restoredConference.resume(ccGame,found));
     // Previous release archives are still readable; they had no conference flag.
     std::stringstream oldWrite;timeline::write(oldWrite,a);std::string magic,row;std::getline(oldWrite,magic);std::getline(oldWrite,row);
-    magic.replace(magic.find("DGA-HISTORY-4"),13,"DGA-HISTORY-2");for(int field=0;field<3;++field)row.erase(row.rfind(' '));
+    magic.replace(magic.find("DGA-HISTORY-5"),13,"DGA-HISTORY-2");for(int field=0;field<4;++field)row.erase(row.rfind(' '));
     std::stringstream legacy(magic+"\n"+row+"\n"+oldWrite.str().substr(static_cast<size_t>(oldWrite.tellg())));timeline::Archive legacyArchive;assert(timeline::read(legacy,legacyArchive)&&!legacyArchive.games.front().context.conferenceChampionship);
     // Native and originally empty seats are never filled by historical overrides.
     for(unsigned agent=0;agent<10000;++agent){assert(historicalPart(true,false,agent,0));assert(historicalPart(false,true,agent,0));assert(!historicalPart(false,false,agent,0));assert(historicalPart(false,false,agent,100));}

@@ -12,4 +12,4 @@ Downloads are under [GitHub Releases](https://github.com/ArtVsTheWorld/DynamicGa
 
 Older tags were imported from preserved source snapshots. Initial commits record that import; they do not recreate every historical working build. `main` includes current source and portable build tools. No game binaries, MMC assemblies, saves, private diagnostics or development backlog are included.
 
-Update 3 is a **working candidate**, currently 1.87.0, and has not been published. See its [candidate notes](docs/releases/Update3.md) and [remaining test checklist](docs/DIAGNOSTICS.md).
+Update 3 is a **working candidate**, currently 1.88.0, and has not been published. See its [candidate notes](docs/releases/Update3.md) and [remaining test checklist](docs/DIAGNOSTICS.md).

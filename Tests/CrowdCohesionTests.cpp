@@ -22,8 +22,8 @@ int main(){
     inheritCrowdPlan(s,refreshed);assert(crowdPlan(refreshed)&&refreshed.plannedKickoff==80&&refreshed.night);
     refreshed.plannedKickoff=60;inheritCrowdPlan(s,refreshed);assert(refreshed.plannedKickoff==60);
     refreshed.startingAttendance=false;refreshed.plannedStadium=554;inheritCrowdPlan(s,refreshed);assert(!crowdPlan(refreshed));
-    timeline::Archive original;original.begin(1,s);timeline::Point p;p.state=s;p.state.seconds=600;p.time=120;p.temporary=11;assert(original.record(p));
-    std::stringstream data;timeline::write(data,original);assert(data.str().find("DGA-HISTORY-4")==0);
+    timeline::Archive original;original.begin(1,s,true);timeline::Point p;p.state=s;p.state.seconds=600;p.time=120;p.temporary=11;assert(original.record(p));
+    std::stringstream data;timeline::write(data,original);assert(data.str().find("DGA-HISTORY-5")==0);
     timeline::Archive loaded;assert(timeline::read(data,loaded));State live=p.state;live.startingAttendance=false;live.plannedKickoff=live.plannedFill=-1;timeline::Point saved;assert(loaded.resume(live,saved));assert(crowdPlan(saved.state)&&saved.state.plannedKickoff==80&&saved.state.exceptionalOpening&&saved.state.night);
     auto resumed=timeline::estimate(Settings{},arrivals::Settings{},live,&saved);assert(resumed.arrivals.startMissing==20&&resumed.arrivals.missing==11);auto next=live;next.seconds=590;resumed.arrivals.observe(arrivals::Settings{},next);assert(resumed.arrivals.missing<=11);
     live.plannedStadium=554;assert(!loaded.resume(live,saved));auto invalid=s;invalid.plannedKickoff=81;assert(!crowdPlan(invalid));invalid=s;invalid.plannedPeak=60001;assert(!crowdPlan(invalid));

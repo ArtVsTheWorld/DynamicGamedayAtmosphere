@@ -2300,9 +2300,9 @@ void beginAttendanceHistory(attendance::State& s,bool midgame){
         shownCurrent=currentLoss;shownTarget=highestTarget;shownArriving=seed.arrivals.missing;
         shownHalftime=seed.halftime.active?(std::max)(0,seed.temporary-seed.loss):0;
         shownResumeSource=matched?2:1;exactVisibility=true;lastApplied=-1;visibilityRetry=true;
-        log("resumed-game",std::string(matched?"Restored recorded attendance":"Estimated attendance; no matching crowd history")+": Q"+std::to_string(s.quarter)+", home "+std::to_string(s.homeScore)+" - away "+std::to_string(s.awayScore)+"; target "+std::to_string(100-(std::max)(seed.loss,seed.temporary))+"% of this game's original crowd. Future departures use this new scenario.");
+        log("resumed-game",std::string(matched?"Restored recorded attendance":"Estimated attendance; no matching crowd history")+": Q"+std::to_string(s.quarter)+", home "+std::to_string(s.homeScore)+" - away "+std::to_string(s.awayScore)+"; target "+std::to_string(100-(std::max)(seed.loss,seed.temporary))+"% of this game's original crowd."+(matched?" Source clock "+std::to_string(saved.state.seconds)+"s; loading-only records excluded.":"")+" Future departures use this new scenario.");
     }
-    {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.begin(id,s);}
+    {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.begin(id,s,matched);}
     if(midgame&&s.quarter>=3)halftimeExitConversion.checked=true;
     bootstrapPending=false;
 }
@@ -2410,7 +2410,13 @@ void recordAttendance(){
     // Offscreen sim has no new filmed plays. Its frozen recording timestamp
     // must not overwrite the crowd attached to the last real replay clip.
     if(offscreenSimulation(s))return;
-    if(s.phase!=6&&!nativeUnpaused())return;
+    bool paused=s.phase!=6&&!nativeUnpaused();
+    if(paused){
+        // Preserve the last visible crowd at a real pause without allowing an
+        // unconfirmed loading scene to seed its own Midgame Save restoration.
+        std::lock_guard<std::mutex> guard(timelineMutex);
+        if(bootstrapPending||attendanceArchive.games.empty()||attendanceArchive.games.back().id!=attendanceArchive.active||!attendanceArchive.games.back().resumeReady)return;
+    }
     s.team0=shownTeam0;s.team1=shownTeam1;s.rank0=shownRank0;s.rank1=shownRank1;s.rivalry=shownRivalry;s.playoff=shownPlayoff;s.conferenceChampionship=shownConference;s.bowl=shownBowl;s.neutral=shownNeutral;s.precipitation=shownPrecipitation;
     s.variationSeed=attendanceSeed;applySessionPlan(s,match);
     auto replay=replaySnapshot();if(replay.active)return;
@@ -2420,7 +2426,7 @@ void recordAttendance(){
     if(!attendance::timeline::recordingTime(replayBinding,replay.valid,replay.recording,attendance::elapsedGameTime(s),p.time))return;
     p.state=s;p.loss=activeLoss;p.temporary=arrivalMissing;
     {std::lock_guard<std::mutex> guard(historyMutex);p.history=gameHistory;p.periodStart=(std::clamp)(departureModel.periodStartLoss,0,p.loss);}
-    {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.record(p);}
+    {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.record(p,paused);}
     if(replay.valid)lastRecordingTime=replay.recording;
     last=now;loss=p.loss;missing=p.temporary;
 }

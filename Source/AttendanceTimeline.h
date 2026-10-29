@@ -33,20 +33,36 @@ struct Point {
     double time=0;State state;int loss=0,temporary=0,periodStart=0;History history;
     int total()const{return (std::max)(loss,temporary);}
 };
-struct Game {uint64_t id=0;State context;std::vector<Point> points;};
+struct Game {uint64_t id=0;State context;std::vector<Point> points;bool resumeReady=false;};
+inline bool legacyProgress(const std::vector<Point>& points){
+    // Formats 1-4 did not store phases or readiness. Require clock progression
+    // between two midgame samples, not the loading jump from the opening clock.
+    for(size_t i=1;i<points.size();++i){
+        const auto& a=points[i-1];const auto& b=points[i];
+        if((a.state.quarter>1||a.state.seconds<a.state.quarterSeconds*.95f)&&
+           (b.state.quarter>1||b.state.seconds<b.state.quarterSeconds*.95f)&&
+           b.time>a.time&&elapsedGameTime(b.state)>elapsedGameTime(a.state)+.01f)return true;
+    }
+    return false;
+}
 struct Archive {
     static constexpr size_t MaxGames=8,MaxPoints=4096;
     std::deque<Game> games;uint64_t active=0,revision=0;
-    void begin(uint64_t id,const State& context){
-        active=id;games.push_back(Game{id,context,{}});while(games.size()>MaxGames)games.pop_front();++revision;
+    void begin(uint64_t id,const State& context,bool restored=false){
+        active=id;games.push_back(Game{id,context,{},restored});while(games.size()>MaxGames)games.pop_front();++revision;
     }
-    bool record(const Point& p){
+    bool record(const Point& p,bool checkpoint=false){
         if(games.empty()||games.back().id!=active||!valid(p.state)||!std::isfinite(p.time)||p.time<0||p.loss<0||p.loss>100||p.temporary<0||p.temporary>100||p.periodStart<0||p.periodStart>p.loss)return false;
         Point owned=p;copyCrowdPlan(games.back().context,owned.state);
         auto& v=games.back().points;
+        if(!v.empty()&&p.time+0.01<v.back().time)return false;
+        // Phase 3 is an actual live play. Pregame, lineup, play selection and
+        // loading-time clock jumps cannot establish a new resume source.
+        if(!games.back().resumeReady&&p.state.phase==3){games.back().resumeReady=true;++revision;}
         if(!v.empty()){
-            const auto& last=v.back();if(p.time+0.01<last.time)return false;
-            if(p.loss==last.loss&&p.temporary==last.temporary&&p.state.quarter==last.state.quarter&&p.state.homeScore==last.state.homeScore&&p.state.awayScore==last.state.awayScore&&p.time-last.time<5)return false;
+            const auto& last=v.back();
+            if(p.loss==last.loss&&p.temporary==last.temporary&&p.state.quarter==last.state.quarter&&p.state.homeScore==last.state.homeScore&&p.state.awayScore==last.state.awayScore&&
+               (checkpoint?std::abs(p.state.seconds-last.state.seconds)<.01f:p.time-last.time<5))return false;
         }
         if(v.size()>=MaxPoints){
             // Keep the opening and all crowd changes; compact equal-target runs.
@@ -66,12 +82,16 @@ struct Archive {
         // Without a stable Midgame Save ID, reuse only a close clock/score match
         // in a recorded game of these teams. Otherwise estimate explicitly.
         for(auto g=games.rbegin();g!=games.rend();++g){
+            if(!g->resumeReady)continue;
             if(g->context.team0!=s.team0||g->context.team1!=s.team1||g->context.quarterSeconds!=s.quarterSeconds||g->context.playoff!=s.playoff||g->context.conferenceChampionship!=s.conferenceChampionship||g->context.bowl!=s.bowl||
                 g->context.rank0!=s.rank0||g->context.rank1!=s.rank1||g->context.rivalry!=s.rivalry||g->context.neutral!=s.neutral||g->context.precipitation!=s.precipitation)continue;
             if(s.plannedStadium>=0&&g->context.plannedStadium>=0&&s.plannedStadium!=g->context.plannedStadium)continue;
-            const Point* best=nullptr;float distance=2.01f;
+            if(crowdPlan(s)&&crowdPlan(g->context)&&(s.plannedWeek!=g->context.plannedWeek||s.plannedYear!=g->context.plannedYear))continue;
+            // Equal-density history is sampled every five seconds. Native save
+            // clock rounding must not reject the last real sample at 3.1s away.
+            const Point* best=nullptr;float distance=5.01f;
             for(const auto& p:g->points)if(p.state.quarter==s.quarter&&p.state.homeScore==s.homeScore&&p.state.awayScore==s.awayScore){
-                float d=std::abs(p.state.seconds-s.seconds);if(d<distance){distance=d;best=&p;}
+                float d=std::abs(p.state.seconds-s.seconds);if(d<=distance){distance=d;best=&p;}
             }
             if(best){out=*best;return true;}
         }return false;
@@ -127,11 +147,12 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,State s,
 }
 // Text format with explicit fields and bounded reads; never dumps native structs.
 inline void write(std::ostream& f,const Archive& a){
-    f<<"DGA-HISTORY-4 "<<a.games.size()<<'\n'<<std::setprecision(17);
+    f<<"DGA-HISTORY-5 "<<a.games.size()<<'\n'<<std::setprecision(17);
     for(const auto& g:a.games){
         const auto& s=g.context;f<<g.id<<' '<<s.team0<<' '<<s.team1<<' '<<s.quarterSeconds<<' '<<s.playoff<<' '<<s.bowl<<' '<<s.rank0<<' '<<s.rank1<<' '<<s.rivalry<<' '<<s.neutral<<' '<<s.precipitation<<' '<<g.points.size()<<' '<<s.variationSeed<<' '<<s.conferenceChampionship;
         bool plan=crowdPlan(s);f<<' '<<plan<<' '<<s.night;
         if(plan)f<<' '<<s.plannedKickoff<<' '<<s.plannedFill<<' '<<s.plannedPeak<<' '<<s.plannedCapacity<<' '<<s.plannedStadium<<' '<<s.plannedWeek<<' '<<s.plannedYear<<' '<<s.exceptionalOpening;
+        f<<' '<<g.resumeReady;
         f<<'\n';
         for(const auto& p:g.points){const auto& h=p.history;
             f<<p.time<<' '<<p.state.quarter<<' '<<p.state.seconds<<' '<<p.state.homeScore<<' '<<p.state.awayScore<<' '<<p.loss<<' '<<p.temporary<<' '<<p.periodStart<<' '
@@ -139,24 +160,25 @@ inline void write(std::ostream& f,const Archive& a){
     }
 }
 inline bool read(std::istream& f,Archive& target){
-    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||(magic!="DGA-HISTORY-1"&&magic!="DGA-HISTORY-2"&&magic!="DGA-HISTORY-3"&&magic!="DGA-HISTORY-4")||games>Archive::MaxGames)return false;
+    Archive a;std::string magic;size_t games=0;if(!(f>>magic>>games)||(magic!="DGA-HISTORY-1"&&magic!="DGA-HISTORY-2"&&magic!="DGA-HISTORY-3"&&magic!="DGA-HISTORY-4"&&magic!="DGA-HISTORY-5")||games>Archive::MaxGames)return false;
     for(size_t i=0;i<games;++i){Game g;size_t count=0;int playoff=0,rivalry=0,neutral=0;
         if(!(f>>g.id>>g.context.team0>>g.context.team1>>g.context.quarterSeconds>>playoff>>g.context.bowl>>g.context.rank0>>g.context.rank1>>rivalry>>neutral>>g.context.precipitation>>count)||!g.id||count>Archive::MaxPoints||g.context.team0<0||g.context.team0>=2047||g.context.team1<0||g.context.team1>=2047||playoff<0||playoff>1||rivalry<0||rivalry>1||neutral<0||neutral>1||g.context.rank0< -1||g.context.rank0>256||g.context.rank1< -1||g.context.rank1>256||g.context.precipitation<0||g.context.precipitation>2||g.context.bowl<0||g.context.bowl>255||!std::isfinite(g.context.quarterSeconds)||g.context.quarterSeconds<60||g.context.quarterSeconds>1200)return false;
-        if(magic=="DGA-HISTORY-2"||magic=="DGA-HISTORY-3"||magic=="DGA-HISTORY-4"){uint64_t seed=0;if(!(f>>seed)||seed>0xffffffffull)return false;g.context.variationSeed=static_cast<unsigned>(seed);}
-        if(magic=="DGA-HISTORY-3"||magic=="DGA-HISTORY-4"){int conference=0;if(!(f>>conference)||conference<0||conference>1)return false;g.context.conferenceChampionship=conference!=0;}
-        if(magic=="DGA-HISTORY-4"){
+        if(magic!="DGA-HISTORY-1"){uint64_t seed=0;if(!(f>>seed)||seed>0xffffffffull)return false;g.context.variationSeed=static_cast<unsigned>(seed);}
+        if(magic=="DGA-HISTORY-3"||magic=="DGA-HISTORY-4"||magic=="DGA-HISTORY-5"){int conference=0;if(!(f>>conference)||conference<0||conference>1)return false;g.context.conferenceChampionship=conference!=0;}
+        if(magic=="DGA-HISTORY-4"||magic=="DGA-HISTORY-5"){
             int plan=0,night=0,exceptional=0;if(!(f>>plan>>night)||plan<0||plan>1||night<0||night>1)return false;g.context.night=night!=0;
             if(plan){auto& s=g.context;s.startingAttendance=true;
                 if(!(f>>s.plannedKickoff>>s.plannedFill>>s.plannedPeak>>s.plannedCapacity>>s.plannedStadium>>s.plannedWeek>>s.plannedYear>>exceptional)||exceptional<0||exceptional>1||!crowdPlan(s))return false;
                 s.exceptionalOpening=exceptional!=0;
             }
         }
+        if(magic=="DGA-HISTORY-5"){int ready=0;if(!(f>>ready)||ready<0||ready>1)return false;g.resumeReady=ready!=0;}
         g.context.playoff=playoff!=0;g.context.rivalry=rivalry!=0;g.context.neutral=neutral!=0;double last=-1;
         for(size_t j=0;j<count;++j){Point p;p.state=g.context;auto& h=p.history;int comeback=0,released=0;
             if(!(f>>p.time>>p.state.quarter>>p.state.seconds>>p.state.homeScore>>p.state.awayScore>>p.loss>>p.temporary>>p.periodStart>>comeback>>released>>h.maxDeficit>>h.bestDeficit>>h.watchStage>>h.comebackSide>>h.maxAwayDeficit>>h.deteriorationSince))return false;
             if(!valid(p.state)||!std::isfinite(p.time)||p.time<0||p.time<last||p.time>86400||p.loss<0||p.loss>100||p.temporary<0||p.temporary>100||p.periodStart<0||p.periodStart>p.loss||comeback<0||comeback>1||released<0||released>1||h.maxDeficit<0||h.maxDeficit>255||h.bestDeficit< -255||h.bestDeficit>255||h.watchStage<0||h.watchStage>3||h.comebackSide< -1||h.comebackSide>1||h.maxAwayDeficit<0||h.maxAwayDeficit>255||!std::isfinite(h.deteriorationSince))return false;
             last=p.time;h.seen=true;h.comeback=comeback!=0;h.released=released!=0;h.elapsed=elapsedGameTime(p.state);h.lastHome=p.state.homeScore;h.lastAway=p.state.awayScore;h.upsetWatch=h.watchStage>0;g.points.push_back(p);
-        }a.games.push_back(std::move(g));
+        }if(magic!="DGA-HISTORY-5")g.resumeReady=legacyProgress(g.points);a.games.push_back(std::move(g));
     }
     f>>std::ws;if(!f.eof())return false;target=std::move(a);return true;
 }

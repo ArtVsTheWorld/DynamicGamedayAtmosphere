@@ -67,7 +67,10 @@ struct Model {
             active=missing>0;done=!active;r.starting=active;r.changed=active;r.missing=missing;
         }
         float now=s.quarterSeconds-s.seconds;
-        if(now+0.01f<elapsed)return r;
+        // A restored visible crowd can lag its ideal curve until the next
+        // hidden update. Reloading or pausing at the same game clock must not
+        // spend that catch-up immediately and change the saved crowd.
+        if(now<=elapsed+0.01f)return r;
         elapsed=now;
         int next=missingAt(startMissing,elapsed,fillSeconds,s);
         next=(std::clamp)(next,0,missing);
