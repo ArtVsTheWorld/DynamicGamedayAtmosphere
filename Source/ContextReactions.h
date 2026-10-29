@@ -3,7 +3,7 @@
 #include "PackedHouse.h"
 namespace attendance::contextreaction {
 inline bool premium(const State& s,float fullness,uint64_t positions){
-    return (bigGameMatchup(s)||s.rivalry)&&packed::qualifies(positions,fullness)&&std::abs(s.homeScore-s.awayScore)<=16;
+    return bigGameMatchup(s)&&packed::qualifies(positions,fullness)&&std::abs(s.homeScore-s.awayScore)<=16;
 }
 inline float strength(const energy::Play& snap,const State& current,bool qualified){
     if(!qualified)return 1;

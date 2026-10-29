@@ -63,7 +63,7 @@ struct Record {
 };
 inline bool team(const Reader& r,A p,Team& t){
     int hw=0,hl=0,rw=0,rl=0;
-    if(!r.integer(p,0xd1,t.id)||!r.integer(p,0x182,t.rank)||!r.integer(p,0x191,t.toughest)||!r.integer(p,0x180,t.prestige)||
+    if(!r.integer(p,0xd1,t.id)||!r.integer(p,0x182,t.rank)||!r.integer(p,0x9e,t.apRank)||!r.integer(p,0x191,t.toughest)||!r.integer(p,0x180,t.prestige)||
        !r.integer(p,0x7a,hw)||!r.integer(p,0x77,hl)||!r.integer(p,0xec,rw)||!r.integer(p,0xe9,rl))return false;
     t.wins=hw+rw;t.losses=hl+rl;t.homeGames=hw+hl;return true;
 }

@@ -36,7 +36,7 @@ void init(Table& t,Row& r){
     put(address(t.schema)+0xd0,address(t.columns));put<short>(address(t.schema)+0xd8,512);
     r.vt=recordVt;r.table=&t;
 }
-void initTeam(Table& t,int id){t.ints={{0xd1,id},{0x182,50},{0x191,70},{0x180,6},{0x7a,2},{0x77,1},{0xec,1},{0xe9,2}};}
+void initTeam(Table& t,int id){t.ints={{0xd1,id},{0x182,50},{0x9e,17},{0x191,70},{0x180,6},{0x7a,2},{0x77,1},{0xec,1},{0xe9,2}};}
 struct Member {A type,name;unsigned char unused[16];unsigned flags;unsigned reserved;unsigned short offset;unsigned char tail[6];};
 static_assert(sizeof(Member)==48);
 int main(){
@@ -62,6 +62,9 @@ int main(){
     init(memberTables[136],memberRows[136]);initTeam(memberTables[136],1500);memberTables[136].ints[0x182]=256;arrt.related[138]=&memberRows[136];
     assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.regular&&!seed.resumed&&seed.schools==138&&seed.home.id==1153&&seed.home.homeGames==3&&seed.home.wins==3&&seed.home.losses==3&&enums>0&&seed.home.atmosphere==0&&seed.home.standing>=0);
     auto noLeaks=[&](){for(Row* r:{&game,&home,&away,&stadium,&league,&season,&array})assert(r->refs==0);for(auto& r:memberRows)assert(r.refs==0);for(auto& r:schoolRows)assert(r.refs==0);};noLeaks();
+    assert(seed.home.apRank==17&&seed.home.rank==50&&seed.home.prestige==6);
+    ht.ints[0x9e]=0;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.home.apRank==0);noLeaks();ht.ints[0x9e]=17;
+    ht.ints[0x9e]=-1;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();ht.ints[0x9e]=17;
     schoolTables[0].ints[5]=13;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();schoolTables[0].ints[5]=0;
     ht.related[0xa5]=nullptr;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();ht.related[0xa5]=&schoolRows[0];
     gt.ints[0x3e]=2;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&!seed.regular);noLeaks();gt.ints[0x3e]=1;

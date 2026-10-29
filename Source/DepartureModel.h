@@ -22,7 +22,7 @@ inline float stayFactor(const State& s,const History& h){
 }
 inline bool excellentGame(const State& s,const History& h){
     int margin=std::abs(s.homeScore-s.awayScore);
-    return inferiorOpponent(s)<1&&margin<=8&&((top25(s.rank0)&&top25(s.rank1))||h.upsetWatch||h.comeback||
+    return inferiorOpponent(s)<1&&margin<=8&&(marqueeMatchup(s)||h.upsetWatch||h.comeback||
         (margin<=3&&s.homeScore+s.awayScore>=28));
 }
 inline float homePatience(const State& s,float elapsed){

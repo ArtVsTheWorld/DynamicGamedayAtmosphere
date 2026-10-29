@@ -13,7 +13,7 @@ inline float importance(const State& raw){
     State s=ranked(raw);float a=quality(s.rank0),b=quality(s.rank1);
     float opponent=s.neutral?(std::max)(a,b):b;
     float value=0.6f*std::sqrt(a*b)+0.4f*opponent;
-    if(top25(s.rank0)&&top25(s.rank1))value=(std::max)(value,0.85f);
+    if(marqueeMatchup(s))value=(std::max)(value,0.85f);
     if(s.playoff)value=(std::max)(value,championship(s)?1.0f:0.95f);
     return value;
 }

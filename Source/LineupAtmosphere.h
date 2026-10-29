@@ -10,8 +10,8 @@
 namespace attendance::lineup {
 inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
-// Atmosphere classification is intentionally separate from attendance patience:
-// one ranked side makes a rivalry marquee without changing departure/postseason rules.
+// Share matchup identity with attendance patience; fullness and situation
+// admission remain specific to the effect, not automatic big-game privileges.
 inline bool bigGame(const State& s){return marqueeMatchup(s);}
 inline float bigMinimum(const core::Settings& c,uint64_t positions){
     float extra=std::isfinite(c.bigGameMinimum)?(std::clamp)(c.bigGameMinimum,.55f,.90f):.55f;

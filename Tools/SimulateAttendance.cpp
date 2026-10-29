@@ -121,7 +121,7 @@ int main(int argc,char** argv){
         auto half=std::find_if(r.points.begin(),r.points.end(),[](const Point& p){return p.t==1440;});assert(half!=r.points.end());
         variety<<seed<<','<<t.departure*720<<','<<t.mainReturn*720<<','<<t.lastReturn*720<<','<<half->fullness<<','<<r.finalFullness<<'\n';}
     if(argc>2){std::ifstream cohort(argv[2]);std::string line;std::vector<turnout::Team> teams;
-        while(std::getline(cohort,line)){std::replace(line.begin(),line.end(),',',' ');std::istringstream in(line);turnout::Team t;if(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference)teams.push_back(t);}
+        while(std::getline(cohort,line)){std::replace(line.begin(),line.end(),',',' ');std::istringstream in(line);turnout::Team t;if(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference>>t.apRank)teams.push_back(t);}
         assert(turnout::assignStandings(teams));std::ofstream dist(dir/"cohort-peak-sweep.csv");dist<<"support_percentile,home_rank,away_rank,rivalry,night,rain,peak_pct,kickoff_share,capacity_at_kickoff\n";unsigned count=0;
         for(const auto& home:teams)for(const auto& away:teams)if(home.id!=away.id)for(int variant=0;variant<4;++variant){
             turnout::Seed s;s.home=home;s.away=away;s.regular=true;s.stadium=s.homeStadium=553;s.capacity=60000;s.schools=static_cast<int>(teams.size());s.week=8;s.year=2026;s.ea=60000;

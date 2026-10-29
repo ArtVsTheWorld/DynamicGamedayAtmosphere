@@ -201,11 +201,11 @@ int main(){
     assert(departures::catchupTarget(c,win,h,2520)<target*0.5);
     double homeTarget=departures::catchupTarget(c,win,h,2520);
     win.team1=1500;assert(departures::catchupTarget(c,win,h,2520)>homeTarget&&departures::catchupTarget(c,win,h,2520)<target);
-    State context=s;context.rivalry=true;assert(departures::catchupTarget(c,context,h,2520)==target);
+    State context=s;context.rivalry=true;assert(bigGameMatchup(context)&&departures::catchupTarget(c,context,h,2520)<target&&departures::catchupTarget(c,context,h,2520)>0);
     double rivalTarget=departures::catchupTarget(c,context,h,2520);
     float rivalFactor=departures::matchupFactor(c,context);
-    context.precipitation=1;assert(departures::matchupFactor(c,context)>rivalFactor);
-    assert(departures::catchupTarget(c,context,h,2520)>rivalTarget); // Only the weather floor changes.
+    context.precipitation=1;assert(profileFor(c,context)==Profile::Reduced&&departures::matchupFactor(c,context)==rivalFactor);
+    assert(departures::catchupTarget(c,context,h,2520)>rivalTarget); // Weather pressure remains in a marquee game.
     context.rivalry=false;assert(departures::catchupTarget(c,context,h,2520)>target);
     context=s;context.rank0=127;assert(departures::catchupTarget(c,context,h,2520)>target);
     context=s;context.neutral=true;context.rank0=127;context.rank1=1;
@@ -244,11 +244,11 @@ int main(){
     assert(lateWin.final+10<lateLoss.final);
     context=s;context.rivalry=true;auto lateRival=lateBlowout(context,false);
     // Close marquee rivalries now retain more fans at halftime; once the
-    // fourth-quarter rout develops they receive no extra blowout protection.
+    // fourth-quarter rout develops the shared reduced profile remains modest, with positive blowout pressure.
     assert(lateRival.q4<lateLoss.q4&&lateRival.final<=lateLoss.final);
     context.quarter=4;context.homeScore=14;context.awayScore=42;context.seconds=90;
     State ordinaryRout=context;ordinaryRout.rivalry=false;
-    assert(departures::rate(c,context,h,2790)==departures::rate(c,ordinaryRout,h,2790));
+    assert(std::abs(departures::rate(c,context,h,2790)/departures::rate(c,ordinaryRout,h,2790)-.75)<.000001);
     auto frequent=lateBlowout(s,false,1),infrequent=lateBlowout(s,false,30);
     // Coarser score observations deliberately withhold newly discovered
     // pressure over the uncertain interval. They may be slightly more patient.

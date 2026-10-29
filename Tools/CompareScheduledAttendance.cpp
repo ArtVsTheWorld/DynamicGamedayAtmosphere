@@ -11,7 +11,7 @@ using namespace attendance::turnout;
 int main(int argc,char** argv){
     if(argc!=4)return 2;std::ifstream teamFile(argv[1]),schedule(argv[2]);std::ofstream out(argv[3]);std::string line;std::vector<Team> cohort;std::map<int,Team> teams;
     while(std::getline(teamFile,line)){std::replace(line.begin(),line.end(),',',' ');std::istringstream in(line);Team t;
-        if(!(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference))return 3;
+        if(!(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference>>t.apRank))return 3;
         teams[t.id]=t;if(!fcs(t.id))cohort.push_back(t);}
     if(!assignStandings(cohort))return 4;for(const auto& t:cohort)teams[t.id]=t;
     out<<"game_row,home,away,week,rivalry,neutral_inferred,condition,central_peak_pct,variation_low,variation_high,kickoff_share_of_peak,kickoff_capacity_pct\n";

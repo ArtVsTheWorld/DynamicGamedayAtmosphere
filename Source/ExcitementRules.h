@@ -460,9 +460,8 @@ struct Model {
         const State& s=p.game;
         double dt=last<0?0:(std::clamp)(now-last,0.0,0.25);last=now;
         heldFraction=(std::clamp)(retainedFraction,0.0f,1.0f);
-        bool ranked=top25(s.rank0)&&top25(s.rank1);
-        float identity=championship(s)?c.championshipDb:s.playoff?c.playoffDb:s.rivalry&&ranked?c.rankedRivalryDb:(s.rivalry||ranked)?c.bigGameDb:0;
-        bool bigIdentity=s.rivalry||ranked||s.playoff;
+        bool bigIdentity=marqueeMatchup(s);
+        float identity=championship(s)?c.championshipDb:s.playoff?c.playoffDb:s.rivalry&&bigIdentity?c.rankedRivalryDb:bigIdentity?c.bigGameDb:0;
         openingWeight=openingProfile.observe(s,p.offense,p.down,c.opening!=0,bigIdentity);
         float floor=identity;
         overtimeActive=c.overtimeAtmosphere&&competitiveOvertime(s);
@@ -493,7 +492,8 @@ struct Model {
         int margin=std::abs(s.homeScore-s.awayScore);
         float baseline=overtimeActive?62.0f:20+(margin<=8?(s.quarter==4?22.0f:14.0f):margin<=16?8.0f:0.0f);
         if(s.rivalry)baseline+=12;
-        if(ranked)baseline+=10;
+        // An extra elite-pair bonus is distinct from shared marquee eligibility.
+        if(top25(s.rank0)&&top25(s.rank1))baseline+=10;
         if(s.playoff)baseline+=8;
         if(stage)baseline+=(stage==1?6.0f:stage==2?14.0f:26.0f)*(0.4f+0.6f*upsetDiscrepancy(s));
         baseline=(std::min)(70.0f,baseline);

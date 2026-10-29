@@ -4,7 +4,7 @@
 #include <iostream>
 using namespace attendance;
 using namespace attendance::energy;
-static Play opening(){Play p;p.game={1,0,0,6,300,300};p.game.rivalry=true;p.offense=1;p.down=0;p.toGoal=40;p.toFirst=10;return p;}
+static Play opening(){Play p;p.game={1,0,0,6,300,300};p.game.rivalry=true;p.game.rank0=12;p.game.rank1=70;p.offense=1;p.down=0;p.toGoal=40;p.toFirst=10;return p;}
 static bool near(float a,float b){return std::fabs(a-b)<0.001f;}
 int main(){
     energy::Settings c;

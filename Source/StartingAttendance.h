@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include "StartingAttendanceTransition.h"
+#include "MatchupClass.h"
 
 namespace attendance::turnout {
 // Expected settled turnout, not the number already in their seats at kickoff.
@@ -14,6 +15,7 @@ struct Team {
     // LetterGrade is A+=0 through F=12; 13 is Incomplete, never an A+ fallback.
     int atmosphere=-1,tradition=-1,brand=-1,conference=-1;
     float standing=-1;
+    int apRank=0; // MediaPoll_CurrentRank; separate from the game's general TeamRank.
 };
 struct Seed {
     Team home,away;
@@ -37,12 +39,14 @@ inline bool grade(int value){return value>=0&&value<=12;}
 inline bool grades(const Team& t){return grade(t.atmosphere)&&grade(t.tradition)&&grade(t.brand)&&grade(t.conference);}
 inline float rankStrength(int rank,int schools){return rank>=1&&rank<=schools?1.f-static_cast<float>(rank-1)/(schools-1):0.f;}
 inline float support(const Team& t,int schools){
-    return .40f*(12-t.atmosphere)/12.f+.20f*(12-t.tradition)/12.f+.15f*(12-t.brand)/12.f+
-        .15f*rankStrength(t.rank,schools)+.10f*(12-t.conference)/12.f;
+    // Atmosphere already represents the toughest-place/home-field metric: do
+    // not count ToughestPlacesRank again. Prestige is the native 0..10 half-star scale.
+    return .35f*(12-t.atmosphere)/12.f+.25f*t.prestige/10.f+.20f*(12-t.tradition)/12.f+
+        .10f*(12-t.brand)/12.f+.05f*(12-t.conference)/12.f+.05f*rankStrength(t.apRank,schools);
 }
 inline bool assignStandings(std::vector<Team>& teams){
     int n=static_cast<int>(teams.size());if(n<100||n>256)return false;
-    for(int i=0;i<n;++i){if(!grades(teams[i])||teams[i].rank<1||teams[i].rank>n||fcs(teams[i].id))return false;
+    for(int i=0;i<n;++i){if(!grades(teams[i])||teams[i].rank<1||teams[i].rank>n||teams[i].prestige<0||teams[i].prestige>10||teams[i].apRank<0||teams[i].apRank>256||fcs(teams[i].id))return false;
         for(int j=0;j<i;++j)if(teams[i].id==teams[j].id)return false;}
     for(auto& t:teams){float score=support(t,n);int lower=0,equal=0;
         for(const auto& other:teams){float delta=support(other,n)-score;if(delta<-.000001f)++lower;else if(std::fabs(delta)<=.000001f)++equal;}
@@ -59,7 +63,7 @@ inline float demandCurve(float standing){
     return y[std::size(y)-1];
 }
 inline bool top(int rank,int cutoff){return rank>=1&&rank<=cutoff;}
-inline bool big(int home,int away,bool rivalry){return (top(home,25)&&top(away,25))||(rivalry&&(top(home,25)||top(away,25)||(top(home,50)&&top(away,50))));}
+inline bool big(int home,int away,bool rivalry){return matchup::big(home,away,rivalry);}
 inline bool exceptional(float peak,float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int bigBonus=3){
     return std::isfinite(peak)&&peak>=95&&standing>=.8f&&bigBonus>0&&
         (neutral||!lateArrivalSchool(home))&&(night||(!neutral&&opener))&&
@@ -77,7 +81,7 @@ inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutr
 }
 inline bool validTeam(const Team& t,int schools){
     return t.id>=0&&t.id<2047&&t.toughest>=0&&t.toughest<=(fcs(t.id)?256:schools)&&
-        t.rank>=0&&t.rank<=256&&t.prestige>=0&&t.prestige<=10&&
+        t.rank>=0&&t.rank<=256&&t.prestige>=0&&t.prestige<=10&&t.apRank>=0&&t.apRank<=256&&
         t.wins>=0&&t.losses>=0&&t.wins+t.losses<=30&&t.homeGames>=0&&t.homeGames<=20;
 }
 inline float momentum(const Team& t){

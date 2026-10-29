@@ -1,5 +1,5 @@
 // Own policy with generic examples. Optional private cohort CSV contains numeric
-// inputs only: id,rank,toughest,prestige,wins,losses,homeGames,atmosphere,tradition,brand,conference.
+// inputs only: id,rank,toughest,prestige,wins,losses,homeGames,atmosphere,tradition,brand,conference,apRank (actual MediaPoll_CurrentRank; do not substitute TeamRank).
 #include "../Source/StartingAttendance.h"
 #include <cstdio>
 #include <fstream>
@@ -30,7 +30,7 @@ int main(int argc,char** argv){
     if(argc>1){
         std::ifstream file(argv[1]);std::string line;std::vector<Team> teams;
         while(std::getline(file,line)){std::replace(line.begin(),line.end(),',',' ');std::istringstream in(line);Team t;
-            if(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference)teams.push_back(t);}
+            if(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference>>t.apRank)teams.push_back(t);}
         if(!assignStandings(teams)){std::fputs("Invalid FBS cohort\n",stderr);return 2;}
         std::vector<float> peaks,old,ea;for(const auto& home:teams)for(const auto& away:teams)if(home.id!=away.id){
             Seed s;s.home=home;s.away=away;s.schools=static_cast<int>(teams.size());s.stadium=s.homeStadium=553;s.capacity=60000;s.regular=true;s.week=8;s.year=2026;s.ea=40000;
@@ -38,7 +38,7 @@ int main(int argc,char** argv){
             peaks.push_back(r.percent);old.push_back(previous(s,720,0,false,false));ea.push_back(eaPercent(s,false,false));}
         auto report=[](const char* name,std::vector<float> values){std::sort(values.begin(),values.end());double total=0;unsigned full=0,low=0;for(float v:values){total+=v;if(v>=99.99f)++full;if(v<40)++low;}
             std::printf("%s,count=%zu,mean=%.2f,min=%.2f,p10=%.2f,p25=%.2f,median=%.2f,p75=%.2f,max=%.2f,full_pct=%.2f,below40_pct=%.2f\n",name,values.size(),total/values.size(),values.front(),values[values.size()/10],values[values.size()/4],values[values.size()/2],values[values.size()*3/4],values.back(),100.*full/values.size(),100.*low/values.size());};
-        report("EA",ea);report("DGA181",old);report("DGA183",peaks);return 0;
+        report("EA",ea);report("DGA181",old);report("DGA-current",peaks);return 0;
     }
     std::puts("Example,EA peak pct,DGA181 peak pct,DGA183 peak pct,DGA181 kickoff capacity pct,DGA183 kickoff peak pct,DGA183 kickoff capacity pct,Arrivals finish Q1 pct,Support percentile,Demand,Season,Matchup,Night,Weather");
     Seed s;s.home={1153,50,70,6,3,3,3,6,6,6,6,.5f};s.away={1193,60,80,5,3,3,3,6,6,6,6,.4f};s.stadium=s.homeStadium=553;s.capacity=60000;s.schools=138;s.week=8;s.year=2026;s.regular=true;

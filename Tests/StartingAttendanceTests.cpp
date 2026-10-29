@@ -8,14 +8,18 @@ Seed sample(){Seed s;s.home={1153,50,70,6,3,3,3,6,6,6,6,.5f};s.away={1193,60,80,
 Launch launch(const Seed& s){return {s.home.id,s.away.id,s.stadium,s.capacity,s.ea,720,0,false,false};}
 int main(){
     Seed s=sample();Launch l=launch(s);auto base=calculate(s,l);assert(base.applied&&near(base.demand,87.86f)&&base.kickoff==55&&base.fillPercent==50);
-    assert(near(support(s.home,138),.4f*.5f+.2f*.5f+.15f*.5f+.15f*rankStrength(50,138)+.1f*.5f));
+    assert(near(support(s.home,138),.35f*.5f+.25f*.6f+.20f*.5f+.10f*.5f+.05f*.5f));
     for(int member=0;member<4;++member){auto t=s.home;int* fields[]={&t.atmosphere,&t.tradition,&t.brand,&t.conference};*fields[member]=0;assert(support(t,138)>support(s.home,138));*fields[member]=12;assert(support(t,138)<support(s.home,138));}
-    auto ranked=s.home;ranked.rank=1;assert(support(ranked,138)>support(s.home,138));ranked.prestige=0;assert(near(support(ranked,138),support(Team{1153,1,70,10,3,3,3,6,6,6,6,.5f},138)));
+    auto ranked=s.home;ranked.apRank=1;assert(support(ranked,138)>support(s.home,138));ranked.rank=1;assert(near(support(ranked,138),support(s.home,138)+.05f));
+    ranked=s.home;ranked.prestige=10;assert(near(support(ranked,138)-support(s.home,138),.10f));
     std::vector<Team> cohort;for(int i=0;i<138;++i)cohort.push_back(Team{200+i,138-i,138-i,0,0,0,1,12-i*12/137,12-i*12/137,12-i*12/137,12-i*12/137});
+    for(int i=0;i<138;++i)cohort[i].apRank=138-i;
     assert(assignStandings(cohort)&&near(cohort.front().standing,0)&&near(cohort.back().standing,1));
     auto reversed=cohort;std::reverse(reversed.begin(),reversed.end());assert(assignStandings(reversed));for(int i=0;i<138;++i)assert(near(cohort[i].standing,reversed[137-i].standing));
-    auto tie=cohort;for(auto& t:tie){t.rank=69;t.atmosphere=t.tradition=t.brand=t.conference=6;}assert(assignStandings(tie));for(auto t:tie)assert(near(t.standing,.5f));
+    auto tie=cohort;for(auto& t:tie){t.rank=t.apRank=69;t.atmosphere=t.tradition=t.brand=t.conference=6;}assert(assignStandings(tie));for(auto t:tie)assert(near(t.standing,.5f));
     auto invalid=cohort;invalid[0].brand=13;assert(!assignStandings(invalid));invalid=cohort;invalid[1].id=invalid[0].id;assert(!assignStandings(invalid));
+    invalid=cohort;invalid[0].prestige=11;assert(!assignStandings(invalid));invalid=cohort;invalid[0].apRank=-1;assert(!assignStandings(invalid));
+    auto unranked=cohort;for(auto& t:unranked)t.apRank=0;assert(assignStandings(unranked));
     float last=0;for(int i=0;i<=1000;++i){float d=demandCurve(i/1000.f);assert(d>=last&&d>=25&&d<109);last=d;}assert(demandCurve(.8f)==100);
     l.minutes=1139;assert(!calculate(s,l).night);l.minutes=1140;auto night=calculate(s,l);assert(night.night&&near(night.percent-base.percent,4)&&night.kickoff==60);l.minutes=720;
     for(int rain=1;rain<=3;++rain){l.precipitation=rain;auto wet=calculate(s,l);assert(near(base.percent-wet.percent,rain==1?5.f:rain==2?9.f:14.f));assert(wet.kickoff>=35&&wet.kickoff<base.kickoff);}

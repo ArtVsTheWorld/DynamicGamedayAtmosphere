@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include "MatchupClass.h"
 namespace attendance {
 enum class Profile { Automatic=0,Default=1,Reduced=2,BadWeather=3 };
 struct Settings {
@@ -37,7 +38,7 @@ inline void inheritCrowdPlan(const State& from,State& to){
     copyCrowdPlan(from,to);
 }
 inline float expectedPeak(const State& s){return crowdPlan(s)?static_cast<float>(s.plannedPeak)/s.plannedCapacity:-1.f;}
-inline bool marqueeMatchup(const State& s){return s.playoff||s.conferenceChampionship||(s.rank0>=1&&s.rank0<=25&&s.rank1>=1&&s.rank1<=25)||(s.rivalry&&((s.rank0>=1&&s.rank0<=25)||(s.rank1>=1&&s.rank1<=25)||(s.rank0>=1&&s.rank0<=50&&s.rank1>=1&&s.rank1<=50)));}
+inline bool marqueeMatchup(const State& s){return matchup::big(s.rank0,s.rank1,s.rivalry,s.playoff,s.conferenceChampionship);}
 // Atmosphere admission can ease at night; actual packed-house classification,
 // occupied-seat strength and the absolute visual-density safeguard do not.
 inline bool regularSeason(const State& s){return !s.playoff&&!s.conferenceChampionship&&s.bowl==127;}
@@ -97,12 +98,14 @@ inline bool normalizeUntimedPeriod(State& s,float regulationLength){
 }
 inline float elapsedGameTime(const State& s){return (overtime(s)||s.quarter==6)?4*s.quarterSeconds:(s.quarter-1)*s.quarterSeconds+s.quarterSeconds-s.seconds;}
 inline bool top25(int rank){return rank>=1&&rank<=25;}
-inline bool bigGameMatchup(const State& s){return (top25(s.rank0)&&top25(s.rank1))||s.playoff||s.conferenceChampionship;}
+inline bool bigGameMatchup(const State& s){return marqueeMatchup(s);}
 inline bool playoffBowl(int bowl){return bowl>=37&&bowl<=53;}
 inline Profile profileFor(const Settings& c,const State& s){
     if(c.profile!=Profile::Automatic)return c.profile;
     // Special matchups take priority over rain or snow.
-    if(top25(s.rank0)&&top25(s.rank1))return Profile::Reduced;
+    // Regular-season rivalries share marquee patience. Postseason retains its
+    // existing rank/weather profile; its dedicated caps/rates still own protection.
+    if(regularSeason(s)?marqueeMatchup(s):(top25(s.rank0)&&top25(s.rank1)))return Profile::Reduced;
     if(s.precipitation==1||s.precipitation==2)return Profile::BadWeather;
     return Profile::Default;
 }

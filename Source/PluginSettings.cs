@@ -580,6 +580,12 @@ namespace DynamicGamedayAtmosphere {
             foreach(string note in new[]{"; Random motion ceiling on critical downs during packed-house/big-game buildup.","; Third down needs 7 or fewer yards."})stock.Add(note);
             foreach(string note in new[]{"; Gives eligible play-call buildup extra energy early in Q1, then settles it.","; This is part of the play-call system, not a separate pregame sound loop."})stock.Add(note);
             foreach(string note in new[]{"; Changes fade over about six seconds. Native reactions follow the same quieting as ambience.","; Pauses, replays and unsupported audio routes return to the game's own intensity."})stock.Add(note);
+            stock.Add("; Suppress the game's own Stadium Pulse camera shake below this actual seating fullness.");
+            stock.Add("; Default 50; range 0-100. 0 disables this filter. Fuller stadiums keep native shake.");
+            stock.Add("; Camera presentation only: the Pulse meter and gameplay home-field advantage stay unchanged.");
+            stock.Add("; Added DGA camera motion has its own switches/strengths below. Soundscape must be enabled.");
+            stock.Add("; Guide: Default 50; range 0-100 % actual seating fullness; whole numbers only.");
+            stock.Add("; Guide: Higher = native Stadium Pulse shake is suppressed in more sparse games; lower = less suppression. 0 disables this filter.");
             // Retired stock help from the previous Update 3 candidate.
             stock.Add("; Added reactions inherit the size-based fullness requirement of their qualifying play.");
             stock.Add("; Adds anticipation while a verified pass is in flight on an eligible layered play.");
@@ -801,7 +807,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<45&&Number(defaults,"General","AudioBalanceVersion",0)>=45)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<46&&Number(defaults,"General","AudioBalanceVersion",0)>=46)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -862,6 +868,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,44);
             upgraded=Retune1940(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,45);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,46);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

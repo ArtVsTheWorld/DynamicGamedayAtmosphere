@@ -16,15 +16,15 @@ int main(){
         if(kind==2){p.game.rivalry=true;p.game.rank0=6;p.game.rank1=11;}
         if(kind>=3){p.game.playoff=true;p.game.bowl=kind==4?47:40;}
         Model m;m.update(c,p,0,1);
-        const float table[]={0,2,3,3,4};float expected=table[kind];
+        const float table[]={0,0,3,3,4};float expected=table[kind];
         assert(near(m.gainDb(c),expected));
-        assert(near(m.ambienceLift,kind==0?0.0f:6.0f));
+        assert(near(m.ambienceLift,kind<2?0.0f:6.0f));
         float bed=mix::ambienceForTotal(m.gainDb(c),m.gainDb(c),m.ambienceLift,c.maxDb);
-        assert(near(m.gainDb(c)+bed,kind==0?0.0f:6.0f));
+        assert(near(m.gainDb(c)+bed,kind<2?0.0f:6.0f));
         // Neutral labels receive identical boosts.
         p.game.neutral=true;Model neutral;neutral.update(c,p,0,1);
         assert(near(neutral.gainDb(c),m.gainDb(c))&&near(neutral.ambienceLift,m.ambienceLift));
-        if(kind){
+        if(kind>=2){
             p.game.quarter=2;Model middle;middle.update(c,p,0,1);assert(middle.gainDb(c)<m.gainDb(c));
             p.game.quarter=1;Model sparse;sparse.update(c,p,0,0.25f);
             assert(sparse.gainDb(c)<m.gainDb(c)&&sparse.ambienceLift<m.ambienceLift);

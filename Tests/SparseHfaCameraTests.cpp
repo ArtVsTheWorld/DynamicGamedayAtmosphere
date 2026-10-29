@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include "../Source/SparseHfaCamera.h"
+#include "../Source/NativeCameraAdmission.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -23,6 +24,9 @@ int main(){
     // presentation worker has discovered it. Suppress that very first event,
     // then restore the requested native tier when the crowd becomes eligible.
     Runtime firstEvent;firstEvent.configure(image,&api);Lease firstLease{123,1,900,true};
+    attendance::nativecamera::Admission context{123,1,900,true,false};
+    firstLease.suppress=attendance::nativecamera::suppress(context,123,1,900,.60f,50);
+    assert(firstLease.suppress); // Above the old floor, but below DGA context admission.
     auto& fresh=cameras[0];
     int firstOutput=firstEvent.filter(address(fresh),off+7,firstLease,900);
     assert(firstOutput==off);native(fresh,firstOutput);

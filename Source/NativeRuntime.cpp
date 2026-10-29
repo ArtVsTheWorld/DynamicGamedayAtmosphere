@@ -62,6 +62,7 @@
 #include "ConfigValue.h"
 #include "HalftimeExitConversion.h"
 #include "SparseHfaCamera.h"
+#include "NativeCameraAdmission.h"
 #include "DirectorShakeRuntime.h"
 #include "FinalReactionCarry.h"
 #include "DiagnosticPreview.h"
@@ -276,6 +277,7 @@ attendance::sparsecamera::Runtime sparseNativeCamera;
 attendance::sparsecamera::Api::Set originalNativeCameraSet=nullptr;
 std::atomic<bool> sparseCameraAvailable{false},sparseCameraFaultReported{false};std::atomic<int> nativeShakeMinimum{50};
 std::shared_ptr<const attendance::sparsecamera::Lease> sparseCameraLease=std::make_shared<attendance::sparsecamera::Lease>();
+std::shared_ptr<const attendance::nativecamera::Admission> nativeCameraAdmission=std::make_shared<attendance::nativecamera::Admission>();
 attendance::motion::Model cameraMotion;
 attendance::live::Model liveReactions;
 attendance::skills::Model skillReactions;
@@ -429,11 +431,12 @@ void sparseCameraTick(){
     bool offline=actual&&actual==wanted.match&&attendance::sustained::at<A>(actual)==image+0xb4781e8&&config&&
         attendance::sustained::at<unsigned char>(config+0x84)==0&&attendance::sustained::at<int>(image+0xd9e3818)==14&&attendance::sustained::at<int>(image+0xf3f5d48)==3;
     lease.match=offline?actual:0;
-    lease.suppress=sparseNativeCamera.healthy()&&wanted.active&&enabled&&mode==0&&density->owns(wanted.match,wanted.epoch)&&nativeShakeMinimum>0&&
-        audibleFullness(wanted)<nativeShakeMinimum.load()*.01f&&
+    auto admission=std::atomic_load(&nativeCameraAdmission);
+    lease.suppress=sparseNativeCamera.healthy()&&wanted.active&&enabled&&mode==0&&density->owns(wanted.match,wanted.epoch)&&
+        attendance::nativecamera::suppress(*admission,wanted.match,wanted.epoch,now,audibleFullness(wanted),nativeShakeMinimum.load())&&
         attendance::quiet::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load());
     std::shared_ptr<const attendance::sparsecamera::Lease> published=std::make_shared<attendance::sparsecamera::Lease>(lease);std::atomic_store(&sparseCameraLease,published);
-    // Full venues add no camera query/ref traffic. A recently suppressed view
+    // Admitted contexts add no camera query/ref traffic. A recently suppressed view
     // gets a final borrowed-camera pass to restore the game's latest HFA event.
     if(lease.suppress||sparseNativeCamera.active())sparseNativeCamera.tick(attendance::sustained::at<A>(image+attendance::bindings::CameraOwner),lease,now);
 }
@@ -687,7 +690,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -1929,6 +1932,7 @@ void atmosphereTick(){
     }
     auto c=std::atomic_load(&retentionEventSettings);
     auto gap=[&](){
+        std::shared_ptr<const attendance::nativecamera::Admission> unknown=std::make_shared<attendance::nativecamera::Admission>();std::atomic_store(&nativeCameraAdmission,unknown);
         std::shared_ptr<const attendance::sustained::Intent> quiet=std::make_shared<attendance::sustained::Intent>();std::atomic_store(&sustainedIntent,quiet);
         auto wanted=audioWanted();std::lock_guard<std::mutex> guard(atmosphereMutex);
         finishLiveAudit("pause, replay or game-scene interruption");shownOpeningDrive=shownHostileOpening=false;
@@ -2198,6 +2202,10 @@ void atmosphereTick(){
     motion.allowed=active&&reactionEligible&&!clockPlay&&!lostHomeMotion&&remaining>=attendance::core::ReactionMinimumFullness&&enabled&&audioSetting&&audioContext.active&&audio->cameraShake&&nativeUnpaused()&&audioAudible&&!p.simulated&&swellAvailable&&(sustainedAudio.healthy()||supportingSwell.healthy());
     bool openingKickoff=openingKickoffProof;
     auto cameraAdmission=attendance::lineup::cameraAdmission(*audio,p,remaining,fullnessReady,fullnessReady?rendered->seats:0,selectedPlayType,openingKickoff,lineupAtmosphere.openingDriveQualified);
+    std::shared_ptr<const attendance::nativecamera::Admission> nativeAdmission=std::make_shared<attendance::nativecamera::Admission>(
+        attendance::nativecamera::decide(*audio,p,match,epoch,now,remaining,fullnessReady,fullnessReady?rendered->seats:0,
+            selectedPlayType,openingKickoff,lineupAtmosphere.openingDriveQualified,reactionEligible));
+    std::atomic_store(&nativeCameraAdmission,nativeAdmission);
     motion.lineup=(p.game.phase==1||p.game.phase==5)&&lineupAtmosphere.shakeTier>0&&(p.game.phase==5||lineupAtmosphere.layeredActive())&&cameraAdmission.allowed;
     motion.lineupId=lineupAtmosphere.cameraLineupId();motion.critical=cameraAdmission.critical;
     motion.lineupStrengthScale=cameraAdmission.strengthScale;
@@ -2812,7 +2820,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Drive escalation")<<100*shownDrive.load()<<"% (excitement, no separate volume bonus)\n";
     report.field("Native sack/fumble checks")<<(defensiveReactionBindings?"verified":"unavailable; measured five-yard loss fallback independent")<<"\n";
     report.field("Blocked-field-goal detection")<<(fieldGoalBlockBinding?"verified native block flag":"unavailable; normal missed kicks do not count as blocks")<<"\n";
-    report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged":sparseNativeCamera.active()?"shake suppressed for sparse crowd":"normal; sparse-crowd filter ready")<<" (gameplay HFA unchanged)\n";
+    report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged (INI opt-out)":sparseNativeCamera.active()?"shake suppressed by shared atmosphere admission":"shared atmosphere admission ready")<<" (gameplay HFA unchanged)\n";
     report.field("Cannon sound observer")<<(cannonAvailable?"ready":"unavailable")<<"; confirmed native blasts "<<cannonStarts.load()<<"\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds 0.75x; native cannon impact is separate\n";}
@@ -2890,7 +2898,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards; shake ramps over the previous seven yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
     report.field("Pass-in-flight anticipation")<<shownPassGate.load()<<"; verified flights this match "<<shownPassFlights<<"\n";
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
-    report.field("Native shake requires")<<nativeShakeMinimum<<"% fullness (separate from added layered motion; 0 disables the native filter)\n";
+    report.field("Native shake requires")<<"DGA crowd/context admission plus "<<nativeShakeMinimum<<"% minimum fullness (0 disables the native filter)\n";
     report.field("Camera shake enabled")<<(audio->cameraShake?"yes":"no")<<"\n";
     report.field("Ordinary buildup strength")<<(std::min)(3.0f,motion->ordinary)<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
     report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% before home-offense 0.85x scaling (third-and-10 or shorter; offensive fourth downs)\n";
