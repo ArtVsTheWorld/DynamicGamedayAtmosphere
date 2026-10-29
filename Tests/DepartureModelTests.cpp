@@ -66,8 +66,8 @@ int main(){
     }
     Settings c;State s{1,0,0,5,900,900};History h;departures::Model m;
     // An independent analytical oracle for constant routine pressure.
-    Run close=simulate(s);assert(close.hazard>0.10&&close.final>=10);
-    assert(close.q2==0&&close.half>=5&&close.half<=10);
+    Run close=simulate(s);assert(close.hazard>.05&&close.hazard<.10&&close.final>=5&&close.final<=8);
+    assert(close.q2==0&&close.half>=3&&close.half<=5);
     s.awayScore=70;Run blowout=simulate(s);
     assert(blowout.final==75);
     assert(blowout.q2>=10&&blowout.half>blowout.q2+10&&blowout.q4>blowout.half);
@@ -155,16 +155,16 @@ int main(){
     assert(std::abs(fine.hazard-coarse.hazard)<0.0001&&fine.final==coarse.final);
     for(int minutes=1;minutes<=20;++minutes){
         s.quarterSeconds=static_cast<float>(minutes*60);s.seconds=s.quarterSeconds;s.awayScore=0;
-        auto r=simulate(s,1);assert(std::isfinite(r.hazard)&&r.half>=5&&r.half<=10&&r.final>=10);
+        auto r=simulate(s,1);assert(std::isfinite(r.hazard)&&r.half>=3&&r.half<=5&&r.final>=5&&r.final<=8);
         s.awayScore=21;r=simulate(s,1);
         assert(r.half>=10&&r.half<=20&&r.final>=35&&r.final<=60);
         assert(r.q4-r.half-r.breakGroup<10&&r.final-r.q4+r.breakGroup>r.q4-r.half-r.breakGroup);
         s.homeScore=35;s.awayScore=0;r=simulate(s,1);assert(r.final<=65);
         s.homeScore=0;
     }
-    c.warningEnabled=0;s={1,0,0,5,900,900};assert(simulate(s,5,c).half>=5);
+    c.warningEnabled=0;s={1,0,0,5,900,900};assert(simulate(s,5,c).half>=3);
     s={1,17,17,5,720,720};assert(simulate(s).half<10);
-    s={1,0,0,5,720,720};s.rivalry=true;assert(simulate(s).half>=5);
+    s={1,0,0,5,720,720};s.rivalry=true;assert(simulate(s).half>=3);
     s.rivalry=false;s.rank0=6;s.rank1=11;assert(simulate(s).half<10);
     // Cap cumulative original-crowd percentage points, including late-score extras.
     m.reset();h.reset();s={2,0,70,5,720,720};c.quarterCap=30;m.observe(c,s,h);int capped=0;
@@ -220,7 +220,7 @@ int main(){
     // jump, no pause accumulation, and no duplicate settlement.
     m.reset();s={4,14,14,5,720,720};m.observe(c,s,h);m.settle(s,0);
     s.seconds=420;s.awayScore=49;m.observe(c,s,h);
-    assert(std::abs(m.hazard-0.08*0.20*300/720)<0.000001&&!m.catchupQueued);
+    assert(std::abs(m.hazard-0.06*0.20*300/720)<0.000001&&!m.catchupQueued);
     double unchanged=m.hazard;m.observe(c,s,h);assert(m.hazard==unchanged);
     s.seconds=330;m.observe(c,s,h);assert(m.catchupQueued&&m.hazard>unchanged+0.2);
     auto caught=m.settle(s,0);assert(caught.changed&&caught.catchup);

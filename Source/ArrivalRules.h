@@ -99,12 +99,12 @@ struct Halftime {
         bool release=waitingForBreak&&((s.quarter==2&&s.seconds<=.01f)||enteredThird);
         seen=true;highTime=now;lastQuarter=s.quarter;
         if(extra<=0){active=false;temporary=0;return 0;}
-        const float before=s.quarterSeconds/4.0f,after=s.quarterSeconds/4.0f;
+        auto timing=context::halftimeTiming(s);
+        const float before=s.quarterSeconds*timing.departure,after=s.quarterSeconds*timing.lastReturn;
         if(s.quarter>3||(s.quarter==3&&s.quarterSeconds-s.seconds>=after)){done=true;active=false;temporary=0;return 0;}
         if((s.quarter==2&&s.seconds<=before)||crossing)active=true;
         // Smooth both directions. A late attach in Q3 never invents a seat break.
-        float amount=s.quarter==2?1-s.seconds/before:1-(s.quarterSeconds-s.seconds)/after;
-        amount=(std::clamp)(amount,0.0f,1.0f);amount=amount*amount*(3-2*amount);
+        float amount=s.quarter==2?context::smooth(1-s.seconds/before):context::halftimeReturnWeight(s);
         if(s.quarter==2&&s.seconds>.01f&&patient)amount*=.20f;
         bool initializing=breakPercent<0;
         if(s.quarter==2||initializing)breakPercent=context::halftime(s).temporary;
@@ -122,8 +122,7 @@ struct Halftime {
     }
     void convert(const State& s,int before,int after,int total,int extra){
         int remaining=(std::max)(0,total-after);
-        float amount=s.quarter==3?1-(s.quarterSeconds-s.seconds)/(s.quarterSeconds*.25f):1;
-        amount=context::smooth(amount);
+        float amount=s.quarter==3?context::halftimeReturnWeight(s):1;
         float raw=(100-after)*breakPercent*.0001f*(std::clamp)(extra,0,200)*amount;
         returnScale=raw>0?(std::clamp)(remaining/raw,0.f,1.f):0;
         lastAbsent=remaining;temporary=(std::max)(after,total);

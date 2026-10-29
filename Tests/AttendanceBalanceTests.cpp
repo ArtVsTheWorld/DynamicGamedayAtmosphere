@@ -14,7 +14,7 @@ int halftimeLoss(State s){
 int main(){
     Settings c;State s{2,0,0,5,0,720};
     struct Band {int margin;float low,high,tempLow,tempHigh;};
-    for(auto band:{Band{0,5,10,15,20},{8,5,10,15,20},{17,10,20,15,25},{21,10,20,15,25},
+    for(auto band:{Band{0,3,5,15,20},{8,3,5,15,20},{17,10,20,15,25},{21,10,20,15,25},
             {24,10,20,15,25},{25,20,30,15,25},{28,20,30,15,25},{34,20,30,15,25},{35,30,40,10,20},{56,30,40,10,20}}){
         for(bool winner:{false,true})for(int wet:{0,1,2})for(unsigned seed:{0u,1u,999u}){
             s.homeScore=winner?band.margin:0;s.awayScore=winner?0:band.margin;s.precipitation=wet;s.variationSeed=seed;

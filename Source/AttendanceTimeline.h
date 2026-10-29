@@ -130,7 +130,8 @@ inline Bootstrap estimate(const Settings& c,const arrivals::Settings& a,State s,
     ar.elapsed=s.quarterSeconds-s.seconds;ar.missing=a.enabled&&c.enabled&&s.quarter==1?arrivals::missingAt(ar.startMissing,ar.elapsed,ar.fillSeconds,s):0;
     if(saved&&a.enabled&&c.enabled&&s.quarter==1)ar.missing=(std::min)(ar.startMissing,out.temporary);
     ar.active=ar.missing>0;ar.done=!ar.active;
-    if(c.enabled&&((s.quarter==2&&s.seconds<s.quarterSeconds/6)||(s.quarter==3&&s.quarterSeconds-s.seconds<s.quarterSeconds/4)))out.halftime.active=true;
+    auto breakTiming=context::halftimeTiming(s);
+    if(c.enabled&&((s.quarter==2&&s.seconds<s.quarterSeconds*breakTiming.departure)||(s.quarter==3&&s.quarterSeconds-s.seconds<s.quarterSeconds*breakTiming.lastReturn)))out.halftime.active=true;
     State temp=s;temp.phase=5;int bathroom=c.enabled?out.halftime.observe(temp,out.loss,halftimeExtra):0;
     if(saved&&s.quarter==3){
         // A recorded return must not restart the longer new break window or

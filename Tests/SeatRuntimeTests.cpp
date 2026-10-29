@@ -263,7 +263,9 @@ int main(){
     assert(resumeTracker.game==12&&audioEpoch==simEpoch&&captureSequence==simCaptures&&attendanceArchive.active==simArchive);
     assert(std::atomic_load(&renderedOccupancy)->peak()==simPeak&&shownHalftime>0);
     std::atomic_store(&resumeSignal,std::make_shared<const attendance::resume::Signal>());
-    simulateClock(650);assert(shownQuarter==3&&shownHalftime==0&&arrivalMissing==0&&halftimeModel.done);
+    attendance::State returnTiming;returnTiming.variationSeed=attendanceSeed;
+    float returnDeadline=900*(1-attendance::context::halftimeTiming(returnTiming).lastReturn)-1;
+    simulateClock(returnDeadline);assert(shownQuarter==3&&shownHalftime==0&&arrivalMissing==0&&halftimeModel.done);
     testPut(reinterpret_cast<A>(world.manager.data())+8,4);simulateClock(900);int q4SimStart=activeLoss;
     testPut(world.wrapper[2]+0x1d8,70);
     for(float clock:{800.0f,600.0f,300.0f,200.0f})simulateClock(clock);

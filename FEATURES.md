@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.91.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.92.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -119,8 +119,8 @@ Departures build across Q2 toward situation-based halftime targets, instead of f
 
 | Halftime situation | Permanent departures: share of original crowd | Temporary seat breaks: share of fans still present |
 | --- | --- | --- |
-| Both Top25, or a marquee rivalry, and margin at most 8 | 1-4% | 20-30%, mostly at the halftime break |
-| Close ordinary game | 5-10% | 20-30% |
+| Both Top25, or a marquee rivalry, and margin at most 8 | 1-3% | 20-30%, mostly at the halftime break |
+| Close ordinary game | 3-5% | 20-30% |
 | Margin of 17-24 points | 10-20% | 20-30% |
 | Margin of 25-34 points | 20-30% | 20-30% |
 | Margin of 35 or more | 30-40% | 20-30% |
@@ -196,7 +196,7 @@ In an ordinary regular-season home game that reaches halftime down 18 or more, s
 
 Some fans leave their seats for food, bathrooms and the concourse. At normal settings, the peak temporary absence is 20-30% of the fans still in the stadium, subject to the existing crowd floors. These are separate from people who permanently leave.
 
-They gradually head out over the last quarter of Q2 and return over the first quarter of Q3. With 12-minute quarters, that means the final three minutes before halftime and the first three minutes afterward. Both windows scale to other quarter lengths. Changes happen at play selection, breaks and verified offscreen Super Sim updates. A missed window catches up at the next safe opportunity; fans never visibly refill during live action. Only temporarily withheld seats can return. In a one-score big game or packed stadium, only about one fifth of the usual early seat break develops before halftime; most of that group waits until the half ends. The main temporary exodus then uses the safe halftime boundary. Returns follow the usual first-quarter-of-Q3 window, with the same crowd floors. This changes temporary timing, not permanent departures.
+Each seeded game fixes its own halftime timetable. Temporary departures ramp over the last 20–30% of Q2. Most seat-breakers return during the first 15–25% of Q3, with a smaller 20% wave finishing 25–35% into Q3. With 12-minute quarters, departures start 3:36–2:24 before halftime, most returns finish 1:48–3:00 into Q3, and the later group finishes 3:00–4:12 into Q3. Unseeded legacy history keeps the former quarter-of-Q2/Q3 timetable. Changes happen at play selection, breaks and verified offscreen Super Sim updates. A missed window catches up at the next safe opportunity; fans never visibly refill during live action. Only temporarily withheld seats can return. In a one-score big game or packed stadium, only about one fifth of the usual early seat break develops before halftime; most of that group waits until the half ends. The main temporary exodus uses the safe halftime boundary. Timings scale with quarter length and survive matching saved-game resumes. This changes whole-crowd temporary timing; section-by-section variety is a separate future pass.
 
 ## Dynamic Gameday Soundscape
 

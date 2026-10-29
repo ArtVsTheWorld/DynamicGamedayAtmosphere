@@ -111,7 +111,8 @@ inline float rate(const Settings& c,const State& s,const History& h,float elapse
     // Routine departures remain small in close games; the extra patience
     // applies to blowout-driven exits rather than switching routine losses off.
     float neutral=s.neutral?0.75f:1; // Winning supporters still have a reason to stay.
-    return (0.08f+2.4f*p*p*homePatience(s,elapsed)*rankMultiplier(s)*late)*matchupFactor(c,s)*keep*strength*
+    float routine=.06f+.02f*context::smooth((std::abs(s.homeScore-s.awayScore)-8)/8.f);
+    return (routine+2.4f*p*p*homePatience(s,elapsed)*rankMultiplier(s)*late)*matchupFactor(c,s)*keep*strength*
         context::lateOpportunity(s)*neutral*(1+0.05f*context::variation(s));
 }
 struct Result {int loss=0;bool changed=false,catchup=false,traffic=false;};

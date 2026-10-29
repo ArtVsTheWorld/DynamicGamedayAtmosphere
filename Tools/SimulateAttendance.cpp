@@ -26,14 +26,17 @@ void scoreboard(State& s,int tick,int path){
     if(path==3){for(int t:{250,600,950,1500})if(tick>=t)s.awayScore+=7;for(int t:{1300,1700,2000,2300})if(tick>=t)s.homeScore+=7;}
     if(path==4){for(int t:{300,900,1500,2300})if(tick>=t)s.homeScore+=7;for(int t:{600,1300,1900})if(tick>=t)s.awayScore+=7;}
     if(path==5){s.homeScore=tick>=600?14:tick>=300?7:0;s.awayScore=tick>=900?14:tick>=400?7:0;for(int t:{2200,2400,2600})if(tick>=t)s.awayScore+=7;}
+    if(path>=6&&path<=9){bool home=path>=8,early=path%2==0;int winner=0;
+        for(int t:{300,600,750,900,1050,1200})if(tick>=(early?t:2400+(t-300)/3))winner+=7;
+        s.homeScore=home?winner:(tick>=600?7:0);s.awayScore=home?(tick>=600?7:0):winner;}
 }
-Run simulate(const Fixture& f,uint64_t seats,int length=720,int window=30,bool detailed=false){
+Run simulate(const Fixture& f,uint64_t seats,int length=720,int window=30,bool detailed=false,unsigned variationSeed=12345){
     turnout::Seed seed;seed.home={f.severe?1218:1153,f.rank,70,6,3,3,3,6,6,6,6,f.standing};seed.away={1193,f.opponent,80,5,3,3,3,6,6,6,6,.5f};
     seed.stadium=seed.homeStadium=553;seed.capacity=60000;seed.schools=138;seed.week=8;seed.year=2026;seed.ea=60000;seed.regular=!f.postseason;
     turnout::Launch launch{seed.home.id,seed.away.id,553,60000,60000,f.night?1200:720,f.rain,f.rivalry,f.neutral};
     Run run;run.peak=turnout::calculate(seed,launch);auto& peak=run.peak;
     State s{1,0,0,5,float(length),float(length)};s.team0=seed.home.id;s.team1=seed.away.id;s.rank0=f.rank;s.rank1=f.opponent;
-    s.rivalry=f.rivalry;s.neutral=f.neutral;s.precipitation=f.rain;s.variationSeed=12345;s.night=f.night;
+    s.rivalry=f.rivalry;s.neutral=f.neutral;s.precipitation=f.rain;s.variationSeed=variationSeed;s.night=f.night;
     if(f.postseason){s.bowl=f.postseason==2?47:40;s.playoff=f.postseason!=3;peak.percent=100;}
     else {assert(peak.applied);s.startingAttendance=true;s.plannedKickoff=peak.kickoff;s.plannedFill=peak.fillPercent;s.plannedPeak=peak.attendance;s.plannedCapacity=60000;s.plannedStadium=553;s.plannedWeek=8;s.plannedYear=2026;s.exceptionalOpening=peak.exceptional;}
     Settings c;arrivals::Settings a;History history;departures::Model departures;arrivals::Model arrivals;arrivals::Halftime halftime;halftime::ExitConversion conversion;
@@ -88,7 +91,9 @@ int main(int argc,char** argv){
         {"Upset bid",.5f,60,8,0,4},{"Neutral rivalry",.85f,13,36,0,0,false,true,false,true},
         {"CFP blowout",.95f,8,4,0,1,false,false,false,true,1},
         {"Championship blowout",.95f,8,4,0,1,false,false,false,true,2},
-        {"Bowl close native peak",.75f,35,45,0,0,false,false,false,true,3}};
+        {"Bowl close native peak",.75f,35,45,0,0,false,false,false,true,3},
+        {"Early 35-point home loss",.5f,60,55,0,6},{"Late 35-point home loss",.5f,60,55,0,7},
+        {"Early rainy 35-point home win",.5f,60,65,1,8},{"Late rainy 35-point home win",.5f,60,65,1,9}};
     std::ofstream points(dir/"game-curves.csv"),summary(dir/"scenario-summary.csv"),checks(dir/"checks.txt"),sensitivity(dir/"sensitivity.csv"),inputs(dir/"fixture-inputs.csv");
     inputs<<"scenario,support_percentile,home_rank,away_rank,precipitation,score_path,night,rivalry,severe_late,neutral,postseason_kind,nominal_capacity\n";
     sensitivity<<"scenario,seats,quarter_length,hidden_window_reference_seconds,final_departures_pct_of_peak,final_capacity_pct\n";
@@ -111,6 +116,10 @@ int main(int argc,char** argv){
         }
     }
     checks<<"Production-policy full-game runs: "<<games<<"\nScenarios: "<<fixtures.size()<<"\nVenues: 6060, 30000, 61888 authored positions\nQuarter lengths: 60, 300, 720, 1200 seconds\nHidden windows: every 10, 30, 120 reference seconds\nAssertions: finite bounded fullness, monotonic permanent exits, crowd floors, native peak bounds, no motion below absolute 50%, deterministic repeat.\n";
+    std::ofstream variety(dir/"halftime-variation.csv");variety<<"seed,departure_start_Q2_seconds_left,main_return_Q3_seconds_elapsed,last_return_Q3_seconds_elapsed,halftime_seated_pct,final_seated_pct\n";
+    for(unsigned seed=1;seed<=128;++seed){State timing;timing.variationSeed=seed;auto t=context::halftimeTiming(timing);auto r=simulate(fixtures[3],61888,720,30,true,seed);
+        auto half=std::find_if(r.points.begin(),r.points.end(),[](const Point& p){return p.t==1440;});assert(half!=r.points.end());
+        variety<<seed<<','<<t.departure*720<<','<<t.mainReturn*720<<','<<t.lastReturn*720<<','<<half->fullness<<','<<r.finalFullness<<'\n';}
     if(argc>2){std::ifstream cohort(argv[2]);std::string line;std::vector<turnout::Team> teams;
         while(std::getline(cohort,line)){std::replace(line.begin(),line.end(),',',' ');std::istringstream in(line);turnout::Team t;if(in>>t.id>>t.rank>>t.toughest>>t.prestige>>t.wins>>t.losses>>t.homeGames>>t.atmosphere>>t.tradition>>t.brand>>t.conference)teams.push_back(t);}
         assert(turnout::assignStandings(teams));std::ofstream dist(dir/"cohort-peak-sweep.csv");dist<<"support_percentile,home_rank,away_rank,rivalry,night,rain,peak_pct,kickoff_share,capacity_at_kickoff\n";unsigned count=0;

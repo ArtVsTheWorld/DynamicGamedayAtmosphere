@@ -28,6 +28,19 @@ inline float comparableHomeWin(const State& raw){
     return (1-smooth(relativeGap(s)))*(1-inferiorOpponent(s));
 }
 struct HalftimeTarget {float permanent=0,temporary=0;};
+struct HalftimeTiming {float departure=.25f,mainReturn=.25f,lastReturn=.25f,lateDelay=0;};
+inline HalftimeTiming halftimeTiming(const State& s){
+    if(!s.variationSeed)return {}; // Unseeded legacy estimates keep their original timetable.
+    auto sample=[&](unsigned salt){State x=s;x.variationSeed^=salt;return .5f+.5f*variation(x);};
+    return {.20f+.10f*sample(0x48414c46u),.15f+.10f*sample(0x52455431u),
+        .25f+.10f*sample(0x52455432u),.02f+.04f*sample(0x4c415445u)};
+}
+inline float halftimeReturnWeight(const State& s){
+    auto timing=halftimeTiming(s);float elapsed=1-s.seconds/s.quarterSeconds;
+    // Most seat-breakers return promptly; the smaller second wave trails off.
+    return .8f*smooth(1-elapsed/timing.mainReturn)+
+        .2f*smooth(1-(elapsed-timing.lateDelay)/(timing.lastReturn-timing.lateDelay));
+}
 inline HalftimeTarget halftime(const State& s){
     int margin=std::abs(s.homeScore-s.awayScore);
     float wet=badWeather(s)?0.15f:0;
@@ -36,8 +49,9 @@ inline HalftimeTarget halftime(const State& s){
     const float temporary=20+10*choose;
     if(s.playoff)return {1+3*choose,temporary};
     bool special=marqueeMatchup(s);
-    if(margin<=8)return special?HalftimeTarget{1+3*choose,temporary}:HalftimeTarget{5+5*choose,temporary};
-    if(margin<=16){float t=(margin-8)/8.0f;return {7.5f+2.5f*t,temporary};}
+    float close=special?1+2*choose:3+2*choose;
+    if(margin<=8)return {close,temporary};
+    if(margin<=16){float t=smooth((margin-8)/8.0f);return {close+(10-close)*t,temporary};}
     float patienceFactor=1-0.25f*comparableHomeWin(s);
     if(margin<=24){float t=(margin-17)/7.0f;return {patienceFactor*(std::clamp)(10+10*t+2*(choose-0.5f),10.0f,20.0f),temporary};}
     if(margin<=34){float t=(margin-25)/9.0f;return {patienceFactor*(std::clamp)(20+10*t+3*(choose-0.5f),20.0f,30.0f),temporary};}

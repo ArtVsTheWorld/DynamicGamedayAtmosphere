@@ -1,6 +1,8 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.91.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.92.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+
+Candidate 1.92 needs a close ordinary game through halftime/Q3: verify fewer permanent exits, temporary crowd return in two waves and stable timing after a matching resume. Different games can have different schedules; repeated callbacks in one game cannot reroll them. The existing sparse-crowd, motion, final-play carry and replay checks below remain. See [1.92 comparisons and supplied-save limitations](reviews/Update3-1.92.md). The original save was read only through a private copy; no season advance or save write was performed.
 
 Candidate 1.91 adds catalog-sized crowd motion (0.35x at 6,060; 1.10x at 61,888 authored positions) and bounded earned final-play carry into postgame. Compare small/large qualified venues; inspect `Crowd camera venue factor`; verify no new DGA event motion below the existing layer gate. Check a quick snap early in a lineup buildup, an ordinary earned final-play effect, an eruption, and immediate entry to the final menu. Native cannon/HFA motion remains separate. See the [code review and simulation coverage](reviews/Update3-1.91.md) for fixed traffic integration, custom-quarter recovery, sound continuity and native-boundary safeguards. Regression/simulation success is not live sound/camera acceptance.
 
