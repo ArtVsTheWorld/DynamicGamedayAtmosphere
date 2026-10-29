@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.96.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.97.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -73,7 +73,7 @@ Thinning follows the seating layout. Seats farther from the field generally empt
 
 This changes where the remaining fans sit, not how many the attendance rules allow. After native seating is generated from the chosen turnout, live thinning never fills seats that were empty in that baseline.
 
-Candidate 1.96 preserves the existing occupied-seat selection when at least 90% of the original crowd remains. Below that, a smooth spatial adjustment lets lower seating areas develop larger gaps beside fuller pockets. Near-field seating still retains more fans overall; the original crowd target, arrival/departure timing and exact visible count are unchanged. Geometry-based depth is a proxy for seating position, not a native section label.
+Candidate 1.97 uses the pre-1.96 pattern as its base. At 90% retained crowd and above, the same seats remain occupied for the same geometry, native baseline and seed. Below that, midfield sideline seating and useful viewing elevation receive a bounded preference; end zones generally thin earlier. Small, occasional row-oriented groups add gaps without the 1.96 broad lower-bowl penalty. Distance/height retention remains intact. These are geometry-based preferences, not native ticket prices or section IDs. Attendance totals and timing remain unchanged.
 
 Arrivals, permanent departures and temporary halftime absences share the same seating pattern. Earlier replays use that pattern with the attendance recorded for the play; leaving the replay restores the live crowd. Resumed games rebuild the pattern from the stadium's seats and use the restored or estimated attendance.
 

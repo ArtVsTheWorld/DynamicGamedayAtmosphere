@@ -6,8 +6,18 @@ uint64_t fingerprint(const Pattern& pattern,unsigned count,int loss){
     uint64_t value=1469598103934665603ull;for(unsigned i=0;i<count;++i){value^=pattern.departed(i,loss)?1u:0u;value*=1099511628211ull;}return value;
 }
 int main(){
-    assert(lowerBowlBlend(.10)==0&&lowerBowlBlend(0)==0&&lowerBowlBlend(.50)==1);
-    assert(lowerBowlWeight(0)==1&&lowerBowlWeight(1)==0);
+    assert(variationBlend(.10)==0&&variationBlend(0)==0&&variationBlend(.50)==1);
+    assert(desirability({32,10,0,0})>desirability({32,1,0,0}));
+    assert(desirability({32,10,0,0})>desirability({32,10,35,0}));
+    assert(desirability({32,10,35,0})>desirability({0,1,65,0}));
+    assert(desirability({55,25,0,0})>desirability({0,1,65,0}));
+    assert(desirability({32,10,20,0})==desirability({-32,10,-20,0}));
+    unsigned gapGroups=0;
+    for(unsigned seed=0;seed<128;++seed){
+        double a=smallGroupGap({32,10,0,0},seed),b=smallGroupGap({32,10,.2f,0},seed);
+        assert(a==b&&a>=0&&a<=.16);gapGroups+=a>0;
+    }
+    assert(gapGroups>0&&gapGroups<64);
     // Before-change fingerprints captured from 1.95 (064f4e3), using this
     // fixture and native-hole mask. Proves the 90/95% picture stays identical.
     const uint64_t expected[3][3]={
@@ -48,8 +58,8 @@ int main(){
     }
     // Broad behavioral bounds avoid pinning the implementation's exact ranks:
     // meaningful lower gaps, variable neighboring areas, general front retention.
-    assert(frontAverage[0]>.50&&frontAverage[0]<.65&&frontAverage[0]>backAverage[0]+.10);
-    assert(frontAverage[1]>.30&&frontAverage[1]<.43&&frontAverage[1]>backAverage[1]+.10);
-    assert(variationAverage[0]>.13&&variationAverage[1]>.13);
-    std::printf("PASS: exact legacy 90/95/100-percent seat fingerprints; immutable native holes, exact counts and nested selections; eight-seed lower-area variation with retained front preference. Synthetic front occupancy at 50/30: %.1f/%.1f%%.\n",100*frontAverage[0],100*frontAverage[1]);
+    assert(frontAverage[0]>.62&&frontAverage[0]<.80&&frontAverage[0]>backAverage[0]+.25);
+    assert(frontAverage[1]>.36&&frontAverage[1]<.60&&frontAverage[1]>backAverage[1]+.20);
+    assert(variationAverage[0]>.10&&variationAverage[1]>.10);
+    std::printf("PASS: exact legacy 90/95/100-percent seat fingerprints; immutable native holes, exact counts and nested selections; midfield/view-height preferences, short bounded group gaps and eight-seed front retention. Synthetic front occupancy at 50/30: %.1f/%.1f%%.\n",100*frontAverage[0],100*frontAverage[1]);
 }

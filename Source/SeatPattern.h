@@ -33,10 +33,26 @@ inline double interpolate(double p,const std::array<double,4>& values){
     return values[k]+(values[k+1]-values[k])*t;
 }
 inline double smooth(double x){x=(std::clamp)(x,0.0,1.0);return x*x*(3-2*x);}
-// Keep the proven near-full picture exactly. Below 90%, progressively allow
-// lower seating areas to thin while retaining fuller neighboring pockets.
-inline double lowerBowlBlend(double missing){return smooth((missing-.10)/.40);}
-inline double lowerBowlWeight(double depth){return 1-smooth((depth-.25)/.45);}
+inline double variationBlend(double missing){return smooth((missing-.10)/.40);}
+// Bounded viewing-location preference, not native ticket/section metadata.
+// Keep the old distance/height curve and favor midfield sidelines within it.
+inline double desirability(const Position& p){
+    double midfield=1-smooth((std::abs(static_cast<double>(p.z))-9)/38);
+    double sideline=smooth((std::abs(static_cast<double>(p.x))-18)/12);
+    double usefulHeight=smooth((p.y-.75)/4)*(1-smooth((p.y-16)/20));
+    double endzone=smooth((std::abs(static_cast<double>(p.z))-38)/24);
+    return .26*midfield*sideline*(.8+.2*usefulHeight)-.12*endzone;
+}
+inline double smallGroupGap(const Position& p,unsigned seed){
+    bool side=std::abs(p.x)/24.384>=std::abs(p.z)/54.864;
+    double tangent=side?p.z:p.x;
+    int sector=side?(p.x>=0?0:1):(p.z>=0?2:3);
+    double draw=random({static_cast<int>(std::floor(tangent/3)),static_cast<int>(std::floor(p.y/.9)),sector,static_cast<int>(seed%100000),197});
+    // Occasional short, roughly row-aligned groups, rather than broad blobs.
+    // Desirable midfield seating gets a smaller gap allowance, not immunity.
+    double central=(1-smooth((std::abs(static_cast<double>(p.z))-9)/38))*smooth((std::abs(static_cast<double>(p.x))-18)/12);
+    return .16*(1-.6*central)*(std::max)(0.0,(draw-.78)/.22);
+}
 inline int32_t rounded(double x){
     double f=std::floor(x),t=x-f;return static_cast<int32_t>(f+(t>.5||(t==.5&&static_cast<int64_t>(f)%2!=0)?1:0));
 }
@@ -76,7 +92,7 @@ inline Pattern build(const std::vector<Position>& positions,const std::vector<un
     if(!plausible(positions,ids))return result;
     const size_t n=ids.size();auto byDepth=ids;
     std::sort(byDepth.begin(),byDepth.end(),[&](unsigned a,unsigned b){double da=distance(positions[a]),db=distance(positions[b]);return da==db?a<b:da<db;});
-    std::vector<double> percentile(positions.size()),logWeight(positions.size()),area(positions.size()),choice(positions.size()),lower(positions.size()),pockets(positions.size());
+    std::vector<double> percentile(positions.size()),logWeight(positions.size()),area(positions.size()),choice(positions.size()),quality(positions.size());
     for(size_t k=0;k<n;++k)percentile[byDepth[k]]=(static_cast<double>(k)+.5)/static_cast<double>(n);
     for(unsigned i:ids){
         const auto& p=positions[i];double x=p.x,y=p.y,z=p.z,depth=percentile[i];
@@ -90,12 +106,7 @@ inline Pattern build(const std::vector<Position>& positions,const std::vector<un
         // seating areas, families and scattered stragglers still overlapping.
         area[i]=(.45*(2*noise(x,z,28,sectionSeed+11)-1)+.35*(2*noise(x+97,z-131,9,sectionSeed+27)-1)+
             .20*(2*noise(x-33,z+51,55,sectionSeed+59)-1))*(.25+.75*std::pow(depth,1.2));
-        lower[i]=lowerBowlWeight(depth);
-        // Spatial fields are fixed by the match seed. Keep the existing
-        // family/straggler choices and feather patches across row boundaries.
-        pockets[i]=.55*(2*noise(x+41,z-73,24,sectionSeed+101)-1)+
-            .30*(2*noise(x-89,z+29,7,sectionSeed+137)-1)+
-            .15*(2*noise(x+17,z+113,48,sectionSeed+173)-1);
+        quality[i]=desirability(p)-smallGroupGap(p,seed)*(1-smooth((depth-.4)/.3));
     }
     std::vector<unsigned> remaining=ids,order;order.reserve(n);
     std::vector<double> horizontal(n),weights(n),probabilities,probability(positions.size()),score(positions.size());
@@ -105,12 +116,10 @@ inline Pattern build(const std::vector<Position>& positions,const std::vector<un
             std::sort(remaining.begin(),remaining.end(),[&](unsigned a,unsigned b){return score[a]==score[b]?a<b:score[a]<score[b];});
             order.insert(order.end(),remaining.begin(),remaining.end());break;
         }
-        double missing=static_cast<double>(loss)/100,blend=lowerBowlBlend(missing);std::array<double,4> sums{};std::array<size_t,4> counts{};
-        for(size_t k=0;k<n;++k){unsigned i=ids[k],zone=(std::min)(3u,static_cast<unsigned>(percentile[i]*4));
-            double varied=area[i]+.65*blend*lower[i]*pockets[i];
-            horizontal[k]=std::exp(4.4*missing*varied);sums[zone]+=horizontal[k];++counts[zone];}
+        double missing=static_cast<double>(loss)/100,blend=variationBlend(missing);std::array<double,4> sums{};std::array<size_t,4> counts{};
+        for(size_t k=0;k<n;++k){unsigned i=ids[k],zone=(std::min)(3u,static_cast<unsigned>(percentile[i]*4));horizontal[k]=std::exp(4.4*missing*area[i]);sums[zone]+=horizontal[k];++counts[zone];}
         for(unsigned k=0;k<4;++k){if(!counts[k])return result;sums[k]/=static_cast<double>(counts[k]);}
-        for(size_t k=0;k<n;++k){unsigned i=ids[k];weights[k]=std::exp(2.3*missing*(logWeight[i]-.40*blend*lower[i]))*horizontal[k]/interpolate(percentile[i],sums);}
+        for(size_t k=0;k<n;++k){unsigned i=ids[k];weights[k]=std::exp(2.3*missing*(logWeight[i]+blend*quality[i]))*horizontal[k]/interpolate(percentile[i],sums);}
         if(!normalize(weights,target,probabilities))return result;
         for(size_t k=0;k<n;++k)probability[ids[k]]=probabilities[k];
         for(unsigned i:remaining)score[i]=choice[i]/(std::max)(1e-15,probability[i]);

@@ -1,8 +1,8 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.96.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.97.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
-Candidate 1.96 first needs the same Kyle Field wide replay view at 90%, 70%, 50% and 30%, with playback and camera fixed. Compare the 90% picture for preservation, then lower-side gaps and neighboring holdouts at 70/50/30 without losing the general front-retention preference. Confirm measured counts, restore automatic mode/original crowd, and keep attendance history intact. A matching geometry/baseline/seed is required for exact seat comparisons across reloads. The first live baseline was on 1.92; its 30% screenshot had a closer view and supports qualitative comparison only. See [1.96 review](reviews/Update3-1.96.md).
+Candidate 1.97's seat-desirability model passed the live old/candidate preview and was accepted by the user. Exact counts and 90% selection were checked on the current layout/seed; original rank data, 60% crowd, replay controls and unchanged history were verified after restoration. The packaged DLL still needs its normal installed smoke check through arrivals, historical replay and resume/streamed views. Compare preferences within the same match seed for exact seats. See [1.97 review](reviews/Update3-1.97.md).
 
 Candidate 1.95 first needs a qualified home defensive scoop-and-return compared with an interception return. Check the force-to-return blend, whistle fade and touchdown handoff. Recover your own fumble: no new return shake or revived gain buildup should start. Repeat a defensive return below the layered gate, then at a neutral venue. A prior force impact may finish independently of an own pickup. See [1.95 scope and regression coverage](reviews/Update3-1.95.md).
 

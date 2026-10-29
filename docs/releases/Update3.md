@@ -1,8 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.96.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.97.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
 
-Candidate 1.96 focuses on lower-bowl spatial variation following the live 90/70/50/30% comparison on 1.92. The same seats remain occupied at 90% and above for the same geometry, baseline and match seed. Below that, lower areas can thin beside fuller pockets while near-field seating retains a general advantage. Attendance totals/timing, shared arrival/halftime/exit order and runtime restoration paths are unchanged. Broader phase-order and renderer-coordination work is deferred. See [1.96 scope and checks](../reviews/Update3-1.96.md).
+Candidate 1.97 restores the pre-1.96 spatial base and adds bounded seat-desirability preferences plus short group gaps. Midfield sidelines and useful viewing elevation retain fans longer; end zones generally clear earlier. The old upper-row retention curve and exact 90%-and-above selection remain. The user accepted the live same-layout/seed preview before staging. The 1.96 broad lower-bowl penalty is removed. Totals, timing, shared phase order, crowd colors and runtime restoration paths are unchanged. See [1.97 evidence and scope](../reviews/Update3-1.97.md).
 
 Verified live defensive fumble returns now use the interception-return shake: continuous during the return, normal whistle fade and scoring handoff, with unchanged layered/ownership gates and occupied-seat strength. Own pickups and result-only recovery fallbacks add no new shake. Live acceptance remains pending. See [1.95 review](../reviews/Update3-1.95.md).
 
