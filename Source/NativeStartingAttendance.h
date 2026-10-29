@@ -6,9 +6,9 @@
 namespace attendance::turnout::native {
 using A=sustained::Address;
 inline constexpr A Formula=0x8566710,LaunchCopy=0x7f13490,StatManagerVtable=0xbdc16f8;
-// Final rivalry publication comes AFTER home/away/stadium, weather and local time
-// have been copied, and BEFORE launch finalization/native seating construction.
-inline constexpr A LaunchResetReturn=0x7f13859,LaunchReadyReturn=0x7f146f5;
+// Reset publication is unconditional; final rivalry publication is optional.
+// The shared launchhook boundary runs after both paths join.
+inline constexpr A LaunchResetReturn=0x7f13859;
 inline constexpr A PlayableFormulaReturn=0x871a5c4;
 inline constexpr A OptionService=0xe2dd3e8,OptionVtable=0xb298a70,OptionType=0xe3a48d0,OptionSet=0x909b940,UnsignedType=0xe2dab38;
 inline constexpr std::array<unsigned char,17> FormulaPrefix={0x48,0x89,0x4c,0x24,0x08,0x55,0x53,0x56,0x41,0x56,0x41,0x57,0x48,0x8d,0x6c,0x24,0xb0};

@@ -76,6 +76,7 @@
 #include "NativeAtmosphereContext.h"
 #include "NativeCapacity.h"
 #include "NativeStartingAttendance.h"
+#include "StartingAttendanceLaunchHook.h"
 #include "RenderedOccupancy.h"
 #include "ReactionAudioRuntime.h"
 #include "ResumeBridge.h"
@@ -116,6 +117,7 @@ std::atomic<bool> capacityBinding{false},shownPackedHouse{false};std::atomic<flo
 using InitialFormula=int(__fastcall*)(A,A);
 using InitialOptionSet=bool(__fastcall*)(A,unsigned,A);
 InitialFormula originalInitialFormula=nullptr;InitialOptionSet originalInitialOptionSet=nullptr;
+void* initialLaunchGate=nullptr;void* initialLaunchOriginal=nullptr;
 struct SessionCrowdPlan {A match=0;attendance::State state;};
 std::shared_ptr<const SessionCrowdPlan> sessionCrowdPlan=std::make_shared<SessionCrowdPlan>();
 void applySessionPlan(attendance::State& s,A match){auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==match&&s.team0==plan->state.team0&&s.team1==plan->state.team1){attendance::inheritCrowdPlan(plan->state,s);if(s.plannedStadium<0){s.plannedStadium=plan->state.plannedStadium;s.night=plan->state.night;}}}
@@ -551,12 +553,16 @@ bool makePatch(A rva,void* detour,void** original,size_t length){
     if(!clean.empty()&&clean.size()!=length)return false;
     Patch p;p.site=image+rva;p.original.resize(length);p.replacement.assign(length,0x90);
     if(!read(p.site,p.original.data(),length))return false;
-    size_t allocated=rva==attendance::bindings::ReplayUpdate?attendance::replayhook::TrampolineBytes:length+14;
+    size_t allocated=rva==attendance::turnout::launchhook::Site?attendance::turnout::launchhook::TrampolineBytes:rva==attendance::bindings::ReplayUpdate?attendance::replayhook::TrampolineBytes:length+14;
     p.trampoline=VirtualAlloc(nullptr,allocated,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);if(!p.trampoline)return false;
     // Copy only the complete, verified prologue for this hook.
     if(rva==attendance::bindings::ReplayUpdate){
         if(length!=attendance::replayhook::SourceBytes||std::memcmp(p.original.data(),attendance::replayhook::Prefix.data(),length)){VirtualFree(p.trampoline,0,MEM_RELEASE);return false;}
         auto code=attendance::replayhook::trampoline(image+attendance::bindings::ReplayManager,p.site+length);std::memcpy(p.trampoline,code.data(),code.size());
+    }else if(rva==attendance::turnout::launchhook::Site){
+        const auto& prefix=attendance::turnout::launchhook::Prefix;
+        if(length!=prefix.size()||std::memcmp(p.original.data(),prefix.data(),length)){VirtualFree(p.trampoline,0,MEM_RELEASE);return false;}
+        auto code=attendance::turnout::launchhook::trampoline(image+attendance::turnout::launchhook::NativeTeamSetup,p.site+length);std::memcpy(p.trampoline,code.data(),code.size());
     }else {memcpy(p.trampoline,clean.empty()?p.original.data():clean.data(),length);jump(static_cast<unsigned char*>(p.trampoline)+length,p.site+length);}
     DWORD old=0;if(!VirtualProtect(p.trampoline,allocated,PAGE_EXECUTE_READ,&old)){VirtualFree(p.trampoline,0,MEM_RELEASE);return false;}
     FlushInstructionCache(GetCurrentProcess(),p.trampoline,allocated);jump(p.replacement.data(),reinterpret_cast<A>(detour));
@@ -628,7 +634,8 @@ int __fastcall initialFormula(A manager,A record){
 void initialLaunch(){
     using namespace attendance::turnout;
     Launch launch;
-    if(!enabled||!initialSetting||!std::atomic_load(&settings)->enabled||mode!=0||!native::launch(image,launch))return;
+    if(!enabled||!initialSetting||!std::atomic_load(&settings)->enabled||mode!=0)return;
+    if(!native::launch(image,launch)){log("starting-attendance-inactive","Shared launch boundary reached, but final native options could not be verified; EA turnout preserved.");return;}
     Seed seed;{std::lock_guard<std::mutex> guard(initialMutex);if(!initialSeeds.find(launch,GetTickCount64(),seed)){
         log("starting-attendance","EA attendance preserved: no fresh matching launch inputs (late attach, resume, or unsupported setup).");return;
     }}
@@ -656,9 +663,21 @@ bool __fastcall initialOptionSet(A service,unsigned key,A reference){
     if(key==0x9f2e6900&&service==at<A>(image+attendance::turnout::native::OptionService))try{
         if(caller==image+attendance::turnout::native::LaunchResetReturn){
             std::shared_ptr<const attendance::turnout::Applied> empty=std::make_shared<attendance::turnout::Applied>();std::atomic_store(&initialApplied,empty);
-        }else if(result&&caller==image+attendance::turnout::native::LaunchReadyReturn)initialLaunch();
+        }
     }catch(...){log("starting-attendance-inactive","Launch turnout unavailable; other atmosphere features remain active.");}
     return result;
+}
+void initialLaunchBoundary(){
+    try{initialLaunch();}catch(...){log("starting-attendance-inactive","Shared launch boundary failed; native attendance preserved.");}
+}
+bool prepareInitialLaunch(){
+    using namespace attendance::turnout::launchhook;
+    initialLaunchGate=VirtualAlloc(nullptr,256,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);if(!initialLaunchGate)return false;
+    if(!makePatch(Site,initialLaunchGate,&initialLaunchOriginal,SourceBytes)){VirtualFree(initialLaunchGate,0,MEM_RELEASE);initialLaunchGate=nullptr;return false;}
+    auto code=gate(reinterpret_cast<A>(initialLaunchBoundary),reinterpret_cast<A>(initialLaunchOriginal));
+    memcpy(initialLaunchGate,code.data(),code.size());DWORD old=0;
+    if(!VirtualProtect(initialLaunchGate,256,PAGE_EXECUTE_READ,&old))return false;
+    FlushInstructionCache(GetCurrentProcess(),initialLaunchGate,code.size());return true;
 }
 const char* __fastcall pauseMenuText(A tile,A key,A){
     try{
@@ -1398,9 +1417,10 @@ bool install() {
        bytes(0x7da8956,{0x3d,0x74,0x04,0,0,0x48,0x8b,0xcb,0x0f,0x9d,0xc2})){
         size_t first=patches.size();
         initialBinding=makePatch(attendance::turnout::native::Formula,reinterpret_cast<void*>(initialFormula),reinterpret_cast<void**>(&originalInitialFormula),17)&&
-            makePatch(attendance::turnout::native::OptionSet,reinterpret_cast<void*>(initialOptionSet),reinterpret_cast<void**>(&originalInitialOptionSet),15);
+            makePatch(attendance::turnout::native::OptionSet,reinterpret_cast<void*>(initialOptionSet),reinterpret_cast<void**>(&originalInitialOptionSet),15)&&prepareInitialLaunch();
         if(!initialBinding){
             while(patches.size()>first){VirtualFree(patches.back().trampoline,0,MEM_RELEASE);patches.pop_back();}
+            if(initialLaunchGate){VirtualFree(initialLaunchGate,0,MEM_RELEASE);initialLaunchGate=nullptr;}initialLaunchOriginal=nullptr;
             originalInitialFormula=nullptr;originalInitialOptionSet=nullptr;
         }
     }
