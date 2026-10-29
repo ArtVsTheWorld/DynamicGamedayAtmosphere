@@ -641,7 +641,7 @@ int __fastcall initialFormula(A manager,A record){
         if(attendance::turnout::native::capture(image,manager,record,native,seed)){
             seed.dynastyVerifiedAt=proof.verifiedAt;seed.dynastyGeneration=proof.generation;
             {std::lock_guard<std::mutex> guard(initialMutex);if(!initialModeWitness.armed||initialModeWitness.generation!=proof.generation)return native;initialSeeds.remember(seed,GetTickCount64());}
-            log("starting-attendance","Fresh Dynasty launch inputs captured for "+std::to_string(seed.home.id)+" / "+std::to_string(seed.away.id)+"; native attendance "+std::to_string(native)+".");
+            log("starting-attendance","Fresh Dynasty launch inputs captured for "+std::to_string(seed.home.id)+" / "+std::to_string(seed.away.id)+"; native attendance "+std::to_string(native)+"; stadium "+std::to_string(seed.stadium)+"; captured capacity "+std::to_string(seed.capacity)+".");
         }else {
             {std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.clear();}
             if(!initialCaptureFault.exchange(true))log("starting-attendance-inactive","Native matchup inputs unavailable; that launch keeps EA's attendance. No saved/simulated attendance changed.");
@@ -660,7 +660,7 @@ void initialLaunch(){
     }}
     const char* failure=nullptr;
     bool transition=initialTransitionProof(seed,identity);
-    if(!native::launch(image,launch,nullptr,&failure,transition)){log("starting-attendance-inactive",std::string("Shared launch check failed: ")+(failure?failure:"unknown")+"; EA turnout preserved.");return;}
+    if(!native::launch(image,launch,seed,&failure,transition)){log("starting-attendance-inactive",std::string("Shared launch check failed: ")+(failure?failure:"unknown")+"; EA turnout preserved.");return;}
     if(launch.home!=identity.home||launch.away!=identity.away||launch.stadium!=identity.stadium||launch.ea!=identity.ea){log("starting-attendance-inactive","Launch identity changed during input validation; EA turnout preserved.");return;}
     if(!seed.regular||seed.resumed){log("starting-attendance","EA attendance preserved: postseason, non-regular-season or resumed game.");return;}
     if(seed.homeStadium<0){log("starting-attendance","EA attendance preserved: native home-venue inputs unavailable.");return;}

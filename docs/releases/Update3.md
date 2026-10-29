@@ -1,7 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.86.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.87.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
 
+- **Captured stadium capacity (1.87):** Starting turnout uses the capacity already read from the selected stadium record, after matching home/away/stadium/native attendance. This replaces an early broadcast capacity query that failed during loading. Bounds and native fallback remain; attendance tuning is unchanged.
 - **Loading transition (1.86):** Fresh Dynasty input capture and turnout application carry verified mode identity across the brief -1 loading sentinel. Context expires after ten seconds and is revoked by other modes or unreadable state; count writes require fresh matching game inputs. Duplicate online/gameplay-config checks were removed from starting turnout; MMC already governs online availability. Input capture and fallback reasons appear in the normal log.
 - **Fresh launch correction (1.84):** Ordinary non-rivalry launches now reach the turnout callback at the same pre-finalization boundary as rivalries. Version 1.83 could bypass it and keep EA turnout. The 1.83 attendance tuning and 80% cap are unchanged; live changed-count seating acceptance remains pending.
 - **Ranked rivalries:** Either side Top25 or both sides Top50 qualify for opening/layered atmosphere, with existing measured-density gates. Close marquee rivalries share the existing modest ranked-game halftime patience; blowouts keep their pressure.

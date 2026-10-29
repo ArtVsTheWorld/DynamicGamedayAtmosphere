@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.86.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.87.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -43,7 +43,7 @@ The playable-launch observation reads the cohort once, excluding stock FCS and p
 
 Expected peak is bounded to **25-100% of capacity in fair weather**, with a **20% minimum when outdoor precipitation reduces turnout**. Regular neutral games average both programs' support standing, form and opponent appeal, with no home-opener bonus. Swapping designated sides gives the same result.
 
-The turnout callback runs at the shared pre-finalization launch point for ordinary games and rivalries. It no longer depends on optional rivalry publication, which could bypass the override on 1.83. Missing final options produce an explicit fallback entry naming the failed check. A recently verified Dynasty setup can bridge the game's brief unknown-mode loading transition. The input capture and count write must still match the actual teams, stadium and native count; expired or different-mode inputs are rejected. MMC handles online availability, so starting turnout has no duplicate online/configuration checks. Attendance tuning is unchanged from 1.83.
+The turnout callback runs at the shared pre-finalization launch point for ordinary games and rivalries. It no longer depends on optional rivalry publication, which could bypass the override on 1.83. Missing final options produce an explicit fallback entry naming the failed check. A recently verified Dynasty setup can bridge the game's brief unknown-mode loading transition. The input capture and count write must still match the actual teams, stadium and native count; expired or different-mode inputs are rejected. Capacity comes from the already captured stadium record for that exact launch; startup does not query the gameplay broadcast capacity service. Missing or invalid captured capacity leaves EA turnout unchanged. MMC handles online availability, so starting turnout has no duplicate online/configuration checks. Attendance tuning is unchanged from 1.83.
 
 The normal `[starting-attendance]` log gives EA/DGA counts, FBS cohort size, actual grades, support percentile, adjustments, local kickoff, the fraction seated at kickoff and the Q1 fill deadline. `InitialAttendanceEnabled=0` restores EA peak turnout for future fresh launches; approved arrival behavior remains available. The 35-control menu is unchanged. An already loaded stadium is not rebuilt.
 

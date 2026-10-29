@@ -27,7 +27,6 @@ A __fastcall related(A table,A* out,int row,A column){
 A __fastcall query(A object,A* out,unsigned id){assert(id==0x41525259u);++reinterpret_cast<Row*>(object)->refs;*out=object;return address(out);}
 A __fastcall count(A){return 139;}
 bool __fastcall same(A wrapper,A* home,A* away){assert(wrapper&&*home&&*away);return sameConference;}
-int __fastcall capacity(int stadium,int* out){assert(stadium==553);*out=60000;return 0;}
 bool __fastcall set(A service,unsigned key,A reference){
     assert(key==attendance::bindings::AttendanceOption);
     auto ref=reinterpret_cast<A*>(reference);assert(ref[0]==image+UnsignedType);int value=0;std::memcpy(&value,reinterpret_cast<void*>(ref[1]),4);put(service+0x14,value);++sets;return true;
@@ -52,7 +51,7 @@ int main(){
     gt.ints={{0x3e,1},{0x33,0},{0x3d,8},{0x3f,2026},{36,0},{12,0}};
     gt.related={{0x2a,&home},{0x12,&away},{0x40,&stadium},{0x15,nullptr}};ht.related={{0x118,&stadium},{0xb,nullptr}};lt.related={{0xd,&array}};seasont.ints={{0x2c,15}};
     unsigned char manager[0x240]{};put(address(manager),image+StatManagerVtable);put(address(manager)+0x230,address(&league));put(address(manager)+0x228,address(&season));A reference=address(&game);
-    Api api{count,same,set,capacity};Seed seed;
+    Api api{count,same,set};Seed seed;
     std::vector<Table> memberTables(137),schoolTables(138);std::vector<Row> memberRows(137),schoolRows(138);
     for(int i=0;i<138;++i){
         init(schoolTables[i],schoolRows[i]);schoolTables[i].ints={{34,i%13},{23,i%13},{5,i%13},{19,i%9}};
@@ -80,20 +79,26 @@ int main(){
     for(unsigned i=0;i<8;++i){members[i].name=reinterpret_cast<A>(names[i]);members[i].flags=keys[i];members[i].offset=offsets[i];}
     put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,8);
     put<unsigned short>(address(options)+0x30,1153);put<unsigned short>(address(options)+0x20,1193);put<unsigned short>(address(options)+0x46,553);put<int>(address(options)+0x14,45000);put<unsigned short>(address(options)+0x3c,1140);put<unsigned char>(address(options)+0x49,0);put<unsigned short>(address(options)+0x32,1023);put<unsigned char>(address(options)+0x22,127);
-    Launch launchInput;assert(launch(image,launchInput,&api)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
+    Launch launchInput;assert(launch(image,launchInput,seed)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
+    // Correct captured capacity binds without executing a native capacity RPC.
+    auto captured=seed;
+    for(int cap:{1000,75005,200000}){captured.capacity=cap;assert(launch(image,launchInput,captured)&&launchInput.capacity==cap);}
+    for(int cap:{-1,0,999,200001}){captured=seed;captured.capacity=cap;const char* why=nullptr;assert(!launch(image,launchInput,captured,&why)&&!std::strcmp(why,"captured stadium capacity/launch identity mismatch"));}
+    for(int field=0;field<4;++field){captured=seed;if(field==0)++captured.home.id;if(field==1)++captured.away.id;if(field==2)++captured.stadium;if(field==3)++captured.ea;assert(!launch(image,launchInput,captured));}
+    assert(launch(image,launchInput,seed)&&launchInput.capacity==60000);
     // The -1 sentinel is allowed only when the caller provides fresh matched
     // launch proof. MMC handles online restrictions; gameplay config is unused.
-    put(image+0xf6379e0,A(0));assert(launch(image,launchInput,&api));
-    put<int>(image+0xd9e3818,-1);assert(!launch(image,launchInput,&api));assert(launch(image,launchInput,&api,nullptr,true));
-    for(int other:{-2,0,15,17,99}){put<int>(image+0xd9e3818,other);assert(!launch(image,launchInput,&api,nullptr,true)&&!setAttendance(image,51000,&api,true));}
+    put(image+0xf6379e0,A(0));assert(launch(image,launchInput,seed));
+    put<int>(image+0xd9e3818,-1);assert(!launch(image,launchInput,seed));assert(launch(image,launchInput,seed,nullptr,true));
+    for(int other:{-2,0,15,17,99}){put<int>(image+0xd9e3818,other);assert(!launch(image,launchInput,seed,nullptr,true)&&!setAttendance(image,51000,&api,true));}
     put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
-    const char* failure=nullptr;members[2].name=reinterpret_cast<A>("wrongStadiumName");assert(!launch(image,launchInput,&api,&failure)&&!std::strcmp(failure,"gameStadiumId"));members[2].name=reinterpret_cast<A>(names[2]);
+    const char* failure=nullptr;members[2].name=reinterpret_cast<A>("wrongStadiumName");assert(!launch(image,launchInput,seed,&failure)&&!std::strcmp(failure,"gameStadiumId"));members[2].name=reinterpret_cast<A>(names[2]);
     unsigned char before[sizeof(options)];std::memcpy(before,options,sizeof(options));assert(setAttendance(image,50000,&api)&&sets==1);put<int>(address(before)+0x14,50000);assert(!std::memcmp(before,options,sizeof(options)));
     assert(gt.ints[9]==0&&seed.ea==45000); // The simulation/save attendance record never receives the launch override.
     members[3].flags|=1;assert(!setAttendance(image,51000,&api)&&sets==1);members[3].flags&=~1u;
     put<int>(image+0xd9e3818,-1);assert(!setAttendance(image,51000,&api)&&sets==1);assert(setAttendance(image,51000,&api,true)&&sets==2);put<int>(image+0xd9e3818,14);
-    put<int>(image+0xd9e3818,17);assert(!launch(image,launchInput,&api)&&!setAttendance(image,51000,&api));put<int>(image+0xd9e3818,14);
-    put<unsigned char>(address(options)+0x22,47);assert(!launch(image,launchInput,&api));
+    put<int>(image+0xd9e3818,17);assert(!launch(image,launchInput,seed)&&!setAttendance(image,51000,&api));put<int>(image+0xd9e3818,14);
+    put<unsigned char>(address(options)+0x22,47);assert(!launch(image,launchInput,seed));
     for(void* block:memory)assert(VirtualFree(block,0,MEM_RELEASE));
-    std::puts("PASS: Dynasty setup, scoped -1 transition, other-mode rejection and no gameplay-config dependency, exact option failure names; native record/schema/int/enum/boolean ABI, owned-reference cleanup, regular/postseason/conference/resume classification, validated launch descriptors and isolated typed option write.");
+    std::puts("PASS: captured stadium capacity with exact launch ownership/bounds and no capacity RPC, Dynasty setup, scoped -1 transition, other-mode rejection and no gameplay-config dependency, exact option failure names; native record/schema/int/enum/boolean ABI, owned-reference cleanup, regular/postseason/conference/resume classification, validated launch descriptors and isolated typed option write.");
 }

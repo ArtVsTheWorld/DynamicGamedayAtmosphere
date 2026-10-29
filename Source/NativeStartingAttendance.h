@@ -18,9 +18,8 @@ struct Api {
     using Count=A(__fastcall*)(A);
     using Same=bool(__fastcall*)(A,A*,A*);
     using Set=bool(__fastcall*)(A,unsigned,A);
-    using Capacity=int(__fastcall*)(int,int*);
-    Count count;Same same;Set set;Capacity capacity;
-    static Api engine(A image){return {reinterpret_cast<Count>(image+0x37f18a0),reinterpret_cast<Same>(image+0x85ffd60),reinterpret_cast<Set>(image+OptionSet),reinterpret_cast<Capacity>(image+bindings::StadiumCapacity)};}
+    Count count;Same same;Set set;
+    static Api engine(A image){return {reinterpret_cast<Count>(image+0x37f18a0),reinterpret_cast<Same>(image+0x85ffd60),reinterpret_cast<Set>(image+OptionSet)};}
 };
 struct Reader {
     A image;
@@ -152,9 +151,16 @@ inline bool launchIdentity(A image,Launch& l){
        !option(r,service,0x9e1d2500,"gameAttendance",4,ea))return false;
     l.home=static_cast<int>(home);l.away=static_cast<int>(away);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);return true;
 }
-inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** failure=nullptr,bool transition=false){
+// Capacity was already read from the selected season-game stadium record.
+// Bind that value only after the actual launch identity has been checked;
+// the broadcast RPC used during gameplay is not ready at this boundary.
+inline bool capturedCapacity(const Seed& seed,Launch& l){
+    if(seed.home.id!=l.home||seed.away.id!=l.away||seed.stadium!=l.stadium||seed.ea!=l.ea||
+       seed.capacity<1000||seed.capacity>200000)return false;
+    l.capacity=seed.capacity;return true;
+}
+inline bool launch(A image,Launch& l,const Seed& seed,const char** failure=nullptr,bool transition=false){
     auto fail=[&](const char* reason){if(failure)*failure=reason;return false;};if(failure)*failure=nullptr;
-    Api api=custom?*custom:Api::engine(image);
     Reader r{image};A service=0;unsigned h=0,a=0,stadium=0,ea=0,time=0,precip=0,rivalry=1023,bowl=127;
     if(!dynastySetup(image,transition))return fail("Dynasty setup/transition guard");
     if(!r.value(image+OptionService,service)||!service)return fail("launch option service");
@@ -167,9 +173,9 @@ inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** fail
     if(bowl!=127)return fail("gameBowlId is postseason");
     l.home=static_cast<int>(h);l.away=static_cast<int>(a);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);
     l.minutes=static_cast<int>(time);l.precipitation=static_cast<int>(precip);l.rivalry=rivalry!=1023;
-    A unused=0;int capacity=0;
-    if(stadium>=1023||!api.capacity||!sustained::obtain(unused,api.capacity,l.stadium,&capacity)||unused!=0)return fail("native stadium capacity query");
-    l.capacity=capacity;return true;
+    if(stadium>=1023)return fail("gameStadiumId range");
+    if(!capturedCapacity(seed,l))return fail("captured stadium capacity/launch identity mismatch");
+    return true;
 }
 inline bool setAttendance(A image,int count,const Api* custom=nullptr,bool transition=false){
     Api api=custom?*custom:Api::engine(image);
