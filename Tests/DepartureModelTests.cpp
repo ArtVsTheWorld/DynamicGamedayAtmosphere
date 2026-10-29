@@ -240,7 +240,13 @@ int main(){
     auto lateLoss=lateBlowout(s,false),lateWin=lateBlowout(s,true);
     assert(lateLoss.final>=45&&lateLoss.final<=lateLoss.q4+c.quarterCap+10);
     assert(lateWin.final+10<lateLoss.final);
-    context=s;context.rivalry=true;assert(lateBlowout(context,false).final==lateLoss.final);
+    context=s;context.rivalry=true;auto lateRival=lateBlowout(context,false);
+    // Close marquee rivalries now retain more fans at halftime; once the
+    // fourth-quarter rout develops they receive no extra blowout protection.
+    assert(lateRival.q4<lateLoss.q4&&lateRival.final<=lateLoss.final);
+    context.quarter=4;context.homeScore=14;context.awayScore=42;context.seconds=90;
+    State ordinaryRout=context;ordinaryRout.rivalry=false;
+    assert(departures::rate(c,context,h,2790)==departures::rate(c,ordinaryRout,h,2790));
     auto frequent=lateBlowout(s,false,1),infrequent=lateBlowout(s,false,30);
     // Coarser score observations deliberately withhold newly discovered
     // pressure over the uncertain interval. They may be slightly more patient.

@@ -12,7 +12,7 @@ inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
 // Atmosphere classification is intentionally separate from attendance patience:
 // one ranked side makes a rivalry marquee without changing departure/postseason rules.
-inline bool bigGame(const State& s){return bigGameMatchup(s)||(s.rivalry&&(top25(s.rank0)||top25(s.rank1)||(s.rank0>=1&&s.rank0<=50&&s.rank1>=1&&s.rank1<=50)));}
+inline bool bigGame(const State& s){return marqueeMatchup(s);}
 inline float bigMinimum(const core::Settings& c,uint64_t positions){
     float extra=std::isfinite(c.bigGameMinimum)?(std::clamp)(c.bigGameMinimum,.55f,.90f):.55f;
     return (std::max)(packed::standardMinimum(positions),extra);
@@ -26,6 +26,7 @@ inline float bigRequirement(const core::Settings& c,const State& s,uint64_t posi
     float openingWeight=s.phase==6?1.f:s.quarter==1?1-(std::clamp)((1-s.seconds/s.quarterSeconds-.10f)/.65f,0.f,1.f):0.f;
     return normal+(core::ReactionMinimumFullness-normal)*openingWeight;
 }
+inline float openingMinimum(const State& s,uint64_t positions){return expectedPeak(s)>=.90f?(std::min)(.55f,packed::standardMinimum(positions)):packed::standardMinimum(positions);}
 inline bool cameraVenue(const core::Settings& c,const State& s,float fraction,bool fullnessKnown,uint64_t positions=0){
     return fullnessKnown&&positions>=512&&std::isfinite(fraction)&&((bigGame(s)&&fraction>=bigRequirement(c,s,positions))||(c.packedHouse&&packed::qualifies(positions,fraction,fullnessKnown)));
 }
@@ -87,7 +88,7 @@ inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Pla
     bool special=fraction>=packed::specialMinimum(positions)&&((c.overtime&&competitiveOvertime(p.game))||lateDrive(p)>0);
     bool important=energy::normalDown(p)&&p.down>=3&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&offensivePlay(selectedType)&&criticalCamera(p,selectedType);
     out.critical=important&&(fraction>=packed::standardMinimum(positions)||special);
-    out.allowed=venue||special||out.critical||(c.opening&&openingDrive&&fraction>=packed::standardMinimum(positions));
+    out.allowed=venue||special||out.critical||(c.opening&&openingDrive&&fraction>=openingMinimum(p.game,positions));
     // Scale only pre-snap motion. Sound and earned live/result reactions
     // retain their own strengths; the motion model carries this into its tail.
     if(selectedType==22)out.strengthScale=PuntCameraScale;
@@ -169,7 +170,7 @@ struct Model {
             phase=s.phase;return false;
         }
         float standard=attendance::packed::standardMinimum(positions),specialMinimum=attendance::packed::specialMinimum(positions);
-        openingDriveQualified=supported&&c.opening&&firstDrive&&fraction>=standard&&competitive(s)>0;
+        openingDriveQualified=supported&&c.opening&&firstDrive&&fraction>=openingMinimum(s,positions)&&competitive(s)>0;
         bool ot=supported&&c.overtime&&overtime(s)&&fraction>=specialMinimum;
         float late=supported&&fraction>=specialMinimum?lateDrive(p):0;
         bool big=bigGame(s),packed=c.packedHouse&&attendance::packed::qualifies(positions,fraction,fullnessKnown);
@@ -181,15 +182,16 @@ struct Model {
         bool upset=upsetSound.qualified&&competition>0;
         bool bigQualified=big&&fraction>=bigThreshold;
         bool standardRoute=supported&&competition>0&&(bigQualified||packed||critical||goal>0||openingDriveQualified);
+        bool lightOpening=openingDriveQualified&&fraction<standard&&!bigQualified&&!packed&&!critical&&goal<=0;
         bool upsetFinish=upset&&upsetSound.climax;
         bool special=ot||late>0||upsetFinish,regular=standardRoute||upset;
         bool neutralOpener=s.neutral&&openingObserved&&!p.resumed&&!p.simulated&&s.quarter==1&&p.offense>=0&&p.offense<=1&&!(neutralOpeningSeen&(1u<<p.offense));
-        hostileOpening=regular&&c.opening&&(neutralOpener||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
+        hostileOpening=regular&&!lightOpening&&c.opening&&(neutralOpener||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
         packedHouse=standardRoute&&!big&&!ot&&late<=0&&packed;
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
             qualifiedPlay=regular||special;qualifiedMinimum=1.01f;
-            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0||openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);}
+            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);if(openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,openingMinimum(s,positions));}
             if(ot||late>0)qualifiedMinimum=(std::min)(qualifiedMinimum,specialMinimum);
             if(upset)qualifiedMinimum=(std::min)(qualifiedMinimum,upsetSound.minimum);
         }
@@ -216,6 +218,7 @@ struct Model {
         importance=(std::max)(importance,goal);
         if(hostileOpening)importance=1;
         if((s.phase==1||s.phase==5)&&critical)importance=(std::max)(importance,p.down==4?1.0f:.95f);
+        if(lightOpening)importance=(std::min)(importance,.45f);
         importance*=competition;
         if(special){
             leverage=true;

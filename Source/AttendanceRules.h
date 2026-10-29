@@ -21,7 +21,23 @@ struct State {
     bool conferenceChampionship=false,hfaActive=false;
     bool startingAttendance=false,night=false;
     int plannedKickoff=-1,plannedFill=-1;
+    int plannedPeak=0,plannedCapacity=0,plannedStadium=-1,plannedWeek=-1,plannedYear=0;
+    bool exceptionalOpening=false;
 };
+inline bool arrivalPlan(const State& s){return s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=80&&s.plannedFill>=10&&s.plannedFill<=100;}
+inline bool crowdPlan(const State& s){return arrivalPlan(s)&&s.plannedCapacity>=1000&&s.plannedCapacity<=200000&&s.plannedPeak>=1&&s.plannedPeak<=s.plannedCapacity&&s.plannedStadium>=0&&s.plannedStadium<1023&&s.plannedWeek>=0&&s.plannedWeek<=31&&s.plannedYear>=0&&s.plannedYear<=4095;}
+inline void copyCrowdPlan(const State& from,State& to){
+    if(!crowdPlan(from))return;
+    to.startingAttendance=true;to.night=from.night;to.plannedKickoff=from.plannedKickoff;to.plannedFill=from.plannedFill;
+    to.plannedPeak=from.plannedPeak;to.plannedCapacity=from.plannedCapacity;to.plannedStadium=from.plannedStadium;to.plannedWeek=from.plannedWeek;to.plannedYear=from.plannedYear;to.exceptionalOpening=from.exceptionalOpening;
+}
+inline void inheritCrowdPlan(const State& from,State& to){
+    if(crowdPlan(to)||from.team0!=to.team0||from.team1!=to.team1||
+       (to.plannedStadium>=0&&from.plannedStadium>=0&&to.plannedStadium!=from.plannedStadium))return;
+    copyCrowdPlan(from,to);
+}
+inline float expectedPeak(const State& s){return crowdPlan(s)?static_cast<float>(s.plannedPeak)/s.plannedCapacity:-1.f;}
+inline bool marqueeMatchup(const State& s){return s.playoff||s.conferenceChampionship||(s.rank0>=1&&s.rank0<=25&&s.rank1>=1&&s.rank1<=25)||(s.rivalry&&((s.rank0>=1&&s.rank0<=25)||(s.rank1>=1&&s.rank1<=25)||(s.rank0>=1&&s.rank0<=50&&s.rank1>=1&&s.rank1<=50)));}
 inline void postseason(State& s,bool cfp,bool conference){s.conferenceChampionship=conference;s.playoff=cfp||conference;}
 inline bool championship(const State& s){return s.playoff&&!s.conferenceChampionship&&s.bowl==47;}
 inline bool badWeather(const State& s){return s.precipitation==1||s.precipitation==2;}

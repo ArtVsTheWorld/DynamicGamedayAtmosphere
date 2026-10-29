@@ -8,16 +8,16 @@
 using namespace attendance;
 int main(){
     CrowdChangeWindow window;arrivals::Model arrivals;arrivals::Settings arriving;
-    arriving.startPercent=60;arriving.finishPercent=50; // Obsolete 60 is bounded to 50; exercise a long arrival window.
+    arriving.startPercent=60;arriving.finishPercent=50; // Supported upper ordinary setting; exercise a long arrival window.
     State s{1,0,0,6,900,900};
     auto entry=[&](){window.observe(123,s);return window.take(123,s);};
-    assert(entry());assert(arrivals.observe(arriving,s).missing==50);
+    assert(entry());assert(arrivals.observe(arriving,s).missing==40);
     for(int i=0;i<20;++i)assert(!entry()); // Same intro never opens a second window.
     s.phase=1;
-    for(int seconds=900;seconds>=700;seconds-=5){s.seconds=static_cast<float>(seconds);assert(!entry());assert(arrivals.missing==50);}
+    for(int seconds=900;seconds>=700;seconds-=5){s.seconds=static_cast<float>(seconds);assert(!entry());assert(arrivals.missing==40);}
     s.phase=3;s.seconds=680;assert(!entry());s.phase=4;s.seconds=670;assert(!entry());
-    s.phase=5;s.seconds=650;assert(entry());assert(arrivals.observe(arriving,s).missing==14);
-    for(int seconds=645;seconds>=550;seconds-=5){s.seconds=static_cast<float>(seconds);assert(!entry());assert(arrivals.missing==14);}
+    s.phase=5;s.seconds=650;assert(entry());assert(arrivals.observe(arriving,s).missing==11);
+    for(int seconds=645;seconds>=550;seconds-=5){s.seconds=static_cast<float>(seconds);assert(!entry());assert(arrivals.missing==11);}
     s.phase=1;s.seconds=540;assert(!entry());s.phase=3;s.seconds=530;assert(!entry());
     s.phase=5;s.seconds=500;window.observe(123,s); // A throttled decision can consume the pending entry later in selection.
     assert(window.take(123,s));assert(!window.take(123,s));assert(arrivals.observe(arriving,s).missing==2);

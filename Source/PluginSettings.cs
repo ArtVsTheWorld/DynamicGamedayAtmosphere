@@ -569,6 +569,8 @@ namespace DynamicGamedayAtmosphere {
                 else pending.Clear();
             }
             var stock=new HashSet<string>(StringComparer.Ordinal);
+            // Retired stock help from 1.82; retain custom user notes.
+            foreach(string note in new[]{"; Advanced fallback marquee target; its bonus is limited by BigGameBonus and the 70% regular cap.","; Guide: Default 0; range 0-5 points of planned crowd; whole numbers only.","; Guide: Default 40; range 40-50 % of planned crowd; whole numbers only.","; Guide: Default 52; range 40-70 % of planned crowd; whole numbers only.","; Guide: Default 7; range 0-7 points of planned crowd; whole numbers only.","; Optional fallback FCS delay; never takes a dry kickoff below 40%.","; Ordinary kickoff is 40-55% of expected peak; severe-late baseline 40%.","; Regular cap 70%, weather-only floor 35%; postseason 70-80%, championships 80-90%.","; Revised fresh launches calculate 40-50% of peak by demand; night adds up to 5.","; Revised turnout already accounts for FCS opponent appeal, without repeating the penalty."})stock.Add(note);
             // Retired stock arrival help from 1.81; preserve other user comments.
             foreach(string note in new[]{"; For revised turnout, kickoff arrivals use90% normally /97% at night (78%/88%","; at known late-arrival schools). Legacy StartPercent settings remain the fallback.","; Normal schools start here before a combined matchup/weather adjustment of -10 to +10 points.","; Former moderate-late schools now use this group. Range 30-90; default 55.","; Guide: Default 55; range 30-90 % of the game's planned crowd; whole numbers only.","; Guide: Higher = more of the planned crowd seated at opening; lower = fewer. The game's original peak is unchanged.","; UCLA, Miami (FL), Georgia Tech and Maryland start here. Range 30-80; default 40.","; Guide: Default 40; range 30-80 % of the game's planned crowd; whole numbers only.","; Guide: Higher = more opening fans for UCLA, Miami, Georgia Tech and Maryland; lower = fewer. Peak attendance is unchanged.","; Normal schools finish their arrivals this far through Q1. Default 25 = one quarter of Q1.","; Guide: Default 25; range 10-100 % of Q1 elapsed; whole numbers only.","; Guide: Higher = normal arrivals finish later in Q1; lower = earlier. This is a share of quarter length, not seconds.","; Severe-late schools finish this far through Q1. Default 75 = three quarters of Q1.","; These timings scale with quarter length; matchup/weather change the start, not the finish time.","; Guide: Default 75; range 10-100 % of Q1 elapsed; whole numbers only.","; Guide: Higher = severe-late arrivals finish later in Q1; lower = earlier. Seat changes still wait for hidden opportunities.","; Both-Top-25 and postseason games share this baseline. Hard minimum 60; range 60-90.","; Rivalry can add up to 10 and bad weather subtracts up to 10, but never below 60.","; Guide: Default 60; range 60-90 % of the game's planned crowd; whole numbers only.","; Guide: Higher = a fuller big-game opening; lower = fewer opening fans, with a firm 60% minimum of planned attendance.","; Rivalry starting-crowd bonus, capped at 10 points. Rivalry alone no longer makes a big game.","; Guide: Default 10; range 0-10 points of original attendance; whole numbers only.","; Guide: Higher = a larger rivalry opening-attendance bonus; lower = smaller. This does not make a rivalry alone a big game.","; Rain/snow starting-crowd penalty, 0-10 points.","; Guide: Default 10; range 0-10 points of original attendance; whole numbers only.","; Guide: Higher = a larger rain/snow opening-attendance penalty; lower = smaller. The combined ordinary adjustment is limited to ten points.","; FCS starting-crowd penalty, 0-10. Included within the combined -10/+10 adjustment.","; Guide: Default 10; range 0-10 points of original attendance; whole numbers only.","; Guide: Higher = a larger FCS opening-attendance penalty; lower = smaller. It shares the combined ten-point adjustment limit."})stock.Add(note);
             foreach(var value in help.Values)foreach(string note in value)stock.Add(note.Trim());
@@ -770,13 +772,27 @@ namespace DynamicGamedayAtmosphere {
             }
             return String.Join(Environment.NewLine,lines);
         }
+        static string RetuneAttendance1830(string existing,string defaults,string original){
+            if(Number(defaults,"General","AttendanceBalanceVersion",0)<9||Number(original,"General","AttendanceBalanceVersion",0)>=9)return existing;
+            var lines=new List<string>();string section="";
+            foreach(string raw in existing.Replace("\r","").Split('\n')){
+                string line=raw,next=Section(raw);if(next!=null)section=next;string key=Key(raw);
+                if(section=="General"&&key=="AttendanceBalanceVersion")line=key+"=9";
+                if(section=="Arrivals"||section=="Dynamic Gameday Attendance"){
+                    if(key=="BigGameStartPercent"||key=="FcsOpponentPenalty")continue;
+                    int old=key=="StartPercent"?45:key=="LateSchoolStartPercent"?40:key=="BigGameBonus"?7:-1;
+                    int value=key=="StartPercent"?55:key=="LateSchoolStartPercent"?45:3;
+                    if(old>=0&&Number(existing,section,key,-1)==old)line=key+"="+value;
+                }lines.Add(line);
+            }return String.Join(Environment.NewLine,lines);
+        }
         public static void Ensure(string destination,string legacy,string defaults){
             string existing=File.Exists(destination)?File.ReadAllText(destination):File.Exists(legacy)?File.ReadAllText(legacy):defaults;
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
             bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<44&&Number(defaults,"General","AudioBalanceVersion",0)>=44)||
-                (Number(existing,"General","AttendanceBalanceVersion",0)<8&&Number(defaults,"General","AttendanceBalanceVersion",0)>=8))&&
+                (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
             upgraded=RetuneGamedayDefaults(upgraded,defaults);
@@ -842,6 +858,7 @@ namespace DynamicGamedayAtmosphere {
                 .Replace("; Live runs/returns keep the separate post-whistle fade above.",
                 "; Short impacts hit quickly, hold briefly, then fade. Live runs/returns use the settling time above.");
             upgraded=RetuneAttendance1820(upgraded,defaults,existing);
+            upgraded=RetuneAttendance1830(upgraded,defaults,existing);
             string result=Merge(upgraded,defaults);
             if(refreshHelp)result=RefreshHelp(result,defaults);
             if(categorized){

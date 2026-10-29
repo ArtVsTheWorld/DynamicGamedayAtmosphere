@@ -25,8 +25,8 @@ struct Launch {
     bool rivalry=false,neutral=false;
 };
 struct Result {
-    bool applied=false,night=false;
-    int attendance=0,kickoff=45,fillPercent=50;
+    bool applied=false,night=false,exceptional=false;
+    int attendance=0,kickoff=55,fillPercent=50;
     float standing=0,score=0,adjustmentLimit=0;
     float demand=0,momentum=0,appeal=0,nightBonus=0,weather=0,variation=0,limits=0,percent=0;
 };
@@ -59,13 +59,20 @@ inline float demandCurve(float standing){
 }
 inline bool top(int rank,int cutoff){return rank>=1&&rank<=cutoff;}
 inline bool big(int home,int away,bool rivalry){return (top(home,25)&&top(away,25))||(rivalry&&(top(home,25)||top(away,25)||(top(home,50)&&top(away,50))));}
-inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=45,int severeBase=40,int bigBonus=7){
+inline bool exceptional(float peak,float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int bigBonus=3){
+    return std::isfinite(peak)&&peak>=95&&standing>=.8f&&bigBonus>0&&
+        (neutral||!lateArrivalSchool(home))&&(night||(!neutral&&opener))&&
+        ((top(rank0,10)&&top(rank1,10))||(rivalry&&top(rank0,25)&&top(rank1,25)));
+}
+inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=55,int severeBase=45,int bigBonus=3,float peak=0){
     float start=!neutral&&lateArrivalSchool(home)?static_cast<float>((std::clamp)(severeBase,40,50)):
-        (std::clamp)(normalBase+10.f*((std::clamp)(standing,0.f,1.f)-.5f),40.f,50.f);
-    start+=(night?5.f:0.f)+(opener&&!neutral?3.f:0.f)+(big(rank0,rank1,rivalry)?static_cast<float>((std::clamp)(bigBonus,0,7)):0.f)+(top(rank0,10)&&top(rank1,10)?5.f:0.f);
+        (std::clamp)(normalBase+10.f*((std::clamp)(standing,0.f,1.f)-.5f),50.f,60.f);
+    start+=(night?5.f:0.f)+(opener&&!neutral?1.f:0.f)+(big(rank0,rank1,rivalry)?static_cast<float>((std::clamp)(bigBonus,0,3)):0.f)+(top(rank0,10)&&top(rank1,10)?1.f:0.f);
     start=(std::clamp)(start,40.f,70.f);
+    if(exceptional(peak,standing,home,rank0,rank1,neutral,night,rivalry,opener,bigBonus))
+        start=(std::max)(start,70.f+(5.f+5.f*(std::clamp)((standing-.8f)/.2f,0.f,1.f))*(std::clamp)(bigBonus,0,3)/3.f);
     constexpr float deduction[]={0,3,5,8};if(!indoor&&rain>=1&&rain<=3)start-=deduction[rain];
-    return (std::clamp)(static_cast<int>(std::lround(start)),35,70);
+    return (std::clamp)(static_cast<int>(std::lround(start)),35,80);
 }
 inline bool validTeam(const Team& t,int schools){
     return t.id>=0&&t.id<2047&&t.toughest>=0&&t.toughest<=(fcs(t.id)?256:schools)&&
@@ -113,7 +120,8 @@ inline Result calculate(const Seed& s,const Launch& l){
     float raw=r.demand+changes+r.adjustmentLimit+r.weather+r.variation;
     r.percent=(std::clamp)(raw,r.weather<0?20.f:25.f,100.f);r.limits=r.percent-raw;
     r.attendance=(std::clamp)(static_cast<int>(std::lround(l.capacity*r.percent*.01f)),1,l.capacity);
-    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3);
+    r.exceptional=exceptional(r.percent,r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0);
+    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3,55,45,3,r.percent);
     r.fillPercent=!l.neutral&&lateArrivalSchool(s.home.id)?75:big(s.home.rank,s.away.rank,l.rivalry)?30:50;
     r.applied=true;return r;
 }

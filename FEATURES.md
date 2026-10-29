@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.82.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.83.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -49,17 +49,17 @@ The normal `[starting-attendance]` log gives EA/DGA counts, FBS cohort size, act
 
 Illustrative fixtures with a 138-school field; percentages below are of stadium capacity. The support percentiles are explicit hypothetical inputs, not inferred grades for named real schools. Fixture variation remains active.
 
-| Example | EA peak | 1.81 peak | 1.82 peak | 1.82 kickoff |
+| Example | EA peak | 1.81 peak | 1.83 peak | 1.83 kickoff |
 | --- | ---: | ---: | ---: | ---: |
-| Middle-support ordinary | 66.8% | 74.4% | 85.9% | 38.6% |
-| Same matchup - night | 66.8% | 81.4% | 89.9% | 44.9% |
-| Same matchup - heavy rain | 66.8% | 60.4% | 71.9% | 26.6% |
-| Middle-support ranked rivalry | 100.0% | 89.4% | 96.4% | 50.1% |
-| Struggling bottom-five-percent support | 30.0% | 47.5% | 30.3% | 12.4% |
-| Weakest support | 30.0% | 35.0% | 25.0% | 10.0% |
-| Elite support ordinary | 100.0% | 100.0% | 100.0% | 50.0% |
-| Utah severe-late arrival | 100.0% | 100.0% | 100.0% | 40.0% |
-| Exceptional Top10 opener rivalry night | 100.0% | 100.0% | 100.0% | 70.0% |
+| Middle-support ordinary | 66.8% | 74.4% | 85.9% | 47.2% |
+| Same matchup - night | 66.8% | 81.4% | 89.9% | 53.9% |
+| Same matchup - heavy rain | 66.8% | 60.4% | 71.9% | 33.8% |
+| Middle-support ranked rivalry | 100.0% | 89.4% | 96.4% | 55.9% |
+| Struggling bottom-five-percent support | 30.0% | 47.5% | 30.3% | 15.4% |
+| Weakest support | 30.0% | 35.0% | 25.0% | 12.5% |
+| Elite support ordinary | 100.0% | 100.0% | 100.0% | 60.0% |
+| Utah severe-late arrival | 100.0% | 100.0% | 100.0% | 45.0% |
+| Exceptional Top10 opener rivalry night | 100.0% | 100.0% | 100.0% | 80.0% |
 
 A private regression comparison used all 18,906 distinct pairings of the provided save's 138 FBS programs, with current records, clear daytime weather, no rivalry or opener bonus and a fixed test venue. Peak turnout had a median of 86.16%, 21.89% at full capacity and a 25% minimum; 1.81 yielded 74.99%, 3.45% and 33.42% respectively. This checks the aggregate distribution; it is not a forecast for the actual schedule or rendered-seat proof.
 
@@ -79,23 +79,23 @@ If the mod cannot verify a crowd's seating layout, that crowd keeps the previous
 
 ### First-quarter arrivals
 
-Opening fractions are percentages of **expected peak crowd**, not stadium capacity. A 50%-capacity peak with 40% of its fans seated starts at 20% capacity. Arrivals reveal only seats the native launch populated for that peak, and never revive permanent departures.
+Opening fractions are percentages of **expected peak crowd**, not stadium capacity. A 50%-capacity peak with 55% of its fans seated starts at 27.5% capacity. Arrivals reveal only seats the native launch populated for that peak, and never revive permanent departures.
 
 | Opening route | Initial fraction of peak | Finish point, 12-minute Q1 |
 | --- | --- | --- |
-| Ordinary regular season | 40-50% by support; night adds 5, giving the ordinary 40-55% range | 6:00 remaining |
-| Severe-late home | 40% before exceptional/weather adjustments | 3:00 remaining |
-| Marquee regular season | +7 points; opener +3, night +5, both Top10 +5; hard 70% cap | 8:24 remaining, or severe-late deadline |
+| Ordinary regular season | 50-60% by support; night adds 5, giving 55-65% | 6:00 remaining |
+| Severe-late home | 45% day / 50% night before matchup/weather adjustments | 3:00 remaining |
+| Marquee regular season | +3 points; opener +1, night +5, both Top10 +1; usual ceiling 70%, exceptional 75-80% | 8:24 remaining, or severe-late deadline |
 | Bowl / non-championship CFP | 70-80% | 9:36 remaining |
 | Conference / national championship | 80-90% | 9:36 remaining |
 
 Severe-late homes are **UCLA, Miami (FL), Georgia Tech, Maryland and Utah**. Neutral games use standard arrivals. Timings scale with quarter length: normal 50% of Q1, marquee 30%, severe 75%, postseason 20%. Seat changes still wait for hidden breaks, play selection or verified offscreen simulation.
 
-Revised regular-season precipitation delays are 3/5/8 points. **Only weather can take kickoff below 40%; the hard minimum is 35%.** Indoor venues are exempt. Postseason weather moves openings within protected 70-80% or 80-90% bands. Strong support, a night home opener and an exceptional Top10 matchup are needed to reach the regular-season 70% cap. Advanced fallback INI values apply when fresh grade-based turnout cannot be calculated; the same hard bounds remain enforced.
+Revised regular-season precipitation delays are 3/5/8 points. **Only weather can take kickoff below 40%; the hard minimum is 35%.** Indoor venues are exempt. Postseason weather moves openings within protected 70-80% or 80-90% bands. The exceptional 75-80% band requires expected peak of at least 95% of capacity, support in the top fifth, a night kickoff or non-neutral home opener, and either two Top10 teams or a rivalry between two Top25 teams. Severe-late home schools keep their later arrival pattern and cannot use this band. The 80% cap is a share of peak, not a target for all big games. Advanced baseline/bonus settings feed the same fresh-launch policy; when grade-based turnout is unavailable, the conservative fallback cannot unlock the exceptional band. Retired BigGameStartPercent and FcsOpponentPenalty keys no longer affect arrivals.
 
-A regular atmosphere big game is two Top25 teams, or a rivalry with **either team Top25 or both Top50**. A #135-#137 rivalry gets no shortcut. This classification does not change departure/halftime patience. Sounds follow actual measured seating, and opening/layered shakes still require existing density and camera-effects gates. A qualifying game can begin too sparsely for shake; no delayed opener is manufactured when seats later fill.
+A regular atmosphere big game is two Top25 teams, or a rivalry with **either team Top25 or both Top50**. A #135-#137 rivalry gets no shortcut. Close marquee rivalries now receive the same modest halftime patience as close two-Top25 games; blowouts retain their existing pressure. Sounds follow actual measured seating, and opening/layered shakes still require existing density and camera-effects gates. A qualifying game can begin too sparsely for shake; no delayed opener is manufactured when seats later fill.
 
-Normal/Fast Super Sim follow simulated score and clock while their play-by-play screen is open. Slow Sim keeps hidden-window timing while the field is visible. Earlier replays use their recorded crowd; exiting restores the live crowd. Actual resumed games do not restart arrivals.
+Normal/Fast Super Sim follow simulated score and clock while their play-by-play screen is open. Slow Sim keeps hidden-window timing while the field is visible. Earlier replays use their recorded crowd; exiting restores the live crowd. The mod-owned history now preserves peak/capacity, kickoff fraction, Q1 deadline, local night flag and fixture identity. Matched Q1 saves continue their original arrival plan; later saves do not restart arrivals. Older history files remain readable and use existing estimation when the new metadata is absent. This does not rewrite native saved or simulated attendance.
 
 ### How fans decide to leave
 
@@ -115,7 +115,7 @@ Departures build across Q2 toward situation-based halftime targets, instead of f
 
 | Halftime situation | Permanent departures: share of original crowd | Temporary seat breaks: share of fans still present |
 | --- | --- | --- |
-| Both teams ranked and the game is close | 0-5% | 20-30% |
+| Both Top25, or a marquee rivalry, and margin at most 8 | 1-4% | 20-30%, mostly at the halftime break |
 | Close ordinary game | 5-10% | 20-30% |
 | Margin of 17-24 points | 10-20% | 20-30% |
 | Margin of 25-34 points | 20-30% | 20-30% |
@@ -246,7 +246,7 @@ Big games are both-Top-25 matchups, CFP games, conference championships and the 
 | Opening drive, big game, close critical down or goal-line tension | 90% fullness | 55% fullness |
 | Overtime or late winning-drive buildup | 85% fullness | 50% fullness |
 
-Smaller and larger layouts use the nearest endpoint. Actual big games receive an opening allowance: buildup can start at 50% measured fullness during the intro and early Q1. The normal size-based requirement returns gradually between 10% and 75% of the way through Q1. This avoids a quiet opening while fans arrive; the absolute 50% safeguard still applies. Ordinary matchups can use the critical-down fullness threshold for the opening offensive possession, even below packed house. This applies whichever team receives. It ends when that possession finishes with a score, punt or turnover; the return and whistle retain their earned reactions. Later ordinary drives need their usual qualifying situation. Resumed or already-progressed games do not gain a new opening drive. `OpeningAtmosphere=0` disables this allowance along with the other opening extras. Ordinary pregame and kickoff rules stay unchanged. A stadium can only fill as far as the game originally intended; these gates never add fans. An optional INI floor can raise the big-game requirement. Ordinary pre-snap camera movement uses the big-game, packed-house or qualified opening-drive route. Qualifying close critical downs can receive their stronger movement independently, and qualifying overtime/late-drive buildup can receive gentle movement on ordinary downs. Goal-line sound alone does not unlock ordinary camera motion.
+Smaller and larger layouts use the nearest endpoint. Actual big games receive an opening allowance: buildup can start at 50% measured fullness during the intro and early Q1. The normal size-based requirement returns gradually between 10% and 75% of the way through Q1. This avoids a quiet opening while fans arrive; the absolute 50% safeguard still applies. Ordinary matchups can use the critical-down fullness threshold for the opening offensive possession, even below packed house. When a verified crowd plan expects at least 90% peak capacity, that first-drive threshold eases to 55% actual fullness and its newly admitted buildup stays gentle. This applies whichever team receives. It ends when that possession finishes with a score, punt or turnover; the return and whistle retain their earned reactions. Later ordinary drives need their usual qualifying situation. Resumed or already-progressed games do not gain a new opening drive. `OpeningAtmosphere=0` disables this allowance along with the other opening extras. A high-demand ordinary intro can use the same lighter 55% route; sparse intros/first drives can receive the modest sound-only welcome. Opening-kickoff motion keeps its existing marquee requirements. A stadium can only fill as far as the game originally intended; these gates never add fans. An optional INI floor can raise the big-game requirement. Ordinary pre-snap camera movement uses the big-game, packed-house or qualified opening-drive route. Qualifying close critical downs can receive their stronger movement independently, and qualifying overtime/late-drive buildup can receive gentle movement on ordinary downs. Goal-line sound alone does not unlock ordinary camera motion.
 
 Most eligible play calls use an anticipation roar and supporting swell, without an added cheer. A single immediate cheer opportunity is reserved for a call inside the opponent's 10-yard line, the first home offensive call of the game, or the first call of a late home drive that can win. A late winning drive means a tied game or a deficit of up to eight points in the last three minutes of Q4, or overtime. Neutral venues allow either offense. All qualification and fullness checks still apply. Existing native cheers may cover the moment instead; missed opportunities are not played late.
 
@@ -264,7 +264,7 @@ Snapping carries the remaining sound through the play, followed by a short bridg
 
 ### Pregame and postgame atmosphere
 
-Qualified big games and packed ordinary stadiums can begin their roar/swell atmosphere during the stadium intro. Big games use their opening allowance; ordinary games keep their packed-house threshold. First-quarter play-call energy takes over as gameplay begins. Sparse intros stay calmer instead.
+Qualified big games and packed ordinary stadiums can begin their roar/swell atmosphere during the stadium intro. Big games keep the 50% measured-fullness opening safeguard. An ordinary game with at least 90% expected peak can receive a lighter intro and first-possession buildup from 55% actual fullness (or its lower normal size threshold). This route does not receive the stronger hostile first-snap surge. A modest welcome sound remains available below shake requirements, without added motion or volume premium; stronger play/result cues take priority. It requires a genuinely tracked fresh opening and cannot be invented by a resume, late attachment or simulation.
 
 After a home win, or either side's win at a neutral venue, a qualifying crowd can keep its stadium atmosphere through the postgame scenes. Earned winning eruptions take priority and keep their existing carry into postgame. Ordinary closing atmosphere ends at the stats/highlights menu and has a two-minute safety limit. Intro atmosphere has a five-minute safety limit. A blowout still reduces or prevents extra layers. These scenes do not invent touchdowns, play reactions or camera cues.
 
@@ -338,7 +338,7 @@ The same layered system stays active across snaps and possession changes in over
 
 In Q4's final three minutes, a home offense tied or trailing by no more than eight points can build anticipation once it reaches the opponent's 40-yard line. Its size-based fullness requirement scales from **85% in the smallest reference venue to 50% in the largest**. The effect grows nearer the goal line and as time runs out. At neutral venues, either team's qualifying drive can receive it. This can flow directly into a winning eruption.
 
-There is no separate continuous intro roar or dedicated overtime-only sound layer. The play-call system supplies the opening, overtime and late-drive atmosphere.
+The play-call system supplies the layered opening, overtime and late-drive atmosphere. Sparse fresh openings can use a separate modest sound-only welcome, with no shake or volume premium.
 
 ### Crowd eruptions
 

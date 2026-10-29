@@ -1,6 +1,6 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.82.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.83.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
 
 Candidate 1.80 closes a reproduced sparse-camera gap: a new live camera's first native HFA event previously passed through until the next worker update discovered the camera. First-event interception now learns the verified event IDs inside the borrowed native callback and preserves the requested native tier for later restoration, including when the channel row is created afterward. Compatible non-HFA broadcast/replay views no longer stop filtering supported live views. Regression checks cover these transitions, stale leases, ownership changes, unrelated channels and balanced references. The fix has not yet been verified in game.
 
@@ -26,21 +26,23 @@ The user accepted the settings menu's operation and appearance. Earlier 1.77 uns
 
 Candidate 1.79 added a bounded TD-selection diagnostic using the existing expression/event/replay-node hooks, without changing routing; 1.80 retains it. Before score confirmation it retains recognized native TD/takeaway/quick-route decisions in a fixed 128-row per-play buffer. Only confirmed TDs flush to normal `[replay-select]` logs. Entries include monotonic tick, opaque node identity, phase, native/final cached Boolean, whether modifications were allowed, armed kind/stage, start/current score, native result freshness and replay activity. Native inset-event interception and replay-node entry/completion are included. This identifies selector families, not the exact executing presentation package or audible/rendered output. New play/match/epoch state clears old evidence. A paired read-only replay-clock capture is needed for recording timelines. Successful captures do not establish an intermittent-routing fix.
 
-## Starting-turnout candidate 1.82
+## Starting-turnout candidate 1.83
+
+First test: use an ordinary, clear daytime regular-season Dynasty matchup with neither severe-late home nor marquee classification. Pause at the opening kickoff, compare the normal starting-attendance log with visible fullness, then play through the normal Q1 fill deadline. Before arrivals finish, make a Q1 Midgame Save and reload to verify continuity. This short check exercises the basic launch and persistence paths before testing exceptional night games or a full game.
 
 Before release, install the staged candidate with both game and MMC closed and start a fresh regular-season Dynasty game. This feature cannot safely retrofit an already generated seating baseline. Check the normal `[starting-attendance]` log and status for EA/revised counts and local kickoff. A missing fresh-input message means EA fallback, not a successful override.
 
 - Match logged My School atmosphere/tradition/brand/conference grades to the Dynasty school UI (A+=0, F=12). Rank replaces championship contender; campus lifestyle is absent. Confirm 138 valid FBS schools on the stock save, excluding FCS/placeholders. Cohort evaluation occurs only during a fresh playable launch.
-- Check ordinary daytime 40-50%, night up to 55% of peak, Utah/severe-late baseline 40%, weather-only minimum 35%, exceptional opener/Top10/night cap 70%. Verify percentage-of-peak versus percentage-of-capacity and Q1 deadlines 50/30/75/20% for normal/marquee/severe/postseason.
+- Check ordinary daytime 50-60%, night 55-65% of peak, Utah/severe-late baseline 45% day/50% night, weather-only minimum 35%, usual marquee ceiling 70% and exceptional hard cap 80%. Only top-fifth support, at least 95% expected peak and a Top10 pair or Top25 rivalry with night/home-opener incentive can use the exceptional band; severe-late homes cannot. Verify percentage-of-peak versus percentage-of-capacity and Q1 deadlines 50/30/75/20% for normal/marquee/severe/postseason.
 - Compare the same day/night fixture: EA count should be identical while DGA adds 4 points before bounds; 19:00 local is the inclusive threshold. A Pacific schedule shown in Eastern time must use its converted local kickoff.
 - Compare dry/light/medium/heavy weather at an outdoor venue; verify the count reduction and visible seat baseline, then verify a fully roofed venue does not receive the precipitation deduction.
 - Test one increase beyond EA's sparse turnout and one reduction below a native sellout. Capture normal/replay/streamed/postgame views and confirm actual seat density rather than treating the requested count as rendered proof.
 - Repeated copies/reloads of the same fixture retain variation; a different game with reused pointers must acquire its own matching inputs. An unknown weather value, stale sample or changed signature keeps EA behavior.
 - Verify that regular neutral games use both teams symmetrically and that rivalry remains a bounded bonus. Check a conference championship, bowl/CFP and practice/preseason load for unchanged EA peak turnout, postseason openings 70-80% and championship openings 80-90%.
-- Check Midgame Save, including a 0-0 save, late DLL attachment, quitting and returning to the same matchup, and the advanced turnout switch off. No fresh arrivals or crowd reconstruction should be invented midgame.
-- Listen for preserved reaction peaks and inspect fullness/shake admission after the revised kickoff crowd settles. Existing density floors and camera-effects accessibility rules still apply.
+- Check a Q1 Midgame Save before arrivals finish, including 0-0, then reload and confirm the same peak, kickoff fraction, Q1 deadline and remaining arrivals. Check late attachment, quitting/reloading the same matchup, old history and the turnout switch off; no invented opener or rebuilt native crowd. History format 4 preserves the plan and reads formats 1-3.
+- Listen for a modest sound-only welcome in a sparse fresh opening. At high demand (expected peak at least 90%), verify lighter ordinary first-drive buildup from 55% actual density; below 50% there is no crowd-driven shake. Marquee, normal size and accessibility gates otherwise remain. Check a close ranked/Top50 rivalry at halftime, then a blowout: extra patience should apply only while close. General sparse sound/departure tuning is otherwise unchanged.
 
-The shipped tuning record uses Initial 20, Home 60, Away 0.33 and Rivalry 30 (the schema default for Rivalry is 20). Examples are explicit synthetic fixtures using those values, not predictions for a loaded save. The night/time and launch boundary were inspected live read-only; the actual 1.82 count override is not yet user-verified.
+The shipped tuning record uses Initial 20, Home 60, Away 0.33 and Rivalry 30 (the schema default for Rivalry is 20). Examples are explicit synthetic fixtures using those values, not predictions for a loaded save. The night/time and launch boundary were inspected live read-only; the revised count override and 1.83 cohesion changes are not yet user-verified.
 
 ## Confirmed so far
 

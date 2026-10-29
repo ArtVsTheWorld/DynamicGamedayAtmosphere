@@ -35,7 +35,7 @@ inline HalftimeTarget halftime(const State& s){
     float choose=(std::clamp)(0.65f+wet-patience+0.08f*variation(s),0.0f,1.0f);
     const float temporary=20+10*choose;
     if(s.playoff)return {1+3*choose,temporary};
-    bool special=top25(s.rank0)&&top25(s.rank1);
+    bool special=marqueeMatchup(s);
     if(margin<=8)return special?HalftimeTarget{1+3*choose,temporary}:HalftimeTarget{5+5*choose,temporary};
     if(margin<=16){float t=(margin-8)/8.0f;return {7.5f+2.5f*t,temporary};}
     float patienceFactor=1-0.25f*comparableHomeWin(s);

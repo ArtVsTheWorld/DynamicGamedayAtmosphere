@@ -15,12 +15,14 @@ public:
            now<began_||now-began_>=(opening?300000ull:120000ull))return out;
         bool big=lineup::bigGame(s),packed=c.packedHouse&&attendance::packed::qualifies(positions,fullness);
         bool special=closing&&overtime(s)&&c.overtime&&fullness>=attendance::packed::specialMinimum(positions);
-        bool qualified=(positions>=512&&big&&fullness>=lineup::bigRequirement(c,s,positions))||packed||special;
+        bool lightOpening=opening&&positions>=512&&expectedPeak(s)>=.90f&&fullness>=.55f;
+        bool qualified=(positions>=512&&big&&fullness>=lineup::bigRequirement(c,s,positions))||packed||special||lightOpening;
         float competition=lineup::competitive(s);if(!qualified||competition<=0)return out;
         float close=std::abs(s.homeScore-s.awayScore)<=8?1.f:.75f;
         float level=lineup::ordinaryImportance(attendance::packed::strength(positions,fullness),close,opening?1.f:0.f);
         if(big)level=(std::max)(level+lineup::bigGamePremium(s,fullness,close),opening?1.f:0.f);
         if(special)level=(std::max)(level,.8f);
+        if(lightOpening&&!big&&!packed)level=(std::min)(level,.35f);
         level=(std::clamp)(level,0.f,1.f)*competition;
         float presence=std::sqrt((std::clamp)(fullness/.8f,0.f,1.f));
         out.active=true;out.reason=opening?sustained::Reason::Opening:sustained::Reason::Postgame;

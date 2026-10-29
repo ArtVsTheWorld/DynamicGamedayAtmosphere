@@ -2,11 +2,11 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 candidate work (1.82.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 candidate work (1.83.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
-**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** Â· [Full feature list](FEATURES.md)
+**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** Ã‚Â· [Full feature list](FEATURES.md)
 
 ## Install or update
 
@@ -25,7 +25,7 @@ Edit `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each optio
 - **Soundscape:** crowd sound, anticipation, play reactions and celebrations.
 - **Broadcast:** camera movement and extra replay opportunities.
 
-Fresh regular-season Dynasty games use grade/rank demand calibrated to real capacity-ratio statistics, including local-time night detection. Ordinary openings seat 40-55% of expected peak; postseason starts 70-80% and championships 80-90%. Utah joins the severe-late arrival group. Postseason/non-regular games retain EA turnout. The new value is applied during launch; saved/simulated attendance stays native. See the [formula and examples](FEATURES.md#starting-turnout---first-pass-candidate). Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
+Fresh regular-season Dynasty games use grade/rank demand calibrated to real capacity-ratio statistics, including local-time night detection. Ordinary openings seat 50-60% of expected peak by day and 55-65% at night, with a hard 80% cap reserved for exceptional regular-season games; postseason starts 70-80% and championships 80-90%. Utah joins the severe-late arrival group. Postseason/non-regular games retain EA turnout. The new value is applied during launch; saved/simulated attendance stays native. See the [formula and examples](FEATURES.md#starting-turnout---first-pass-candidate). Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
 
 Deep throws by either offense use a fast native swell while the pass is airborne. It works alongside lineup buildup, settles after the pass ends and adds no pre-catch cheer, shake or volume bonus. `PassFlightAnticipation=0` disables it.
 
@@ -62,6 +62,6 @@ For missing audio, disable Soundscape's `Enabled` option and restart MMC and the
 
 ## Source and updates
 
-[Build instructions](docs/BUILDING.md) Â· [Updating after an EA patch](docs/UPDATING-THE-GAME.md) Â· [Release history](RELEASES.md)
+[Build instructions](docs/BUILDING.md) Ã‚Â· [Updating after an EA patch](docs/UPDATING-THE-GAME.md) Ã‚Â· [Release history](RELEASES.md)
 
 [Working diagnostics and remaining live checks](docs/DIAGNOSTICS.md)

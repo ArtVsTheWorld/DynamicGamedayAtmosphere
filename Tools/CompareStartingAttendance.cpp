@@ -38,9 +38,9 @@ int main(int argc,char** argv){
             peaks.push_back(r.percent);old.push_back(previous(s,720,0,false,false));ea.push_back(eaPercent(s,false,false));}
         auto report=[](const char* name,std::vector<float> values){std::sort(values.begin(),values.end());double total=0;unsigned full=0,low=0;for(float v:values){total+=v;if(v>=99.99f)++full;if(v<40)++low;}
             std::printf("%s,count=%zu,mean=%.2f,min=%.2f,p10=%.2f,p25=%.2f,median=%.2f,p75=%.2f,max=%.2f,full_pct=%.2f,below40_pct=%.2f\n",name,values.size(),total/values.size(),values.front(),values[values.size()/10],values[values.size()/4],values[values.size()/2],values[values.size()*3/4],values.back(),100.*full/values.size(),100.*low/values.size());};
-        report("EA",ea);report("DGA181",old);report("DGA182",peaks);return 0;
+        report("EA",ea);report("DGA181",old);report("DGA183",peaks);return 0;
     }
-    std::puts("Example,EA peak pct,DGA181 peak pct,DGA182 peak pct,DGA181 kickoff capacity pct,DGA182 kickoff peak pct,DGA182 kickoff capacity pct,Arrivals finish Q1 pct,Support percentile,Demand,Season,Matchup,Night,Weather");
+    std::puts("Example,EA peak pct,DGA181 peak pct,DGA183 peak pct,DGA181 kickoff capacity pct,DGA183 kickoff peak pct,DGA183 kickoff capacity pct,Arrivals finish Q1 pct,Support percentile,Demand,Season,Matchup,Night,Weather");
     Seed s;s.home={1153,50,70,6,3,3,3,6,6,6,6,.5f};s.away={1193,60,80,5,3,3,3,6,6,6,6,.4f};s.stadium=s.homeStadium=553;s.capacity=60000;s.schools=138;s.week=8;s.year=2026;s.regular=true;
     example("Middle-support ordinary",s);example("Same matchup - night",s,1200);example("Same matchup - heavy rain",s,720,3);
     auto rival=s;rival.away.rank=10;example("Middle-support ranked rivalry",rival,720,0,true);

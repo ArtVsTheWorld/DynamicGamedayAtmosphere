@@ -3,9 +3,9 @@
 #include "StartingAttendance.h"
 namespace attendance::arrivals {
 struct Settings {
-    int enabled=1,startPercent=45,lateStartPercent=40;
+    int enabled=1,startPercent=55,lateStartPercent=45;
     int finishPercent=50,lateFinishPercent=75;
-    int bigGameBonus=7,badWeatherPenalty=5,bigGameStart=52,fcsPenalty=0;
+    int bigGameBonus=3,badWeatherPenalty=5;
 };
 enum class Group { Standard,Severe };
 inline bool fcsTeam(int team){return attendance::fcsTeam(team);}
@@ -15,15 +15,14 @@ inline Group schoolGroup(const State& s){
     return turnout::lateArrivalSchool(s.team0)?Group::Severe:Group::Standard;
 }
 inline bool lateSchool(const State& s){return schoolGroup(s)==Group::Severe;}
+inline int baselinePercent(const Settings& c,const State& s);
 inline float adjustment(const Settings& c,const State& raw){
     State s=ranked(raw);
-    float marquee=turnout::big(s.rank0,s.rank1,s.rivalry)?static_cast<float>((std::min)((std::clamp)(c.bigGameBonus,0,7),(std::max)(0,c.bigGameStart-c.startPercent))):0;
-    float weather=badWeather(s)?static_cast<float>((std::clamp)(c.badWeatherPenalty,0,8)):0;
-    float fcs=fcsOpponent(s)?static_cast<float>((std::clamp)(c.fcsPenalty,0,5)):0;
-    return marquee+(s.night?5.f:0.f)+(turnout::top(s.rank0,10)&&turnout::top(s.rank1,10)?5.f:0.f)-weather-fcs;
+    int dry=turnout::openingPercent(.5f,s.team0,s.rank0,s.rank1,s.neutral,s.night,s.rivalry,false,0,false,c.startPercent,c.lateStartPercent,c.bigGameBonus);
+    return static_cast<float>(dry-baselinePercent(c,s)-(badWeather(s)?(std::clamp)(c.badWeatherPenalty,0,8):0));
 }
 inline int baselinePercent(const Settings& c,const State& s){
-    return schoolGroup(s)==Group::Severe?(std::clamp)(c.lateStartPercent,40,50):(std::clamp)(c.startPercent,40,50);
+    return schoolGroup(s)==Group::Severe?(std::clamp)(c.lateStartPercent,40,50):(std::clamp)(c.startPercent,50,60);
 }
 inline bool postseasonOpening(const State& s){return s.playoff||s.conferenceChampionship||s.bowl!=127;}
 inline int openingPercent(const Settings& c,const State& s){
@@ -32,12 +31,12 @@ inline int openingPercent(const Settings& c,const State& s){
         float appeal=.5f*(turnout::rankStrength(s.rank0,138)+turnout::rankStrength(s.rank1,138));
         return (std::clamp)(low+static_cast<int>(std::lround(10*appeal))-(badWeather(s)?3:0),low,low+10);
     }
-    if(s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=70)return s.plannedKickoff;
+    if(arrivalPlan(s))return s.plannedKickoff;
     return (std::clamp)(static_cast<int>(std::lround(baselinePercent(c,s)+adjustment(c,s))),badWeather(s)?35:40,70);
 }
 inline float finishFraction(const Settings& c,const State& s){
     if(postseasonOpening(s))return .20f;
-    if(s.startingAttendance&&s.plannedFill>=10&&s.plannedFill<=100)return s.plannedFill*.01f;
+    if(arrivalPlan(s))return s.plannedFill*.01f;
     int base=schoolGroup(s)==Group::Severe?c.lateFinishPercent:turnout::big(s.rank0,s.rank1,s.rivalry)?30:c.finishPercent;
     return (std::clamp)(base,10,100)*.01f;
 }
@@ -91,7 +90,7 @@ struct Halftime {
         if(seen&&now+0.01f<highTime)return temporary;
         bool crossing=seen&&lastQuarter<3&&s.quarter==3&&highTime<2*s.quarterSeconds-0.01f;
         bool enteredThird=seen&&lastQuarter<3&&s.quarter==3;
-        bool patient=std::abs(s.homeScore-s.awayScore)<=8&&(bigGameMatchup(s)||packedHouse);
+        bool patient=std::abs(s.homeScore-s.awayScore)<=8&&(marqueeMatchup(s)||packedHouse);
         if(s.quarter==2&&s.seconds>.01f)waitingForBreak=patient;
         else if(s.quarter==2&&patient)waitingForBreak=true;
         bool release=waitingForBreak&&((s.quarter==2&&s.seconds<=.01f)||enteredThird);

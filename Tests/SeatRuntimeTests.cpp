@@ -427,7 +427,7 @@ int main(){
     // Execute the actual native INI reader against mixed legacy/current settings.
     dataFolder=logsFolder/L"SettingsCase";std::filesystem::create_directories(dataFolder);
     {std::ofstream ini(dataFolder/L"DynamicGamedayAtmosphere.ini");ini<<"[Attendance]\nEnabled=1\n[Atmosphere]\nMaximumBoostPercent=25\nCriticalShakeStrengthPercent=8\n[Dynamic Gameday Attendance]\nEnabled=0\nArrivalsEnabled=0\nStartPercent=42\n[Dynamic Gameday Soundscape]\nEnabled=0\nLayeredAtmosphereEnabled=0\nMaximumBoostPercent=17.5\nHighLeverageBoostPercent=22\nEruptionBoostPercent=35\nChantMaximumBoostPercent=11\nLongCompletionMinimumYards=21\nDuringPlayReactionsEnabled=0\n[Dynamic Gameday Broadcast]\nCameraShake=0\nDuringPlayShakeStrengthPercent=12\nExtraReplaysEnabled=0\n";}
-    readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==42&&!audioSetting&&!extraReplays&&crowdReductionPercent==25);
+    readSettings();assert(!std::atomic_load(&settings)->enabled&&!arrivalEnabled&&arrivalStart==50&&!audioSetting&&!extraReplays&&crowdReductionPercent==25);
     auto nativeConfig=std::atomic_load(&coreSettings);auto liveConfig=std::atomic_load(&liveReactionSettings);auto motionConfig=std::atomic_load(&cameraSettings);
     assert(!nativeConfig->enabled&&!nativeConfig->cameraShake&&nativeConfig->maximumPercent==17.5f&&nativeConfig->highLeveragePercent==22&&nativeConfig->eruptionPercent==35&&nativeConfig->chantMaximumPercent==11);
     assert(!liveConfig->enabled&&liveConfig->minimumCatchYards==21&&motionConfig->live==12&&motionConfig->critical==8);
@@ -441,6 +441,16 @@ int main(){
     assert(!makePatch(0x64afda0,reinterpret_cast<void*>(testUpdate),&unused,13));
     assert(!makePatch(0x64afda0,reinterpret_cast<void*>(testUpdate),&unused,33));
     assert(!makePatch(0x64afda0,nullptr,&unused,15)&&patches.size()==patchCount&&unused==reinterpret_cast<void*>(1));
+    // Production snapshot refresh must preserve a restored Q1 crowd plan,
+    // while different matches/venues and explicit fresh plans stay isolated.
+    attendance::State plan{1,0,0,5,600,720};plan.team0=1153;plan.team1=1193;
+    plan.startingAttendance=plan.night=true;plan.plannedKickoff=80;plan.plannedFill=30;
+    plan.plannedPeak=plan.plannedCapacity=60000;plan.plannedStadium=553;plan.plannedWeek=8;plan.plannedYear=2026;
+    audioMatch=123;publishSessionPlan(123,plan);auto refresh=plan;refresh.startingAttendance=false;refresh.plannedKickoff=-1;refresh.night=false;
+    showContext(attendance::Settings{},refresh);auto working=refresh;working.plannedStadium=-1;applySessionPlan(working,123);
+    assert(attendance::crowdPlan(working)&&working.plannedKickoff==80&&working.night);
+    working=refresh;applySessionPlan(working,456);assert(!working.startingAttendance);
+    working=refresh;working.plannedStadium=554;applySessionPlan(working,123);assert(!working.startingAttendance&&working.plannedStadium==554);
     for(auto p:worldPages)VirtualFree(p,0,MEM_RELEASE);VirtualFree(allocation,0,MEM_RELEASE);
     std::cout<<"PASS: production capture/visibility, cached layouts, arrivals/replays, late intro renderers, kickoff/Midgame Save opening preservation, quit/reload, phase0/5 Super Sim Q2 departures, early halftime breaks/Q3 returns, Q4 home/FCS exits, pause isolation, live-play gating, conference classification, paused-intro/final presentation audio and historical clip fullness.\n";
 }

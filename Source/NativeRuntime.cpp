@@ -53,6 +53,7 @@
 #include "SoundOnlyReactions.h"
 #include "OpeningKickoffAtmosphere.h"
 #include "PresentationAtmosphere.h"
+#include "OpeningWelcome.h"
 #include "SituationalReactions.h"
 #include "HailMaryPass.h"
 #include "LiveFumble.h"
@@ -103,6 +104,7 @@ attendance::lineup::Model lineupAtmosphere;
 attendance::soundonly::Model soundOnlyReactions;
 attendance::kickoff::Model openingKickoffAtmosphere;
 attendance::presentationaudio::Model presentationAtmosphere;
+attendance::openingwelcome::Model openingWelcome;
 std::atomic<bool> shownLineup{false};
 std::atomic<bool> shownOpeningDrive{false};
 std::atomic<bool> shownHostileOpening{false};
@@ -114,6 +116,10 @@ std::atomic<bool> capacityBinding{false},shownPackedHouse{false};std::atomic<flo
 using InitialFormula=int(__fastcall*)(A,A);
 using InitialOptionSet=bool(__fastcall*)(A,unsigned,A);
 InitialFormula originalInitialFormula=nullptr;InitialOptionSet originalInitialOptionSet=nullptr;
+struct SessionCrowdPlan {A match=0;attendance::State state;};
+std::shared_ptr<const SessionCrowdPlan> sessionCrowdPlan=std::make_shared<SessionCrowdPlan>();
+void applySessionPlan(attendance::State& s,A match){auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==match&&s.team0==plan->state.team0&&s.team1==plan->state.team1){attendance::inheritCrowdPlan(plan->state,s);if(s.plannedStadium<0){s.plannedStadium=plan->state.plannedStadium;s.night=plan->state.night;}}}
+void publishSessionPlan(A match,const attendance::State& state){std::shared_ptr<const SessionCrowdPlan> next=std::make_shared<SessionCrowdPlan>(SessionCrowdPlan{match,state});std::atomic_store(&sessionCrowdPlan,next);}
 std::mutex initialMutex;attendance::turnout::Seeds initialSeeds;
 std::shared_ptr<const attendance::turnout::Applied> initialApplied=std::make_shared<attendance::turnout::Applied>();
 std::atomic<bool> initialBinding{false},initialSetting{true},initialCaptureFault{false};
@@ -134,10 +140,10 @@ attendance::arrivals::Model arrivalModel;
 attendance::CrowdChangeWindow crowdChangeWindow;
 attendance::arrivals::Halftime halftimeModel;
 attendance::departures::Model departureModel;
-std::atomic<int> arrivalEnabled{1},arrivalStart{45},arrivalLateStart{40},arrivalFinish{50},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{100},shownHalftime{0},shownArriving{0};
+std::atomic<int> arrivalEnabled{1},arrivalStart{55},arrivalLateStart{45},arrivalFinish{50},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{100},shownHalftime{0},shownArriving{0};
 attendance::halftime::ExitConversion halftimeExitConversion;
 std::atomic<int> halftimeConvertPercent{25},shownHalftimeConverted{0};
-std::atomic<int> arrivalBigBonus{7},arrivalWeatherPenalty{5},arrivalBigStart{52},arrivalFcsPenalty{0};
+std::atomic<int> arrivalBigBonus{3},arrivalWeatherPenalty{5};
 std::atomic<bool> arrivalReconcilePending{false};
 std::atomic<bool> visibilityRetry{false},captureArrivalBaseline{false};
 std::atomic<bool> pregameRendererRetry{false};
@@ -631,7 +637,8 @@ void initialLaunch(){
     launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
     Result result=calculate(seed,launch);
     if(!result.applied){log("starting-attendance","EA attendance preserved: postseason, non-regular-season, resumed game, or incomplete inputs.");return;}
-    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus);
+    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus,result.percent);
+    result.exceptional=exceptional(result.percent,result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,arrivalBigBonus);
     result.fillPercent=!launch.neutral&&lateArrivalSchool(seed.home.id)?arrivalLateFinish.load():big(seed.home.rank,seed.away.rank,launch.rivalry)?30:arrivalFinish.load();
     std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
     auto api=native::Api::engine(image);api.set=originalInitialOptionSet;
@@ -640,7 +647,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff; arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -1115,10 +1122,10 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
 void resetMatch(){
     replayLoss=-1;exactVisibility=false;replaySuspendsAtmosphere=false;replayWasActive=false;replayRestorePending=false;bootstrapPending=false;lastRecordingTime=-1;shownResumeSource=0;
     crowdChangeWindow.reset();simulationRecording=-1;shownSuperSim=false;
-    attendanceSeed=0;
+    attendanceSeed=0;publishSessionPlan(0,attendance::State{});
     {std::lock_guard<std::mutex> guard(timelineMutex);attendanceArchive.active=0;}
     {std::lock_guard<std::mutex> guard(historyMutex);gameHistory.reset();arrivalModel.reset();halftimeModel.reset();halftimeExitConversion.reset();shownHalftimeConverted=0;departureModel.reset();matchLifecycle.reset();}
-    {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();cameraMotion.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
+    {std::lock_guard<std::mutex> guard(atmosphereMutex);playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=0;}
     shownLineup=shownPackedHouse=shownOpeningDrive=shownHostileOpening=false;shownDrive=0;shownDistanceExtra=0;shownReactionDistance=0;
     shownUpsetStage=0;shownUpsetSound=false;shownUpsetMinimum=1.01f;
     shownPassFlights=0;shownPassGate="waiting for an eligible snap";
@@ -1462,9 +1469,10 @@ bool context(attendance::State& s){
     s.team0=team0;s.team1=team1;
     int kickoff=-1;
     if(option(0x9f4be400,2,kickoff)&&kickoff>=0&&kickoff<1440){s.night=kickoff>=1140;shownKickoffMinutes=kickoff;}else shownKickoffMinutes=-1;
+    s.plannedStadium=at<int>(weather+0x358);
     auto initial=std::atomic_load(&initialApplied);
     s.startingAttendance=!s.playoff&&!s.conferenceChampionship&&s.bowl==127&&initial->owns(team0,team1)&&initial->launch.stadium==at<int>(weather+0x358);
-    if(s.startingAttendance){s.night=initial->result.night;s.plannedKickoff=initial->result.kickoff;s.plannedFill=initial->result.fillPercent;}
+    if(s.startingAttendance){s.night=initial->result.night;s.plannedKickoff=initial->result.kickoff;s.plannedFill=initial->result.fillPercent;s.plannedPeak=initial->result.attendance;s.plannedCapacity=initial->launch.capacity;s.plannedStadium=initial->launch.stadium;s.plannedWeek=initial->seed.week;s.plannedYear=initial->seed.year;s.exceptionalOpening=initial->result.exceptional;}
     // This native reader supplies HomeTeamRank/AwayTeamRank to the game UI.
     using Rank=int(__fastcall*)(A,int);
     auto rank=reinterpret_cast<Rank>(image+0xa0ad090);
@@ -1479,7 +1487,7 @@ bool context(attendance::State& s){
 bool guardedContext(attendance::State& s){__try{return context(s);}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
 void showContext(const attendance::Settings& c,const attendance::State& s){
     bool matchupChanged=!contextReady||shownRank0!=s.rank0||shownRank1!=s.rank1||shownTeam0!=s.team0||shownTeam1!=s.team1||shownRivalry!=s.rivalry||shownNeutral!=s.neutral||shownPlayoff!=s.playoff||shownConference!=s.conferenceChampionship||shownPrecipitation!=s.precipitation;
-    contextReady=true;
+    contextReady=true;auto retained=s;applySessionPlan(retained,audioMatch.load());publishSessionPlan(audioMatch.load(),retained);
     if(matchupChanged){
         auto rankText=[](int rank){return rank>0?std::to_string(rank):std::string("unknown/unranked, raw ")+std::to_string(rank);};
         log("matchup","Matchup: home team ID "+std::to_string(s.team0)+" (rank "+rankText(s.rank0)+"); away team ID "+std::to_string(s.team1)+" (rank "+rankText(s.rank1)+"); rivalry "+(s.rivalry?"yes":"no")+"; neutral venue "+(s.neutral?"yes":"no")+"; conference championship "+(s.conferenceChampionship?"yes":"no")+"; postseason "+(s.playoff?"yes":"no")+"; weather "+(s.precipitation==1?"rain":s.precipitation==2?"snow":"dry")+".");
@@ -1526,16 +1534,14 @@ void readSettings(){
     nativeQuietPercent=number(L"Audio",L"NativeQuietingStrengthPercent",100,0,100);
     crowdReductionPercent=number(L"Audio",L"CrowdVolumeReductionPercent",25,0,25);
     audioReductionStart=number(L"Audio",L"ReductionStartPercent",50,1,50);
-    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",45,40,50);
-    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",40,40,50);
+    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",55,50,60);
+    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",45,40,50);
     arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",50,10,100);
     arrivalLateFinish=number(L"Arrivals",L"LateSchoolFinishPercentOfQuarter",75,10,100);
     halftimeExtra=number(L"Arrivals",L"HalftimeSeatBreakStrength",100,0,200);
     halftimeConvertPercent=number(L"Dynamic Gameday Attendance",L"HalftimeDepartureConversionPercent",25,0,25);
-    arrivalBigBonus=number(L"Arrivals",L"BigGameBonus",7,0,7);
-    arrivalBigStart=number(L"Dynamic Gameday Attendance",L"BigGameStartPercent",52,40,70);
+    arrivalBigBonus=number(L"Arrivals",L"BigGameBonus",3,0,3);
     arrivalWeatherPenalty=number(L"Arrivals",L"BadWeatherPenalty",5,0,8);
-    arrivalFcsPenalty=number(L"Arrivals",L"FcsOpponentPenalty",0,0,5);
 
     logLimitMB=number(L"Logging",L"MaxFileMB",2,1,16);debugLog=number(L"Logging",L"Debug",0,0,1)!=0;
     c->comebackDeficit=number(L"Retention",L"ComebackOriginalDeficit",21,14,100);
@@ -1896,10 +1902,10 @@ void atmosphereTick(){
     p.simulated=offscreenSimulation(p.game);p.resumed=shownResumeSource!=0;p.game.variationSeed=attendanceSeed;
     p.game.rank0=shownRank0;p.game.rank1=shownRank1;p.game.rivalry=shownRivalry;p.game.playoff=shownPlayoff;
     p.game.conferenceChampionship=shownConference;p.game.hfaActive=hfaBinding&&!shownNeutral&&attendance::nativecontext::hfa(image);shownHfa=p.game.hfaActive;
-    p.game.neutral=shownNeutral;p.game.team0=shownTeam0;p.game.team1=shownTeam1;p.game.bowl=shownBowl;
+    p.game.neutral=shownNeutral;p.game.team0=shownTeam0;p.game.team1=shownTeam1;p.game.bowl=shownBowl;applySessionPlan(p.game,match);
     if(p.game.phase==3){std::lock_guard<std::mutex> guard(historyMutex);matchLifecycle.live();}
     std::lock_guard<std::mutex> guard(atmosphereMutex);
-    if(atmosphereMatch!=match){shownPassFlights=0;playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();cameraMotion.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=match;}
+    if(atmosphereMatch!=match){shownPassFlights=0;playTracker.reset();soundOnlyReactions.reset();lateTurnoverExits.reset();coreAtmosphere.reset();lineupAtmosphere.reset();openingKickoffAtmosphere.reset();presentationAtmosphere.reset();openingWelcome.reset();cameraMotion.reset();liveReactions.reset();skillReactions.reset();catchKnockouts.reset();defensiveAccents.reset();skillSwell.reset();contextReactions.reset();liveReactionMajor=liveReactionMilestone=false;liveMotionEvent=attendance::live::Event::None;situationalReactions.reset();hailMaryPass.reset();liveFumbles.reset();fumbleContacts.reset();returnAtmosphere.reset();scoringSoundHandoff.reset();reactionDistance.reset();passFlight.reset();liveReactionId=liveReactionUntil=liveSourceSequence=liveMotionSequence=liveAuditId=liveAuditUntil=playAuditSequence=playAuditEndSequence=0;liveReactionPost=false;shownLiveCatches=shownLivePicks=0;audioContinuity.reset();pendingLateExits=0;atmosphereMatch=match;}
     if(liveAuditId&&now>=liveAuditUntil)finishLiveAudit(positiveCheer.healthy()?"no eligible crowd callback in the immediate reaction window":"crowd reaction control stopped after a fault");
     // The tracker rejects rewound/corrected scores and clocks for event
     // detection only. Verified live ambience still needs its normal handoff;
@@ -2150,7 +2156,9 @@ void atmosphereTick(){
     wanted.liveType=attendance::cheer::variedPositive(wanted.liveType,playTracker.serial,wanted.liveCheer,epoch);
     wanted.resultType=attendance::cheer::variedPositive(wanted.resultType,playTracker.serial,wanted.resultCheer,epoch);
     wanted.playSequence=playTracker.serial;wanted.staggered=audio->staggeredCheers;wanted.majorLive=liveReactionMajor;wanted.overlapMilestone=audio->staggeredCheers&&liveReactionMilestone;
+    auto welcome=openingWelcome.observe(*audio,p,match,epoch,now,active&&enabled&&audioSetting&&!clockPlay,fullnessReady,remaining,&result);
     if(basicReactionEligible&&!reactionEligible)wanted=attendance::soundonly::restrain(wanted,remaining);
+    wanted=attendance::openingwelcome::Model::merge(wanted,welcome);
     std::shared_ptr<const attendance::sustained::Intent> next=std::make_shared<attendance::sustained::Intent>(wanted);std::atomic_store(&sustainedIntent,next);
     if(liveResult.id)log("live-play","Live reaction #"+std::to_string(liveReactionId)+": "+attendance::live::name(liveResult.event)+"; "+std::to_string(static_cast<int>(liveResult.yards))+" yards; Q"+std::to_string(p.game.quarter)+" "+std::to_string(static_cast<int>(p.game.seconds))+"s; fullness "+std::to_string(static_cast<int>(std::lround(100*remaining)))+"%; "+(!reactionEligible?"sound-only below layered-atmosphere gate; ":"")+"camera cue "+attendance::motion::name(nextCamera->kind)+(nextCamera->runBuildup?" (building)":"")+(liveResult.event==attendance::live::Event::ForcedFumble?"; sharp forced-fumble impact (35 ms attack / 50 ms handoff); immediate cheer requested.":liveResult.event==attendance::live::Event::FumbleRecovery?"; recovery is sound-only; no new shake.":liveResult.event==attendance::live::Event::BrokenTackle?"; broken tackle is sound-only; soft swell requested, no new shake.":attendance::live::cheerOnlySkill(liveResult.event)?"; skill move is cheer-only; no new shake; immediate cheer requested.":defensiveImpact&&result.highLeverageStop?"; full result cheer requested.":liveReactionType==0?"; soft skill swell requested.":liveReactionType==11?"; native big-hit crowd reaction requested.":"; immediate cheer requested."));
     if(result.accepted&&result.completed&&result.sequence&&(result.sequence!=playAuditSequence||result.homePoints>0||result.awayPoints>0)){
@@ -2229,12 +2237,14 @@ void checkpoint(const attendance::Settings& c,const attendance::State& s,bool wa
     currentLoss=highestTarget=static_cast<float>(result.loss);shownCurrent=currentLoss;shownTarget=highestTarget;
 }
 attendance::arrivals::Settings arrivalSettings(){
-    return {arrivalEnabled.load(),arrivalStart.load(),arrivalLateStart.load(),arrivalFinish.load(),arrivalLateFinish.load(),arrivalBigBonus.load(),arrivalWeatherPenalty.load(),arrivalBigStart.load(),arrivalFcsPenalty.load()};
+    return {arrivalEnabled.load(),arrivalStart.load(),arrivalLateStart.load(),arrivalFinish.load(),arrivalLateFinish.load(),arrivalBigBonus.load(),arrivalWeatherPenalty.load()};
 }
 void beginAttendanceHistory(attendance::State& s,bool midgame){
     attendance::timeline::Point saved;bool matched=false;
     if(midgame){std::lock_guard<std::mutex> guard(timelineMutex);matched=attendanceArchive.resume(s,saved);}
     FILETIME stamp{};GetSystemTimeAsFileTime(&stamp);uint64_t id=(uint64_t(stamp.dwHighDateTime)<<32)|stamp.dwLowDateTime;
+    if(matched)attendance::copyCrowdPlan(saved.state,s);
+    publishSessionPlan(lastMatch,s);
     s.variationSeed=matched?saved.state.variationSeed:static_cast<unsigned>(id^(id>>32));
     if(attendanceSeed.exchange(s.variationSeed)!=s.variationSeed){
         std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)item.second.selection={};
@@ -2359,7 +2369,7 @@ void recordAttendance(){
     if(offscreenSimulation(s))return;
     if(s.phase!=6&&!nativeUnpaused())return;
     s.team0=shownTeam0;s.team1=shownTeam1;s.rank0=shownRank0;s.rank1=shownRank1;s.rivalry=shownRivalry;s.playoff=shownPlayoff;s.conferenceChampionship=shownConference;s.bowl=shownBowl;s.neutral=shownNeutral;s.precipitation=shownPrecipitation;
-    s.variationSeed=attendanceSeed;
+    s.variationSeed=attendanceSeed;applySessionPlan(s,match);
     auto replay=replaySnapshot();if(replay.active)return;
     if(simulationRecording>=0&&replay.valid&&replay.recording<=simulationRecording)return;
     simulationRecording=-1;
@@ -2376,7 +2386,7 @@ bool carryPreparedOpening(A match,const attendance::State& s){
     int home=at<int>(image+0xd9f3970),away=at<int>(image+0xd9f3974);
     bool same=contextReady&&home>0&&away>0&&home==shownTeam0&&away==shownTeam1;
     {std::lock_guard<std::mutex> guard(historyMutex);if(!matchLifecycle.carryOpening(match,s,same))return false;}
-    A previous=lastMatch;lastMatch=match;audioMatch=match;
+    A previous=lastMatch;lastMatch=match;audioMatch=match;auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==previous)publishSessionPlan(match,plan->state);
     auto density=std::atomic_load(&renderedOccupancy);
     if(density->owns(previous,audioEpoch.load())){auto carried=*density;carried.match=match;std::shared_ptr<const attendance::occupancy::Rendered> next=std::make_shared<attendance::occupancy::Rendered>(carried);std::atomic_store(&renderedOccupancy,next);}
     {std::lock_guard<std::mutex> guard(atmosphereMutex);if(atmosphereMatch==previous)atmosphereMatch=match;}
@@ -2452,7 +2462,7 @@ void decision(){
     // School arrival curves and postseason floors require verified venue/team context.
     if(!contextReady)return;
     s.rank0=shownRank0;s.rank1=shownRank1;s.rivalry=shownRivalry;s.playoff=shownPlayoff;s.conferenceChampionship=shownConference;s.precipitation=shownPrecipitation;
-    s.neutral=shownNeutral;s.team0=shownTeam0;s.team1=shownTeam1;s.bowl=shownBowl;
+    s.neutral=shownNeutral;s.team0=shownTeam0;s.team1=shownTeam1;s.bowl=shownBowl;applySessionPlan(s,match);
     {std::lock_guard<std::mutex> guard(timelineMutex);if(!attendanceArchive.active)bootstrapPending=true;}
     if(bootstrapPending)beginAttendanceHistory(s,!pregame&&((nativeResume&&signal->applied)||s.quarter>1||s.homeScore||s.awayScore||s.seconds<s.quarterSeconds*0.95f));
     s.variationSeed=attendanceSeed;
@@ -2730,7 +2740,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("DYNAMIC GAMEDAY ATTENDANCE - SETTINGS");
     report.field("Attendance enabled")<<(config->enabled?"yes":"no")<<"\n";
     report.field("First-quarter arrivals")<<(arrivalEnabled?"enabled":"disabled")<<"\n";
-    report.field("Opening attendance policy")<<"regular 40-55% of peak ordinarily; severe-late starts 40%; weather-only floor 35%; exceptional cap 70%. Postseason 70-80%; championships 80-90%.\n";
+    report.field("Opening attendance policy")<<"regular 50-65% of peak ordinarily; severe-late starts 45%; weather-only floor 35%; usual marquee ceiling70%, exceptional cap80%. Postseason 70-80%; championships 80-90%.\n";
     report.field("Fallback opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% of planned crowd\n";
     report.field("Arrival finish points")<<"normal 50% / marquee 30% / severe 75% / postseason 20% through Q1 when revised inputs qualify; fallback normal "<<arrivalFinish<<"%, severe "<<arrivalLateFinish<<"%\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";

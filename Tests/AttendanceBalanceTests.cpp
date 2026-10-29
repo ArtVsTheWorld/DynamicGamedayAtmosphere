@@ -92,7 +92,7 @@ int main(){
     for(int team:{1212,1154,-1})for(int wet:{0,1,2}){s.team0=team;s.team1=1501;s.precipitation=wet;
         assert(arrivals::openingPercent(arrival,s)>=30);}
     s={1,0,0,6,720,720};s.rivalry=true;arrival.bigGameBonus=0;
-    assert(arrivals::openingPercent(arrival,s)==45);
+    assert(arrivals::openingPercent(arrival,s)==55);
     s.rivalry=false;s.playoff=true;s.bowl=47;
     assert(arrivals::openingPercent(arrival,s)==80);
     // The halftime peak is initialized even if no selection occurred during
