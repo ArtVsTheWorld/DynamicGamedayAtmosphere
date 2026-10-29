@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.94.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.95.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -400,7 +400,7 @@ Long gains, interceptions and returns use the separate 10% reaction strength. Ve
 
 Confirmed runs and returns keep their full settling time after the whistle, including when the game changes views during a tackle. The official post-play crowd response takes priority over the shorter during-play fade. A touchdown, safety or eruption replaces the previous play shake; the older shake stays retired when that celebration ends, even with custom shorter durations.
 
-Automatic movement has a matching crowd layer. Short impacts retain their roar/swell through the impact's own hold and fade, even when a matching native cheer made another cheer unnecessary. A fumble pickup leaves any existing forced-fumble impact on its original timer, without starting or restarting motion. Losing possession ends the old return's extra celebration. Camera-only previews in the diagnostic tool are an intentional exception.
+Automatic movement has a matching crowd layer. Short impacts retain their roar/swell through the impact's own hold and fade, even when a matching native cheer made another cheer unnecessary. A verified live defensive fumble return blends from any existing forced-fumble impact into the same continuous shake as an interception return. Own-team pickups leave an existing impact on its original timer and add no new motion. Losing possession ends the old return's extra celebration. Camera-only previews in the diagnostic tool are an intentional exception.
 
 Camera controls are under Dynamic Gameday Broadcast in the INI. OrdinaryShakeStrengthPercent and CriticalShakeStrengthPercent set the random range ceilings. LineupCheerShakeStrengthPercent controls special cheer calls; DuringPlayShakeStrengthPercent controls live gains and defensive impacts; CatchImpactShakeStrengthPercent controls immediately tackled long catches. PlayReactionFadeSeconds controls their total settling time after the whistle, including the brief hold; PlayImpactExtraSeconds adds time to the short impact reactions. Touchdown and eruption settings control their sustained strengths, opening impacts and total durations. CameraShake=0 disables all added movement.
 
@@ -492,7 +492,7 @@ Crowd reactions carry their earned level through live gain, result, touchdown an
 
 Successful skills use a gentle 0.45-second rise at half the configured live-play strength. Hurdles request a positive cheer; trucks request the native big-hit crowd family. Confirmed home-defense third/fourth-down pass breakups and catch knockouts use a small 1.8-second impact with sound. A normal incomplete pass is not deflection proof. Hit sticks keep their immediate sound, but only a completed third/fourth-down stop gets their shake.
 
-A confirmed forced fumble can receive its own impact on any down. A delayed-signal fallback requires opposing contact, grounded possession, a held-to-loose transition and fresh native fumble confirmation. It retains the original carrier side through pickups. Recovery alone adds no shake, and recovering a team's own fumble cannot revive an old gain reaction. A qualifying touchdown or decisive eruption still takes priority.
+A confirmed forced fumble can receive its own impact on any down. A delayed-signal fallback requires opposing contact, grounded possession, a held-to-loose transition and fresh native fumble confirmation. It retains the original carrier side through pickups. A verified live defensive fumble return uses interception-style continuous motion under the existing atmosphere gates; a result-only recovery adds no fallback impact. Recovering a team's own fumble cannot revive an old gain reaction. A qualifying touchdown or decisive eruption still takes priority.
 
 Kickoff/punt return swells begin at 30 yards and reach their existing peak at 40, with one qualifying cheer. Sound and camera settle together after the whistle.
 

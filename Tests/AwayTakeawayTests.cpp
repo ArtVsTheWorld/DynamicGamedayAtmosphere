@@ -27,13 +27,14 @@ int main(){
         tick(1500,1,2,2,true);assert(!detector.homePossessionLost());
     }
     // Run/catch motion stops at fresh home loose-ball proof, even on a short
-    // play with no active long-return sound model. Recovery alone stays quiet.
+    // play with no active long-return sound model. Own pickups stay quiet;
+    // an away defensive recovery cannot clear the home possession-loss latch.
     {live::Model detector;live::Settings settings;energy::Play p;p.game={2,7,7,1,300,720};p.down=1;p.offense=0;p.fieldSpot=-20;p.attackDirection=1;
         detector.observe(settings,p,123,1,1000,true,456,0,9,0,-20,true);p.game.phase=3;
         detector.observe(settings,p,123,1,1100,true,456,0,9,0,-20,true);p.fumble=true;
         detector.observe(settings,p,123,1,1200,true,456,0,5,0,-20,false);assert(detector.homePossessionLost());
         p.fumble=false;detector.observe(settings,p,123,1,1300,true,456,0,9,0,-20,true);assert(detector.homePossessionLost());
-        detector.defensiveHandoff({live::Event::FumbleRecovery,1,0,0});assert(detector.homePossessionLost());
+        detector.defensiveHandoff({live::Event::FumbleRecovery,1,1,0});assert(detector.homePossessionLost());
         detector.defensiveHandoff({live::Event::ForcedFumble,2,0,0});assert(!detector.homePossessionLost());
     }
     // An official away takeaway still cancels motion if live samples missed

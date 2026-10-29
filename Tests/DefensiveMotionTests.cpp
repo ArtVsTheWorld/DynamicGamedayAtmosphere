@@ -100,9 +100,9 @@ int main(){
     for(auto event:{live::Event::Sack,live::Event::TackleForLoss,live::Event::GoalLineStop,live::Event::ThirdGoalStop,
                    live::Event::CriticalStop,live::Event::DownsStop,live::Event::CatchKnockout,live::Event::PassBreakup,live::Event::HitStickStop})
         assert(defensivemotion::cameraId({event,1,0,0},99,{})==0);
-    for(auto event:{live::Event::LongRun,live::Event::Interception,live::Event::ForcedFumble,live::Event::LongCatch})
+    for(auto event:{live::Event::LongRun,live::Event::Interception,live::Event::FumbleRecovery,live::Event::ForcedFumble,live::Event::LongCatch})
         assert(defensivemotion::cameraId({event,1,0,0},99,{})==99);
-    for(auto event:{live::Event::Spin,live::Event::Juke,live::Event::BrokenTackle,live::Event::HitStick,live::Event::FumbleRecovery})
+    for(auto event:{live::Event::Spin,live::Event::Juke,live::Event::BrokenTackle,live::Event::HitStick})
         assert(defensivemotion::cameraId({event,1,0,0},99,{})==0);
     assert(!defensivemotion::cameraId({},99,{}));
     std::printf("PASS: %u loss/sack/down/owner/phase combinations; tracker-to-camera integration; one confirmed stop; early/late contact flavor; exclusions, cleanup and audio independence.\n",cases);

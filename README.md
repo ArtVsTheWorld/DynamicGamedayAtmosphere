@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 candidate work (1.94.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 candidate work (1.95.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -35,7 +35,7 @@ Deep throws by either offense use a fast native swell while the pass is airborne
 
 Stadium cannon blasts have their own **Stadium Cannon Shake (%)** setting, default **15%** (`CannonShakeStrengthPercent` under Broadcast). Higher values make the blast stronger; lower values make it gentler; 0 disables its shake while keeping the native sound. It covers all nine native cannon variants through the shared stadium sound route, with no team or fullness restriction. The impact lasts 0.9 seconds, respects Dynamic Camera Effects and does not stack on top of a stronger celebration. Detected blasts appear once in the normal log as numbered `[cannon]` entries, including variant and configured strength; Debug logging is not required.
 
-Forced fumbles also have a fallback for delayed game signals: a recent opposing-player contact, the carrier losing the ball and fresh native fumble confirmation must all agree. Recovery alone still adds no shake. The reaction follows the original carrier, so an away defender forcing a home fumble does not produce a positive home-crowd impact.
+Forced fumbles also have a fallback for delayed game signals: a recent opposing-player contact, the carrier losing the ball and fresh native fumble confirmation must all agree. A verified live defensive fumble return now uses the interception-return shake, subject to the same atmosphere gates. A result-only recovery adds no impact, and own-team pickups add no new motion. The reaction follows the original carrier, so an away defender forcing a home fumble does not produce a positive home-crowd impact.
 
 Confirmed home-defense pass breakups on third and fourth down now get a small shake and cheer even without a catch-knockout flag. The shake lasts 1.8 seconds at half the Live-play shake strength (5% with the default setting). Landed hit sticks keep their cheer, but only add shake after a confirmed third- or fourth-down stop. Knockouts and larger reactions on the same play take priority. Existing fullness gates, volume caps and the native Dynamic Camera Effects switch still apply.
 

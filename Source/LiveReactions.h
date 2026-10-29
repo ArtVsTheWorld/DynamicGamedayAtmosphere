@@ -7,7 +7,9 @@ inline bool skill(Event e){return e==Event::Truck||e==Event::StiffArm||e==Event:
 inline bool accent(Event e){return skill(e)||e==Event::HitStick||e==Event::BrokenTackle;}
 inline bool cheerOnlySkill(Event e){return e==Event::Juke||e==Event::Spin;}
 inline bool softSkill(Event e){return (skill(e)&&!cheerOnlySkill(e))||e==Event::BrokenTackle;}
-inline bool cameraReaction(Event e){return !cheerOnlySkill(e)&&e!=Event::None&&e!=Event::FumbleRecovery&&e!=Event::HitStick&&e!=Event::BrokenTackle;}
+// A verified live defensive recovery uses the same continuous return cue as
+// an interception. Official-result-only recoveries remain excluded below.
+inline bool cameraReaction(Event e){return !cheerOnlySkill(e)&&e!=Event::None&&e!=Event::HitStick&&e!=Event::BrokenTackle;}
 inline const char* accentName(Event e){switch(e){case Event::Truck:return "Successful truck";case Event::StiffArm:return "Successful stiff arm";case Event::Hurdle:return "Successful hurdle";case Event::Juke:return "Successful juke";case Event::Spin:return "Successful spin";case Event::HitStick:return "Landed hit-stick tackle";case Event::BrokenTackle:return "Broken tackle";case Event::ThirdGoalStop:return "Third-down goal-line stop";default:return nullptr;}}
 inline const char* name(Event e){if(auto label=accentName(e))return label;switch(e){case Event::DownsStop:return "Turnover on downs";case Event::PassBreakup:return "Confirmed home defensive pass breakup";case Event::HitStickStop:return "Confirmed third/fourth-down hit-stick stop";case Event::CatchKnockout:return "Home defensive catch knockout";case Event::BlockedFieldGoal:return "Blocked field goal";case Event::TackleForLoss:return "Defensive tackle for loss (5+ yards)";case Event::FumbleRecovery:return "Defensive fumble recovery";case Event::CriticalStop:return "High-leverage defensive stop";case Event::LongCatch:return "Long completion";case Event::Interception:return "Interception";case Event::RunAfterCatch:return "Long catch-and-run";case Event::LongRun:return "Long run";case Event::Sack:return "Defensive sack";case Event::ForcedFumble:return "Forced fumble";case Event::KickReturn:return "Long kickoff return";case Event::PuntReturn:return "Long punt return";case Event::FourthConversion:return "Live fourth-down conversion";case Event::GoalLineStop:return "Fourth-down goal-line stand";case Event::CompletedPass:return "Confirmed long pass at the whistle";default:return "inactive";}}
 struct Outcome {Event event=Event::None;uint64_t id=0;int side=-1;float yards=0;};
@@ -25,7 +27,7 @@ inline int cheerType(const Outcome& event){
 inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType){
     bool phase=state.phase==4||state.phase==5||state.phase==1;
     bool loss=result.fiveYardLoss&&std::isfinite(result.yards)&&result.yards>=-100&&result.yards<=-4.99f;
-    // A recovery alone is sound-only. Only separate forced-fumble or other
+    // A result-only recovery is sound-only. Only separate forced-fumble or other
     // defensive-impact proof can request motion; picking up a loose ball cannot.
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
        (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns)||
@@ -156,7 +158,7 @@ public:
     bool fourthConverted()const{return fourthUsed_;}
     bool homePossessionLost()const{return homePossessionLost_;}
     void defensiveHandoff(const Outcome& event){
-        if(event.id&&event.side==0&&(event.event==Event::ForcedFumble||event.event==Event::Interception))homePossessionLost_=false;
+        if(event.id&&event.side==0&&(event.event==Event::ForcedFumble||event.event==Event::Interception||event.event==Event::FumbleRecovery))homePossessionLost_=false;
     }
     void cancelRunBuildup(bool forPlay=false){buildup_={};gainCancelled_=gainCancelled_||forPlay;}
     float catchAirYards()const{return catchAirYards_;}

@@ -1,6 +1,8 @@
 # Update 3 testing and diagnostics
 
-Working candidate **1.94.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+Working candidate **1.95.0**. Update 2 (1.54.0) remains the public release. This is the current checklist; earlier development notes describe older builds and are not release sign-off.
+
+Candidate 1.95 first needs a qualified home defensive scoop-and-return compared with an interception return. Check the force-to-return blend, whistle fade and touchdown handoff. Recover your own fumble: no new return shake or revived gain buildup should start. Repeat a defensive return below the layered gate, then at a neutral venue. A prior force impact may finish independently of an own pickup. See [1.95 scope and regression coverage](reviews/Update3-1.95.md).
 
 Candidate 1.94 first needs a qualified home-carrier showboat below the long-gain cutoff, then an away-carrier showboat for GEN_BOO. Check slow buildup, stronger-effect priority, no stale repeats and no reaction below the layered gate. Compare occupied-seat counts through arrivals in one venue, the 13/20-yard gain boundaries, a third/fourth-down goal-line stop and a Q2/Q4 high-leverage stop. Status reports occupied crowd and audio tier; request logs are not rendered/audible proof. See [1.94 evidence and scope](reviews/Update3-1.94.md).
 
@@ -120,7 +122,7 @@ Use one ranked game in a cannon stadium and one unranked home team hosting a Top
 | Kickoff/punt returns | Swell/movement builds from 30 yards to the existing peak at 40. A pickup after a fumble does not restart gain shake. |
 | Skills | Regular broken tackles use sound only, without starting or restarting shake. Successful hurdles use a cheer; trucks use the big-hit crowd family. Spins and jukes use a cheer without shake or an extra skill swell. The other small skill buildup is gentle and does not repeat on one collision. |
 | Home defense | Confirmed third/fourth-down knockouts and pass breakups get the small paired reaction. A routine incompletion alone does not qualify. Hit-stick motion requires a completed third/fourth-down stop; other-down hits keep sound only. |
-| Forced fumble | A verified home-defense force can react once on any down. Recovery alone adds no shake. An away-defense force at a home venue gets no positive home impact. |
+| Forced fumble | A verified home-defense force can react once on any down. A verified live defensive return uses interception-style motion under the layered gate; a result-only or own-team recovery adds no new impact. An away-defense force/return at a home venue gets no positive home motion. |
 | Touchdowns/eruption | Routine touchdowns stay routine. The opening TD exception covers only the first two tracked plays, including kickoff. A 60+ yard close-game TD gets a modest TD accent, not an eruption from distance alone. A genuinely sealing/winning event can still take priority. |
 | Upset Watch | A credible home bid against a Top 25 visitor can gain sound from Q2 at its separate fullness gate, never below 50%. It does not grant packed-house status or raise volume caps. |
 | Rainy home win | In ordinary home games, a wet 22+ lead builds extra departure pressure in the last half of Q4; 35+ reaches full severity. No instant per-score loss, dry/close/early changes, neutral/postseason expansion or refill. Verify a finish near 25–30% visible fullness for a comparable starting density/story; this is not a universal forced target. |
