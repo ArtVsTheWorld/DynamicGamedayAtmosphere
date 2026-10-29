@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.88.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.89.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **First-game resume recognition (1.89):** Midgame Save can identify the first active game after a process restart as game0. DGA now accepts that zero-based generation and tracks initialization separately, so a verified applied resume reaches history restoration exactly once. PID, freshness, clock/score and matching applied-game checks remain. Live1.88 stayed at80% because its parser rejected game0 before reaching the corrected history matcher; the stored89% source remains intact. Regression checks cover this complete captured-signal-to-history path.
 
 - **Midgame Save crowd continuity (1.88):** Loading-only crowd records cannot supply resumed attendance. Actual live-play history or a previously verified restoration is required; old archives are checked for real clock progression before reuse. Clock matching allows the existing five-second sampling interval, with the latest record winning equal-clock matches. A confirmed pause records the exact visible crowd, and arrivals hold their restored level until the game clock advances. The captured 1.87 failure now selects the original 89% crowd in regression checks; an installed-build reload remains pending.
 

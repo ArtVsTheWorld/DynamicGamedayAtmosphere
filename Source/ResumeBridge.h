@@ -74,27 +74,29 @@ inline Signal parse(const std::string& text,int pid,uint64_t now){
     Signal out;Json root;if(!Reader(text).parse(root)||!root.get("product").is("midgamesave")||!root.get("source").is("dll"))return out;
     int process=0;if(!integer(root.get("pid"),process,1,2147483647)||process!=pid)return out;
     const auto& game=root.get("game");const auto& live=game.get("live");
-    if(game.get("active").kind!=Json::Boolean||game.get("active").number!=1||game.get("ended").kind!=Json::Boolean||game.get("ended").number!=0||!integer(game.get("number"),out.game,1,1000000))return out;
+    if(game.get("active").kind!=Json::Boolean||game.get("active").number!=1||game.get("ended").kind!=Json::Boolean||game.get("ended").number!=0||!integer(game.get("number"),out.game,0,1000000))return out;
     if(!integer(live.get("quarter"),out.live.quarter,1,6)||!integer(live.get("home_score"),out.live.homeScore,0,255)||!integer(live.get("away_score"),out.live.awayScore,0,255)||
         live.get("clock").kind!=Json::Number||live.get("period").kind!=Json::Number)return out;
     out.live.seconds=static_cast<float>(live.get("clock").number);out.live.quarterSeconds=static_cast<float>(live.get("period").number);
     if(!attendance::valid(out.live))return out;
     const auto& arm=root.get("arm");int applied=0;
-    out.applied=arm.get("state").is("applied")&&integer(arm.get("applied_game"),applied,1,1000000)&&applied==out.game;
+    out.applied=arm.get("state").is("applied")&&integer(arm.get("applied_game"),applied,0,1000000)&&applied==out.game;
     out.valid=true;out.received=now;return out;
 }
 struct Tracker {
-    int game=0;bool applied=false;
+    // The first active game after process launch can legitimately be number 0.
+    // Keep initialization separate from the native generation value.
+    int game=0;bool seen=false,applied=false;
     bool pending(const Signal& s,const State& live,uint64_t now,bool ordinaryGame=false)const{
         // Midgame Save announces an ordinary new game's number after pregame.
         // A verified owned ordinary session adopts that unarmed number, including
         // its first real snap after Super Sim. Explicit applied resumes still reset.
-        return s.matches(live,now)&&((game&&game!=s.game&&!(ordinaryGame&&!s.applied))||(s.applied&&(!applied||game!=s.game)));
+        return s.matches(live,now)&&((seen&&game!=s.game&&!(ordinaryGame&&!s.applied))||(s.applied&&(!applied||game!=s.game)));
     }
     bool observe(const Signal& s,const State& live,uint64_t now,bool ordinaryGame=false){
         if(!s.matches(live,now))return false;
         bool changed=pending(s,live,now,ordinaryGame);
-        game=s.game;applied=s.applied;return changed;
+        game=s.game;seen=true;applied=s.applied;return changed;
     }
 };
 }

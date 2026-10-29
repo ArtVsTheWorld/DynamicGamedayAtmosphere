@@ -32,6 +32,23 @@ int main(){
     // A previous game's applied marker must not count as this game's resume.
     auto foreign=text;foreign.replace(foreign.find("\"applied_game\":3"),16,"\"applied_game\":2");
     auto wrong=parse(foreign,9716,1000);assert(wrong.valid&&!wrong.applied);
+    // Captured fresh-process resume: active game 0, applied_game 0. Zero is a
+    // real generation and must not be confused with an uninitialized tracker.
+    auto zeroText=text;zeroText.replace(zeroText.find("\"number\":3"),10,"\"number\":0");
+    zeroText.replace(zeroText.find("\"applied_game\":3"),16,"\"applied_game\":0");
+    auto zero=parse(zeroText,9716,1000);assert(zero.valid&&zero.applied&&zero.game==0);
+    Tracker first;assert(!first.seen&&first.pending(zero,zero.live,1000,true));
+    assert(first.observe(zero,zero.live,1000,true)&&first.seen&&first.game==0&&first.applied);
+    assert(!first.observe(zero,zero.live,1001,true)); // Exactly one restoration.
+    auto next=zero;next.game=1;next.applied=false;
+    assert(first.pending(next,next.live,1002)&&first.observe(next,next.live,1002));
+    Tracker ordinaryZero;zero.applied=false;
+    assert(!ordinaryZero.observe(zero,zero.live,1000,true)&&ordinaryZero.seen);
+    assert(!ordinaryZero.observe(next,next.live,1001,true)&&ordinaryZero.game==1); // Ordinary adoption remains intact.
+    auto foreignZero=zeroText;foreignZero.replace(foreignZero.find("\"applied_game\":0"),16,"\"applied_game\":1");
+    auto notApplied=parse(foreignZero,9716,1000);assert(notApplied.valid&&!notApplied.applied);
+    auto negative=zeroText;negative.replace(negative.find("\"number\":0"),10,"\"number\":-1");assert(!parse(negative,9716,1000).valid);
+    auto missing=zeroText;missing.replace(missing.find("\"number\":0"),10,"\"number\":null");assert(!parse(missing,9716,1000).valid);
     Json json;
     for(const char* invalid:{"{\"a\":1,\"a\":2}","{\"a\":01}","{\"a\":1.}","{\"a\":true,}","{\"a\":\"\\x\"}","{\"a\":1e9999}","[] trailing"})assert(!Reader(std::string(invalid)).parse(json));
     assert(!Reader(std::string(65537,' ')).parse(json));

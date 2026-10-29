@@ -2478,9 +2478,9 @@ void decision(){
     lastDecision=now;shownQuarter=s.quarter;shownSeconds=s.seconds;shownScore0=s.homeScore;shownScore1=s.awayScore;shownPhase=s.phase;
     const auto generation=entityGeneration.load();
     bool newMatch=false;
-    auto signal=std::atomic_load(&resumeSignal);bool openingAcknowledgement=ordinaryOpeningAcknowledgement(match,s);bool sessionAcknowledgement=ordinarySessionAcknowledgement(match,s);int previousResumeGame=resumeTracker.game;
+    auto signal=std::atomic_load(&resumeSignal);bool openingAcknowledgement=ordinaryOpeningAcknowledgement(match,s);bool sessionAcknowledgement=ordinarySessionAcknowledgement(match,s);int previousResumeGame=resumeTracker.game;bool previousResumeKnown=resumeTracker.seen;
     bool nativeResume=resumeTracker.observe(*signal,s,now,sessionAcknowledgement);
-    if(sessionAcknowledgement&&!nativeResume&&previousResumeGame&&resumeTracker.game!=previousResumeGame)
+    if(sessionAcknowledgement&&!nativeResume&&previousResumeKnown&&resumeTracker.game!=previousResumeGame)
         log("new-game",openingAcknowledgement?"Midgame Save confirmed the new game; keeping the prepared opening crowd.":"Midgame Save announced this game's first played snap after simulation; keeping the original seating baseline and attendance history.");
     int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
     bool changedTeams=contextReady&&team0>0&&team0<2047&&team1>0&&team1<2047&&(team0!=shownTeam0||team1!=shownTeam1);

@@ -1,4 +1,5 @@
 #include "../Source/AttendanceTimeline.h"
+#include "../Source/ResumeBridge.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -64,6 +65,21 @@ int main(int argc,char** argv){
         std::ifstream actual(argv[1]);timeline::Archive actualArchive;assert(actual&&timeline::read(actual,actualArchive));
         assert(actualArchive.resume(sample(),found)&&found.temporary==11);
         std::cout<<"Captured archive restored "<<(100-found.total())<<"% at source clock "<<found.state.seconds<<"s\n";
+    }
+    // Follow the whole fresh-process path, not just the archive matcher: game
+    // zero must trigger one restoration before the saved arrival plan is used.
+    const std::string zeroResume=R"({"product":"midgamesave","source":"dll","pid":29900,"game":{"active":true,"number":0,"ended":false,"live":{"quarter":1,"clock":495,"period":720,"home_score":0,"away_score":0}},"arm":{"state":"applied","applied_game":0}})";
+    auto resumedSignal=resume::parse(zeroResume,29900,1000);resume::Tracker bridge;
+    assert(bridge.observe(resumedSignal,sample(),1000,true)&&!bridge.observe(resumedSignal,sample(),1001,true));
+    assert(archive.resume(sample(),found)&&found.temporary==11);
+    auto boot=timeline::estimate(Settings{},arrivals::Settings{},sample(),&found);
+    assert(boot.temporary==11&&!boot.arrivals.observe(arrivals::Settings{},sample()).changed);
+    if(argc>2){
+        assert(argc==4);std::ifstream status(argv[2]);assert(status);
+        std::string json((std::istreambuf_iterator<char>(status)),std::istreambuf_iterator<char>());
+        auto actualSignal=resume::parse(json,std::stoi(argv[3]),1000);resume::Tracker actualBridge;
+        assert(actualSignal.valid&&actualSignal.applied&&actualSignal.game==0&&actualBridge.observe(actualSignal,sample(),1000,true));
+        std::cout<<"Captured game-0 Midgame Save signal triggers restoration exactly once\n";
     }
     std::cout<<"PASS: real Q1 reload regression, provisional-source rejection, bounded clock matching, identity guards, pause checkpoint, latest tied clock, readiness persistence and legacy import\n";
 }
