@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 candidate work (1.92.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 candidate work (1.93.0). Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -16,6 +16,8 @@ Fans arrive late, take halftime breaks and leave as games get out of reach. Crow
 4. Start MMC and launch the game through it.
 
 **Update 3 resets previous DGA settings to the current defaults once.** You do not need to delete your INI: the plugin saves the original in `Plugins/DynamicGamedayAtmosphere/Backups` before replacing it. Reapply any custom settings afterward using the new INI or the in-game Gameday Atmosphere tab. Later launches and routine updates preserve your new settings. Restart both programs after replacing the DLL.
+
+Candidate 1.93 simplifies defensive shake: sacks and runs use one confirmed five-yard-loss rule, and qualifying third/fourth-down stops share one motion decision. Short sacks retain their sounds and replay classification. Existing atmosphere gates and motion strengths remain.
 
 ## Settings
 

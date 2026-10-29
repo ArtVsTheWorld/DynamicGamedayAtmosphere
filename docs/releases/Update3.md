@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.92.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.93.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **Simplified defensive motion (1.93):** sacks and runs share a confirmed five-yard-loss trigger; short/unknown-yardage sacks retain audio and replay classification but do not independently shake. Qualifying third/fourth-down stops, knockouts, breakups and hit sticks share one completed-result motion decision, with preserved goal-line/high-leverage priority and contact profiles. Early contact proof waits for confirmation; gates and interruptions cannot queue a later duplicate. Forced fumbles, interceptions and scores retain their distinct routes. See the [review and live checklist](../reviews/Update3-1.93.md).
 
 - **Close-game retention and varied halftime timing (1.92):** ordinary close-game halftime permanent targets are 3–5%, marquee close targets 1–3%, and routine close-game exits are gentler. Margins bridge smoothly back into the existing larger-deficit policy. Seeded halftime departures/returns use a stable per-game timetable and a smaller later return wave; archive restoration and permanent conversion use that same envelope. No section-pattern, peak/kickoff formula, replay or blowout endpoint retuning is included. The [comparison report](../reviews/Update3-1.92.md) includes the supplied-save schedule and matched early/late routs.
 

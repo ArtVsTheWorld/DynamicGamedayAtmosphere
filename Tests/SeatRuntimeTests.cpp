@@ -244,7 +244,9 @@ int main(){
         checkScene(intro,(std::max)(activeLoss.load(),arrivalMissing.load()));
     };
     simulateClock(900);assert(arrivalMissing==0&&arrivalModel.done);int beforeSim=activeLoss;
-    for(float clock:{600.0f,300.0f,230.0f})simulateClock(clock);
+    attendance::State departureTiming;departureTiming.variationSeed=attendanceSeed;
+    float beforeSeatBreak=900*attendance::context::halftimeTiming(departureTiming).departure+1;
+    for(float clock:{600.0f,300.0f,beforeSeatBreak})simulateClock(clock);
     assert(shownHalftime==0&&activeLoss>beforeSim); // Permanent exits happen during the quarter.
     simulateClock(100);assert(shownQuarter==2&&halftimeModel.active&&shownHalftime>0);
     simulateClock(60);int earlyAbsent=shownHalftime;
