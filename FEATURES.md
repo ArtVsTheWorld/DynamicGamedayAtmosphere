@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.81.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.82.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -24,48 +24,44 @@ Fans who permanently leave stay gone. First-quarter arrivals, temporary halftime
 
 ### Starting turnout - first-pass candidate
 
-Fresh regular-season **offline Dynasty** launches now have a revised expected turnout. The native calculation is observed without changing its result; the override is confined to the playable game's launch options, before native match conditions and seating are generated. EA's simulated attendance and saved season-game attendance records are unchanged. Play Now is not enabled by this change.
+Fresh regular-season **offline Dynasty** launches choose expected peak turnout before native match conditions and seating are generated. The original calculation still returns EA's result to saved and simulated season-game records; only the playable launch count is replaced. Play Now is not enabled. Postseason, conference championships, practice/preseason, resumed games and unknown inputs keep EA peak turnout.
 
-The first pass starts with school demand: 80% from a smooth normalized Toughest Places rank and 20% from program prestige. Missing atmosphere ranks use prestige alone. Current team rank affects opponent appeal rather than directly deciding how loyal the home following is. The season-record adjustment grows gradually through six games, so an opening loss has little effect.
+School demand uses actual My School grades: **40% stadium atmosphere, 20% program tradition, 15% brand exposure, 15% current team rank and 10% conference prestige**. Campus lifestyle and championship contender are not inputs. Grades are normalized from A+=0 through F=12; Incomplete is rejected. Team rank is normalized within the valid FBS cohort. Upgrade program points are not used as grades. Invalid/missing grade or cohort data preserves EA turnout.
 
-| Input | First-pass adjustment |
+The playable-launch observation reads the cohort once, excluding stock FCS and placeholders. Schools receive a demand percentile relative to that cohort; equal scores get equal demand, independently of team IDs or array order. The curve follows aggregate capacity-ratio quantiles from the user-supplied **2025 FBS Attendance Trends** table: low end 25.76%, bottom tenth 47.12%, bottom quarter 66.15%, median 87.86%, upper quarter 97.99%, upper fifth 100% or greater. Reported annual attendance is a calibration proxy, not a measurement of kickoff crowd or timed peak occupancy. Excess demand above 100% supplies headroom; rendered attendance never exceeds capacity.
+
+| Input | Peak-turnout adjustment (capacity percentage points) |
 | --- | --- |
-| School/venue demand | 45-95% of capacity, before other adjustments |
-| Home season record | -10 to +8 percentage points; reduced early in the season |
-| Top-25 visitor | About +2 to +8 points |
-| Visitor ranked below 100 / stock FCS | -4 / -8 points |
-| Rivalry / home opener | +10 / +4 points; combined matchup appeal capped at +15 |
-| Night kickoff | +7 points at or after **19:00 stadium-local time** |
-| Light / medium / heavy precipitation | -5 / -9 / -14 points; no weather deduction for a fully roofed venue |
-| Fixture variation | -3 to +3 points, fixed by teams, stadium, week and season |
+| Season performance | -6 to +6, reduced through the first six games |
+| Top25 visitor | About +2 to +6 |
+| Visitor ranked below 100 / stock FCS | -6 / -10 |
+| Rivalry / home opener | +6 / +3 |
+| Night kickoff | +4 at or after **19:00 stadium-local time** |
+| Combined season/matchup/night adjustment | -15 to +12 maximum |
+| Light / medium / heavy precipitation | -5 / -9 / -14; fully roofed venues exempt |
+| Fixture variation | -3 to +3, fixed by teams, stadium, week and season |
 
-The result stays within 30-100% of capacity. Regular-season neutral games use both teams' demand and form, with the same rivalry bonus and normal 30-100% bounds. **Postseason, conference championships, preseason/practice and other non-regular games keep their existing turnout and arrival behavior.** Missing/invalid inputs or an unobserved fresh launch fall back to EA.
+Expected peak is bounded to **25-100% of capacity in fair weather**, with a **20% minimum when outdoor precipitation reduces turnout**. Regular neutral games average both programs' support standing, form and opponent appeal, with no home-opener bonus. Swapping designated sides gives the same result.
 
-Kickoff normally has90% of the expected crowd seated, or 97% at night. The existing late-arrival schools use 78%/88%. Remaining arrivals follow the existing Q1 timing. For example, an 80% turnout target starts at 72% capacity by day, rather than multiplying it by the legacy 55% opening fraction and starting at 44%. These numbers describe planned turnout; sound and shake still use verified actual seating density and their existing gates.
+The normal `[starting-attendance]` log gives EA/DGA counts, FBS cohort size, actual grades, support percentile, adjustments, local kickoff, the fraction seated at kickoff and the Q1 fill deadline. `InitialAttendanceEnabled=0` restores EA peak turnout for future fresh launches; approved arrival behavior remains available. The 35-control menu is unchanged. An already loaded stadium is not rebuilt.
 
-The normal `[starting-attendance]` log reports EA's count, revised count, capacity, local kickoff and each contribution. `InitialAttendanceEnabled=0` under `[Dynamic Gameday Attendance]` restores EA turnout for future launches while retaining existing arrivals/departures. It is an advanced INI switch; the 35-control menu is unchanged. Changes do not rebuild an already running game's initial crowd.
+`Tools/CompareStartingAttendance.cpp` emits `StartingAttendanceExamples.csv`, comparing EA, previous 1.81 and current policy. Its optional numeric cohort input compares every FBS pairing using the real compiled policy. Examples are hypothetical, not forecasts for the current save. Rendered seating, streaming, loading and replay/resume still require live acceptance.
 
-The native 19:00 check and Pacific Dynasty timezone conversion were captured read-only. This candidate has automated coverage; a changed-count stadium load, streamed seating and replay/resume acceptance are still required before release.
+Illustrative fixtures with a 138-school field; percentages below are of stadium capacity. The support percentiles are explicit hypothetical inputs, not inferred grades for named real schools. Fixture variation remains active.
 
-The following are **illustrative fixtures**, using a 139-team league and explicit inputs from the reproducible comparison tool, rather than forecasts for the current save. The ordinary example has a 3-3 home team, atmosphere rank 70, prestige 6, home rank 50 and visitor rank 60. Percentages are of capacity; settled turnout is separate from kickoff arrivals. The opener uses week 1, so its fixed variation also differs.
+| Example | EA peak | 1.81 peak | 1.82 peak | 1.82 kickoff |
+| --- | ---: | ---: | ---: | ---: |
+| Middle-support ordinary | 66.8% | 74.4% | 85.9% | 38.6% |
+| Same matchup - night | 66.8% | 81.4% | 89.9% | 44.9% |
+| Same matchup - heavy rain | 66.8% | 60.4% | 71.9% | 26.6% |
+| Middle-support ranked rivalry | 100.0% | 89.4% | 96.4% | 50.1% |
+| Struggling bottom-five-percent support | 30.0% | 47.5% | 30.3% | 12.4% |
+| Weakest support | 30.0% | 35.0% | 25.0% | 10.0% |
+| Elite support ordinary | 100.0% | 100.0% | 100.0% | 50.0% |
+| Utah severe-late arrival | 100.0% | 100.0% | 100.0% | 40.0% |
+| Exceptional Top10 opener rivalry night | 100.0% | 100.0% | 100.0% | 70.0% |
 
-| Example | EA settled | DGA settled | DGA at kickoff |
-| --- | ---: | ---: | ---: |
-| Middle-demand ordinary game | 67.4% | 74.5% | 67.0% |
-| Same matchup - night | 67.4% | 81.5% | 79.0% |
-| Same matchup - heavy rain | 67.4% | 60.5% | 54.4% |
-| Same matchup - rivalry | 97.4% | 84.5% | 76.0% |
-| Rivalry with a Top10 visitor | 100.0% | 89.5% | 80.5% |
-| Same ordinary matchup - EA game-of-week flag | 100.0% | 74.5% | 67.0% |
-| Middle-demand home opener | 87.0% | 82.5% | 74.2% |
-| Struggling low-demand home team | 30.0% | 43.9% | 39.5% |
-| Same struggling matchup - heavy rain | 30.0% | 30.0% | 27.0% |
-| Elite support and winning season | 100.0% | 100.0% | 90.0% |
-| CFP example - preserved | 100.0% | 100.0% | Legacy unchanged |
-| Regular-season neutral rivalry | 30.0% | 56.8% | 51.1% |
-
-EA has no night or rain deduction in the traced starting-turnout calculation. Its rivalry bonus is 30 points, and a home opener fills 60% of the remaining gap to 100. DGA uses the adjustments above instead. The comparison source is `Tools/CompareStartingAttendance.cpp`; the build emits `StartingAttendanceExamples.csv` with every contribution and the input ranks/record.
-
+A private regression comparison used all 18,906 distinct pairings of the provided save's 138 FBS programs, with current records, clear daytime weather, no rivalry or opener bonus and a fixed test venue. Peak turnout had a median of 86.16%, 21.89% at full capacity and a 25% minimum; 1.81 yielded 74.99%, 3.45% and 33.42% respectively. This checks the aggregate distribution; it is not a forecast for the actual schedule or rendered-seat proof.
 
 ### Where fans stay and leave
 
@@ -83,28 +79,23 @@ If the mod cannot verify a crowd's seating layout, that crowd keeps the previous
 
 ### First-quarter arrivals
 
-Revised regular-season launches use the90%/97% kickoff fractions described above (78%/88% at late-arrival schools). The following starting percentages describe the **legacy fallback and unchanged non-regular/postseason route**. Arrival finish timing remains shared.
+Opening fractions are percentages of **expected peak crowd**, not stadium capacity. A 50%-capacity peak with 40% of its fans seated starts at 20% capacity. Arrivals reveal only seats the native launch populated for that peak, and never revive permanent departures.
 
-The smaller crowd and seating pattern are prepared during pregame and carried through kickoff. The game still chooses the peak crowd: the mod never fills seats the game originally left empty.
+| Opening route | Initial fraction of peak | Finish point, 12-minute Q1 |
+| --- | --- | --- |
+| Ordinary regular season | 40-50% by support; night adds 5, giving the ordinary 40-55% range | 6:00 remaining |
+| Severe-late home | 40% before exceptional/weather adjustments | 3:00 remaining |
+| Marquee regular season | +7 points; opener +3, night +5, both Top10 +5; hard 70% cap | 8:24 remaining, or severe-late deadline |
+| Bowl / non-championship CFP | 70-80% | 9:36 remaining |
+| Conference / national championship | 80-90% | 9:36 remaining |
 
-| Arrival group | Schools | Starting baseline | Finish point with 12-minute quarters |
-| --- | --- | --- | --- |
-| Normal | Every school except the four below, including all former moderate-late schools | 55% | 9:00 remaining in Q1 |
-| Severe late arrivals | UCLA, Miami (FL), Georgia Tech, Maryland | 40% | 3:00 remaining in Q1 |
+Severe-late homes are **UCLA, Miami (FL), Georgia Tech, Maryland and Utah**. Neutral games use standard arrivals. Timings scale with quarter length: normal 50% of Q1, marquee 30%, severe 75%, postseason 20%. Seat changes still wait for hidden breaks, play selection or verified offscreen simulation.
 
-Miami (OH) uses normal arrivals. Neutral venues use the normal group. Other quarter lengths use the same proportions: normal arrivals finish one quarter of the way through Q1, severe arrivals three quarters of the way through. Actual changes wait for play selection, a break or verified offscreen Super Sim.
+Revised regular-season precipitation delays are 3/5/8 points. **Only weather can take kickoff below 40%; the hard minimum is 35%.** Indoor venues are exempt. Postseason weather moves openings within protected 70-80% or 80-90% bands. Strong support, a night home opener and an exceptional Top10 matchup are needed to reach the regular-season 70% cap. Advanced fallback INI values apply when fresh grade-based turnout cannot be calculated; the same hard bounds remain enforced.
 
-In ordinary matchups, ranking quality and separation, rivalry status, rain/snow and FCS opposition share a **combined adjustment limited to ten percentage points in either direction**. Large ranking gaps lower the start whichever team is hosting. Rivalry raises the start; weather and FCS opponents lower it. At the defaults, normal openings range from **45% to 65%** and severe-late openings from **30% to 50%**. Matchup and weather do not change the group's finish time.
+A regular atmosphere big game is two Top25 teams, or a rivalry with **either team Top25 or both Top50**. A #135-#137 rivalry gets no shortcut. This classification does not change departure/halftime patience. Sounds follow actual measured seating, and opening/layered shakes still require existing density and camera-effects gates. A qualifying game can begin too sparsely for shake; no delayed opener is manufactured when seats later fill.
 
-**Big games use a shared 60% baseline and cannot start below 60%.** These are games between two Top 25 teams, CFP games, conference championships and the national championship. A rivalry adds ten points; rain or snow subtracts ten, with the 60% minimum applied last. That means 60% for a regular big game, 70% for a dry ranked rivalry and 60% for that rivalry in bad weather. Ordinary bowl games are not automatically in this category.
-
-Big games override the school's starting percentage, while the school still determines its fill time. A severe-late school in a ranked matchup therefore starts at 60% but continues filling through three quarters of Q1. Championship departure floors remain separate from the opening crowd; they do not force a 60% opening up to 80%.
-
-A rivalry with at least one Top 25 team is a big game for opening and layered atmosphere. Both-unranked rivalries keep the ordinary or packed-house route. This atmosphere classification does not add departure or halftime patience; rivalry still contributes to starting turnout. All measured-fullness and camera-effects gates remain active.
-
-Arrivals are stronger early, followed by a smaller tail of stragglers. Permanent departures can keep the stadium below its original peak even after scheduled arrivals finish. Arrivals never bring back fans who permanently left.
-
-Normal and Fast Super Sim follow the simulated score and clock while their play-by-play screen is open. Slow Sim keeps the usual selection and break timing while the field is visible. Replays use their recorded crowd and restore the live crowd on exit.
+Normal/Fast Super Sim follow simulated score and clock while their play-by-play screen is open. Slow Sim keeps hidden-window timing while the field is visible. Earlier replays use their recorded crowd; exiting restores the live crowd. Actual resumed games do not restart arrivals.
 
 ### How fans decide to leave
 

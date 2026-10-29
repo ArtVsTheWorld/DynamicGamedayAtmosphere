@@ -20,6 +20,7 @@ struct State {
     float toGoal=-1;
     bool conferenceChampionship=false,hfaActive=false;
     bool startingAttendance=false,night=false;
+    int plannedKickoff=-1,plannedFill=-1;
 };
 inline void postseason(State& s,bool cfp,bool conference){s.conferenceChampionship=conference;s.playoff=cfp||conference;}
 inline bool championship(const State& s){return s.playoff&&!s.conferenceChampionship&&s.bowl==47;}

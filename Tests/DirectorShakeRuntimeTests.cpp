@@ -32,7 +32,8 @@ int main(){
     core::Settings venueSettings;State venue;venue.rank0=37;venue.rank1=34;
     assert(!lineup::cameraVenue(venueSettings,venue,.84f,true,26101));assert(lineup::cameraVenue(venueSettings,venue,.85f,true,26101));
     assert(!lineup::cameraVenue(venueSettings,venue,.90f,false));venue.rivalry=true;
-    assert(!lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
+    assert(lineup::cameraVenue(venueSettings,venue,.60f,true,53913)); // Both Top50 rivalry now qualifies.
+    venue.rank1=51;assert(!lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
     venue.rivalry=false;venue.rank0=6;venue.rank1=11;assert(lineup::cameraVenue(venueSettings,venue,.60f,true,53913));
     Runtime r;r.configure(image);Cue cue{addr(match[0]),2,2000,1000,0,Kind::Ordinary,5,false};
     std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,4,12,20,1},output=source;

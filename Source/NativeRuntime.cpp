@@ -134,10 +134,10 @@ attendance::arrivals::Model arrivalModel;
 attendance::CrowdChangeWindow crowdChangeWindow;
 attendance::arrivals::Halftime halftimeModel;
 attendance::departures::Model departureModel;
-std::atomic<int> arrivalEnabled{1},arrivalStart{55},arrivalLateStart{40},arrivalFinish{25},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{100},shownHalftime{0},shownArriving{0};
+std::atomic<int> arrivalEnabled{1},arrivalStart{45},arrivalLateStart{40},arrivalFinish{50},arrivalLateFinish{75},arrivalMissing{0},halftimeExtra{100},shownHalftime{0},shownArriving{0};
 attendance::halftime::ExitConversion halftimeExitConversion;
 std::atomic<int> halftimeConvertPercent{25},shownHalftimeConverted{0};
-std::atomic<int> arrivalBigBonus{10},arrivalWeatherPenalty{10},arrivalBigStart{60},arrivalFcsPenalty{10};
+std::atomic<int> arrivalBigBonus{7},arrivalWeatherPenalty{5},arrivalBigStart{52},arrivalFcsPenalty{0};
 std::atomic<bool> arrivalReconcilePending{false};
 std::atomic<bool> visibilityRetry{false},captureArrivalBaseline{false};
 std::atomic<bool> pregameRendererRetry{false};
@@ -605,9 +605,10 @@ std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
 template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
 int __fastcall initialFormula(A manager,A record){
+    A caller=reinterpret_cast<A>(_ReturnAddress());
     int native=originalInitialFormula(manager,record);
     // Observation only: simulated/saved attendance always receives EA's result.
-    if(enabled&&initialSetting&&std::atomic_load(&settings)->enabled&&attendance::turnout::native::offline(image))try{
+    if(caller==image+attendance::turnout::native::PlayableFormulaReturn&&enabled&&initialSetting&&std::atomic_load(&settings)->enabled&&attendance::turnout::native::offline(image))try{
         attendance::turnout::Seed seed;
         if(attendance::turnout::native::capture(image,manager,record,native,seed)){
             std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.remember(seed,GetTickCount64());
@@ -630,6 +631,8 @@ void initialLaunch(){
     launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
     Result result=calculate(seed,launch);
     if(!result.applied){log("starting-attendance","EA attendance preserved: postseason, non-regular-season, resumed game, or incomplete inputs.");return;}
+    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus);
+    result.fillPercent=!launch.neutral&&lateArrivalSchool(seed.home.id)?arrivalLateFinish.load():big(seed.home.rank,seed.away.rank,launch.rivalry)?30:arrivalFinish.load();
     std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
     auto api=native::Api::engine(image);api.set=originalInitialOptionSet;
     if(!native::setAttendance(image,result.attendance,&api)){
@@ -637,7 +640,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff; arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -1461,7 +1464,7 @@ bool context(attendance::State& s){
     if(option(0x9f4be400,2,kickoff)&&kickoff>=0&&kickoff<1440){s.night=kickoff>=1140;shownKickoffMinutes=kickoff;}else shownKickoffMinutes=-1;
     auto initial=std::atomic_load(&initialApplied);
     s.startingAttendance=!s.playoff&&!s.conferenceChampionship&&s.bowl==127&&initial->owns(team0,team1)&&initial->launch.stadium==at<int>(weather+0x358);
-    if(s.startingAttendance)s.night=initial->result.night;
+    if(s.startingAttendance){s.night=initial->result.night;s.plannedKickoff=initial->result.kickoff;s.plannedFill=initial->result.fillPercent;}
     // This native reader supplies HomeTeamRank/AwayTeamRank to the game UI.
     using Rank=int(__fastcall*)(A,int);
     auto rank=reinterpret_cast<Rank>(image+0xa0ad090);
@@ -1523,16 +1526,16 @@ void readSettings(){
     nativeQuietPercent=number(L"Audio",L"NativeQuietingStrengthPercent",100,0,100);
     crowdReductionPercent=number(L"Audio",L"CrowdVolumeReductionPercent",25,0,25);
     audioReductionStart=number(L"Audio",L"ReductionStartPercent",50,1,50);
-    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",55,30,90);
-    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",40,30,80);
-    arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",25,10,100);
+    arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",45,40,50);
+    arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",40,40,50);
+    arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",50,10,100);
     arrivalLateFinish=number(L"Arrivals",L"LateSchoolFinishPercentOfQuarter",75,10,100);
     halftimeExtra=number(L"Arrivals",L"HalftimeSeatBreakStrength",100,0,200);
     halftimeConvertPercent=number(L"Dynamic Gameday Attendance",L"HalftimeDepartureConversionPercent",25,0,25);
-    arrivalBigBonus=number(L"Arrivals",L"BigGameBonus",10,0,10);
-    arrivalBigStart=number(L"Dynamic Gameday Attendance",L"BigGameStartPercent",60,60,90);
-    arrivalWeatherPenalty=number(L"Arrivals",L"BadWeatherPenalty",10,0,10);
-    arrivalFcsPenalty=number(L"Arrivals",L"FcsOpponentPenalty",10,0,10);
+    arrivalBigBonus=number(L"Arrivals",L"BigGameBonus",7,0,7);
+    arrivalBigStart=number(L"Dynamic Gameday Attendance",L"BigGameStartPercent",52,40,70);
+    arrivalWeatherPenalty=number(L"Arrivals",L"BadWeatherPenalty",5,0,8);
+    arrivalFcsPenalty=number(L"Arrivals",L"FcsOpponentPenalty",0,0,5);
 
     logLimitMB=number(L"Logging",L"MaxFileMB",2,1,16);debugLog=number(L"Logging",L"Debug",0,0,1)!=0;
     c->comebackDeficit=number(L"Retention",L"ComebackOriginalDeficit",21,14,100);
@@ -2727,8 +2730,9 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("DYNAMIC GAMEDAY ATTENDANCE - SETTINGS");
     report.field("Attendance enabled")<<(config->enabled?"yes":"no")<<"\n";
     report.field("First-quarter arrivals")<<(arrivalEnabled?"enabled":"disabled")<<"\n";
-    report.field("Legacy opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% / big game "<<arrivalBigStart<<"% (60% minimum)\n";
-    report.field("Arrival finish points")<<"normal "<<arrivalFinish<<"% / severe "<<arrivalLateFinish<<"% through Q1\n";
+    report.field("Opening attendance policy")<<"regular 40-55% of peak ordinarily; severe-late starts 40%; weather-only floor 35%; exceptional cap 70%. Postseason 70-80%; championships 80-90%.\n";
+    report.field("Fallback opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% of planned crowd\n";
+    report.field("Arrival finish points")<<"normal 50% / marquee 30% / severe 75% / postseason 20% through Q1 when revised inputs qualify; fallback normal "<<arrivalFinish<<"%, severe "<<arrivalLateFinish<<"%\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";
     report.field("Rainy home-win departures")<<"last half of Q4; 22+ lead, full severity at 35+; up to 10 extra quarter points; shared floors preserved\n";

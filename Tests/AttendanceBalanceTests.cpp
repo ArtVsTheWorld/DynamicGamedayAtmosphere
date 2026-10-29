@@ -78,13 +78,13 @@ int main(){
     std::stringstream legacy("DGA-HISTORY-1 1\n9 1 2 720 0 127 0 0 0 0 0 0\n");assert(timeline::read(legacy,loaded));
     assert(loaded.games.front().context.variationSeed==0);
     std::stringstream badSeed("DGA-HISTORY-2 1\n9 1 2 720 0 127 0 0 0 0 0 0 4294967296\n");assert(!timeline::read(badSeed,loaded));
-    // Opening excitement discounts a mismatch in BOTH directions, without
-    // a Top-25 boundary jump or an exceptional override of a disabled bonus.
+    // Non-rival marquee eligibility needs both Top25; a ranked rivalry keeps
+    // its opening bonus even with a weaker opponent. Disabled bonuses stay off.
     arrivals::Settings arrival;s={1,0,0,6,720,720};s.rank0=25;s.rank1=25;
     int matched=arrivals::openingPercent(arrival,s);s.rank1=127;
     assert(arrivals::openingPercent(arrival,s)<70&&arrivals::openingPercent(arrival,s)<matched);
     s.rivalry=true;int wideRivalry=arrivals::openingPercent(arrival,s);s.rank1=25;
-    assert(arrivals::openingPercent(arrival,s)>wideRivalry);s.rivalry=false;s.rank1=127;
+    assert(arrivals::openingPercent(arrival,s)==wideRivalry);s.rivalry=false;s.rank1=127;
     std::swap(s.rank0,s.rank1);assert(arrivals::openingPercent(arrival,s)<70);
     s.rank0=25;int previousOpening=-1;
     for(int rank=25;rank<=255;++rank){s.rank1=rank;int opening=arrivals::openingPercent(arrival,s);
@@ -92,9 +92,9 @@ int main(){
     for(int team:{1212,1154,-1})for(int wet:{0,1,2}){s.team0=team;s.team1=1501;s.precipitation=wet;
         assert(arrivals::openingPercent(arrival,s)>=30);}
     s={1,0,0,6,720,720};s.rivalry=true;arrival.bigGameBonus=0;
-    assert(arrivals::openingPercent(arrival,s)==55);
+    assert(arrivals::openingPercent(arrival,s)==45);
     s.rivalry=false;s.playoff=true;s.bowl=47;
-    assert(arrivals::openingPercent(arrival,s)==60);
+    assert(arrivals::openingPercent(arrival,s)==80);
     // The halftime peak is initialized even if no selection occurred during
     // the early seat-break ramp. A restored Q3 return never restarts it.
     arrivals::Halftime halftime;s={2,7,7,5,200,720};halftime.observe(s,8);

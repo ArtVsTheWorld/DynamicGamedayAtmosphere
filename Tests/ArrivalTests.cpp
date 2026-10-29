@@ -7,41 +7,36 @@
 using namespace attendance;
 int main(){
     arrivals::Settings c;arrivals::Model m;State s{1,0,0,6,720,720};
-    const int severe[]={1212,1158,1137,1156};
+    const int severe[]={1212,1158,1137,1156,1218};
     const int formerModerate[]={1216,1189,1113,1117,1197,1182,1154,1132};
     for(int team:severe){s.team0=team;assert(arrivals::schoolGroup(s)==arrivals::Group::Severe&&arrivals::openingPercent(c,s)==40&&arrivals::finishFraction(c,s)==.75f);}
-    for(int team:formerModerate){s.team0=team;assert(arrivals::schoolGroup(s)==arrivals::Group::Standard&&arrivals::openingPercent(c,s)==55&&arrivals::finishFraction(c,s)==.25f);}
-    for(int team:{-1,0,1159,1136,1211}){s.team0=team;assert(arrivals::openingPercent(c,s)==55);}
-    s.team0=1212;s.neutral=true;assert(arrivals::openingPercent(c,s)==55&&arrivals::finishFraction(c,s)==.25f);s.neutral=false;
-    for(int minutes=1;minutes<=20;++minutes)for(int team:{1212,1154,-1}){
+    for(int team:formerModerate){s.team0=team;assert(arrivals::schoolGroup(s)==arrivals::Group::Standard&&arrivals::openingPercent(c,s)==45&&arrivals::finishFraction(c,s)==.5f);}
+    s.team0=1218;s.neutral=true;assert(arrivals::openingPercent(c,s)==45&&arrivals::finishFraction(c,s)==.5f);s.neutral=false;
+    for(int minutes=1;minutes<=20;++minutes)for(int team:{1212,1218,1154,-1}){
         m.reset();s={1,0,0,6,minutes*60.0f,minutes*60.0f};s.team0=team;
-        int start=team==1212?40:55;auto r=m.observe(c,s);assert(r.starting&&r.missing==100-start);
+        int start=arrivals::lateSchool(s)?40:45;auto r=m.observe(c,s);assert(r.starting&&r.missing==100-start);
         float finish=m.fillSeconds;s.phase=1;s.seconds=s.quarterSeconds-finish/2;
-        int halfMissing=static_cast<int>(std::ceil((100-start)*std::pow(.5,1.6)));
-        assert(m.observe(c,s).missing==halfMissing);s.seconds=s.quarterSeconds;assert(!m.observe(c,s).changed);
+        int halfway=m.observe(c,s).missing;assert(halfway>0&&halfway<100-start);s.seconds=s.quarterSeconds;assert(!m.observe(c,s).changed);
         s.seconds=(std::max)(0.f,s.quarterSeconds-finish-.1f);assert(m.observe(c,s).finished&&m.missing==0);
     }
-    for(int team:{-1,1212,1154})for(int wet:{0,1,2})for(int home:{0,1,6,25,50,127,255})for(int away:{0,1,11,25,50,127,255})for(bool rival:{false,true}){
+    for(int team:{-1,1218,1154})for(int wet:{0,1,2})for(int home:{0,1,6,25,50,127,255})for(int away:{0,1,11,25,50,127,255})for(bool rival:{false,true}){
         s={1,0,0,6,720,720};s.team0=team;s.precipitation=wet;s.rank0=home;s.rank1=away;s.rivalry=rival;
-        float delta=arrivals::adjustment(c,s);int start=arrivals::openingPercent(c,s);assert(delta>=-10&&delta<=10);
-        if(bigGameMatchup(s))assert(start>=60&&start<=70);else assert(start>=arrivals::baselinePercent(c,s)-10&&start<=arrivals::baselinePercent(c,s)+10);
-        assert(arrivals::finishFraction(c,s)==(team==1212?.75f:.25f));
+        int start=arrivals::openingPercent(c,s);assert(start>=(wet?35:40)&&start<=70);
+        float finish=arrivals::finishFraction(c,s);assert(std::fabs(finish-(team==1218?.75f:turnout::big(home,away,rival)?.3f:.5f))<.00001f);
         State rain=s;rain.precipitation=1;assert(arrivals::openingPercent(c,rain)<=start);
     }
-    s={1,0,0,6,720,720};s.rivalry=true;assert(arrivals::openingPercent(c,s)==65&&!bigGameMatchup(s));s.precipitation=1;assert(arrivals::openingPercent(c,s)==55);
-    s.rivalry=false;assert(arrivals::openingPercent(c,s)==45);s.precipitation=0;s.rank0=6;s.rank1=11;assert(arrivals::openingPercent(c,s)==60);
-    s.rivalry=true;assert(arrivals::openingPercent(c,s)==70);s.precipitation=1;assert(arrivals::openingPercent(c,s)==60);
-    for(bool playoff:{false,true})for(int bowl:{37,47})for(int team:severe){s={1,0,0,6,720,720};s.team0=team;s.playoff=playoff;s.bowl=bowl;if(!playoff){s.rank0=6;s.rank1=11;}assert(arrivals::openingPercent(c,s)==60&&arrivals::finishFraction(c,s)==.75f);}
-    s={1,0,0,6,720,720};s.rank0=1;s.rank1=50;float gap=arrivals::adjustment(c,s);s.rank1=127;assert(arrivals::adjustment(c,s)<gap);
-    s.neutral=true;assert(arrivals::openingPercent(c,s)==arrivals::openingPercent(c,reversed(s)));
-    s={1,0,0,6,720,720};s.team1=1500;s.precipitation=1;assert(arrivals::adjustment(c,s)==-10&&arrivals::openingPercent(c,s)==45);
-    m.reset();s={1,0,0,6,720,720};auto r=m.observe(c,s);assert(r.missing==45);s.phase=3;s.seconds=600;assert(!m.observe(c,s).changed&&m.missing==45);
-    s.phase=5;assert(m.observe(c,s).missing==8);s.seconds=540;assert(m.observe(c,s).finished);
+    s={1,0,0,6,720,720};s.rivalry=true;assert(arrivals::openingPercent(c,s)==45);s.rank0=34;s.rank1=47;assert(arrivals::openingPercent(c,s)==52);
+    s.rank1=51;assert(arrivals::openingPercent(c,s)==45);s.rank0=25;assert(arrivals::openingPercent(c,s)==52);
+    for(int bowl:{20,37,47})for(int team:severe){s={1,0,0,6,720,720};s.team0=team;s.playoff=bowl>=37;s.bowl=bowl;int low=bowl==47?80:70;assert(arrivals::openingPercent(c,s)>=low&&arrivals::openingPercent(c,s)<=low+10&&arrivals::finishFraction(c,s)==.2f);}
+    s={1,0,0,6,720,720};s.conferenceChampionship=true;assert(arrivals::openingPercent(c,s)>=80);s.precipitation=2;assert(arrivals::openingPercent(c,s)>=80);
+    s={1,0,0,6,720,720};s.neutral=true;s.rank0=5;s.rank1=19;assert(arrivals::openingPercent(c,s)==arrivals::openingPercent(c,reversed(s)));
+    m.reset();s={1,0,0,6,720,720};auto r=m.observe(c,s);assert(r.missing==55);s.phase=3;s.seconds=600;assert(!m.observe(c,s).changed&&m.missing==55);
+    s.phase=5;assert(m.observe(c,s).missing>0&&m.missing<55);s.seconds=360;assert(m.observe(c,s).finished);
     m.reset();s={1,0,0,5,200,720};assert(!m.observe(c,s).changed&&m.done);
     m.reset();s={4,17,17,5,720,720};assert(!m.observe(c,s).changed&&m.done);
     m.reset();s={1,0,0,6,720,720};m.observe(c,s);assert(m.finish().finished&&m.missing==0);
     m.reset();c.enabled=0;assert(!m.observe(c,s).changed);c.enabled=1;
-    m.reset();c.startPercent=100;assert(m.observe(c,s).missing==0);c.startPercent=55;
+    m.reset();c.startPercent=100;assert(m.observe(c,s).missing==50);c.startPercent=45;
     s={0,0,0,6,0,720};assert(normalizePregame(s)&&s.quarter==1&&s.seconds==720&&valid(s));
     State invalid=s;invalid.quarter=2;assert(!normalizePregame(invalid));invalid=s;invalid.homeScore=7;assert(!normalizePregame(invalid));
     invalid=s;invalid.phase=5;assert(!normalizePregame(invalid));invalid=s;invalid.quarterSeconds=NAN;assert(!normalizePregame(invalid));

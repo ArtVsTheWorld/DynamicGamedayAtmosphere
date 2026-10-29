@@ -3,9 +3,9 @@
 #include "StartingAttendance.h"
 namespace attendance::arrivals {
 struct Settings {
-    int enabled=1,startPercent=55,lateStartPercent=40;
-    int finishPercent=25,lateFinishPercent=75;
-    int bigGameBonus=10,badWeatherPenalty=10,bigGameStart=60,fcsPenalty=10;
+    int enabled=1,startPercent=45,lateStartPercent=40;
+    int finishPercent=50,lateFinishPercent=75;
+    int bigGameBonus=7,badWeatherPenalty=5,bigGameStart=52,fcsPenalty=0;
 };
 enum class Group { Standard,Severe };
 inline bool fcsTeam(int team){return attendance::fcsTeam(team);}
@@ -17,30 +17,28 @@ inline Group schoolGroup(const State& s){
 inline bool lateSchool(const State& s){return schoolGroup(s)==Group::Severe;}
 inline float adjustment(const Settings& c,const State& raw){
     State s=ranked(raw);
-    float rivalry=s.rivalry?static_cast<float>((std::clamp)(c.bigGameBonus,0,10)):0;
-    float weather=badWeather(s)?static_cast<float>((std::clamp)(c.badWeatherPenalty,0,10)):0;
-    if(bigGameMatchup(s))return (std::clamp)(rivalry-weather,-10.0f,10.0f);
-    float gap=context::smooth(relativeGap(s));
-    float a=context::quality(s.rank0),b=context::quality(s.rank1);
-    float opponent=s.neutral?(std::max)(a,b):b;
-    float appeal=6*(.6f*std::sqrt(a*b)+.4f*opponent)*(1-gap);
-    float fcs=fcsOpponent(s)?static_cast<float>((std::clamp)(c.fcsPenalty,0,10)):0;
-    return (std::clamp)(appeal+rivalry-weather-10*gap-fcs,-10.0f,10.0f);
+    float marquee=turnout::big(s.rank0,s.rank1,s.rivalry)?static_cast<float>((std::min)((std::clamp)(c.bigGameBonus,0,7),(std::max)(0,c.bigGameStart-c.startPercent))):0;
+    float weather=badWeather(s)?static_cast<float>((std::clamp)(c.badWeatherPenalty,0,8)):0;
+    float fcs=fcsOpponent(s)?static_cast<float>((std::clamp)(c.fcsPenalty,0,5)):0;
+    return marquee+(s.night?5.f:0.f)+(turnout::top(s.rank0,10)&&turnout::top(s.rank1,10)?5.f:0.f)-weather-fcs;
 }
 inline int baselinePercent(const Settings& c,const State& s){
-    return bigGameMatchup(s)?(std::max)(60,c.bigGameStart):schoolGroup(s)==Group::Severe?c.lateStartPercent:c.startPercent;
+    return schoolGroup(s)==Group::Severe?(std::clamp)(c.lateStartPercent,40,50):(std::clamp)(c.startPercent,40,50);
 }
+inline bool postseasonOpening(const State& s){return s.playoff||s.conferenceChampionship||s.bowl!=127;}
 inline int openingPercent(const Settings& c,const State& s){
-    if(s.startingAttendance&&!s.playoff&&!s.conferenceChampionship){
-        // Turnout already accounts for opponent, weather, rivalry and night.
-        // Avoid applying those penalties again or multiplying it by the legacy55%.
-        return turnout::kickoffPercent(s.team0,s.neutral,s.night);
+    if(postseasonOpening(s)){
+        int low=championship(s)||s.conferenceChampionship?80:70;
+        float appeal=.5f*(turnout::rankStrength(s.rank0,138)+turnout::rankStrength(s.rank1,138));
+        return (std::clamp)(low+static_cast<int>(std::lround(10*appeal))-(badWeather(s)?3:0),low,low+10);
     }
-    int minimum=bigGameMatchup(s)?60:30;
-    return (std::clamp)(static_cast<int>(std::lround(baselinePercent(c,s)+adjustment(c,s))),minimum,100);
+    if(s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=70)return s.plannedKickoff;
+    return (std::clamp)(static_cast<int>(std::lround(baselinePercent(c,s)+adjustment(c,s))),badWeather(s)?35:40,70);
 }
 inline float finishFraction(const Settings& c,const State& s){
-    int base=schoolGroup(s)==Group::Severe?c.lateFinishPercent:c.finishPercent;
+    if(postseasonOpening(s))return .20f;
+    if(s.startingAttendance&&s.plannedFill>=10&&s.plannedFill<=100)return s.plannedFill*.01f;
+    int base=schoolGroup(s)==Group::Severe?c.lateFinishPercent:turnout::big(s.rank0,s.rank1,s.rivalry)?30:c.finishPercent;
     return (std::clamp)(base,10,100)*.01f;
 }
 inline int missingAt(int start,float elapsed,float fill,const State& s){

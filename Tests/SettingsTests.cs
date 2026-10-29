@@ -29,20 +29,29 @@ class SettingsTests {
    Check(Math.Abs(Level("Atmosphere","MaximumBoostPercent",next)-25)<.001&&Math.Abs(Level("Atmosphere","EruptionBoostPercent",next)-50)<.001);
    Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44&&!fresh.Contains("[Energy]")&&!fresh.Contains("Momentum="));
    Check(!fresh.Contains("MaximumReductionPercent="));
-   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
+   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
    Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100);
    Check(GetPrivateProfileInt("Audio","CrowdVolumeReductionPercent",0,next)==25);
    Check(Level("Dynamic Gameday Broadcast","PlayReactionFadeSeconds",next)==5&&Level("Dynamic Gameday Attendance","HalftimeDepartureConversionPercent",next)==25);
    Check(GetPrivateProfileInt("Audio","ReductionStartPercent",0,next)==50&&!fresh.Contains("\nStrength="));
    Check(Level("Atmosphere","ChantMaximumBoostPercent",next)==15&&!fresh.Contains("ChantReductionPercent=")&&!fresh.Contains("BoostDb=")&&!fresh.Contains("ChantReductionDb="));
-   Check(GetPrivateProfileInt("Arrivals","FcsOpponentPenalty",0,next)==10&&GetPrivateProfileInt("Retention","FormulaStrength",0,next)==100);
-   Check(GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==25&&GetPrivateProfileInt("Arrivals","LateSchoolFinishPercentOfQuarter",0,next)==75);
-   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7);
+   Check(GetPrivateProfileInt("Arrivals","FcsOpponentPenalty",0,next)==0&&GetPrivateProfileInt("Retention","FormulaStrength",0,next)==100);
+   Check(GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==50&&GetPrivateProfileInt("Arrivals","LateSchoolFinishPercentOfQuarter",0,next)==75);
+   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==8);
    Check(GetPrivateProfileInt("Retention","MaximumDeparturePerQuarter",0,next)==45);
    Check(GetPrivateProfileInt("Replays","Enabled",0,next)==1&&GetPrivateProfileInt("Replays","FullScreenMinimumYards",0,next)==15);
    Check(GetPrivateProfileInt("Replays","InsetAfterRoutinePlays",0,next)==1&&GetPrivateProfileInt("Replays","FullScreenBigPlays",0,next)==1);
    Check(GetPrivateProfileInt("Replays","DefensiveHighlights",0,next)==1&&GetPrivateProfileInt("General","ReplayBalanceVersion",0,next)==1);
    SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==fresh);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=44\nAttendanceBalanceVersion=7\n[Dynamic Gameday Attendance]\n; My arrival note.\nStartPercent=55\nFinishPercentOfQuarter=25\nBigGameStartPercent=60\nBadWeatherPenalty=10\n[Custom]\nKeep=yes\n");
+   SettingsMigration.Ensure(next,old,defaults);
+   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==50&&GetPrivateProfileInt("Dynamic Gameday Attendance","BigGameStartPercent",0,next)==52);
+   Check(File.ReadAllText(next).Contains("My arrival note.")&&File.ReadAllText(next).Contains("Keep=yes"));
+   string updated=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==updated);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=44\nAttendanceBalanceVersion=8\n[Dynamic Gameday Attendance]\nStartPercent=55\nFinishPercentOfQuarter=25\n");
+   SettingsMigration.Ensure(next,old,defaults);Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==25);
+   File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=44\nAttendanceBalanceVersion=7\n[Dynamic Gameday Attendance]\nStartPercent=43\nFinishPercentOfQuarter=68\n");
+   SettingsMigration.Ensure(next,old,defaults);Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==43&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==68);
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=39\n[Dynamic Gameday Broadcast]\nPauseMenuFullness=0\n");
    SettingsMigration.Ensure(next,old,defaults);Check(GetPrivateProfileInt("Dynamic Gameday Broadcast","PauseMenuFullness",1,next)==0);
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=39\n[Dynamic Gameday Soundscape]\n; Ordinary matchups keep their usual packed-house requirement.\nOpeningAtmosphere=0\n");
@@ -114,17 +123,17 @@ class SettingsTests {
    Check(GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44);
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=10\n[Arrivals]\nStartPercent=60\nFinishPercentOfQuarter=50\nLateSchoolFinishPercentOfQuarter=85\nBigGameBonus=10\n[Audio]\nStrength=35\n");
    SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==25&&GetPrivateProfileInt("Arrivals","LateSchoolFinishPercentOfQuarter",0,next)==75&&GetPrivateProfileInt("Arrivals","BigGameBonus",0,next)==10);
+   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","FinishPercentOfQuarter",0,next)==50&&GetPrivateProfileInt("Arrivals","LateSchoolFinishPercentOfQuarter",0,next)==75&&GetPrivateProfileInt("Arrivals","BigGameBonus",0,next)==7);
    string tuned=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(tuned==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=1\nAudioBalanceVersion=10\n[Arrivals]\nStartPercent=70\nLateSchoolStartPercent=50\nModerateStartPercent=60\nPlayoffStartPercent=70\nChampionshipStartPercent=80\n[Audio]\nStrength=35\n");
    SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0);
+   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0);
    Check(GetPrivateProfileInt("Arrivals","PlayoffStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","ChampionshipStartPercent",0,next)==0&&GetPrivateProfileInt("Audio","NativeQuietingStrengthPercent",0,next)==100);
-   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44);
+   Check(GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==8&&GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44);
    foreach(int cap in new[]{30,22}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=2\nAudioBalanceVersion=11\n[Retention]\nMaximumDeparturePerQuarter="+cap+"\n");
     SettingsMigration.Ensure(next,old,defaults);
-    Check(GetPrivateProfileInt("Retention","MaximumDeparturePerQuarter",0,next)==(cap==30?45:cap)&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7);
+    Check(GetPrivateProfileInt("Retention","MaximumDeparturePerQuarter",0,next)==(cap==30?45:cap)&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==8);
     string migratedCap=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(migratedCap==File.ReadAllText(next));
    }
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=99\nAudioBalanceVersion=10\n[Retention]\nMaximumDeparturePerQuarter=30\n[Arrivals]\nStartPercent=60\nFinishPercentOfQuarter=50\n");
@@ -159,7 +168,7 @@ class SettingsTests {
    foreach(int strength in new[]{0,8,10}){
     File.WriteAllText(next,"[General]\nConfigVersion=1\nAttendanceBalanceVersion=3\nAudioBalanceVersion=13\n[Arrivals]\nStartPercent=65\nModerateStartPercent=55\nLateSchoolStartPercent=45\nHalftimeSeatBreakPercent="+strength+"\n[Retention]\nComebackOriginalDeficit=28\nMaximumDeparturePerQuarter=22\n");
     SettingsMigration.Ensure(next,old,defaults);
-    Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
+    Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
     Check(GetPrivateProfileInt("Arrivals","HalftimeSeatBreakStrength",999,next)==strength*10&&!File.ReadAllText(next).Contains("HalftimeSeatBreakPercent="));
     Check(GetPrivateProfileInt("Retention","MaximumDeparturePerQuarter",0,next)==22&&GetPrivateProfileInt("Retention","ComebackOriginalDeficit",0,next)==21&&GetPrivateProfileInt("Retention","MaximumDeparturePerTransition",0,next)==4);
     string balanced=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(File.ReadAllText(next)==balanced);
@@ -174,7 +183,7 @@ class SettingsTests {
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=14\n[Atmosphere]\nEnabled=0\nMaximumBoostPercent=10\nEruptionBoostPercent=20\nHighLeverageBoostPercent=15\n");SettingsMigration.Ensure(next,old,defaults);
    Check(Level("Atmosphere","MaximumBoostPercent",next)==10&&Level("Atmosphere","HighLeverageBoostPercent",next)==15&&Level("Atmosphere","EruptionBoostPercent",next)==20&&GetPrivateProfileInt("Atmosphere","Enabled",1,next)==0);
    File.WriteAllText(next,"[General]\nConfigVersion=1\nAudioBalanceVersion=15\nAttendanceBalanceVersion=4\n[Arrivals]\nStartPercent=70\nModerateStartPercent=60\nLateSchoolStartPercent=50\n[Atmosphere]\nPackedHouseBuildup=0\nDriveEscalation=0\nMaximumBoostPercent=17.5\nEruptionBoostPercent=42.5\nHighLeverageBoostPercent=26.5\n");SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
+   Check(GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45&&GetPrivateProfileInt("Arrivals","ModerateStartPercent",0,next)==0&&GetPrivateProfileInt("Arrivals","LateSchoolStartPercent",0,next)==40);
    Check(GetPrivateProfileInt("Atmosphere","PackedHouseBuildup",1,next)==0&&GetPrivateProfileInt("Atmosphere","DriveEscalation",1,next)==0);
    Check(Level("Atmosphere","MaximumBoostPercent",next)==17.5&&Level("Atmosphere","EruptionBoostPercent",next)==42.5&&Level("Atmosphere","HighLeverageBoostPercent",next)==26.5);
    string capacity=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(capacity==File.ReadAllText(next));
@@ -223,12 +232,12 @@ class SettingsTests {
     Check(GetPrivateProfileInt("Dynamic Gameday Soundscape","LongGainMinimumYards",0,next)==15);string revised=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(revised==File.ReadAllText(next));
    }
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=20\nAttendanceBalanceVersion=5\n[Dynamic Gameday Attendance]\nStartPercent=60\nModerateStartPercent=50\nModerateFinishPercentOfQuarter=50\nPlayoffStartPercent=65\nChampionshipStartPercent=75\n[Dynamic Gameday Soundscape]\nLongGainMinimumYards=30\n[Dynamic Gameday Broadcast]\nEruptionShakeStrengthPercent=30\nEruptionShakeImpactPercent=40\n");SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("Dynamic Gameday Attendance","BigGameStartPercent",0,next)==60&&GetPrivateProfileInt("Arrivals","StartPercent",0,next)==55);
+   Check(GetPrivateProfileInt("Dynamic Gameday Attendance","BigGameStartPercent",0,next)==52&&GetPrivateProfileInt("Arrivals","StartPercent",0,next)==45);
    Check(!File.ReadAllText(next).Contains("ModerateStartPercent=")&&!File.ReadAllText(next).Contains("PlayoffStartPercent="));
    Check(Level("Atmosphere","EruptionShakeStrengthPercent",next)==22.5&&Level("Atmosphere","EruptionShakeImpactPercent",next)==30&&GetPrivateProfileInt("Dynamic Gameday Soundscape","LongGainMinimumYards",0,next)==15);
    string twoGroups=File.ReadAllText(next);SettingsMigration.Ensure(next,old,defaults);Check(twoGroups==File.ReadAllText(next));
    File.WriteAllText(next,"[General]\nConfigVersion=2\nAudioBalanceVersion=21\nAttendanceBalanceVersion=6\n[Dynamic Gameday Soundscape]\nReductionStartPercent=25\nBigGameMinimumFullnessPercent=35\n[Dynamic Gameday Broadcast]\n; My custom camera note.\nOrdinaryShakeStrengthPercent=5\nCriticalShakeStrengthPercent=10\nTouchdownShakeDurationSeconds=9\n");SettingsMigration.Ensure(next,old,defaults);
-   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==7);
+   Check(GetPrivateProfileInt("General","AudioBalanceVersion",0,next)==44&&GetPrivateProfileInt("General","AttendanceBalanceVersion",0,next)==8);
    Check(GetPrivateProfileInt("Audio","ReductionStartPercent",0,next)==50&&GetPrivateProfileInt("Atmosphere","BigGameMinimumFullnessPercent",0,next)==55);
    Check(Level("Atmosphere","OrdinaryShakeStrengthPercent",next)==5&&Level("Atmosphere","CriticalShakeStrengthPercent",next)==10&&Level("Atmosphere","TouchdownShakeDurationSeconds",next)==11);
    Check(Level("Dynamic Gameday Broadcast","LineupCheerShakeStrengthPercent",next)==5&&File.ReadAllText(next).Contains("My custom camera note."));

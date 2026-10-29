@@ -3,12 +3,16 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#include <array>
 
 namespace attendance::turnout {
 // Expected settled turnout, not the number already in their seats at kickoff.
 // Inputs are frozen at launch. All adjustments below are capacity percentage points.
 struct Team {
     int id=-1,rank=0,toughest=0,prestige=0,wins=0,losses=0,homeGames=0;
+    // LetterGrade is A+=0 through F=12; 13 is Incomplete, never an A+ fallback.
+    int atmosphere=-1,tradition=-1,brand=-1,conference=-1;
+    float standing=-1;
 };
 struct Seed {
     Team home,away;
@@ -22,31 +26,61 @@ struct Launch {
 };
 struct Result {
     bool applied=false,night=false;
-    int attendance=0,kickoff=90;
+    int attendance=0,kickoff=45,fillPercent=50;
+    float standing=0,score=0,adjustmentLimit=0;
     float demand=0,momentum=0,appeal=0,nightBonus=0,weather=0,variation=0,limits=0,percent=0;
 };
-inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156;}
-inline int kickoffPercent(int home,bool neutral,bool night){return !neutral&&lateArrivalSchool(home)?(night?88:78):(night?97:90);}
+inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156||team==1218;}
+inline bool fcs(int id){return id>=1500&&id<=1504;}
+inline bool grade(int value){return value>=0&&value<=12;}
+inline bool grades(const Team& t){return grade(t.atmosphere)&&grade(t.tradition)&&grade(t.brand)&&grade(t.conference);}
+inline float rankStrength(int rank,int schools){return rank>=1&&rank<=schools?1.f-static_cast<float>(rank-1)/(schools-1):0.f;}
+inline float support(const Team& t,int schools){
+    return .40f*(12-t.atmosphere)/12.f+.20f*(12-t.tradition)/12.f+.15f*(12-t.brand)/12.f+
+        .15f*rankStrength(t.rank,schools)+.10f*(12-t.conference)/12.f;
+}
+inline bool assignStandings(std::vector<Team>& teams){
+    int n=static_cast<int>(teams.size());if(n<100||n>256)return false;
+    for(int i=0;i<n;++i){if(!grades(teams[i])||teams[i].rank<1||teams[i].rank>n||fcs(teams[i].id))return false;
+        for(int j=0;j<i;++j)if(teams[i].id==teams[j].id)return false;}
+    for(auto& t:teams){float score=support(t,n);int lower=0,equal=0;
+        for(const auto& other:teams){float delta=support(other,n)-score;if(delta<-.000001f)++lower;else if(std::fabs(delta)<=.000001f)++equal;}
+        t.standing=(lower+.5f*(equal-1))/(n-1); // Equal inputs receive equal demand, independent of IDs/order.
+    }return true;
+}
+inline float demandCurve(float standing){
+    // Aggregate quantiles of the user-supplied 2025 table (136 capacity ratios).
+    // >100 is demand headroom; the final rendered count is capped at capacity.
+    constexpr float p[]={0,.05f,.10f,.20f,.25f,.40f,.50f,.60f,.75f,.80f,.90f,.95f,1};
+    constexpr float y[]={25.76f,38.5775f,47.12f,58.89f,66.145f,81.15f,87.86f,91.56f,97.99f,100,101.435f,103.385f,108.49f};
+    float q=(std::clamp)(standing,0.f,1.f);
+    for(unsigned i=1;i<std::size(p);++i)if(q<=p[i])return y[i-1]+(y[i]-y[i-1])*(q-p[i-1])/(p[i]-p[i-1]);
+    return y[std::size(y)-1];
+}
+inline bool top(int rank,int cutoff){return rank>=1&&rank<=cutoff;}
+inline bool big(int home,int away,bool rivalry){return (top(home,25)&&top(away,25))||(rivalry&&(top(home,25)||top(away,25)||(top(home,50)&&top(away,50))));}
+inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=45,int severeBase=40,int bigBonus=7){
+    float start=!neutral&&lateArrivalSchool(home)?static_cast<float>((std::clamp)(severeBase,40,50)):
+        (std::clamp)(normalBase+10.f*((std::clamp)(standing,0.f,1.f)-.5f),40.f,50.f);
+    start+=(night?5.f:0.f)+(opener&&!neutral?3.f:0.f)+(big(rank0,rank1,rivalry)?static_cast<float>((std::clamp)(bigBonus,0,7)):0.f)+(top(rank0,10)&&top(rank1,10)?5.f:0.f);
+    start=(std::clamp)(start,40.f,70.f);
+    constexpr float deduction[]={0,3,5,8};if(!indoor&&rain>=1&&rain<=3)start-=deduction[rain];
+    return (std::clamp)(static_cast<int>(std::lround(start)),35,70);
+}
 inline bool validTeam(const Team& t,int schools){
-    return t.id>=0&&t.id<2047&&t.toughest>=0&&t.toughest<=schools&&
+    return t.id>=0&&t.id<2047&&t.toughest>=0&&t.toughest<=(fcs(t.id)?256:schools)&&
         t.rank>=0&&t.rank<=256&&t.prestige>=0&&t.prestige<=10&&
         t.wins>=0&&t.losses>=0&&t.wins+t.losses<=30&&t.homeGames>=0&&t.homeGames<=20;
-}
-inline float demand(const Team& t,int schools){
-    if(!t.toughest)return 45.f+5.f*t.prestige; // Missing atmosphere rank uses program support, not a fictional top rank.
-    float loyalty=1.f-static_cast<float>(t.toughest-1)/(schools-1);
-    float stadium=45.f+50.f*std::pow((std::clamp)(loyalty,0.f,1.f),.65f);
-    return .8f*stadium+.2f*(45.f+5.f*t.prestige);
 }
 inline float momentum(const Team& t){
     int games=t.wins+t.losses;if(!games)return 0;
     float confidence=(std::min)(1.f,games/6.f);
-    return (std::clamp)((t.wins/static_cast<float>(games)-.5f)*20.f*confidence,-10.f,8.f);
+    return (std::clamp)((t.wins/static_cast<float>(games)-.5f)*12.f*confidence,-6.f,6.f);
 }
 inline float opponent(const Team& t){
-    if(t.id>=1500&&t.id<=1504)return -8;
-    if(t.rank>=1&&t.rank<=25)return 2.f+6.f*(26-t.rank)/25.f;
-    if(t.rank>100)return -4;
+    if(fcs(t.id))return -10;
+    if(t.rank>=1&&t.rank<=25)return 2.f+4.f*(26-t.rank)/25.f;
+    if(t.rank>100)return -6;
     return 0;
 }
 inline uint32_t fixtureHash(const Seed& s,bool neutral=false){
@@ -59,23 +93,29 @@ inline Result calculate(const Seed& s,const Launch& l){
     Result r;r.attendance=l.ea;
     if(!s.regular||s.resumed||s.week<0||s.week>31||s.year<0||s.year>4095||s.schools<100||s.schools>512||!validTeam(s.home,s.schools)||!validTeam(s.away,s.schools)||
        s.home.id==s.away.id||l.home!=s.home.id||l.away!=s.away.id||l.stadium!=s.stadium||l.ea!=s.ea||
-       l.capacity<1000||l.capacity>200000||l.ea<1||l.ea>l.capacity*2||l.minutes<0||l.minutes>=1440||l.precipitation<0||l.precipitation>3)return r;
+       l.capacity<1000||l.capacity>200000||l.ea<1||l.ea>l.capacity*2||l.minutes<0||l.minutes>=1440||l.precipitation<0||l.precipitation>3||
+       !grades(s.home)||!std::isfinite(s.home.standing)||s.home.standing<0||s.home.standing>1||
+       (l.neutral&&(!grades(s.away)||!std::isfinite(s.away.standing)||s.away.standing<0||s.away.standing>1)))return r;
     r.night=l.minutes>=1140; // Verified FUNCTIONKEY_ISNIGHTGAME: stadium-local kickoff >=19:00.
-    r.demand=demand(s.home,s.schools);r.momentum=momentum(s.home);
-    r.appeal=opponent(s.away)+(l.rivalry?10.f:0.f)+(s.home.homeGames==0?4.f:0.f);
+    r.standing=s.home.standing;r.score=support(s.home,s.schools);r.momentum=momentum(s.home);
+    r.appeal=opponent(s.away)+(l.rivalry?6.f:0.f)+(s.home.homeGames==0?3.f:0.f);
     if(l.neutral){
-        r.demand=.5f*(r.demand+demand(s.away,s.schools));
+        r.standing=.5f*(r.standing+s.away.standing);r.score=.5f*(r.score+support(s.away,s.schools));
         r.momentum=.5f*(r.momentum+momentum(s.away));
-        r.appeal=.5f*(opponent(s.home)+opponent(s.away))+(l.rivalry?10.f:0.f);
+        r.appeal=.5f*(opponent(s.home)+opponent(s.away))+(l.rivalry?6.f:0.f);
     }
-    r.appeal=(std::clamp)(r.appeal,-8.f,15.f);
-    r.nightBonus=r.night?7.f:0.f;
+    r.demand=demandCurve(r.standing);
+    r.nightBonus=r.night?4.f:0.f;
+    float changes=r.momentum+r.appeal+r.nightBonus;
+    r.adjustmentLimit=(std::clamp)(changes,-15.f,12.f)-changes;
     const float weather[]={0.f,5.f,9.f,14.f};r.weather=s.roof>=1&&s.roof<=3?0.f:-weather[l.precipitation];
     r.variation=static_cast<float>(static_cast<int>(fixtureHash(s,l.neutral)%7)-3);
-    float raw=r.demand+r.momentum+r.appeal+r.nightBonus+r.weather+r.variation;
-    r.percent=(std::clamp)(raw,30.f,100.f);r.limits=r.percent-raw;
+    float raw=r.demand+changes+r.adjustmentLimit+r.weather+r.variation;
+    r.percent=(std::clamp)(raw,r.weather<0?20.f:25.f,100.f);r.limits=r.percent-raw;
     r.attendance=(std::clamp)(static_cast<int>(std::lround(l.capacity*r.percent*.01f)),1,l.capacity);
-    r.kickoff=kickoffPercent(s.home.id,l.neutral,r.night);r.applied=true;return r;
+    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3);
+    r.fillPercent=!l.neutral&&lateArrivalSchool(s.home.id)?75:big(s.home.rank,s.away.rank,l.rivalry)?30:50;
+    r.applied=true;return r;
 }
 // Server simulation calls can interleave with a playable launch. Match the actual
 // launch IDs, native count and stadium; never use a reused match pointer as identity.

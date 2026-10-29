@@ -19,6 +19,7 @@ int main(){
         p.game.rivalry=false;assert(!lineup::bigGame(p.game));assert(!lineup::cameraVenue(settings,p.game,.5f,true,20000));
     }
     State s;s.rank0=s.rank1=70;s.rivalry=true;assert(!lineup::bigGame(s));s.rank0=0;s.rank1=25;assert(lineup::bigGame(s));s.rank1=26;assert(!lineup::bigGame(s));
+    s.rank0=34;s.rank1=47;assert(lineup::bigGame(s)&&!bigGameMatchup(s));s.rank0=50;s.rank1=50;assert(lineup::bigGame(s));s.rank1=51;assert(!lineup::bigGame(s));s.rank0=135;s.rank1=137;assert(!lineup::bigGame(s));
     s.rank0=5;s.rank1=25;s.rivalry=false;assert(lineup::bigGame(s));s.rank0=s.rank1=70;s.playoff=true;assert(lineup::bigGame(s));
     std::puts("PASS: either ranked rivalry side admits opening sound/camera at measured50%, unknown/unranked guards, neutral classification and unchanged attendance/postseason rules.");
 }

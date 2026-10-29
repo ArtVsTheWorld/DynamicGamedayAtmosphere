@@ -12,7 +12,7 @@ inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
 // Atmosphere classification is intentionally separate from attendance patience:
 // one ranked side makes a rivalry marquee without changing departure/postseason rules.
-inline bool bigGame(const State& s){return bigGameMatchup(s)||(s.rivalry&&(top25(s.rank0)||top25(s.rank1)));}
+inline bool bigGame(const State& s){return bigGameMatchup(s)||(s.rivalry&&(top25(s.rank0)||top25(s.rank1)||(s.rank0>=1&&s.rank0<=50&&s.rank1>=1&&s.rank1<=50)));}
 inline float bigMinimum(const core::Settings& c,uint64_t positions){
     float extra=std::isfinite(c.bigGameMinimum)?(std::clamp)(c.bigGameMinimum,.55f,.90f):.55f;
     return (std::max)(packed::standardMinimum(positions),extra);

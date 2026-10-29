@@ -53,8 +53,18 @@ int main(){
     gt.related={{0x2a,&home},{0x12,&away},{0x40,&stadium},{0x15,nullptr}};ht.related={{0x118,&stadium},{0xb,nullptr}};lt.related={{0xd,&array}};seasont.ints={{0x2c,15}};
     unsigned char manager[0x240]{};put(address(manager),image+StatManagerVtable);put(address(manager)+0x230,address(&league));put(address(manager)+0x228,address(&season));A reference=address(&game);
     Api api{count,same,set,capacity};Seed seed;
-    assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.regular&&!seed.resumed&&seed.schools==139&&seed.home.id==1153&&seed.home.homeGames==3&&seed.home.wins==3&&seed.home.losses==3&&enums>0);
-    auto noLeaks=[&](){for(Row* r:{&game,&home,&away,&stadium,&league,&season,&array})assert(r->refs==0);};noLeaks();
+    std::vector<Table> memberTables(137),schoolTables(138);std::vector<Row> memberRows(137),schoolRows(138);
+    for(int i=0;i<138;++i){
+        init(schoolTables[i],schoolRows[i]);schoolTables[i].ints={{34,i%13},{23,i%13},{5,i%13},{19,i%9}};
+        if(i==0){ht.related[0xa5]=&schoolRows[i];arrt.related[i]=&home;}
+        else if(i==1){at.related[0xa5]=&schoolRows[i];arrt.related[i]=&away;}
+        else{init(memberTables[i-2],memberRows[i-2]);initTeam(memberTables[i-2],200+i);memberTables[i-2].ints[0x182]=i+1;memberTables[i-2].related[0xa5]=&schoolRows[i];arrt.related[i]=&memberRows[i-2];}
+    }
+    init(memberTables[136],memberRows[136]);initTeam(memberTables[136],1500);memberTables[136].ints[0x182]=256;arrt.related[138]=&memberRows[136];
+    assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.regular&&!seed.resumed&&seed.schools==138&&seed.home.id==1153&&seed.home.homeGames==3&&seed.home.wins==3&&seed.home.losses==3&&enums>0&&seed.home.atmosphere==0&&seed.home.standing>=0);
+    auto noLeaks=[&](){for(Row* r:{&game,&home,&away,&stadium,&league,&season,&array})assert(r->refs==0);for(auto& r:memberRows)assert(r.refs==0);for(auto& r:schoolRows)assert(r.refs==0);};noLeaks();
+    schoolTables[0].ints[5]=13;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();schoolTables[0].ints[5]=0;
+    ht.related[0xa5]=nullptr;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();ht.related[0xa5]=&schoolRows[0];
     gt.ints[0x3e]=2;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&!seed.regular);noLeaks();gt.ints[0x3e]=1;
     gt.related[0x15]=&stadium;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&!seed.regular);noLeaks();gt.related[0x15]=nullptr;
     gt.ints[36]=7;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.resumed);noLeaks();gt.ints[36]=0;

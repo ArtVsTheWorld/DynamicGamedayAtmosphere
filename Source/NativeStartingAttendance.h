@@ -9,6 +9,7 @@ inline constexpr A Formula=0x8566710,LaunchCopy=0x7f13490,StatManagerVtable=0xbd
 // Final rivalry publication comes AFTER home/away/stadium, weather and local time
 // have been copied, and BEFORE launch finalization/native seating construction.
 inline constexpr A LaunchResetReturn=0x7f13859,LaunchReadyReturn=0x7f146f5;
+inline constexpr A PlayableFormulaReturn=0x871a5c4;
 inline constexpr A OptionService=0xe2dd3e8,OptionVtable=0xb298a70,OptionType=0xe3a48d0,OptionSet=0x909b940,UnsignedType=0xe2dab38;
 inline constexpr std::array<unsigned char,17> FormulaPrefix={0x48,0x89,0x4c,0x24,0x08,0x55,0x53,0x56,0x41,0x56,0x41,0x57,0x48,0x8d,0x6c,0x24,0xb0};
 inline constexpr std::array<unsigned char,16> LaunchPrefix={0x48,0x89,0x5c,0x24,0x18,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57};
@@ -47,6 +48,13 @@ struct Reader {
         A table=0,col=0,result=0;int row=0;if(!field(record,key,table,row,col))return false;
         A fn=method(table,0x128);return fn&&sustained::obtain(result,reinterpret_cast<A(__fastcall*)(A,A*,int,A)>(fn),table,&out,row,col);
     }
+    bool element(A array,int index,A& out)const{
+        // Native Array::operator[] (85fde50): the ordinal is the table column,
+        // not a named schema field. Caller bounds it with the native count.
+        A table=0,result=0;int row=0;
+        if(index<0||index>=512||!value(array+0x10,table)||!value(array+0x18,row)||row<0||row>1000000)return false;
+        A fn=method(table,0x128);return fn&&sustained::obtain(result,reinterpret_cast<A(__fastcall*)(A,A*,int,A)>(fn),table,&out,row,static_cast<A>(index));
+    }
 };
 struct Record {
     const Reader& r;A p=0;
@@ -59,6 +67,13 @@ inline bool team(const Reader& r,A p,Team& t){
     if(!r.integer(p,0xd1,t.id)||!r.integer(p,0x182,t.rank)||!r.integer(p,0x191,t.toughest)||!r.integer(p,0x180,t.prestige)||
        !r.integer(p,0x7a,hw)||!r.integer(p,0x77,hl)||!r.integer(p,0xec,rw)||!r.integer(p,0xe9,rl))return false;
     t.wins=hw+rw;t.losses=hl+rl;t.homeGames=hw+hl;return true;
+}
+inline bool school(const Reader& r,A p,Team& t){
+    Record tracking(r);
+    // Team::MySchoolTrackingTable, then actual MySchoolTrackingTable LetterGrade fields.
+    return r.related(p,0xa5,tracking.p)&&tracking.p&&
+        r.integer(tracking.p,34,t.atmosphere,false,true)&&r.integer(tracking.p,23,t.tradition,false,true)&&
+        r.integer(tracking.p,5,t.brand,false,true)&&r.integer(tracking.p,19,t.conference,false,true)&&grades(t);
 }
 inline bool capture(A image,A manager,A gameRef,int ea,Seed& s,const Api* custom=nullptr){
     Api api=custom?*custom:Api::engine(image);
@@ -83,6 +98,20 @@ inline bool capture(A image,A manager,A gameRef,int ea,Seed& s,const Api* custom
     if(!fn||!sustained::obtain(unused,reinterpret_cast<A(__fastcall*)(A,A*,unsigned)>(fn),teams.p,&array.p,0x41525259u)||!array.p||
        !api.count||!sustained::obtain(count,api.count,array.p)||count<100||count>512)return false;
     s.schools=static_cast<int>(count);
+    std::vector<Team> cohort;cohort.reserve(s.schools);
+    for(int i=0;i<static_cast<int>(count);++i){
+        Record entry(r);int id=-1,rank=0;
+        if(!r.element(array.p,i,entry.p)||!entry.p||!r.integer(entry.p,0xd1,id)||!r.integer(entry.p,0x182,rank))return false;
+        // League arrays also contain placeholders/FCS. Real FBS schools own a
+        // MySchool tracking record and a current rank; never normalize by 139 blindly.
+        if(id<0||id>=2047||rank<1||fcs(id))continue;
+        Team member;if(!team(r,entry.p,member)||!school(r,entry.p,member))return false;
+        cohort.push_back(member);
+    }
+    if(!assignStandings(cohort))return false;
+    s.schools=static_cast<int>(cohort.size());bool haveHome=false,haveAway=fcs(s.away.id);
+    for(const auto& member:cohort){if(member.id==s.home.id){s.home=member;haveHome=true;}if(member.id==s.away.id){s.away=member;haveAway=true;}}
+    if(!haveHome||!haveAway)return false;
     int championshipWeek=-1;
     if(!r.value(manager+0x228,season)||!season||!r.integer(season,0x2c,championshipWeek))return false;
     if(s.week==championshipWeek){
