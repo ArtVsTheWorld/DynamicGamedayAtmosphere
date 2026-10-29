@@ -73,9 +73,6 @@ int main(){
     // Real descriptor layout and typed setter contract; no writes to native records.
     for(A p:{image+OptionService,image+OptionType,image+OptionVtable,image+0xd9e3818,image+0xf6379e0})page(p);
     unsigned char options[0x200]{},config[0x100]{};put(image+OptionService,address(options));put(address(options),image+OptionVtable);put(image+OptionVtable+0x80,image+0x909b700);
-    page(image+OnlineState);page(image+OnlineLeaf);page(image+OnlineLoadingLeaf);
-    std::memcpy(reinterpret_cast<void*>(image+OnlineLeaf),OnlinePrefix.data(),OnlinePrefix.size());std::memcpy(reinterpret_cast<void*>(image+OnlineLoadingLeaf),OnlineLoadingPrefix.data(),OnlineLoadingPrefix.size());
-    put<int>(image+OnlineState,3);
     put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
     const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId"};
     unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900};
@@ -84,19 +81,19 @@ int main(){
     put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,8);
     put<unsigned short>(address(options)+0x30,1153);put<unsigned short>(address(options)+0x20,1193);put<unsigned short>(address(options)+0x46,553);put<int>(address(options)+0x14,45000);put<unsigned short>(address(options)+0x3c,1140);put<unsigned char>(address(options)+0x49,0);put<unsigned short>(address(options)+0x32,1023);put<unsigned char>(address(options)+0x22,127);
     Launch launchInput;assert(launch(image,launchInput,&api)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
-    // Reproduce the actual loading gap: the gameplay-only config is absent,
-    // while native frontend state explicitly excludes online/loading-online.
-    put(image+0xf6379e0,A(0));for(int state:{0,1,2,3}){put<int>(image+OnlineState,state);assert(launch(image,launchInput,&api));}
-    for(int state:{-1,4,5,6}){put<int>(image+OnlineState,state);assert(!launch(image,launchInput,&api));}
-    put<int>(image+OnlineState,3);put<unsigned char>(image+OnlineLeaf,0x90);assert(!launch(image,launchInput,&api));put<unsigned char>(image+OnlineLeaf,OnlinePrefix[0]);
-    put(image+0xf6379e0,A(0x10000));assert(!launch(image,launchInput,&api));put(image+0xf6379e0,address(config));
+    // The -1 sentinel is allowed only when the caller provides fresh matched
+    // launch proof. MMC handles online restrictions; gameplay config is unused.
+    put(image+0xf6379e0,A(0));assert(launch(image,launchInput,&api));
+    put<int>(image+0xd9e3818,-1);assert(!launch(image,launchInput,&api));assert(launch(image,launchInput,&api,nullptr,true));
+    for(int other:{-2,0,15,17,99}){put<int>(image+0xd9e3818,other);assert(!launch(image,launchInput,&api,nullptr,true)&&!setAttendance(image,51000,&api,true));}
+    put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
     const char* failure=nullptr;members[2].name=reinterpret_cast<A>("wrongStadiumName");assert(!launch(image,launchInput,&api,&failure)&&!std::strcmp(failure,"gameStadiumId"));members[2].name=reinterpret_cast<A>(names[2]);
     unsigned char before[sizeof(options)];std::memcpy(before,options,sizeof(options));assert(setAttendance(image,50000,&api)&&sets==1);put<int>(address(before)+0x14,50000);assert(!std::memcmp(before,options,sizeof(options)));
     assert(gt.ints[9]==0&&seed.ea==45000); // The simulation/save attendance record never receives the launch override.
     members[3].flags|=1;assert(!setAttendance(image,51000,&api)&&sets==1);members[3].flags&=~1u;
-    put<unsigned char>(address(config)+0x84,1);assert(!launch(image,launchInput,&api)&&!setAttendance(image,51000,&api)&&sets==1);put<unsigned char>(address(config)+0x84,0);
+    put<int>(image+0xd9e3818,-1);assert(!setAttendance(image,51000,&api)&&sets==1);assert(setAttendance(image,51000,&api,true)&&sets==2);put<int>(image+0xd9e3818,14);
     put<int>(image+0xd9e3818,17);assert(!launch(image,launchInput,&api)&&!setAttendance(image,51000,&api));put<int>(image+0xd9e3818,14);
     put<unsigned char>(address(options)+0x22,47);assert(!launch(image,launchInput,&api));
     for(void* block:memory)assert(VirtualFree(block,0,MEM_RELEASE));
-    std::puts("PASS: setup-time offline guard across absent/present config, online/loading/unknown/code mismatch rejection, exact option failure names; native record/schema/int/enum/boolean ABI, owned-reference cleanup, regular/postseason/conference/resume classification, validated launch descriptors and isolated typed option write.");
+    std::puts("PASS: Dynasty setup, scoped -1 transition, other-mode rejection and no gameplay-config dependency, exact option failure names; native record/schema/int/enum/boolean ABI, owned-reference cleanup, regular/postseason/conference/resume classification, validated launch descriptors and isolated typed option write.");
 }

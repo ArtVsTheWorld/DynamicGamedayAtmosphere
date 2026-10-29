@@ -138,28 +138,25 @@ inline bool option(const Reader& r,A service,unsigned key,const char* name,unsig
     }
     return false;
 }
-// Named frontend IsInOrLoadingInToOnlineGame (adapter vslot1e0) combines
-// these native leaves: app state5 OR state4. Unlike gameplay config+84, this
-// state exists during setup. Mirror the reads; do not execute another API.
-inline constexpr A OnlineState=0xf3f5d48,OnlineLeaf=0x3009c10,OnlineLoadingLeaf=0x3009a50;
-inline constexpr std::array<unsigned char,11> OnlinePrefix={0x83,0x3d,0x31,0xc1,0x3e,0x0c,5,0x0f,0x94,0xc0,0xc3};
-inline constexpr std::array<unsigned char,11> OnlineLoadingPrefix={0x83,0x3d,0xf1,0xc2,0x3e,0x0c,4,0x0f,0x94,0xc0,0xc3};
-inline bool offline(A image){
-    Reader r{image};int mode=-1,state=-1;A config=0;unsigned char online=1;
-    std::array<unsigned char,11> live{},loading{};
-    if(!r.value(image+0xd9e3818,mode)||mode!=14||!r.value(image+OnlineState,state)||state<0||state>5||state==4||state==5||
-       !r.read(image+OnlineLeaf,live.data(),live.size())||live!=OnlinePrefix||
-       !r.read(image+OnlineLoadingLeaf,loading.data(),loading.size())||loading!=OnlineLoadingPrefix||
-       !r.value(image+0xf6379e0,config))return false;
-    // Null is normal before the gameplay configuration is constructed. An
-    // existing object must still explicitly say offline; unreadable is unsafe.
-    return !config||(r.value(config+0x84,online)&&online==0);
+// MMC already excludes online play. This identifies the supported Dynasty
+// setup only; no gameplay-only configuration object is needed during loading.
+inline bool setupMode(A image,int& mode){Reader r{image};return r.value(image+0xd9e3818,mode);}
+inline bool dynastySetup(A image,bool transition=false){
+    int mode=-2;return setupMode(image,mode)&&(mode==14||(transition&&mode==-1));
 }
-inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** failure=nullptr){
+// Identity reads cannot authorize a write; they only select a captured seed.
+inline bool launchIdentity(A image,Launch& l){
+    Reader r{image};A service=0;unsigned home=0,away=0,stadium=0,ea=0;
+    if(!r.value(image+OptionService,service)||!option(r,service,0x9e8d2700,"gameHomeTeamId",2,home)||
+       !option(r,service,0x9e1d2700,"gameAwayTeamId",2,away)||!option(r,service,0xce7a6400,"gameStadiumId",2,stadium)||
+       !option(r,service,0x9e1d2500,"gameAttendance",4,ea))return false;
+    l.home=static_cast<int>(home);l.away=static_cast<int>(away);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);return true;
+}
+inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** failure=nullptr,bool transition=false){
     auto fail=[&](const char* reason){if(failure)*failure=reason;return false;};if(failure)*failure=nullptr;
     Api api=custom?*custom:Api::engine(image);
     Reader r{image};A service=0;unsigned h=0,a=0,stadium=0,ea=0,time=0,precip=0,rivalry=1023,bowl=127;
-    if(!offline(image))return fail("offline Dynasty/loading-state guard");
+    if(!dynastySetup(image,transition))return fail("Dynasty setup/transition guard");
     if(!r.value(image+OptionService,service)||!service)return fail("launch option service");
     struct Field {unsigned key;const char* name;unsigned width;unsigned* value;};
     const Field fields[]={{0x9e8d2700,"gameHomeTeamId",2,&h},{0x9e1d2700,"gameAwayTeamId",2,&a},
@@ -174,10 +171,10 @@ inline bool launch(A image,Launch& l,const Api* custom=nullptr,const char** fail
     if(stadium>=1023||!api.capacity||!sustained::obtain(unused,api.capacity,l.stadium,&capacity)||unused!=0)return fail("native stadium capacity query");
     l.capacity=capacity;return true;
 }
-inline bool setAttendance(A image,int count,const Api* custom=nullptr){
+inline bool setAttendance(A image,int count,const Api* custom=nullptr,bool transition=false){
     Api api=custom?*custom:Api::engine(image);
     Reader r{image};A service=0,vt=0,set=0;
-    if(count<1||count>200000||!offline(image)||!r.value(image+OptionService,service)||!r.value(service,vt)||vt!=image+OptionVtable||
+    if(count<1||count>200000||!dynastySetup(image,transition)||!r.value(image+OptionService,service)||!r.value(service,vt)||vt!=image+OptionVtable||
        !r.value(vt+0x80,set)||set!=image+0x909b700)return false;
     unsigned before=0;if(!option(r,service,0x9e1d2500,"gameAttendance",4,before))return false;
     struct Reference {A type,data;} ref{image+UnsignedType,reinterpret_cast<A>(&count)};

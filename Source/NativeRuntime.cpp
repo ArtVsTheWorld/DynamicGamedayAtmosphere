@@ -123,6 +123,7 @@ std::shared_ptr<const SessionCrowdPlan> sessionCrowdPlan=std::make_shared<Sessio
 void applySessionPlan(attendance::State& s,A match){auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==match&&s.team0==plan->state.team0&&s.team1==plan->state.team1){attendance::inheritCrowdPlan(plan->state,s);if(s.plannedStadium<0){s.plannedStadium=plan->state.plannedStadium;s.night=plan->state.night;}}}
 void publishSessionPlan(A match,const attendance::State& state){std::shared_ptr<const SessionCrowdPlan> next=std::make_shared<SessionCrowdPlan>(SessionCrowdPlan{match,state});std::atomic_store(&sessionCrowdPlan,next);}
 std::mutex initialMutex;attendance::turnout::Seeds initialSeeds;
+attendance::turnout::ModeWitness initialModeWitness;
 std::shared_ptr<const attendance::turnout::Applied> initialApplied=std::make_shared<attendance::turnout::Applied>();
 std::atomic<bool> initialBinding{false},initialSetting{true},initialCaptureFault{false};
 std::atomic<int> shownKickoffMinutes{-1};
@@ -616,14 +617,31 @@ void log(const char* event,const std::string& message) {
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
 template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
+attendance::turnout::ModeWitness initialModeProof(){
+    int observedMode=-2;bool readable=attendance::turnout::native::setupMode(image,observedMode);
+    std::lock_guard<std::mutex> guard(initialMutex);
+    if(!initialModeWitness.observe(observedMode,readable,GetTickCount64()))initialSeeds.clear();
+    return initialModeWitness;
+}
+bool initialTransitionProof(const attendance::turnout::Seed& seed,const attendance::turnout::Launch& launch){
+    auto proof=initialModeProof();return proof.armed&&attendance::turnout::transitionProof(seed,launch,GetTickCount64(),proof.generation);
+}
 int __fastcall initialFormula(A manager,A record){
     A caller=reinterpret_cast<A>(_ReturnAddress());
+    bool observe=caller==image+attendance::turnout::native::PlayableFormulaReturn&&enabled&&initialSetting&&std::atomic_load(&settings)->enabled;
+    if(observe)initialModeProof();
     int native=originalInitialFormula(manager,record);
     // Observation only: simulated/saved attendance always receives EA's result.
-    if(caller==image+attendance::turnout::native::PlayableFormulaReturn&&enabled&&initialSetting&&std::atomic_load(&settings)->enabled&&attendance::turnout::native::offline(image))try{
+    if(observe)try{
+        auto proof=initialModeProof();
+        if(!proof.armed||!attendance::turnout::native::dynastySetup(image,true)){
+            log("starting-attendance-inactive","Playable input observation has no recent verified Dynasty setup; EA turnout preserved.");return native;
+        }
         attendance::turnout::Seed seed;
         if(attendance::turnout::native::capture(image,manager,record,native,seed)){
-            std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.remember(seed,GetTickCount64());
+            seed.dynastyVerifiedAt=proof.verifiedAt;seed.dynastyGeneration=proof.generation;
+            {std::lock_guard<std::mutex> guard(initialMutex);if(!initialModeWitness.armed||initialModeWitness.generation!=proof.generation)return native;initialSeeds.remember(seed,GetTickCount64());}
+            log("starting-attendance","Fresh Dynasty launch inputs captured for "+std::to_string(seed.home.id)+" / "+std::to_string(seed.away.id)+"; native attendance "+std::to_string(native)+".");
         }else {
             {std::lock_guard<std::mutex> guard(initialMutex);initialSeeds.clear();}
             if(!initialCaptureFault.exchange(true))log("starting-attendance-inactive","Native matchup inputs unavailable; that launch keeps EA's attendance. No saved/simulated attendance changed.");
@@ -635,11 +653,15 @@ void initialLaunch(){
     using namespace attendance::turnout;
     Launch launch;
     if(!enabled||!initialSetting||!std::atomic_load(&settings)->enabled||mode!=0)return;
-    const char* failure=nullptr;
-    if(!native::launch(image,launch,nullptr,&failure)){log("starting-attendance-inactive",std::string("Shared launch check failed: ")+(failure?failure:"unknown")+"; EA turnout preserved.");return;}
-    Seed seed;{std::lock_guard<std::mutex> guard(initialMutex);if(!initialSeeds.find(launch,GetTickCount64(),seed)){
-        log("starting-attendance","EA attendance preserved: no fresh matching launch inputs (late attach, resume, or unsupported setup).");return;
+    initialModeProof();
+    Launch identity;if(!native::launchIdentity(image,identity)){log("starting-attendance-inactive","Launch identity descriptors unavailable; EA turnout preserved.");return;}
+    Seed seed;{std::lock_guard<std::mutex> guard(initialMutex);if(!initialSeeds.find(identity,GetTickCount64(),seed)||!seed.dynastyVerifiedAt){
+        log("starting-attendance","EA attendance preserved: no fresh matching verified Dynasty launch inputs (late attach, resume, or unsupported setup).");return;
     }}
+    const char* failure=nullptr;
+    bool transition=initialTransitionProof(seed,identity);
+    if(!native::launch(image,launch,nullptr,&failure,transition)){log("starting-attendance-inactive",std::string("Shared launch check failed: ")+(failure?failure:"unknown")+"; EA turnout preserved.");return;}
+    if(launch.home!=identity.home||launch.away!=identity.away||launch.stadium!=identity.stadium||launch.ea!=identity.ea){log("starting-attendance-inactive","Launch identity changed during input validation; EA turnout preserved.");return;}
     if(!seed.regular||seed.resumed){log("starting-attendance","EA attendance preserved: postseason, non-regular-season or resumed game.");return;}
     if(seed.homeStadium<0){log("starting-attendance","EA attendance preserved: native home-venue inputs unavailable.");return;}
     launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
@@ -650,8 +672,8 @@ void initialLaunch(){
     result.fillPercent=!launch.neutral&&lateArrivalSchool(seed.home.id)?arrivalLateFinish.load():big(seed.home.rank,seed.away.rank,launch.rivalry)?30:arrivalFinish.load();
     std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
     auto api=native::Api::engine(image);api.set=originalInitialOptionSet;
-    if(!native::setAttendance(image,result.attendance,&api)){
-        native::setAttendance(image,launch.ea,&api);
+    if(!native::setAttendance(image,result.attendance,&api,initialTransitionProof(seed,launch))){
+        native::setAttendance(image,launch.ea,&api,initialTransitionProof(seed,launch));
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
@@ -2891,6 +2913,7 @@ DWORD WINAPI worker(void*) {
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
     unsigned long long last=0,lastScan=0,lastPauseDisplays=0;int lastPauseValue=-2;bool replayFaultNoted=false;
     while(enabled){
+        initialModeProof();
         // UI/loading may suspend presentation callbacks while quitting a game.
         // Remember that exit even if the next game reuses the same match object.
         observeWorldExit();

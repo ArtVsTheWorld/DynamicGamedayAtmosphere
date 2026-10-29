@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <array>
+#include "StartingAttendanceTransition.h"
 
 namespace attendance::turnout {
 // Expected settled turnout, not the number already in their seats at kickoff.
@@ -18,7 +19,7 @@ struct Seed {
     Team home,away;
     int stadium=-1,homeStadium=-1,homeAlternate=-1,capacity=0,schools=0,week=-1,year=0,ea=0,roof=0;
     bool regular=false,resumed=false;
-    uint64_t serial=0,observed=0;
+    uint64_t serial=0,observed=0,dynastyVerifiedAt=0,dynastyGeneration=0;
 };
 struct Launch {
     int home=-1,away=-1,stadium=-1,capacity=0,ea=0,minutes=-1,precipitation=-1;
@@ -144,6 +145,10 @@ public:
         return false;
     }
 };
+inline bool transitionProof(const Seed& s,const Launch& l,uint64_t now,uint64_t generation){
+    return s.serial&&s.regular&&!s.resumed&&s.dynastyGeneration==generation&&generation&&s.dynastyVerifiedAt&&s.dynastyVerifiedAt<=s.observed&&now>=s.observed&&
+        now-s.dynastyVerifiedAt<=ModeWitness::Lifetime&&s.home.id==l.home&&s.away.id==l.away&&s.stadium==l.stadium&&s.ea==l.ea;
+}
 struct Applied {
     Seed seed;Launch launch;Result result;
     bool owns(int home,int away)const{return result.applied&&launch.home==home&&launch.away==away;}
