@@ -8,6 +8,12 @@ sustained::Intent tick(lineup::Model& m,const core::Settings& c,const energy::Pl
 }
 int main(){
     core::Settings c;c.opening=false;
+    // Quick snaps must carry the excited early-voice envelope, not the much
+    // lower raw roar attack. This also covers an unsampled zero-age attack.
+    for(uint64_t delay:{1ull,50ull,250ull,500ull,1000ull,2000ull}){
+        auto p=play();lineup::Model fast;tick(fast,c,p,1000);auto before=tick(fast,c,p,1000+delay);
+        p.game.phase=3;auto after=tick(fast,c,p,1001+delay);assert(fast.carrying&&std::abs(before.intensity-after.intensity)<.01f);
+    }
     for(unsigned seed=1;seed<=200;++seed)for(float fullness:{.599f,.60f,.7f,.9f,1.f}){
         auto p=play();p.game.variationSeed=seed;lineup::Model m;tick(m,c,p,1000,fullness);auto early=tick(m,c,p,1500,fullness);
         assert((early.lineup!=0)==(fullness>=.60f));if(fullness<.60f)continue;

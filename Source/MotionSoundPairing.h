@@ -63,6 +63,8 @@ inline sustained::Intent merge(sustained::Intent out,const motion::Cue& cue,uint
     }
     if(out.reason==sustained::Reason::Result&&!cue.impactOnly)return out; // Existing run/return pair already owns its fade.
     out.reason=sustained::Reason::Result;out.priority=(std::max)(out.priority,4);
+    out.earnedReaction=cue.kind!=motion::Kind::LivePlay||!cue.runBuildup||cue.confirmedRun;
+    out.reactionHoldUntil=longLive?0:cue.began+static_cast<uint64_t>(hold);out.reactionUntil=longLive?0:cue.until;
     out.reactionId=sequence?sequence:cue.began;out.continuous=!releasing;out.reaction=releasing;
     out.size=cue.softAccent?2:3;out.supporting=true;out.supportingOnly=cue.softAccent;out.motionCompanion=true;
     out.attackMs=cue.softAccent?450:cue.impactOnly?100:500;out.releaseMs=release;

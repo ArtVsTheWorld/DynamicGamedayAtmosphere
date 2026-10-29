@@ -1,6 +1,9 @@
 # Update 3 - candidate
 
-Working build **1.90.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.91.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+- **Venue motion and final-play carry (1.91):** added crowd shake scales once from 0.35x at 6,060 to 1.10x at 61,888 complete authored seating positions; fullness qualification stays unchanged and neutral crowds retain their additional 0.75x factor. Earned final-play sound/motion can finish into postgame on their original envelopes, with bounded ordinary/scoring tails, no repeated cheer, eruption priority and menu/ownership cleanup. Cannon/native HFA policies remain separate.
+- **Integration review (1.91):** removed old caller gates that blocked the already-approved earlier traffic policy, normalized recovery for custom quarter lengths, preserved the early audible lineup envelope at quick snaps, latched immediate final-menu entry, made partial native menu reads fail closed, and strengthened trampoline allocation/path-buffer handling. The [review](../reviews/Update3-1.91.md) records scope, evidence, remaining limitations and simulation assumptions. No additional attendance tuning is hidden in this pass.
 
 - **Sack flag carryover (1.90):** A changed result record no longer rearms a sack predicate already true at the next snap, including after a strip-sack changes possession. DGA also tracks the completed-play index selected by the native predicate; an old selected play cannot confirm a new sack. A new selected play preserves genuine back-to-back sacks, and a temporary false value for the same old selector cannot rearm it. The selector is read through guarded pointers/layout/getter bytes, without adding live-play native calls. Existing released-pass, kneel, special-team, ownership and measured-loss gates remain. The log identifies a carried flag without a verified reset. Regression coverage passes; the reported strip-sack-to-minus-two-run sequence still needs installed-build verification.
 

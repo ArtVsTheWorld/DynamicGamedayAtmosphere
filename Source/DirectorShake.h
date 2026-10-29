@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include "ReactionShape.h"
+#include "VenueMotion.h"
 
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
@@ -11,8 +12,7 @@ inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cann
 struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=15,cannon=15;};
 inline float hostileOpeningStrength(uint64_t positions,float maximum=15){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
-    float size=static_cast<float>((std::clamp)((static_cast<double>(positions)-6060)/55828.0,0.0,1.0));
-    return (std::clamp)(maximum,0.f,30.f)*(1.f/3+2.f/3*size);
+    return (std::clamp)(maximum,0.f,30.f)*venueScale(positions);
 }
 inline float limit(float x){return std::isfinite(x)?(std::clamp)(x,0.0f,100.0f):0;}
 inline float configured(const Settings& s,Kind k){switch(k){case Kind::Ordinary:return limit(s.ordinary);case Kind::Critical:return limit(s.critical);case Kind::Touchdown:case Kind::Safety:case Kind::BlockedKick:case Kind::Clincher:return limit(s.touchdown);case Kind::Eruption:return limit(s.eruption);case Kind::LivePlay:return limit(s.live);default:return 0;}}
@@ -76,6 +76,7 @@ struct Input {
     float reactionScale=1;unsigned impactMilliseconds=0;bool supplementalImpact=false;uint64_t clincher=0;float touchdownScale=1;bool softAccent=false;
     bool forcedImpact=false;
     bool neutral=false;
+    float venueScale=1;
 };
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0,seenClincher_=0;int phase_=0;
@@ -84,9 +85,10 @@ public:
     void reset(){*this=Model{};}
     Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_={};output_={};output_.updated=now;return output_;}
     Cue observe(const Settings& configuredSettings,const Input& x){
-        // A split crowd supplies three quarters of the crowd-driven movement for either
-        // team. Scale targets before envelope/transition math, exactly once.
-        Settings settings=configuredSettings;float crowdScale=x.neutral?.75f:1.f;
+        // Scale each crowd target once by the complete venue layout, and by
+        // three quarters for either side of a neutral crowd, before envelopes.
+        Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.1f):0;
+        float crowdScale=(x.neutral?.75f:1.f)*size;
         settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
         settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
         settings.live=limit(settings.live)*crowdScale;settings.catchImpact=limit(settings.catchImpact)*crowdScale;

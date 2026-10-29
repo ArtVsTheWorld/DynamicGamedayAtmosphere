@@ -80,7 +80,7 @@ inline double catchupTarget(const Settings& c,const State& s,const History& h,fl
         (std::clamp)(c.formulaStrength,0,200)*0.01;
 }
 inline double trafficTarget(const Settings& c,const State& raw,const History& h,float elapsed,float scoredAt){
-    if(!c.enabled||!c.formulaStrength||!c.lateTraffic||raw.neutral||raw.quarter!=4||raw.phase==7||raw.homeScore>=raw.awayScore||elapsed<3.75f*raw.quarterSeconds||elapsed>4*raw.quarterSeconds)return 0;
+    if(!c.enabled||!c.formulaStrength||!c.lateTraffic||raw.neutral||raw.quarter!=4||raw.phase==7||raw.homeScore>=raw.awayScore||elapsed<3*raw.quarterSeconds||elapsed>4*raw.quarterSeconds)return 0;
     State s=raw;s.seconds=4*s.quarterSeconds-elapsed;
     float contextScale=(std::clamp)(.5f+.5f*matchupFactor(c,s)*rankMultiplier(s),.85f,1.25f);
     float loss=(std::min)(static_cast<float>(lossCeiling(s)),traffic::lossTarget(s,scoredAt)*contextScale)*.01f;
@@ -166,7 +166,7 @@ struct Model {
         if(raw.quarter!=4||time<3*raw.quarterSeconds||time>4*raw.quarterSeconds)return cap;
         State s=raw;s.seconds=4*s.quarterSeconds-time;
         int wet=rainyWinQuarterPolicy?static_cast<int>(std::lround((std::min)(10,cap/4)*rainyHomeWinWeight(s,time))):0;
-        int traffic=time>=3.75f*raw.quarterSeconds?traffic::extraQuarterAllowance(s,lastHomeScoreAt,trafficQuarterPolicy):0;
+        int traffic=traffic::extraQuarterAllowance(s,lastHomeScoreAt,trafficQuarterPolicy);
         // Mutually exclusive home-win/home-loss allowances, never stacked.
         // Custom low quarter caps get a proportionately smaller exception;
         // ranked and postseason crowd floors retain their final authority.

@@ -13,6 +13,14 @@ int run(int deficit,int initial,int extra,int length=720,int cadence=30,bool wet
 }
 int main(){
     for(int length:{60,360,720,1200}){
+        // Exercise the production caller, not just the standalone policy.
+        // The old integration guard silently kept both new windows at 25%.
+        Settings policy;History story;State early{4,0,35,5,length*.40f,float(length)};early.offense=1;early.homeTimeouts=0;
+        assert(departures::trafficTarget(policy,early,story,elapsedGameTime(early),-1)>0);
+        departures::Model earlyCap;earlyCap.observe(policy,early,story);assert(earlyCap.quarterLimit(early,elapsedGameTime(early),45)>45);
+        early.awayScore=21;early.seconds=length*.30f;assert(departures::trafficTarget(policy,early,story,elapsedGameTime(early),-1)>0);
+        early.seconds=length*.34f;assert(!departures::trafficTarget(policy,early,story,elapsedGameTime(early),-1));
+        early.playoff=true;early.seconds=length*.30f;assert(!departures::trafficTarget(policy,early,story,elapsedGameTime(early),-1));
         State s{4,0,42,5,length*.5f,float(length)};s.homeTimeouts=0;s.offense=1;
         assert(!traffic::extraQuarterAllowance(s,-1,10)&&!traffic::blowoutUrgency(s));
         s.seconds=length*.225f;assert(traffic::extraQuarterAllowance(s,-1,10)==10&&traffic::blowoutUrgency(s)>0);

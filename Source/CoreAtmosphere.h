@@ -60,8 +60,11 @@ struct Model {
         return age<.25?shape::smooth(static_cast<float>(age/.25)):age<=eruptionSeconds-25?1.0f:1-shape::smooth(static_cast<float>((age-(eruptionSeconds-25))/25));
     }
     bool finishPostgame(){
-        if(!postgameSeen||postgameMenu)return false;
-        bool held=postgameHeld;postgameMenu=true;postgameHeld=erupting=false;parent=beds=intensity=0;return held;
+        if(postgameMenu)return false;
+        // The stats screen can be the first observed final snapshot. Latch
+        // it even before update() sees phase 7, so highlights/unpause cannot
+        // start a late winning eruption or revive the final-play carry.
+        bool held=postgameHeld;postgameSeen=postgameMenu=true;postgameHeld=erupting=false;parent=beds=intensity=0;return held;
     }
     uint64_t eruptionLease(uint64_t now)const{
         return !erupting?0:postgameHeld?now+750:static_cast<uint64_t>((eruptionAt+eruptionSeconds)*1000);
@@ -165,6 +168,9 @@ struct Model {
             // fading it to quiet before returning to the same atmosphere.
         }
         if(!erupting&&resultWeight>0){
+            out.earnedReaction=true;
+            out.reactionHoldUntil=static_cast<uint64_t>((resultCheerAt+resultProfile.hold)*1000);
+            out.reactionUntil=static_cast<uint64_t>((resultCheerAt+resultProfile.hold+resultProfile.release)*1000);
             out.scoringReaction=resultScoring;
             out.reactionId=resultSequence;
             out.reason=sustained::Reason::Result;out.priority=5;out.continuous=true;out.size=resultProfile.size;

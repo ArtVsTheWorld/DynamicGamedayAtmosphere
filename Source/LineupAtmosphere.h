@@ -120,13 +120,18 @@ struct Model {
     // The sound may settle before the snap. A verified result still belongs
     // to the play call that qualified, until another lineup or suspension.
     bool playContextActive()const{return qualifiedPlay;}
-    float excitement(uint64_t now,float fraction)const{
+    float audibleEnvelope(uint64_t now)const{
         if(strength<=0)return 0;
         float envelope=weight/strength;
         // The early cheer needs excited voices before the slower native roar
         // attack finishes. Hold the same requested intensity until that
         // envelope catches up, without changing either gain or native input.
         if(phase==1&&running&&now>=began&&now-began<profile.envelopeAttackMs)envelope=(std::max)(envelope,1.0f);
+        return envelope;
+    }
+    float excitement(uint64_t now,float fraction)const{
+        if(strength<=0)return 0;
+        float envelope=audibleEnvelope(now);
         float presence=std::sqrt((std::clamp)(fraction/.8f,0.0f,1.0f));
         return (500+500*strength)*envelope*presence;
     }
@@ -233,7 +238,7 @@ struct Model {
             // Carry an existing buildup through the live ball, then bridge the
             // whistle to the native result reaction. No extra gain or cheer is
             // introduced here, and a stuck live phase has a strict time limit.
-            if(s.phase==3&&phase==1&&running&&weight>0&&now>=began&&now-began<profile.totalMs()){carrying=true;liveAt=now;postAt=0;carryWeight=weight;carryCompetition=competition;}
+            if(s.phase==3&&phase==1&&running&&audibleEnvelope(now)>0&&now>=began&&now-began<profile.totalMs()){carrying=true;liveAt=now;postAt=0;carryWeight=strength*audibleEnvelope(now);carryCompetition=competition;}
             bool hold=false;
             if(carrying){
                 if(s.phase!=3&&!postAt)postAt=now;

@@ -21,7 +21,11 @@ inline float recovery(const State& s,float recent=0){
     float opponentPossession=s.offense==1?40.f-10.f*timeouts:0;
     float field=s.offense==0&&s.toGoal>=0&&s.toGoal<=20?25.f:0;
     float needed=scores*65.f+opponentPossession-12.f*timeouts-field;
-    float chance=context::smooth((s.seconds-needed+45.f)/90.f);
+    // Score/possession costs use the 12-minute reference, like the traffic
+    // window itself. Short or long quarters must not change the outlook for
+    // an otherwise identical fraction of a game remaining.
+    float referenceSeconds=s.seconds*720.f/s.quarterSeconds;
+    float chance=context::smooth((referenceSeconds-needed+45.f)/90.f);
     float lift=.25f*(std::clamp)(recent,0.f,1.f)*(1-chance)*context::smooth(chance*2);
     return (std::clamp)(chance+lift,0.f,1.f);
 }

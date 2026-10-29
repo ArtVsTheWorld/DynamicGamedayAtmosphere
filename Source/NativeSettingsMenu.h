@@ -10,7 +10,7 @@ namespace attendance::settingsmenu::native {
 using A=uintptr_t;
 inline constexpr A ListSite=0x7f30460,ProviderGlobal=0xfb3eb58,ProviderVtable=0xbcf5558,FileManagerGlobal=0xfa5a218;
 inline constexpr std::array<unsigned char,16> ListPrefix={0x40,0x56,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x30,0x49,0x8b,0,0x48,0x8b,0xf1};
-template<class T>inline T peek(A p){T v{};__try{std::memcpy(&v,reinterpret_cast<const void*>(p),sizeof(v));}__except(EXCEPTION_EXECUTE_HANDLER){}return v;}
+template<class T>inline T peek(A p){T v{};__try{std::memcpy(&v,reinterpret_cast<const void*>(p),sizeof(v));}__except(EXCEPTION_EXECUTE_HANDLER){return T{};}return v;}
 inline bool copy(A p,void* out,size_t size){__try{std::memcpy(out,reinterpret_cast<const void*>(p),size);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
 template<class R,class... Args>inline bool obtain(R& out,A fn,Args... args){__try{out=reinterpret_cast<R(__fastcall*)(Args...)>(fn)(args...);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
 template<class... Args>inline bool invoke(A fn,Args... args){__try{reinterpret_cast<void(__fastcall*)(Args...)>(fn)(args...);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}

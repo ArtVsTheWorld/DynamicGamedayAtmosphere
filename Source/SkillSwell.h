@@ -20,6 +20,8 @@ public:
            (out.reason==sustained::Reason::Result&&out.priority>=4&&!out.motionCompanion))return out;
         out.reason=sustained::Reason::Result;out.priority=(std::max)(out.priority,4);out.reactionId=id_;
         out.skillAccent=id_;
+        out.earnedReaction=true;
+        out.reactionHoldUntil=began_+450;out.reactionUntil=began_+2000;
         out.supporting=out.supportingOnly=out.motionCompanion=true;out.size=2;out.attackMs=500;out.releaseMs=1550;
         out.continuous=now-began_<450;out.reaction=!out.continuous;
         out.intensity=(std::max)(out.intensity,650.f*std::sqrt(fullness)*shape::skillBuildup(static_cast<float>(now-began_),2000));

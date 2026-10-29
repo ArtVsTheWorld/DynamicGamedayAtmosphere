@@ -1,12 +1,14 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.90.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.91.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
 The crowd fills in, reacts to the matchup and thins as the game gets out of reach. Play calls bring a buildup of crowd noise and pre-snap camera shake. Stadium fullness controls volume. Big games, packed ordinary stadiums, close critical downs, scoring threats, overtime and late scoring drives can get layered buildup. Winning moments receive longer celebrations. More plays also get the game's own replay presentation.
 
 ## Dynamic Gameday Attendance
+
+Candidate 1.91 scales added crowd-camera targets by the complete authored seating layout: 0.35x at 6,060 positions, rising linearly to 1.10x at 61,888, clamped at either end. Fullness still decides eligibility; venue size decides the strength multiplier once admitted. Neutral crowds retain their further 0.75x factor for either team. Native cannon impacts and EA HFA motion keep their separate policies. Fresh earned final-play reactions can finish into postgame without restarting their cheer or camera phase: ordinary tails are bounded by the configured fade, scoring tails by 11 seconds after final, with earlier original expiries preserved. Eruptions retain priority and their existing longer carry. Menu entry, ownership changes and interruptions clean up the carry. See the [review](docs/reviews/Update3-1.91.md) for fixes, simulation coverage and remaining live checks.
 
 ### What the crowd percentages mean
 
