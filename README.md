@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains Update 3 candidate work (1.97.0). The current seating change builds on the old pattern with viewing-location preferences and short group gaps, preserving the near-full pattern and attendance timing. Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
+This branch contains Update 3 candidate work (1.98.0). The current candidate adds regular-season night atmosphere admission and night/scoring-pace departure pressure, retaining the accepted seat-desirability pattern. Update 2 is still the latest public release. The settings path below describes the working build; Update 2 keeps its INI directly in Plugins.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 

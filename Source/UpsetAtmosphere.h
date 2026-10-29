@@ -29,7 +29,7 @@ inline Route evaluate(const State& raw,uint64_t positions,float fullness,bool kn
         deficit<=0?1.05f+.20f*finish:deficit<=8?.90f+.20f*finish:.35f;
     out.stage=s.quarter==4&&s.seconds<=s.quarterSeconds*.25f&&std::abs(deficit)<=8?3:
         deficit<=0||(s.quarter>=3&&deficit<=8)?2:1;
-    out.minimum=(std::max)(.50f,packed::standardMinimum(positions)-.35f*out.discrepancy*factor);
+    out.minimum=nightRequirement(s,(std::max)(.50f,packed::standardMinimum(positions)-.35f*out.discrepancy*factor));
     out.importance=.20f+.40f*out.discrepancy*factor/1.25f;
     out.qualified=known&&std::isfinite(fullness)&&fullness>=out.minimum&&fullness<=1;
     out.climax=out.stage==3&&out.discrepancy>=.45f;

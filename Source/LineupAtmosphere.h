@@ -18,7 +18,7 @@ inline float bigMinimum(const core::Settings& c,uint64_t positions){
     return (std::max)(packed::standardMinimum(positions),extra);
 }
 inline float bigRequirement(const core::Settings& c,const State& s,uint64_t positions){
-    float normal=bigMinimum(c,positions);
+    float normal=nightRequirement(s,bigMinimum(c,positions));
     if(positions<512||positions>12800000||!c.opening||!bigGame(s)||!valid(s))return normal;
     // Arrivals must not silence the opening of an actual marquee matchup.
     // Keep the absolute 50% visual-density safeguard; ease back into the
@@ -26,9 +26,9 @@ inline float bigRequirement(const core::Settings& c,const State& s,uint64_t posi
     float openingWeight=s.phase==6?1.f:s.quarter==1?1-(std::clamp)((1-s.seconds/s.quarterSeconds-.10f)/.65f,0.f,1.f):0.f;
     return normal+(core::ReactionMinimumFullness-normal)*openingWeight;
 }
-inline float openingMinimum(const State& s,uint64_t positions){return expectedPeak(s)>=.90f?(std::min)(.55f,packed::standardMinimum(positions)):packed::standardMinimum(positions);}
+inline float openingMinimum(const State& s,uint64_t positions){return nightRequirement(s,expectedPeak(s)>=.90f?(std::min)(.55f,packed::standardMinimum(positions)):packed::standardMinimum(positions));}
 inline bool cameraVenue(const core::Settings& c,const State& s,float fraction,bool fullnessKnown,uint64_t positions=0){
-    return fullnessKnown&&positions>=512&&std::isfinite(fraction)&&((bigGame(s)&&fraction>=bigRequirement(c,s,positions))||(c.packedHouse&&packed::qualifies(positions,fraction,fullnessKnown)));
+    return fullnessKnown&&positions>=512&&std::isfinite(fraction)&&((bigGame(s)&&fraction>=bigRequirement(c,s,positions))||(c.packedHouse&&fraction>=nightRequirement(s,packed::minimum(positions))));
 }
 inline bool offensivePlay(int selectedType){return selectedType>0&&!((selectedType>=21&&selectedType<=25)||selectedType==105||selectedType==106||selectedType==154||selectedType==155||energy::clockManagementType(selectedType));}
 inline bool criticalCamera(const energy::Play& p,int selectedType){
@@ -85,9 +85,9 @@ inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Pla
     if(!known||!std::isfinite(fraction)||fraction<0||fraction>1||!c.enabled||!c.lineups||!c.cameraShake||core::normalLimit(c)<=0||!valid(p.game)||p.simulated||
        (p.game.phase!=1&&p.game.phase!=5)||competitive(p.game)<=0||selectedType<=0||!shakePlay(p,selectedType,openingKickoff))return out;
     bool venue=cameraVenue(c,p.game,fraction,known,positions);
-    bool special=fraction>=packed::specialMinimum(positions)&&((c.overtime&&competitiveOvertime(p.game))||lateDrive(p)>0);
+    bool special=fraction>=nightRequirement(p.game,packed::specialMinimum(positions))&&((c.overtime&&competitiveOvertime(p.game))||lateDrive(p)>0);
     bool important=energy::normalDown(p)&&p.down>=3&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&offensivePlay(selectedType)&&criticalCamera(p,selectedType);
-    out.critical=important&&(fraction>=packed::standardMinimum(positions)||special);
+    out.critical=important&&(fraction>=nightRequirement(p.game,packed::standardMinimum(positions))||special);
     out.allowed=venue||special||out.critical||(c.opening&&openingDrive&&fraction>=openingMinimum(p.game,positions));
     // Scale only pre-snap motion. Sound and earned live/result reactions
     // retain their own strengths; the motion model carries this into its tail.
@@ -174,11 +174,11 @@ struct Model {
             if(keep){qualifiedPlay=true;qualifiedMinimum=minimum;}
             phase=s.phase;return false;
         }
-        float standard=attendance::packed::standardMinimum(positions),specialMinimum=attendance::packed::specialMinimum(positions);
+        float standard=nightRequirement(s,attendance::packed::standardMinimum(positions)),specialMinimum=nightRequirement(s,attendance::packed::specialMinimum(positions));
         openingDriveQualified=supported&&c.opening&&firstDrive&&fraction>=openingMinimum(s,positions)&&competitive(s)>0;
         bool ot=supported&&c.overtime&&overtime(s)&&fraction>=specialMinimum;
         float late=supported&&fraction>=specialMinimum?lateDrive(p):0;
-        bool big=bigGame(s),packed=c.packedHouse&&attendance::packed::qualifies(positions,fraction,fullnessKnown);
+        bool big=bigGame(s),packed=c.packedHouse&&fullnessKnown&&fraction>=nightRequirement(s,attendance::packed::minimum(positions));
         bool critical=supported&&fraction>=standard&&energy::normalDown(p)&&p.down>=3&&std::abs(s.homeScore-s.awayScore)<=8;
         float goal=supported&&fraction>=standard?goalLine(p):0;
         float bigThreshold=bigRequirement(c,s,positions);
@@ -192,11 +192,11 @@ struct Model {
         bool special=ot||late>0||upsetFinish,regular=standardRoute||upset;
         bool neutralOpener=s.neutral&&openingObserved&&!p.resumed&&!p.simulated&&s.quarter==1&&p.offense>=0&&p.offense<=1&&!(neutralOpeningSeen&(1u<<p.offense));
         hostileOpening=regular&&!lightOpening&&c.opening&&(neutralOpener||(!s.neutral&&openingDrive.awayOpeningPlay()&&p.offense==1))&&energy::normalDown(p)&&!p.specialTeams&&(s.phase==1||s.phase==5);
-        packedHouse=standardRoute&&!big&&!ot&&late<=0&&packed;
+        packedHouse=standardRoute&&!big&&!ot&&late<=0&&packed&&attendance::packed::qualifies(positions,fraction,fullnessKnown);
         bool enterLineup=s.phase==1&&(newLineup||!lineupAdmitted);
         if(enterLineup){
             qualifiedPlay=regular||special;qualifiedMinimum=1.01f;
-            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,attendance::packed::minimum(positions));if(critical||goal>0)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);if(openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,openingMinimum(s,positions));}
+            if(regular){if(bigQualified)qualifiedMinimum=bigThreshold;if(packed)qualifiedMinimum=(std::min)(qualifiedMinimum,nightRequirement(s,attendance::packed::minimum(positions)));if(critical||goal>0)qualifiedMinimum=(std::min)(qualifiedMinimum,standard);if(openingDriveQualified)qualifiedMinimum=(std::min)(qualifiedMinimum,openingMinimum(s,positions));}
             if(ot||late>0)qualifiedMinimum=(std::min)(qualifiedMinimum,specialMinimum);
             if(upset)qualifiedMinimum=(std::min)(qualifiedMinimum,upsetSound.minimum);
         }

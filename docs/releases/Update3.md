@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **1.97.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **1.98.0**. Not published; targeted live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+Candidate 1.98 adds regular-season night atmosphere admission and second-half night/scoring-pace departure pressure. Daytime gate rules, native packed-house classification, occupied-seat strengths, postseason policies and native camera exceptions retain their existing owners. Testing guidance is consolidated in the current checklist. See [1.98 scope and checks](../reviews/Update3-1.98.md).
 
 Candidate 1.97 restores the pre-1.96 spatial base and adds bounded seat-desirability preferences plus short group gaps. Midfield sidelines and useful viewing elevation retain fans longer; end zones generally clear earlier. The old upper-row retention curve and exact 90%-and-above selection remain. The user accepted the live same-layout/seed preview before staging. The 1.96 broad lower-bowl penalty is removed. Totals, timing, shared phase order, crowd colors and runtime restoration paths are unchanged. See [1.97 evidence and scope](../reviews/Update3-1.97.md).
 

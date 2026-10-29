@@ -2865,9 +2865,15 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("High-leverage boost limit")<<"+"<<audio->highLeveragePercent<<"% total (never below ordinary level)\n";
     report.field("Eruption boost limit")<<"+"<<audio->eruptionPercent<<"% total (never below ordinary level)\n";
     report.field("Chant boost limit")<<"+"<<audio->chantMaximumPercent<<"%\n";
-    report.field("Big-game required fullness");if(mapped){attendance::State openingState{shownQuarter.load(),shownScore0.load(),shownScore1.load(),shownPhase.load(),shownSeconds.load(),900};openingState.rank0=shownRank0;openingState.rank1=shownRank1;openingState.playoff=shownPlayoff;openingState.conferenceChampionship=shownConference;float quarter=at<float>(at<A>(at<A>(image+attendance::bindings::ClockManager)+0x28)+0x2c);if(quarter>0)openingState.quarterSeconds=quarter;state<<100*attendance::lineup::bigRequirement(*audio,openingState,density->seats)<<"% (normal size gate "<<100*attendance::lineup::bigMinimum(*audio,density->seats)<<"%)\n";}else state<<"waiting for verified layout\n";
-    report.field("Critical / goal-line requirement");if(mapped)state<<100*attendance::packed::standardMinimum(density->seats)<<"%\n";else state<<"waiting for verified layout\n";
-    report.field("OT / late-drive requirement");if(mapped)state<<100*attendance::packed::specialMinimum(density->seats)<<"%\n";else state<<"waiting for verified layout\n";
+    attendance::State gate{shownQuarter.load(),shownScore0.load(),shownScore1.load(),shownPhase.load(),shownSeconds.load(),900};
+    gate.rank0=shownRank0;gate.rank1=shownRank1;gate.rivalry=shownRivalry;gate.playoff=shownPlayoff;gate.conferenceChampionship=shownConference;gate.bowl=shownBowl;gate.night=localKickoff>=1140;
+    float gateQuarter=at<float>(at<A>(at<A>(image+attendance::bindings::ClockManager)+0x28)+0x2c);if(gateQuarter>0)gate.quarterSeconds=gateQuarter;
+    applySessionPlan(gate,liveAudio.match);
+    report.field("Night atmosphere adjustment")<<(gate.night&&attendance::regularSeason(gate)?"10% lower admission thresholds; absolute 50% floor; packed classification unchanged":"inactive")<<"\n";
+    report.field("Departure engagement pressure")<<attendance::context::departureEngagement(gate,attendance::elapsedGameTime(gate))<<"x (second-half night/scoring pace; existing floors/protection)\n";
+    report.field("Big-game required fullness");if(mapped)state<<100*attendance::lineup::bigRequirement(*audio,gate,density->seats)<<"% (day size gate "<<100*attendance::lineup::bigMinimum(*audio,density->seats)<<"%)\n";else state<<"waiting for verified layout\n";
+    report.field("Critical / goal-line requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::standardMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
+    report.field("OT / late-drive requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::specialMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
     report.field("Native quieting begins below")<<audioReductionStart<<"% seating fullness\n";
     report.field("Native quieting strength")<<nativeQuietPercent<<"%\n";
     report.field("Maximum crowd volume reduction")<<crowdReductionPercent<<"% (below the same fullness threshold)\n";

@@ -27,6 +27,21 @@ inline float comparableHomeWin(const State& raw){
     if(s.neutral||s.homeScore<=s.awayScore||s.rank0<1||s.rank1<1)return 0;
     return (1-smooth(relativeGap(s)))*(1-inferiorOpponent(s));
 }
+// Pressure/approach speed, not another attendance deduction or new floor.
+// Observe scoring pace only after halftime, normalized for custom quarters.
+// A tense low-scoring game receives only a quarter of the ordinary modifier.
+inline float departureEngagement(const State& s,float elapsed){
+    if(!valid(s)||!regularSeason(s)||s.quarter>4||s.phase==7||!std::isfinite(elapsed))return 1;
+    float progress=(std::clamp)(elapsed/(4*s.quarterSeconds),0.f,1.f);
+    if(progress<=.50f)return 1;
+    float ramp=smooth((progress-.50f)/.25f);
+    float relevance=.25f+.75f*smooth((std::abs(s.homeScore-s.awayScore)-8)/13.f);
+    float pace=(s.homeScore+s.awayScore)/progress;
+    float low=smooth((48-pace)/24.f),high=smooth((pace-48)/24.f);
+    float scoring=1+ramp*relevance*(.15f*low-.10f*high);
+    float night=1+(s.night?.20f:0.f)*ramp*relevance;
+    return scoring*night;
+}
 struct HalftimeTarget {float permanent=0,temporary=0;};
 struct HalftimeTiming {float departure=.25f,mainReturn=.25f,lastReturn=.25f,lateDelay=0;};
 inline HalftimeTiming halftimeTiming(const State& s){

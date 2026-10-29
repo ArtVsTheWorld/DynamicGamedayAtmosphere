@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 1.97.0 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 1.98.0 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -103,6 +103,8 @@ A regular atmosphere big game is two Top25 teams, or a rivalry with **either tea
 
 Normal/Fast Super Sim follow simulated score and clock while their play-by-play screen is open. Slow Sim keeps hidden-window timing while the field is visible. Earlier replays use their recorded crowd; exiting restores the live crowd. The mod-owned history now preserves peak/capacity, kickoff fraction, Q1 deadline, local night flag and fixture identity. Matched Q1 saves continue their original arrival plan; later saves do not restart arrivals. Older history files remain readable and use existing estimation when the new metadata is absent. This does not rewrite native saved or simulated attendance.
 
+Regular-season night games ease layered-atmosphere admission thresholds by 10% relative to daytime (80% becomes 72%), never below 50% measured fullness. Opening, ordinary packed-atmosphere, critical/goal-line, late-drive/OT and Upset Watch admission use the same adjustment. This does not relabel the actual stadium as packed or change shake strength, audio caps, native HFA filtering or cannon behavior. Bowl/CFP/championship requirements are unchanged.
+
 ### How fans decide to leave
 
 Departures use a formula that follows the score, time remaining, rankings, matchup, weather and home team's fortunes. It also remembers how the game unfolded. A lead that suddenly grows late in the game produces different attendance from a blowout that has lasted all afternoon.
@@ -145,6 +147,8 @@ An underdog staying competitive with a Top 25 opponent can slow departures. The 
 Recovering at least 14 points after falling 21 behind can pause departures while the comeback remains alive. The protection can end if the rally deteriorates or the team builds a comfortable lead. A multi-score deficit with too little time for a realistic recovery can also end protection, even with home possession. Remaining timeouts, possession and field position help decide this when the game provides them. Special home retention benefits fade against vastly inferior opponents.
 
 These protections keep additional fans from leaving; they do not bring departed fans back.
+
+After halftime, regular-season departure pressure also reflects night kickoff and scoring pace. The modifier rises smoothly through Q3 and reaches full strength at Q4. Night adds up to 20% pressure. A projected full-game total of 24 points or fewer adds up to 15%; 72 or more reduces pressure by up to 10%, with a smooth transition around 48. Quarter length is normalized, and no early scoreless-drive penalty is applied. One-score games receive only a quarter of these changes. Existing upset/comeback protection, floors, quarter caps and safe seat-update windows still apply. Neutral regular-season comparisons are symmetric; postseason is unchanged. These scale pressure and target-approach speed, not a percentage of remaining spectators, and do not add another per-score departure group.
 
 ### Minimum crowd targets
 

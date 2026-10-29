@@ -113,7 +113,7 @@ inline float rate(const Settings& c,const State& s,const History& h,float elapse
     float neutral=s.neutral?0.75f:1; // Winning supporters still have a reason to stay.
     float routine=.06f+.02f*context::smooth((std::abs(s.homeScore-s.awayScore)-8)/8.f);
     return (routine+2.4f*p*p*homePatience(s,elapsed)*rankMultiplier(s)*late)*matchupFactor(c,s)*keep*strength*
-        context::lateOpportunity(s)*neutral*(1+0.05f*context::variation(s));
+        context::lateOpportunity(s)*neutral*(1+0.05f*context::variation(s))*context::departureEngagement(s,elapsed);
 }
 struct Result {int loss=0;bool changed=false,catchup=false,traffic=false;};
 // Accrue game-time pressure independently of rendering. settle() is called ONLY
@@ -234,7 +234,8 @@ struct Model {
                 // Endpoint agreement
                 // prevents charging a new blowout to earlier competitive time.
                 State urgency=s;urgency.seconds=4*length-mid;
-                double speed=faster?48+24*traffic::blowoutUrgency(urgency,lastHomeScoreAt):8;
+                double engagement=(std::min)(context::departureEngagement(previous,mid),context::departureEngagement(s,mid));
+                double speed=(faster?48+24*traffic::blowoutUrgency(urgency,lastHomeScoreAt):8)*engagement;
                 double extra=(std::max)(0.0,target-hazard)*-std::expm1(-(b-a)/(length/speed));
                 hazard+=extra+ordinary*0.5;catchupQueued=catchupQueued||extra>0.000000001;trafficQueued=trafficQueued||(faster&&extra>0.000000001);
                 if(mid>=length&&mid<=2*length&&minimumStart>=0){

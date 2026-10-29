@@ -38,6 +38,13 @@ inline void inheritCrowdPlan(const State& from,State& to){
 }
 inline float expectedPeak(const State& s){return crowdPlan(s)?static_cast<float>(s.plannedPeak)/s.plannedCapacity:-1.f;}
 inline bool marqueeMatchup(const State& s){return s.playoff||s.conferenceChampionship||(s.rank0>=1&&s.rank0<=25&&s.rank1>=1&&s.rank1<=25)||(s.rivalry&&((s.rank0>=1&&s.rank0<=25)||(s.rank1>=1&&s.rank1<=25)||(s.rank0>=1&&s.rank0<=50&&s.rank1>=1&&s.rank1<=50)));}
+// Atmosphere admission can ease at night; actual packed-house classification,
+// occupied-seat strength and the absolute visual-density safeguard do not.
+inline bool regularSeason(const State& s){return !s.playoff&&!s.conferenceChampionship&&s.bowl==127;}
+inline float nightRequirement(const State& s,float normal){
+    return s.night&&regularSeason(s)&&std::isfinite(normal)&&normal>=.50f&&normal<=1?
+        (std::max)(.50f,normal*.90f):normal;
+}
 inline void postseason(State& s,bool cfp,bool conference){s.conferenceChampionship=conference;s.playoff=cfp||conference;}
 inline bool championship(const State& s){return s.playoff&&!s.conferenceChampionship&&s.bowl==47;}
 inline bool badWeather(const State& s){return s.precipitation==1||s.precipitation==2;}
