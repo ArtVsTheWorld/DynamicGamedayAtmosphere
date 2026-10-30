@@ -1,6 +1,6 @@
 # Releases
 
-Staged Update 3 test candidate: **2.0.4**. Skips redundant replay/live crowd updates and adds timing coverage for the reported post-play hitch. Includes the prior attendance, audio and shake changes. Live hitch clearance remains pending. See [investigation and test](docs/reviews/Update3-2.0.4.md).
+Staged Update 3 test candidate: **2.0.5**. Reduces repeated play sampling and expression-read overhead in Additional Replays after the user's OFF/ON test isolated that feature as the whistle-hitch trigger. Includes the prior crowd, attendance, audio and shake changes. Live hitch clearance remains pending. See [investigation and test](docs/reviews/Update3-2.0.5.md).
 
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 

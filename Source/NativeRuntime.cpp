@@ -595,6 +595,10 @@ bool commitPatches(){
 
 attendance::LogQueue queuedLogs;
 attendance::timing::Counts atmosphereTimings,decisionTimings,crowdApplyTimings,replayCrowdTimings,nativeCrowdTimings,naturalCrowdTimings;
+attendance::timing::Counts replaySelectorTimings,replaySelectorIntervals,replayOriginalTimings,majorReplayTimings;
+attendance::timing::Counts replayEventNativeTimings,replayNodeNativeTimings;
+std::atomic<uint64_t> replaySelectorWorkNs{0},replayMajorSelectorSamples{0};
+void flushReplaySelectorTiming(){auto ns=replaySelectorWorkNs.exchange(0);if(ns)replaySelectorIntervals.record(ns/1000);}
 std::atomic<uint64_t> forcedCrowdPasses{0},unchangedReplaySkips{0};
 std::atomic<int> appliedVisibilityTarget{-1},appliedVisibilityMode{-1};
 void drainLogs(){
@@ -759,22 +763,33 @@ void observeWorldExit(){
     // freshly joined game as belonging to the world that was just left.
     if(at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)matchLifecycle.leave();
 }
+// These small expression objects belong to the synchronous native evaluator
+// calling our hook, in THIS process. A bounded SEH-protected copy avoids a
+// ReadProcessMemory system call for every field/shape test. Failed reads still
+// reject the selector; object identities are never cached between evaluations.
+bool readReplayObject(A p,void* out,size_t n){
+    if(p<0x10000||!out||!n||n>256||p>UINTPTR_MAX-n)return false;
+    __try{std::memcpy(out,reinterpret_cast<const void*>(p),n);return true;}
+    __except(EXCEPTION_EXECUTE_HANDLER){return false;}
+}
+template<class T>T replayValue(A p){T value{};readReplayObject(p,&value,sizeof(value));return value;}
 attendance::replaypresentation::View replayPresentationView(){
     using namespace attendance::bindings;
-    return {read,{image+MuseLogicVtable,image+MuseComparisonVtable,image+MuseConstantVtable,image+MuseFunctionVtable,image+MuseActorFunctionVtable}};
+    return {readReplayObject,{image+MuseLogicVtable,image+MuseComparisonVtable,image+MuseConstantVtable,image+MuseFunctionVtable,image+MuseActorFunctionVtable}};
 }
 bool replayPresentationAllowed(){
     if(attendance::energy::clockManagementType(replaySnapType.load()))return false;
     if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed||!pauseBinding||!replayBinding)return false;
-    if(at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)return false;
-    A states=at<A>(image+attendance::bindings::GameStates);
-    if(at<A>(states)!=image+attendance::bindings::GameStatesVtable||at<int>(states+0xa0)!=4)return false;
-    A configuration=at<A>(image+0xf6379e0),wrapper=at<A>(image+attendance::bindings::MatchWrapper);
-    A match=at<A>(wrapper+16),manager=at<A>(image+attendance::bindings::ReplayManager);
-    unsigned char online=1,active=1;
-    return configuration&&read(configuration+0x84,&online,1)&&online==0&&
-        at<A>(match)==image+attendance::bindings::MatchVtable&&at<A>(manager)==image+attendance::bindings::ReplayVtable&&
-        read(manager+0x38,&active,1)&&active==0&&nativeUnpaused();
+    if(replayValue<int>(image+0xd9e3818)!=14||replayValue<int>(image+0xf3f5d48)!=3)return false;
+    A states=replayValue<A>(image+attendance::bindings::GameStates);
+    if(replayValue<A>(states)!=image+attendance::bindings::GameStatesVtable||replayValue<int>(states+0xa0)!=4)return false;
+    A configuration=replayValue<A>(image+0xf6379e0),wrapper=replayValue<A>(image+attendance::bindings::MatchWrapper);
+    A match=replayValue<A>(wrapper+16),manager=replayValue<A>(image+attendance::bindings::ReplayManager);
+    A pause=replayValue<A>(image+attendance::bindings::PauseFlag);
+    unsigned char online=1,active=1,paused=1;
+    return configuration&&readReplayObject(configuration+0x84,&online,1)&&online==0&&
+        replayValue<A>(match)==image+attendance::bindings::MatchVtable&&replayValue<A>(manager)==image+attendance::bindings::ReplayVtable&&
+        readReplayObject(manager+0x38,&active,1)&&active==0&&readReplayObject(pause,&paused,1)&&paused==0;
 }
 bool writeReplayBoolean(A address,bool value=true){
     // Only an existing native eligibility result is written. A failed write
@@ -812,22 +827,29 @@ void flushReplaySelection(){
     }
 }
 bool __fastcall museLogicEvaluate(A node,A context){
+    if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed)return originalMuseLogic(node,context);
+    attendance::timing::ExclusiveScope<> measured(replaySelectorTimings,&replaySelectorWorkNs);
     auto view=replayPresentationView();
-    if(replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed)guardedMajorReplay(false);
-    int selectorPhase=at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0);
-    auto traceRoute=replaySelection.depth==0&&majorReplayBindings&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3?view.major(node):attendance::replaypresentation::MajorRoute::None;
-    bool majorRoot=replaySelection.depth==0&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays;
+    const bool root=replaySelection.depth==0;
+    const bool allowed=root&&replayPresentationAllowed();
+    auto majorRoute=allowed&&majorReplayBindings&&!majorReplayFailed&&bigPlayReplays?view.major(node):attendance::replaypresentation::MajorRoute::None;
+    // Most Logic roots are unrelated to replays. Only a recognized major-play
+    // selector needs a synchronous score/result refresh before native Eval.
+    // Presentation/replay updates continue observing the full play lifecycle.
+    if(majorRoute!=attendance::replaypresentation::MajorRoute::None){++replayMajorSelectorSamples;guardedMajorReplay(false);}
     attendance::majorreplay::Kind wantedMajor=attendance::majorreplay::Kind::None;
-    if(majorRoot&&replayPresentationAllowed()){
+    if(majorRoute!=attendance::replaypresentation::MajorRoute::None&&!majorReplayFailed){
         std::lock_guard<std::mutex> guard(majorReplayMutex);
         if(majorReplay.routing(replayTrackerMatch,replayTrackerEpoch))wantedMajor=majorReplay.kind();
     }
-    auto majorRoute=majorRoot&&replayPresentationAllowed()?view.major(node):attendance::replaypresentation::MajorRoute::None;
     attendance::replaypresentation::Scope scope(replaySelection,view,node,
-        replaySelection.depth==0&&replayPresentationAllowed(),bigPlayReplays.load(),routineInsets&&replayMode==attendance::replaymode::Mode::PlayCall,defensiveReplays.load());
-    bool valid=originalMuseLogic(node,context);
-    int nativeValue=valid&&traceRoute!=attendance::replaypresentation::MajorRoute::None?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1;
-    if(valid&&majorRoute!=attendance::replaypresentation::MajorRoute::None){
+        allowed,bigPlayReplays.load(),routineInsets&&replayMode==attendance::replaymode::Mode::PlayCall,defensiveReplays.load());
+    measured.pause();bool valid;
+    if(root){attendance::timing::Scope nativeMeasured(replayOriginalTimings);valid=originalMuseLogic(node,context);}
+    else valid=originalMuseLogic(node,context);
+    measured.resume();
+    int nativeValue=valid&&majorRoute!=attendance::replaypresentation::MajorRoute::None?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1;
+    if(valid&&!majorReplayFailed&&majorRoute!=attendance::replaypresentation::MajorRoute::None){
         if(majorRoute==attendance::replaypresentation::MajorRoute::Takeaway&&view.trueBoolean(node+0x38)&&view.challengeExcluded(node)){
             std::lock_guard<std::mutex> guard(majorReplayMutex);
             const auto& start=replayPlayTracker.start;
@@ -844,8 +866,8 @@ bool __fastcall museLogicEvaluate(A node,A context){
         if(promote&&view.falseBoolean(node+0x38)&&writeReplayBoolean(node+0x38))++fullEligibilityChanges;
         if(decline&&view.trueBoolean(node+0x38)&&writeReplayBoolean(node+0x38,false))++fullEligibilityChanges;
     }
-    if(traceRoute!=attendance::replaypresentation::MajorRoute::None)
-        recordReplaySelection(node,static_cast<int>(traceRoute),nativeValue,valid?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1,replayPresentationAllowed(),selectorPhase);
+    if(majorRoute!=attendance::replaypresentation::MajorRoute::None)
+        recordReplaySelection(node,static_cast<int>(majorRoute),nativeValue,valid?(view.trueBoolean(node+0x38)?1:view.falseBoolean(node+0x38)?0:-1):-1,allowed,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     // A Logic Eval's return means its cached variant is valid, not that its
     // Boolean is true. The native parent reads this cache after Eval returns.
     if(valid&&node==replaySelection.selection.insetGate&&extraReplays&&routineInsets&&!replayPresentationFailed&&
@@ -858,7 +880,9 @@ bool __fastcall museLogicEvaluate(A node,A context){
     return valid;
 }
 A __fastcall museComparisonValue(A node,A output){
-    A result=originalMuseComparison(node,output);
+    if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed)return originalMuseComparison(node,output);
+    attendance::timing::ExclusiveScope<> measured(replaySelectorTimings,&replaySelectorWorkNs);
+    measured.pause();A result=originalMuseComparison(node,output);measured.resume();
     if(node==replaySelection.selection.fullComparison&&extraReplays&&bigPlayReplays&&!replayPresentationFailed){
         auto view=replayPresentationView();
         if(result&&view.falseBoolean(result)&&view.fullEligible(node,replayMinimumYards.load())&&writeReplayBoolean(result))++fullEligibilityChanges;
@@ -1802,6 +1826,9 @@ bool finishReplayEvent(A node){
     __except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
 void __fastcall replayEventNode(A node){
+    if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed||
+       at<A>(node)!=image+attendance::bindings::ReplayEventNodeVtable||at<int>(node+0x50)!=12){originalReplayEventNode(node);return;}
+    attendance::timing::ExclusiveScope<> measured(replaySelectorTimings,&replaySelectorWorkNs);
     bool handled=false;
     if(majorReplayBindings&&!majorReplayFailed)guardedMajorReplay(false);
     if(replayMode==attendance::replaymode::Mode::PlayCall&&majorReplayBindings&&!majorReplayFailed&&extraReplays&&bigPlayReplays&&routineInsets&&
@@ -1815,9 +1842,11 @@ void __fastcall replayEventNode(A node){
     if(at<A>(node)==image+attendance::bindings::ReplayEventNodeVtable&&at<int>(node+0x50)==12)
         recordReplaySelection(node,10,0,handled?1:0,replayMode==attendance::replaymode::Mode::PlayCall,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     if(handled){if(finishReplayEvent(node))return;majorReplayFailed=true;}
-    originalReplayEventNode(node);
+    measured.pause();{attendance::timing::Scope nativeMeasured(replayEventNativeTimings);originalReplayEventNode(node);}
 }
 void __fastcall nativeReplayNode(A node,float delta){
+    if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed){originalNativeReplayNode(node,delta);return;}
+    attendance::timing::ExclusiveScope<> measured(replaySelectorTimings,&replaySelectorWorkNs);
     bool track=false;A match=0;unsigned epoch=audioEpoch.load();attendance::State state;
     if(majorReplayBindings&&!majorReplayFailed&&at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&
        at<unsigned short>(node+0x1a)!=3&&majorReplayWorld(state,match)&&state.phase==4){
@@ -1826,7 +1855,10 @@ void __fastcall nativeReplayNode(A node,float delta){
     }
     bool traceNode=at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)!=3;
     if(traceNode)recordReplaySelection(node,11,at<unsigned short>(node+0x1a),-1,track,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
-    originalNativeReplayNode(node,delta);
+    measured.pause();
+    if(traceNode){attendance::timing::Scope nativeMeasured(replayNodeNativeTimings);originalNativeReplayNode(node,delta);}
+    else originalNativeReplayNode(node,delta);
+    measured.resume();
     if(traceNode&&at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)==3)
         recordReplaySelection(node,12,3,3,track,at<int>(at<A>(image+attendance::bindings::GameStates)+0xa0));
     if(track&&at<A>(node)==image+attendance::bindings::ReplayNodeVtable&&at<unsigned short>(node+0x1a)==3){
@@ -1835,6 +1867,7 @@ void __fastcall nativeReplayNode(A node,float delta){
 }
 void observeMajorReplay(bool dispatch){
     static thread_local bool executing=false;if(executing)return;
+    attendance::timing::Scope measured(majorReplayTimings);
     struct Guard{bool& value;Guard(bool& v):value(v){value=true;}~Guard(){value=false;}} guard(executing);
     attendance::State state;A match=0;bool world=majorReplayWorld(state,match);auto now=GetTickCount64();unsigned epoch=audioEpoch.load();
     A manager=at<A>(image+attendance::bindings::ReplayManager);bool replay=at<A>(manager)==image+attendance::bindings::ReplayVtable&&at<unsigned char>(manager+0x38)!=0;
@@ -2453,6 +2486,7 @@ bool guardedSimulationDecision(){
     }__except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
 void __fastcall replayUpdate(A entity){
+    flushReplaySelectorTiming();
     originalReplayUpdate(entity);++replayCallbacks;
     if(!enabled||at<A>(entity)!=image+attendance::bindings::ReplayEntityVtable)return;
     std::unique_lock<std::mutex> frame(presentationMutex,std::try_to_lock);if(!frame.owns_lock())return;
@@ -2771,6 +2805,11 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("DGA replay crowd check")<<replayCrowdTimings.calls.load()<<" calls; max "<<replayCrowdTimings.maximumUs.load()<<" us; >=4ms "<<replayCrowdTimings.over4ms.load()<<"; >=16ms "<<replayCrowdTimings.over16ms.load()<<"\n";
     report.field("Forced native crowd passes")<<forcedCrowdPasses.load()<<"; max "<<nativeCrowdTimings.maximumUs.load()<<" us (native + DGA visibility work); unchanged replay refreshes skipped "<<unchangedReplaySkips.load()<<"\n";
     report.field("Natural crowd update")<<naturalCrowdTimings.calls.load()<<" calls; max "<<naturalCrowdTimings.maximumUs.load()<<" us; >=4ms "<<naturalCrowdTimings.over4ms.load()<<"; >=16ms "<<naturalCrowdTimings.over16ms.load()<<" (native + DGA observer; not isolated DGA time)\n";
+    report.field("DGA replay selector work")<<replaySelectorTimings.calls.load()<<" calls; max "<<replaySelectorTimings.maximumUs.load()<<" us; relevant major refreshes "<<replayMajorSelectorSamples.load()<<" (forwarded native Eval excluded)\n";
+    report.field("Replay selector work intervals")<<replaySelectorIntervals.calls.load()<<" intervals; max "<<replaySelectorIntervals.maximumUs.load()<<" us; >=4ms "<<replaySelectorIntervals.over4ms.load()<<"; >=16ms "<<replaySelectorIntervals.over16ms.load()<<" (accumulated DGA work between presentation/replay callbacks; not FPS)\n";
+    report.field("Native replay selector Eval")<<replayOriginalTimings.calls.load()<<" roots; max "<<replayOriginalTimings.maximumUs.load()<<" us; >=4ms "<<replayOriginalTimings.over4ms.load()<<"; >=16ms "<<replayOriginalTimings.over16ms.load()<<" (native Eval including nested DGA hooks)\n";
+    report.field("Major-play replay observer")<<majorReplayTimings.calls.load()<<" calls; max "<<majorReplayTimings.maximumUs.load()<<" us; >=4ms "<<majorReplayTimings.over4ms.load()<<"; >=16ms "<<majorReplayTimings.over16ms.load()<<" (includes native play/mode queries)\n";
+    report.field("Native replay event / node")<<replayEventNativeTimings.calls.load()<<" / "<<replayNodeNativeTimings.calls.load()<<" calls; max "<<replayEventNativeTimings.maximumUs.load()<<" / "<<replayNodeNativeTimings.maximumUs.load()<<" us (native calls including any nested DGA hooks)\n";
     {size_t pending=0;uint64_t dropped=0;{std::lock_guard<std::mutex> guard(logMutex);pending=queuedLogs.size();dropped=queuedLogs.dropped();}report.field("Deferred log queue")<<pending<<" pending; "<<dropped<<" dropped by bounded overflow\n";}
     report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
     report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";
@@ -3045,6 +3084,7 @@ DWORD WINAPI worker(void*) {
 }
 }
 extern "C" void CrowdTick() {
+    flushReplaySelectorTiming();
     ++ticks;
     if(!enabled)return;
     std::unique_lock<std::mutex> frame(presentationMutex,std::try_to_lock);if(!frame.owns_lock())return;

@@ -1,10 +1,16 @@
 #include "../Source/ReplayPresentation.h"
+#include "../Source/CallbackTiming.h"
 #include <cassert>
 #include <iostream>
 #include <vector>
 #include <initializer_list>
 using namespace attendance::replaypresentation;
 namespace {
+struct TestClock {
+    using duration=std::chrono::nanoseconds;using time_point=std::chrono::time_point<TestClock>;
+    static int64_t ns;static time_point now(){return time_point(duration(ns));}
+};
+int64_t TestClock::ns=0;
 struct Memory {
     std::vector<unsigned char> bytes=std::vector<unsigned char>(0x20000);
     Address next=0x10000;
@@ -25,6 +31,12 @@ Address quickOffense(){return logic(0,{function("570"),logic(1,{pair("19","20"),
 Address tfl(){return logic(0,{function("30"),comparison(2,"22",0,0),comparison(0,"31",4,0)});}
 }
 int main(){
+    attendance::timing::Counts measured;std::atomic<uint64_t> interval{0};
+    {attendance::timing::ExclusiveScope<TestClock> work(measured,&interval);
+        TestClock::ns+=2000;work.pause();work.pause();TestClock::ns+=100000000;
+        work.resume();work.resume();TestClock::ns+=3000;
+    }
+    assert(measured.calls==1&&measured.maximumUs==5&&!measured.over4ms&&interval==5000);
     Memory arena;memory=&arena;View view(read,types);
     Address passComparison=comparison(5,"22",0,40),pass=logic(0,{function("1"),passComparison});
     assert(view.identify(pass).fullComparison==passComparison);

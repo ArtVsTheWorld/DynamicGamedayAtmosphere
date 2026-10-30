@@ -92,6 +92,78 @@ struct TestWorld {
     }
     void phase(int value){testPut(reinterpret_cast<A>(states.data())+0xa0,value);}
 };
+struct TestExpressions {
+    std::vector<unsigned char> bytes=std::vector<unsigned char>(65536);size_t next=0;
+    A allocate(size_t n){assert(next+n<=bytes.size());A address=reinterpret_cast<A>(bytes.data()+next);next+=n;return address;}
+    A fn(const char* id){A node=allocate(0x50);testPut(node,image+attendance::bindings::MuseFunctionVtable);std::memcpy(reinterpret_cast<void*>(node+0x48),id,std::strlen(id)+1);return node;}
+    A compare(int op,const char* id,int value){A node=allocate(0x30),constant=allocate(0x18);testPut(node,image+attendance::bindings::MuseComparisonVtable);testPut(node+8,fn(id));testPut(node+0x18,constant);testPut(node+0x28,op);testPut(constant,image+attendance::bindings::MuseConstantVtable);testPut(constant+8,value);return node;}
+    A logic(std::initializer_list<A> children,int op=0){A node=allocate(0x50),entries=allocate(children.size()*16);testPut(node,image+attendance::bindings::MuseLogicVtable);testPut(node+8,entries);testPut(node+0x10,entries+children.size()*16);testPut(node+0x48,op);size_t index=0;for(A child:children)testPut(entries+16*index++,child);return node;}
+};
+unsigned testLogicCalls=0,testComparisonCalls=0,testEventCalls=0;
+A testLogicRoot=0,testLogicChild=0;
+bool __fastcall testLogic(A node,A context){
+    ++testLogicCalls;
+    if(node==testLogicRoot)assert(museLogicEvaluate(testLogicChild,context));
+    if(node==testLogicChild){testPut(node+0x38,static_cast<unsigned char>(0));testPut(node+0x40,4);}
+    return true;
+}
+A __fastcall testComparison(A,A output){++testComparisonCalls;return output;}
+void __fastcall testReplayEvent(A){++testEventCalls;}
+void testReplaySelectors(TestWorld& world){
+    unsigned char copied[256]{};const unsigned char source[]={1,2,3,4};
+    assert(readReplayObject(reinterpret_cast<A>(source),copied,4)&&!std::memcmp(copied,source,4));
+    assert(!readReplayObject(0,copied,4)&&!readReplayObject(UINTPTR_MAX,copied,4));
+    assert(!readReplayObject(reinterpret_cast<A>(source),copied,257)&&!readReplayObject(reinterpret_cast<A>(source),nullptr,4));
+    SYSTEM_INFO sys{};GetSystemInfo(&sys);size_t pageSize=sys.dwPageSize;
+    auto pages=static_cast<unsigned char*>(VirtualAlloc(nullptr,pageSize*2,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE));assert(pages);
+    DWORD old=0;assert(VirtualProtect(pages+pageSize,pageSize,PAGE_NOACCESS,&old));
+    assert(!readReplayObject(reinterpret_cast<A>(pages+pageSize),copied,4));
+    assert(!readReplayObject(reinterpret_cast<A>(pages+pageSize-2),copied,4));
+    VirtualFree(pages,0,MEM_RELEASE);
+    originalMuseLogic=testLogic;originalMuseComparison=testComparison;originalReplayEventNode=testReplayEvent;
+    replayPresentationInstalled=true;extraReplays=false;
+    auto selectorCalls=replaySelectorTimings.calls.load();
+    assert(museLogicEvaluate(UINTPTR_MAX,123)&&museComparisonValue(UINTPTR_MAX,456)==456);
+    replayEventNode(UINTPTR_MAX);
+    assert(testLogicCalls==1&&testComparisonCalls==1&&testEventCalls==1&&replaySelectorTimings.calls==selectorCalls);
+    // Private native objects, not a game: eligibility is valid but no play-data
+    // bindings are available. An unrelated selector must not sample that data.
+    std::vector<A> replay(0x1040/8);replay[0]=image+attendance::bindings::ReplayVtable;
+    testGlobal(attendance::bindings::ReplayManager,reinterpret_cast<A>(replay.data()));replayBinding=true;world.phase(4);
+    extraReplays=true;bigPlayReplays=true;majorReplayBindings=true;majorReplayFailed=false;playBindingsAvailable=false;
+    auto refreshes=replayMajorSelectorSamples.load();TestExpressions expressions;
+    A unrelated=expressions.logic({expressions.fn("999")});
+    assert(replayPresentationAllowed());
+    for(int i=0;i<200;++i)assert(museLogicEvaluate(unrelated,123));
+    assert(replayMajorSelectorSamples==refreshes&&testLogicCalls==201&&!replaySelection.depth);
+    A touchdown=expressions.logic({expressions.fn("27")});assert(museLogicEvaluate(touchdown,123));
+    assert(replayMajorSelectorSamples==refreshes+1&&!replaySelection.depth);
+    // No graph identity is retained: changing the same root's child is seen
+    // immediately, and an invalid pointer simply fails shape recognition.
+    A entries=at<A>(touchdown+8);testPut(entries,expressions.fn("999"));assert(museLogicEvaluate(touchdown,123));
+    assert(replayMajorSelectorSamples==refreshes+1&&museLogicEvaluate(UINTPTR_MAX,123));
+    world.paused=1;assert(!replayPresentationAllowed());world.paused=0;
+    testPut(reinterpret_cast<A>(replay.data())+0x38,static_cast<unsigned char>(1));assert(!replayPresentationAllowed());
+    testPut(reinterpret_cast<A>(replay.data())+0x38,static_cast<unsigned char>(0));
+    world.phase(3);assert(!replayPresentationAllowed());world.phase(4);
+    testPut(reinterpret_cast<A>(world.config.data())+0x84,static_cast<unsigned char>(1));assert(!replayPresentationAllowed());
+    testPut(reinterpret_cast<A>(world.config.data())+0x84,static_cast<unsigned char>(0));
+    // The real wrapper must see the native child's freshly produced Variant,
+    // preserve nesting, and discard its selection before another evaluation.
+    A gate=expressions.logic({expressions.fn("257"),expressions.fn("36"),expressions.fn("38"),
+        expressions.logic({expressions.compare(0,"128",2),expressions.compare(5,"22",5)}),
+        expressions.logic({expressions.compare(0,"128",3),expressions.compare(5,"22",7)})},1);
+    A routine=expressions.logic({gate,expressions.fn("1")});
+    testLogicRoot=routine;testLogicChild=gate;replayMode=attendance::replaymode::Mode::PlayCall;
+    assert(museLogicEvaluate(routine,123)&&at<unsigned char>(gate+0x38)==1&&!replaySelection.depth&&!replaySelection.selection.insetGate);
+    extraReplays=false;assert(museLogicEvaluate(routine,123)&&at<unsigned char>(gate+0x38)==0);
+    extraReplays=true;testLogicRoot=testLogicChild=0;replayMode=attendance::replaymode::Mode::Unknown;
+    A unrelatedEvent=expressions.allocate(0x60);testPut(unrelatedEvent,image+attendance::bindings::ReplayEventNodeVtable);testPut(unrelatedEvent+0x50,11);
+    replayEventNode(unrelatedEvent);assert(testEventCalls==2&&replayMajorSelectorSamples==refreshes+1);
+    replayPresentationInstalled=false;majorReplayBindings=false;extraReplays=true;replayBinding=false;world.phase(6);
+    testGlobal(attendance::bindings::ReplayManager,A(0));
+    originalMuseLogic=nullptr;originalMuseComparison=nullptr;originalReplayEventNode=nullptr;
+}
 }
 int main(){
     image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
@@ -196,6 +268,7 @@ int main(){
     // native crowd existed. Repeated PREgame decisions must finish setup now,
     // without a quarter transition, play selection or a first snap.
     resetMatch();mode=0;entities.clear();testScenes.clear();TestWorld world;originalPeriod=testPeriod;lastDecision=0;
+    testReplaySelectors(world);
     assert(guardedDecision());int opening=arrivalMissing.load();assert(opening>0&&visibilityRetry&&arrivalModel.active);
     assert(!crowdChangeWindow.pending); // No new ordinary crowd-change window.
     TestScene intro(1536);testScenes={&intro};testUpdate(0);assert(seatPatternPending);originalPresentationUpdate=testPresentation;
