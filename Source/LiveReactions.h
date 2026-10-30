@@ -7,7 +7,7 @@ enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedF
 inline bool skill(Event e){return e==Event::Truck||e==Event::StiffArm||e==Event::Hurdle||e==Event::Juke||e==Event::Spin;}
 inline bool accent(Event e){return skill(e)||e==Event::HitStick||e==Event::BrokenTackle;}
 inline bool cheerOnlySkill(Event e){return e==Event::Juke||e==Event::Spin;}
-inline bool softSkill(Event e){return (skill(e)&&!cheerOnlySkill(e))||e==Event::BrokenTackle;}
+inline bool softSkill(Event e){return e==Event::StiffArm||e==Event::Hurdle||e==Event::BrokenTackle;}
 // A verified live defensive recovery uses the same continuous return cue as
 // an interception. Official-result-only recoveries remain excluded below.
 inline bool cameraReaction(Event e){return !cheerOnlySkill(e)&&e!=Event::None&&e!=Event::HitStick&&e!=Event::BrokenTackle;}

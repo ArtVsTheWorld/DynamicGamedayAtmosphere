@@ -29,7 +29,8 @@ inline bool stop(const energy::Play& snap,const energy::Play& p,const energy::Ou
 inline motion::Profile shakeProfile(live::Event e){
     using E=live::Event;using P=motion::Profile;
     switch(e){
-    case E::Truck:case E::StiffArm:case E::Hurdle:return P::Skill;
+    case E::Truck:return P::Truck;
+    case E::StiffArm:case E::Hurdle:return P::Skill;
     case E::LongCatch:case E::CompletedPass:return P::Catch;
     case E::LongRun:case E::RunAfterCatch:case E::KickReturn:case E::PuntReturn:return P::Gain;
     case E::OvertimeStop:case E::OvertimeConversionStop:case E::OvertimeMissedFieldGoal:case E::CatchKnockout:case E::PassBreakup:case E::HitStickStop:case E::ThirdGoalStop:return P::Stop;

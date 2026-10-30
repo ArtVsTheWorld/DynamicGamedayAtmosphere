@@ -3068,7 +3068,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("DYNAMIC GAMEDAY SOUNDSCAPE - SETTINGS");
     report.field("Atmosphere layers")<<(audio->enabled?"enabled":"disabled")<<"\n";
-    report.field("Crowd bus gain limit")<<"+"<<busMaximumBoost<<"% total; no extra high-leverage/eruption gain stacked\n";
+    report.field("Crowd bus gain limit")<<"+"<<busMaximumBoost<<"% reaction reference; dense Beds/Chants up to "<<4.f*busMaximumBoost.load()/30.f<<" dB; no separate event gain stacked\n";
     report.field("Chant policy")<<"same gain as Beds; separate legacy chant value ignored\n";
     attendance::State gate{shownQuarter.load(),shownScore0.load(),shownScore1.load(),shownPhase.load(),shownSeconds.load(),900};
     gate.rank0=shownRank0;gate.rank1=shownRank1;gate.rivalry=shownRivalry;gate.playoff=shownPlayoff;gate.conferenceChampionship=shownConference;gate.bowl=shownBowl;gate.night=localKickoff>=1140;
@@ -3079,7 +3079,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Big-game required fullness");if(mapped)state<<100*attendance::lineup::bigRequirement(*audio,gate,density->seats)<<"% (day size gate "<<100*attendance::lineup::bigMinimum(*audio,density->seats)<<"%)\n";else state<<"waiting for verified layout\n";
     report.field("Critical / goal-line requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::standardMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
     report.field("OT / late-drive requirement");if(mapped)state<<100*attendance::nightRequirement(gate,attendance::packed::specialMinimum(density->seats))<<"%\n";else state<<"waiting for verified layout\n";
-    report.field("Audio density policy")<<"occupied seats plus fullness; sparse listening anchors; maximum +30% gain, zero crowd mute\n";
+    report.field("Audio density policy")<<"occupied seats plus fullness; dense Beds/Chants +3.5 to +4 dB at stock; reaction cap +30%; zero crowd mute\n";
     report.field("Play-call / packed / drive")<<(audio->lineups?"on":"off")<<" / "<<(audio->packedHouse?"on":"off")<<" / "<<(audio->driveEscalation?"on":"off")<<"\n";
     report.field("Last verified reaction distance")<<shownReactionDistance<<" yards; no distance-based fade extension\n";
     report.field("Opening / OT / eruptions")<<(audio->opening?"on":"off")<<" / "<<(audio->overtime?"on":"off")<<" / "<<(audio->eruptions?"on":"off")<<"\n";
@@ -3180,7 +3180,7 @@ DWORD WINAPI worker(void*) {
         return 1;
     }
     log("ready","Ready. Regular-season starting turnout and local night detection ready when native launch inputs qualify; other games retain EA turnout. First-quarter arrivals fill toward that planned crowd. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
-    log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Native bus mix uses fullness and occupied seats; gain capped at +30%; no extra chant cut or native excitement limiter.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
+    log(playBindingsAvailable?"ready":"audio-inactive",playBindingsAvailable?"Attendance-based audio and layered atmosphere ready. Native bus mix uses fullness and occupied seats; dense Beds/Chants up to +4 dB; reactions capped at +30%; no extra chant cut or native excitement limiter.":"Play data unavailable; winning eruptions and late-score departures are inactive.");
     if(replayPresentationInstalled&&extraReplays)log("ready","Extra post-play replays ready: routine run/pass insets and full-screen big-play sequences at "+std::to_string(replayMinimumYards.load())+" yards; defensive highlights "+(defensiveReplays?"enabled":"disabled")+". Normal replay playback and skipping remain active.");
     unsigned long long last=0,lastScan=0,lastPauseDisplays=0;int lastPauseValue=-2;bool replayFaultNoted=false;
     while(enabled){

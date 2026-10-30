@@ -37,7 +37,7 @@ int main(){
  expectMute=false;mix.tick(a.owner+0x40,false,sparse);assert(!handle&&creates==releases&&!mix.muted());
  now+=400;mix.tick(a.owner+0x40,true,sparse);VirtualFree(reinterpret_cast<void*>(handle),0,MEM_RELEASE);handle=0;manager=b.m;unsigned old=releases;
  mix.tick(b.owner+0x40,false,sparse);assert(releases==old); // Old manager owns its former handle retirement.
- now+=400;mix.tick(b.owner+0x40,true,attendance::balance::mix(1,61888));assert(mix.healthy()&&std::fabs(mix.netDb(1)-attendance::volume::boostDb(30))<.001f);
+ now+=400;mix.tick(b.owner+0x40,true,attendance::balance::mix(1,61888));assert(mix.healthy()&&std::fabs(mix.netDb(1)-4.f)<.001f&&std::fabs(mix.netDb(3)-attendance::volume::boostDb(30))<.001f);
  releaseFault=true;mix.tick(b.owner+0x40,false,sparse);assert(!mix.healthy()&&handle);mix.tick(b.owner+0x40,false,sparse);assert(!handle); // Retry retirement after fault.
  assert(creates==releases+1);
  std::puts("PASS: one eight-group preset, synchronized gains, explicit zero mute, stable updates, manager replacement and retryable fault retirement.");

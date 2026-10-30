@@ -20,12 +20,13 @@ int main(){
   auto crossing=balance::mix(balance::crossover(seats),seats);assert(!crossing.needed());
   std::array<float,7> last;last.fill(-1000);
   for(int n=1;n<=1000;++n){auto m=balance::mix(n*.001f,seats);assert(m.valid&&!m.mute);
-   for(unsigned i=0;i<7;++i){assert(m.net(i)<=volume::boostDb(30)+.0001f&&m.gain[i+1]<=.001f);}
+   for(unsigned i=0;i<7;++i){bool bed=i==1||i==2||i==4;assert(m.net(i)<=(bed?4.f:volume::boostDb(30))+.0001f&&m.gain[i+1]<=.001f);}
    assert(m.net(1)==m.net(2));for(unsigned i=0;i<7;++i){assert(m.net(i)>=last[i]-.00001f);assert(std::pow(10.f,m.net(i)/20)>=balance::SignalFloors[i]-.00001f);last[i]=m.net(i);}
   }
   auto off=balance::mix(1,seats,0);assert(!off.needed());
-  auto capped=balance::mix(1,seats,17.5f);assert(capped.net(1)<=volume::boostDb(17.5f)+.0001f);
+  auto capped=balance::mix(1,seats,17.5f);assert(capped.net(3)<=volume::boostDb(17.5f)+.0001f&&capped.net(1)<=4.f*17.5f/30+.003f);
  }
- assert(std::fabs(balance::mix(1,61888).net(1)-volume::boostDb(30))<.0001f);
+ assert(std::fabs(balance::mix(1,61888).net(1)-4.f)<.0001f);
+ assert(std::fabs(balance::mix(1,61888).net(3)-volume::boostDb(30))<.0001f);
  std::puts("PASS: rounded signal floors and smooth 25%-full half-volume anchor, occupied-size crossover, chant parity, native dynamics gain bounds, zero mute and invalid-context fallback.");
 }

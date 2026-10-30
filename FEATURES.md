@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.16 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.17 — not publicly released** · College Football 27 for Windows · MMC
 
 ## Attendance: the crowd for this game
 
@@ -138,11 +138,12 @@ The native crowd mixer handles one synchronized mix for the Crowd bus and its se
 | Smallest reference layout, 70% full | 100% | 100% | 100% |
 | Smallest reference layout, packed | 115% | 115% | 115% |
 | Largest reference layout, 30% full | 100% | 100% | 100% |
-| Largest reference layout, packed | 130% | 130% | 130% |
+| Dense medium layout, 94% full / about 27,500 occupied positions | About 150% (+3.5 dB) | About 124% | About 124% |
+| Largest reference layout, packed | About 158.5% (+4 dB) | 130% | 130% |
 
 Nonempty crowds never request less than 40% background/chant signal, 55% collective reaction signal or 95% individual-detail signal. The curve is smooth. Exactly zero attendance mutes crowd sound. These are audio-signal ratios, not measured perceived-loudness percentages. Individual-detail audibility depends on native routing and source material.
 
-The vanilla balance point runs from about 70% fullness in the smallest layout to 30% in the largest. Above it, crowds get fuller than vanilla, capped at +30% in the largest packed venue. Sparse crowds keep their native big-play peaks rather than having excitement flattened to the background level. Crowd Mix Strength scales how much of this profile is used; 0 keeps native levels for nonempty stands.
+The vanilla balance point runs from about 70% fullness in the smallest layout to 30% in the largest. Above it, crowds get fuller than vanilla. Background Beds, Chants and StudentSection gain an additional smooth lift above 80% fullness and 20,000 occupied positions, reaching +3.5 dB around 92% / 27,000 occupied positions. Above 45,000 occupied positions, the background ceiling eases toward +4 dB at 61,888. Reaction and individual-detail gains retain the +30% maximum. Sparse crowds keep their native big-play peaks rather than having excitement flattened to the background level. Crowd Mix Strength scales how much of this profile is used; 0 keeps native levels for nonempty stands.
 
 ### Which crowds get extra layers?
 
@@ -186,7 +187,7 @@ In the final three minutes of Q4, a home offense tied or down by at most eight c
 - **Third/fourth-down stops:** verified knockout, breakup or hit-stick evidence can earn one confirmed stop impact. Contact and official-result callbacks cannot stack the same impact. A routine third-down incompletion alone does not earn shake in regulation. Overtime can use a generic confirmed stop.
 - **Goal-line stands:** the dedicated stronger impact needs fourth down inside the five. The special high-leverage stop applies in Q4. Turnover on downs has its own paired cheer/impact.
 - **Fourth-down conversions:** can react when the live ball reaches the first-down line, with one official-result fallback if missed. Later long gains or scores can still upgrade the reaction without repeating the same conversion impact.
-- **Skills:** successful jukes/spins cheer without shake; ordinary broken tackles use sound/swell only. Confirmed trucks, stiff arms and hurdles can add a gentle accent. Hit sticks get immediate sound, but need a confirmed third/fourth-down stop for shake. Attempts alone do not count. Accents have a short spacing limit and a maximum of three per play.
+- **Skills:** successful jukes/spins cheer without shake; ordinary broken tackles use sound/swell only. Confirmed trucks add a quick impact; stiff arms and hurdles add gentler accents. These use the stronger effect alongside an existing run buildup, without adding shake strengths or restarting the run. Hit sticks get immediate sound, but need a confirmed third/fourth-down stop for shake. Attempts alone do not count. Accents have a short spacing limit and a maximum of three per play.
 - **Live showboating:** a fresh verified home-carrier running celebration builds slowly; visitor showboating gets boos. Both need layered atmosphere. Cached tags and post-whistle celebrations do not trigger it.
 - **Kicks and tries:** close made field goals, opponent misses and blocked field goals get appropriate reactions. A game-saving block can use a touchdown-style profile. Overtime includes made/failed two-point tries and field goals; failed home results use disappointment. Safeties use a shorter touchdown-style response.
 
@@ -226,7 +227,7 @@ The normal attendance plan and history continue underneath. Switching off restor
 
 ### Fuller dense-crowd layers
 
-Already-qualified atmosphere gets stronger roar support around 80% fullness and 20,000 occupied mapped positions. A second tier around 85% and 45,000 strengthens very large crowds further. Both blend in gradually. The first tier adds up to 20% to DGA layer intensity; the second adds another 12 percentage points, within the native intensity limit. These are layer-intensity changes, not extra mixer volume above the +30% cap. Dense crowds can sustain a supporting swell at lower excitement levels, while ordinary plays keep restrained cheer sizes. Major moments can use the strongest tested variants once at least 24,000 positions are occupied at 80% fullness. No new play triggers or extra cheer requests are added.
+Already-qualified atmosphere gets stronger roar support around 80% fullness and 20,000 occupied mapped positions. A second tier around 85% and 45,000 strengthens very large crowds further. Both blend in gradually. The first tier adds up to 20% to DGA layer intensity; the second adds another 12 percentage points, within the native intensity limit. These are layer-intensity changes. The background mixer uses the separate +3.5 to +4 dB dense-crowd ceiling described above; reaction buses retain their +30% ceiling. Dense crowds can sustain a supporting swell at lower excitement levels, while ordinary plays keep restrained cheer sizes. Major moments can use the strongest tested variants once at least 24,000 positions are occupied at 80% fullness. No new play triggers or extra cheer requests are added.
 
 ## Broadcast: shake and replays
 
@@ -362,7 +363,7 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | Overtime Atmosphere | Keep a qualifying overtime crowd lively between plays, kicks and two-point tries. Important results get a reaction, and crowd shake gets a small 10% lift. The crowd still needs enough seats filled. |
 | Upset Watch Sounds | Build excitement from Q2 onward when a home underdog threatens a Top 25 visitor. At least half the seats must be filled. At neutral sites, either underdog can qualify. |
 | Live Play Reactions | Let the crowd react during catches, runs, sacks, takeaways and returns. Bigger plays and larger crowds can use stronger sounds. Sparse crowds can still get sounds, but shake needs the normal crowd requirements. |
-| Skill Move and Big Hit Reactions | React to successful moves and big hits. Spins, jukes and ordinary broken tackles add sound only. Trucks and hurdles can add gentle shake. A hit stick needs a confirmed third- or fourth-down stop to add shake. |
+| Skill Move and Big Hit Reactions | React to successful moves and big hits. Spins, jukes and ordinary broken tackles add sound only. Trucks add a quick impact; hurdles and stiff arms add gentler shake. A hit stick needs a confirmed third- or fourth-down stop to add shake. |
 | Buildup During Passes | Let the crowd build anticipation while a qualifying pass is in the air, then settle after the catch or incompletion. Does not add shake before the catch. Live Play Reactions must be on. |
 | Cheers and Disappointment | Cheer defensive plays and add disappointment for home mistakes or visitor successes. Visitor versions add sound without positive home-team shake. At neutral sites, either team can get cheers without treating the whole crowd as home fans. |
 | Major Celebrations | Use the biggest celebration for special moments, such as a very early touchdown, a late winning score, an overtime winner or a game-sealing takeaway. A long touchdown alone gets the normal touchdown celebration. |

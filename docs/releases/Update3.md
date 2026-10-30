@@ -1,8 +1,15 @@
 # Update 3 — working release notes
 
-Working build **2.0.16**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
+Working build **2.0.17**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
 
 Changes since Update 2 (1.54.0).
+
+### Tuning candidate 2.0.17 — skill handoffs and dense background
+
+- Trucks use a quick 5–6% impact before crowd/view scaling. Hurdles and stiff arms keep their gentler accents.
+- Skill accents can lift a weak run buildup without replacing it or adding shake strengths. Scoring and larger reactions keep priority.
+- Short skill swells preserve an ongoing run response’s sound identity and fade.
+- Listening-tested native Beds/Chants reach +3.5 dB in dense crowds; very large packed crowds ease toward +4 dB. Sparse and medium mixes stay unchanged, and reaction buses retain their +30% ceiling. No extra loop or play trigger.
 
 ### Tuning candidate 2.0.16 — awaiting live testing
 
@@ -13,7 +20,7 @@ Changes since Update 2 (1.54.0).
 
 - Ordinary playcall motion is 2.5–5%, special lineup cheers 4–6%, defensive critical buildup 7.5–10%, and home-offense critical buildup 5.625–7.5%, before occupied-seat and view factors. Punt buildup remains half the ordinary range. Reaction and touchdown peaks stay unchanged.
 - Runs and short catch-and-runs still start building at 13 yards and cheer at 20. An 800 ms strength rise smooths late samples, and a tackle fades from the level actually reached. Long air-yard catch impacts and return/showboat timing stay unchanged.
-- Qualified dense crowds gain fuller roar/swell layers around 80%/20,000 occupied positions, with an additional tier around 85%/45,000. Smooth transitions preserve the sparse mix and +30% mixer cap. Major moments can use stronger tested cheer variants without adding requests.
+- Qualified dense crowds gain fuller roar/swell layers around 80%/20,000 occupied positions, with an additional tier around 85%/45,000. Smooth transitions preserve the sparse mix; 2.0.17 adds a separate dense-background ceiling. Major moments can use stronger tested cheer variants without adding requests.
 - Stock playcall settings migrate once; custom values, zero opt-outs and camera compensation choices are preserved. Attendance formulas and qualification rules are unchanged.
 
 ### Settings addition in 2.0.14
@@ -55,7 +62,7 @@ Changes since Update 2 (1.54.0).
 
 - Crowd volume now follows both how full the stadium is and how many mapped seats are occupied. A small full crowd and a large full crowd no longer get the same treatment.
 - Sparse crowds lose the wall of continuous roar while keeping more collective reactions and individual fan detail. As people arrive, the sound grows smoothly; as they leave, it thins again.
-- The vanilla-volume crossover varies with venue size: roughly 70% fullness in the smallest venue and 30% in the largest. Above that point, the crowd grows beyond vanilla. A packed largest venue reaches +30% audio signal; the smallest packed venue reaches +15%.
+- The vanilla-volume crossover varies with venue size: roughly 70% fullness in the smallest venue and 30% in the largest. Above that point, the crowd grows beyond vanilla. The smallest packed venue reaches +15% audio signal. Dense crowds reach +3.5 dB background, with the largest packed venue reaching +4 dB; collective reactions remain capped at +30% signal.
 - At 25% fullness in the smallest venue, background sound is 50% of vanilla. Nonempty crowds have minimums of 40% background, 55% collective reactions and 95% individual detail. Zero attendance mutes the crowd. These are signal levels, not literal perceived-loudness percentages.
 - Chants follow the background mix. The old separate chant cut and excitement limiter are gone: a sparse crowd can still deliver a strong native big-play reaction. Commentary and field sound keep their normal direct volume.
 

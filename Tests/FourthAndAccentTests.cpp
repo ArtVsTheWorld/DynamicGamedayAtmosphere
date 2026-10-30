@@ -32,7 +32,7 @@ int main(){
     m.observe(settings,x);x.now=1100;x.duringPlay=1;x.duringImpact=x.supplementalImpact=true;x.impactMilliseconds=2400;x.reactionScale=.7f;
     auto a=m.observe(settings,x);assert(a.kind==motion::Kind::LivePlay&&a.impactOnly&&a.percent==7&&a.until==3500);
     x.now=1300;a=m.observe(settings,x);assert(motion::strength(a,1300)>0);
-    x.now=1400;x.duringPlay=2;a=m.observe(settings,x);assert(a.began==1100); // Supplemental accents never restart a running envelope.
+    x.now=1400;x.duringPlay=2;a=m.observe(settings,x);assert(a.began==1100); // The first accent still wins at the instant of the new attack.
     x.now=1500;x.supplementalImpact=false;x.reactionScale=1;x.impactMilliseconds=0;x.duringPlay=3;a=m.observe(settings,x);assert(a.began==1500&&a.percent==10);
     x.phase=4;x.now=1700;x.touchdown=1;a=m.observe(settings,x);assert(a.kind==motion::Kind::Touchdown);
     x.now=1800;x.duringPlay=4;x.supplementalImpact=true;a=m.observe(settings,x);assert(a.kind==motion::Kind::Touchdown);

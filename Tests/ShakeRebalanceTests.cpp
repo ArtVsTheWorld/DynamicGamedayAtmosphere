@@ -10,7 +10,7 @@ int main(){
     for(int i=0;i<6;++i)assert(std::fabs(occupiedScale(static_cast<uint64_t>(counts[i]),1)-factors[i])<.001f);
     assert(occupiedScale(6060,.5f)<occupiedScale(6060,.99f)&&occupiedScale(6060,.99f)<occupiedScale(51424,.85f));
     assert(occupiedScale(6060,0)==0&&occupiedScale(0,1)==0&&occupiedScale(6060,NAN)==0);
-    for(auto p:{Profile::Gain,Profile::Skill,Profile::Catch,Profile::Stop,Profile::Loss,Profile::Conversion,Profile::Downs,Profile::Takeaway,Profile::Force,Profile::GoalStop,Profile::HighStop}){
+    for(auto p:{Profile::Truck,Profile::Gain,Profile::Skill,Profile::Catch,Profile::Stop,Profile::Loss,Profile::Conversion,Profile::Downs,Profile::Takeaway,Profile::Force,Profile::GoalStop,Profile::HighStop}){
         for(bool neutral:{false,true})for(float leverage:{0.f,.5f,1.f})for(float population:{.8f,1.1f}){
             Model m;Input x;x.match=1;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
             x.profile=p;x.leverage=leverage;x.venueScale=population;x.neutral=neutral;x.duringCatch=p==Profile::Catch;
@@ -59,7 +59,7 @@ int main(){
         assert(carried.profile==Profile::Takeaway&&!carried.impactOnly&&strength(carried,4500)==12);
         x.now=4600;x.phase=4;assert(m.observe(s,x).tail);x.allowed=false;x.now=4700;assert(m.observe(s,x).kind==Kind::None);
     }
-    {auto off=s;off.live=off.catchImpact=0;for(auto p:{Profile::Force,Profile::Gain,Profile::Catch})assert(liveStrength(off,p,1,p==Profile::Catch)==0);}
+    {auto off=s;off.live=off.catchImpact=0;for(auto p:{Profile::Truck,Profile::Skill,Profile::Force,Profile::Gain,Profile::Catch})assert(liveStrength(off,p,1,p==Profile::Catch)==0);}
     {auto custom=s;custom.live=22;custom.catchImpact=18;custom.impactExtraMs=2000;
         assert(liveStrength(custom,Profile::Force,0)==26&&liveStrength(custom,Profile::Catch,.5f,true)==18);
         assert(impactDuration(custom,Profile::Catch)==3700&&impactDuration(custom,Profile::Stop)==3300);

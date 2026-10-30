@@ -28,6 +28,14 @@ inline float sparseProgress(float r){
 inline constexpr std::array<float,7> SignalFloors={.55f,.40f,.40f,.55f,.40f,.95f,.40f};
 inline float venueWeight(uint64_t seats){return (std::clamp)(std::log(static_cast<float>((std::max)(seats,uint64_t(6060)))/6060.f)/std::log(61888.f/6060.f),0.f,1.f);}
 inline float crossover(uint64_t seats){return .70f-.40f*venueWeight(seats);}
+inline float denseBackground(float fullness,uint64_t seats){
+ float occupied=static_cast<float>(seats)*fullness;
+ return smooth((fullness-.80f)/.12f)*smooth((occupied-20000.f)/7000.f);
+}
+inline float backgroundCeiling(float fullness,uint64_t seats){
+ float occupied=static_cast<float>(seats)*fullness;
+ return 3.5f+.5f*smooth((occupied-45000.f)/(61888.f-45000.f));
+}
 struct Mix {
  std::array<float,8> gain{};std::array<int,9> key{};bool valid=false,mute=false;
  float net(unsigned child)const{return gain[0]+gain[child+1];}
@@ -40,17 +48,25 @@ inline Mix mix(float fullness,uint64_t seats,float maximumPercent=30,float stren
  out.valid=true;fullness=(std::min)(fullness,1.f);maximumPercent=(std::clamp)(maximumPercent,0.f,30.f);
  if(fullness==0){out.mute=true;out.gain[0]=-60;}
  else {
-  std::array<float,7> net{};float point=crossover(seats);
+  std::array<float,7> net{},ceiling{};ceiling.fill(1+maximumPercent*.01f);float point=crossover(seats);
   if(fullness<point){
    float progress=sparseProgress(fullness/point);
    for(unsigned i=0;i<7;++i)net[i]=20*std::log10(SignalFloors[i]+(1-SignalFloors[i])*progress);
   }else {float lift=(std::min)(maximumPercent*.01f,.15f+.15f*venueWeight(seats));float db=20*std::log10(1+lift*smooth((fullness-point)/(1-point)));net.fill(db);}
+  // Listening-approved dense backgrounds use a larger native bed/chant
+  // ceiling, not an extra loop or reaction gain. Ordinary/sparse mixes stay
+  // exact. The existing advanced boost setting scales both ceilings.
+  float presence=denseBackground(fullness,seats),background=backgroundCeiling(fullness,seats)*maximumPercent/30.f;
+  for(unsigned i:{1u,2u,4u}){
+   net[i]+=(std::max)(0.f,background-net[i])*presence;
+   ceiling[i]=(std::max)(ceiling[i],std::pow(10.f,background/20));
+  }
   // A .001 signal-gain lattice bounds preset churn while native .25s fades
   // smooth transitions. Floors and the 50% signal anchor stay exact.
   float strength=(std::clamp)(strengthPercent,0.f,100.f)*.01f;
   for(unsigned i=0;i<7;++i){
    float gain=std::pow(10.f,net[i]*strength/20);
-   gain=(std::clamp)(std::round(gain*1000)/1000,std::pow(SignalFloors[i],strength),1+maximumPercent*.01f);
+   gain=(std::clamp)(std::round(gain*1000)/1000,std::pow(SignalFloors[i],strength),ceiling[i]);
    net[i]=20*std::log10(gain);out.gain[0]=(std::max)(out.gain[0],net[i]);
   }
   for(unsigned i=0;i<7;++i)out.gain[i+1]=net[i]-out.gain[0];

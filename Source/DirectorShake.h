@@ -60,7 +60,7 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
 }
 inline float strength(const Cue& c,uint64_t now){
     float level=envelopeStrength(c,now);
-    unsigned transition=c.forcedImpact?50u:c.scoreBuildup?300u:200u;
+    unsigned transition=c.forcedImpact?50u:c.profile==Profile::Truck?100u:c.scoreBuildup?300u:200u;
     if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<transition){
         // A new attack must not pull an already moving camera toward zero
         // before rising. Lower targets still ease down normally.
@@ -103,10 +103,10 @@ inline unsigned impactDuration(const Settings& s,Profile p,unsigned overrideMs=0
 }
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0,seenClincher_=0;int phase_=0;
-    Cue lineupCue_,pulse_,liveCue_,impactOverlay_,output_;
+    Cue lineupCue_,pulse_,liveCue_,impactOverlay_,skillCue_,output_;
 public:
     void reset(){*this=Model{};}
-    Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_=impactOverlay_={};output_={};output_.updated=now;return output_;}
+    Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_=impactOverlay_=skillCue_={};output_={};output_.updated=now;return output_;}
     Cue observe(const Settings& configuredSettings,const Input& x){
         // Scale each crowd target once by occupied seats, and by
         // three quarters for either side of a neutral crowd, before envelopes.
@@ -149,12 +149,13 @@ public:
         // A presentation cut or play-selection inset is not a new play.
         // Retain the earned impact/tail until its original expiry; a fresh
         // snap, pause/replay suspension or world change cancels the old cue.
-        if(newSnap){liveCue_=impactOverlay_={};ramp_=0;}
+        if(newSnap){liveCue_=impactOverlay_=skillCue_={};ramp_=0;}
         bool pulseOwns=(pulse_.kind!=Kind::None&&x.now<pulse_.until&&!newSnap&&(pulse_.kind!=Kind::Eruption||x.eruptionAlive))||
             (x.phase!=3&&(td||eruption||safety||clincher||blocked));
         // Consume lower-priority event IDs without queuing a hidden shake
         // that could reappear after a short celebration has finished.
-        if(pulseOwns){liveCue_=impactOverlay_={};ramp_=0;}
+        if(pulseOwns){liveCue_=impactOverlay_=skillCue_={};ramp_=0;}
+        if(x.cancelLive||!x.duringAllowed)skillCue_={};
         if(x.cancelLive)impactOverlay_={};
         if(x.cancelLive&&liveCue_.kind!=Kind::None&&!liveCue_.cancelled){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+500;liveCue_.percent=value;
@@ -179,10 +180,20 @@ public:
         // Crossing the configured gain confirms the cheer without restarting
         // the shake that builds over the preceding five yards.
         float candidate=liveStrength(settings,x.profile,x.leverage,x.duringCatch&&(x.phase!=3||x.duringImpact))*(std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1);
+        // Skill success has its own short envelope. It must not be discarded
+        // by a weak distance ramp, or replace/restart that ramp. The stronger
+        // envelope wins below; neither amplitude nor duration is added.
+        if(live&&x.supplementalImpact&&!pulseOwns&&!x.cancelLive&&x.duringAllowed&&(x.phase==3||x.phase==4||x.phase==5||x.phase==1)&&
+           (skillCue_.kind==Kind::None||x.now>=skillCue_.until||candidate>skillCue_.percent)){
+            skillCue_={x.match,x.epoch,x.now,x.now,x.now+impactDuration(settings,x.profile,x.impactMilliseconds),Kind::LivePlay,candidate,false,0,x.now,true};
+            skillCue_.profile=x.profile;skillCue_.leverage=importance(x.leverage);
+            skillCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;
+            skillCue_.softAccent=x.softAccent;join(skillCue_);
+        }
         bool continuous=x.phase==3&&!x.duringImpact;
         bool underImpact=continuous&&liveCue_.impactOnly&&liveCue_.kind!=Kind::None;
         bool covered=liveCue_.kind!=Kind::None&&strength(liveCue_,x.now)>0&&(x.supplementalImpact||(!underImpact&&candidate<strength(liveCue_,x.now)));
-        if(live&&!pulseOwns&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail&&!x.duringImpact)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
+        if(live&&!x.supplementalImpact&&!pulseOwns&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail&&!x.duringImpact)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
             bool impact=x.phase!=3||x.duringImpact;
             unsigned duration=impactDuration(settings,x.profile,x.impactMilliseconds);
             // A force can still be hitting when its defensive return begins.
@@ -196,7 +207,7 @@ public:
             liveCue_.profile=x.profile;liveCue_.leverage=importance(x.leverage);ramp_=0;
             liveCue_.catchReaction=x.duringCatch;join(liveCue_);
         }
-        if(live&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay){liveCue_.confirmedRun=true;
+        if(live&&!x.supplementalImpact&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay){liveCue_.confirmedRun=true;
             if(!covered&&ramp&&!x.duringImpact){liveCue_.profile=x.profile==Profile::Default?Profile::Gain:x.profile;liveCue_.leverage=importance(x.leverage);}
         }
         if(liveCue_.kind!=Kind::None){
@@ -241,6 +252,13 @@ public:
         if(impactOverlay_.kind!=Kind::None){
             if(x.now>=impactOverlay_.until||pulse_.kind!=Kind::None)impactOverlay_={};
             else{impactOverlay_.updated=x.now;if(strength(impactOverlay_,x.now)>strength(output_,x.now))output_=impactOverlay_;}
+        }
+        if(skillCue_.kind!=Kind::None){
+            if(x.now>=skillCue_.until||pulse_.kind!=Kind::None)skillCue_={};
+            else{
+                skillCue_.updated=x.now;skillCue_.percent=liveStrength(settings,skillCue_.profile,skillCue_.leverage)*skillCue_.reactionScale;
+                if(output_.kind==Kind::None||strength(skillCue_,x.now)>strength(output_,x.now))output_=skillCue_;
+            }
         }
         return output_;
     }
