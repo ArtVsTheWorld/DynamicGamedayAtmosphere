@@ -5,12 +5,12 @@
 
 namespace attendance::turnout::native {
 using A=sustained::Address;
-inline constexpr A Formula=0x8566710,LaunchCopy=0x7f13490,StatManagerVtable=0xbdc16f8;
+inline constexpr A Formula=0x856a4b0,LaunchCopy=0x7f17060,StatManagerVtable=0xbdc7eb8;
 // Reset publication is unconditional; final rivalry publication is optional.
 // The shared launchhook boundary runs after both paths join.
-inline constexpr A LaunchResetReturn=0x7f13859;
-inline constexpr A PlayableFormulaReturn=0x871a5c4;
-inline constexpr A OptionService=0xe2dd3e8,OptionVtable=0xb298a70,OptionType=0xe3a48d0,OptionSet=0x909b940,UnsignedType=0xe2dab38;
+inline constexpr A LaunchResetReturn=0x7f17429;
+inline constexpr A PlayableFormulaReturn=0x871e3c4;
+inline constexpr A OptionService=0xe2e53e8,OptionVtable=0xb29ee30,OptionType=0xe3ac8d0,OptionSet=0x90a18b0,UnsignedType=0xe2e2b38;
 inline constexpr std::array<unsigned char,17> FormulaPrefix={0x48,0x89,0x4c,0x24,0x08,0x55,0x53,0x56,0x41,0x56,0x41,0x57,0x48,0x8d,0x6c,0x24,0xb0};
 inline constexpr std::array<unsigned char,16> LaunchPrefix={0x48,0x89,0x5c,0x24,0x18,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57};
 inline constexpr std::array<unsigned char,15> SetterPrefix={0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x30};
@@ -19,7 +19,7 @@ struct Api {
     using Same=bool(__fastcall*)(A,A*,A*);
     using Set=bool(__fastcall*)(A,unsigned,A);
     Count count;Same same;Set set;
-    static Api engine(A image){return {reinterpret_cast<Count>(image+0x37f18a0),reinterpret_cast<Same>(image+0x85ffd60),reinterpret_cast<Set>(image+OptionSet)};}
+    static Api engine(A image){return {reinterpret_cast<Count>(image+0x37f40a0),reinterpret_cast<Same>(image+0x8603b00),reinterpret_cast<Set>(image+OptionSet)};}
 };
 struct Reader {
     A image;
@@ -122,7 +122,7 @@ inline bool capture(A image,A manager,A gameRef,int ea,Seed& s,const Api* custom
         // Same native condition as EA's conference-championship attendance bonus.
         A schema=0;fn=r.method(league,0x38);
         if(!fn||!sustained::obtain(schema,reinterpret_cast<A(__fastcall*)(A)>(fn),league))return false;
-        A wrapper[5]={image+0xbd1dd08,league,schema,0,0},same=0;
+        A wrapper[5]={image+0xbd244a8,league,schema,0,0},same=0;
         if(!api.same||!sustained::obtain(same,api.same,reinterpret_cast<A>(wrapper),&home.p,&away.p))return false;
         if(same)s.regular=false;
     }
@@ -144,7 +144,7 @@ inline bool option(const Reader& r,A service,unsigned key,const char* name,unsig
 }
 // MMC already excludes online play. This identifies the supported Dynasty
 // setup only; no gameplay-only configuration object is needed during loading.
-inline bool setupMode(A image,int& mode){Reader r{image};return r.value(image+0xd9e3818,mode);}
+inline bool setupMode(A image,int& mode){Reader r{image};return r.value(image+0xd9eb808,mode);}
 inline bool dynastySetup(A image,bool transition=false){
     int mode=-2;return setupMode(image,mode)&&(mode==14||(transition&&mode==-1));
 }
@@ -189,7 +189,7 @@ inline bool setAttendance(A image,int count,const Api* custom=nullptr,bool trans
     Api api=custom?*custom:Api::engine(image);
     Reader r{image};A service=0,vt=0,set=0;
     if(count<1||count>200000||!dynastySetup(image,transition)||!r.value(image+OptionService,service)||!r.value(service,vt)||vt!=image+OptionVtable||
-       !r.value(vt+0x80,set)||set!=image+0x909b700)return false;
+       !r.value(vt+0x80,set)||set!=image+0x90a1670)return false;
     unsigned before=0;if(!option(r,service,0x9e1d2500,"gameAttendance",4,before))return false;
     struct Reference {A type,data;} ref{image+UnsignedType,reinterpret_cast<A>(&count)};
     A okay=0;if(!api.set||!sustained::obtain(okay,api.set,service,bindings::AttendanceOption,reinterpret_cast<A>(&ref))||!okay)return false;

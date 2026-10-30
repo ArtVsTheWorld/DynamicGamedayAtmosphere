@@ -76,9 +76,9 @@ int main(){
     gt.ints[0x3d]=15;sameConference=true;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&!seed.regular);noLeaks();sameConference=false;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.regular);noLeaks();gt.ints[0x3d]=8;
     put(tableVt+0x128,A(0));assert(!capture(image,address(manager),address(&reference),45000,seed,&api));put(tableVt+0x128,reinterpret_cast<A>(related));noLeaks();
     // Real descriptor layout and typed setter contract; no writes to native records.
-    for(A p:{image+OptionService,image+OptionType,image+OptionVtable,image+0xd9e3818,image+0xf6379e0})page(p);
-    unsigned char options[0x200]{},config[0x100]{};put(image+OptionService,address(options));put(address(options),image+OptionVtable);put(image+OptionVtable+0x80,image+0x909b700);
-    put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
+    for(A p:{image+OptionService,image+OptionType,image+OptionVtable,image+0xd9eb808,image+0xf63f9f0})page(p);
+    unsigned char options[0x200]{},config[0x100]{};put(image+OptionService,address(options));put(address(options),image+OptionVtable);put(image+OptionVtable+0x80,image+0x90a1670);
+    put<int>(image+0xd9eb808,14);put(image+0xf63f9f0,address(config));
     const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId","gameFlagIsSeniorDay"};
     unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900,0x9e6ce400};
     unsigned short offsets[]={0x30,0x20,0x46,0x14,0x3c,0x49,0x32,0x22,0x25};Member members[9]{};
@@ -96,16 +96,16 @@ int main(){
     assert(launch(image,launchInput,seed)&&launchInput.capacity==60000);
     // The -1 sentinel is allowed only when the caller provides fresh matched
     // launch proof. MMC handles online restrictions; gameplay config is unused.
-    put(image+0xf6379e0,A(0));assert(launch(image,launchInput,seed));
-    put<int>(image+0xd9e3818,-1);assert(!launch(image,launchInput,seed));assert(launch(image,launchInput,seed,nullptr,true));
-    for(int other:{-2,0,15,17,99}){put<int>(image+0xd9e3818,other);assert(!launch(image,launchInput,seed,nullptr,true)&&!setAttendance(image,51000,&api,true));}
-    put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
+    put(image+0xf63f9f0,A(0));assert(launch(image,launchInput,seed));
+    put<int>(image+0xd9eb808,-1);assert(!launch(image,launchInput,seed));assert(launch(image,launchInput,seed,nullptr,true));
+    for(int other:{-2,0,15,17,99}){put<int>(image+0xd9eb808,other);assert(!launch(image,launchInput,seed,nullptr,true)&&!setAttendance(image,51000,&api,true));}
+    put<int>(image+0xd9eb808,14);put(image+0xf63f9f0,address(config));
     const char* failure=nullptr;members[2].name=reinterpret_cast<A>("wrongStadiumName");assert(!launch(image,launchInput,seed,&failure)&&!std::strcmp(failure,"gameStadiumId"));members[2].name=reinterpret_cast<A>(names[2]);
     unsigned char before[sizeof(options)];std::memcpy(before,options,sizeof(options));assert(setAttendance(image,50000,&api)&&sets==1);put<int>(address(before)+0x14,50000);assert(!std::memcmp(before,options,sizeof(options)));
     assert(gt.ints[9]==0&&seed.ea==45000); // The simulation/save attendance record never receives the launch override.
     members[3].flags|=1;assert(!setAttendance(image,51000,&api)&&sets==1);members[3].flags&=~1u;
-    put<int>(image+0xd9e3818,-1);assert(!setAttendance(image,51000,&api)&&sets==1);assert(setAttendance(image,51000,&api,true)&&sets==2);put<int>(image+0xd9e3818,14);
-    put<int>(image+0xd9e3818,17);assert(!launch(image,launchInput,seed)&&!setAttendance(image,51000,&api));put<int>(image+0xd9e3818,14);
+    put<int>(image+0xd9eb808,-1);assert(!setAttendance(image,51000,&api)&&sets==1);assert(setAttendance(image,51000,&api,true)&&sets==2);put<int>(image+0xd9eb808,14);
+    put<int>(image+0xd9eb808,17);assert(!launch(image,launchInput,seed)&&!setAttendance(image,51000,&api));put<int>(image+0xd9eb808,14);
     put<unsigned char>(address(options)+0x22,47);assert(!launch(image,launchInput,seed));
     for(void* block:memory)assert(VirtualFree(block,0,MEM_RELEASE));
     std::puts("PASS: captured stadium capacity with exact launch ownership/bounds and no capacity RPC, Dynasty setup, scoped -1 transition, other-mode rejection and no gameplay-config dependency, exact option failure names; native record/schema/int/enum/boolean ABI, owned-reference cleanup, regular/postseason/conference/resume classification, validated launch descriptors and isolated typed option write.");

@@ -437,9 +437,9 @@ void sparseCameraTick(){
     attendance::sparsecamera::Lease lease;lease.epoch=wanted.epoch;lease.updated=now;
     // Keep a valid match identity for restoration even after Soundscape is disabled.
     A actual=attendance::sustained::at<A>(attendance::sustained::at<A>(image+attendance::bindings::MatchWrapper)+16);
-    A config=attendance::sustained::at<A>(image+0xf6379e0);
-    bool offline=actual&&actual==wanted.match&&attendance::sustained::at<A>(actual)==image+0xb4781e8&&config&&
-        attendance::sustained::at<unsigned char>(config+0x84)==0&&attendance::sustained::at<int>(image+0xd9e3818)==14&&attendance::sustained::at<int>(image+0xf3f5d48)==3;
+    A config=attendance::sustained::at<A>(image+0xf63f9f0);
+    bool offline=actual&&actual==wanted.match&&attendance::sustained::at<A>(actual)==image+0xb47e908&&config&&
+        attendance::sustained::at<unsigned char>(config+0x84)==0&&attendance::sustained::at<int>(image+0xd9eb808)==14&&attendance::sustained::at<int>(image+0xf3fddbc)==3;
     lease.match=offline?actual:0;
     EmptyWorld empty;bool silence=emptyMode2020&&emptyWorld(empty);
     if(silence)lease.match=empty.match;
@@ -474,7 +474,7 @@ void observeCannon(A entity,A event){
     // cannon, so do not sample the world or resolve sound assets for them.
     unsigned eventHash=0;if(!cannonRead(event+8,&eventHash,sizeof(eventHash))||eventHash!=attendance::cannon::PlayEvent)return;
     auto config=std::atomic_load(&coreSettings);A match=audioMatch.load();unsigned epoch=audioEpoch.load();auto now=GetTickCount64();
-    A configuration=attendance::sustained::at<A>(image+0xf6379e0);
+    A configuration=attendance::sustained::at<A>(image+0xf63f9f0);
     if(!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!config->enabled||!config->cameraShake||!cameraAvailable||!match||!nativeUnpaused()||!configuration||attendance::sustained::at<unsigned char>(configuration+0x84)!=0||!nativeMasterAudible)return;
     // Match/world/offline and accessibility are checked again at camera output.
     int effect=attendance::cannon::started(image,entity,event,cannonRead,cannonInteger,cannonPlaying);
@@ -752,12 +752,12 @@ const char* __fastcall pauseMenuText(A tile,A key,A){
         action[15]=field[15]=0;
         if(!attendance::pausemenu::labelField(action,field))return nullptr;
         attendance::pausemenu::Context c;c.enabled=std::atomic_load(&settings)->enabled;
-        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),configuration=at<A>(image+0xf6379e0);
+        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),configuration=at<A>(image+0xf63f9f0);
         c.match=at<A>(wrapper+16);c.epoch=audioEpoch.load();
         unsigned char online=1,paused=0,replaying=1;A pause=at<A>(image+attendance::bindings::PauseFlag);
         A replay=at<A>(image+attendance::bindings::ReplayManager);
         c.offlineDynasty=configuration&&read(configuration+0x84,&online,1)&&online==0&&
-            at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3&&
+            at<int>(image+0xd9eb808)==14&&at<int>(image+0xf3fddbc)==3&&
             c.match==audioMatch.load()&&at<A>(c.match)==image+attendance::bindings::MatchVtable;
         c.paused=read(pause,&paused,1)&&paused==1;
         c.replay=at<A>(replay)!=image+attendance::bindings::ReplayVtable||!read(replay+0x38,&replaying,1)||replaying!=0||replaySuspendsAtmosphere.load();
@@ -791,11 +791,11 @@ bool preparePauseMenu(){
     return true;
 }
 void observeWorldExit(){
-    if(at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3)return;
+    if(at<int>(image+0xd9eb808)==14&&at<int>(image+0xf3fddbc)==3)return;
     std::lock_guard<std::mutex> guard(historyMutex);
     // Recheck under the lock so a delayed worker observation cannot mark a
     // freshly joined game as belonging to the world that was just left.
-    if(at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)matchLifecycle.leave();
+    if(at<int>(image+0xd9eb808)!=14||at<int>(image+0xf3fddbc)!=3)matchLifecycle.leave();
 }
 // These small expression objects belong to the synchronous native evaluator
 // calling our hook, in THIS process. A bounded SEH-protected copy avoids a
@@ -814,10 +814,10 @@ attendance::replaypresentation::View replayPresentationView(){
 bool replayPresentationAllowed(){
     if(attendance::energy::clockManagementType(replaySnapType.load()))return false;
     if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed||!pauseBinding||!replayBinding)return false;
-    if(replayValue<int>(image+0xd9e3818)!=14||replayValue<int>(image+0xf3f5d48)!=3)return false;
+    if(replayValue<int>(image+0xd9eb808)!=14||replayValue<int>(image+0xf3fddbc)!=3)return false;
     A states=replayValue<A>(image+attendance::bindings::GameStates);
     if(replayValue<A>(states)!=image+attendance::bindings::GameStatesVtable||replayValue<int>(states+0xa0)!=4)return false;
-    A configuration=replayValue<A>(image+0xf6379e0),wrapper=replayValue<A>(image+attendance::bindings::MatchWrapper);
+    A configuration=replayValue<A>(image+0xf63f9f0),wrapper=replayValue<A>(image+attendance::bindings::MatchWrapper);
     A match=replayValue<A>(wrapper+16),manager=replayValue<A>(image+attendance::bindings::ReplayManager);
     A pause=replayValue<A>(image+attendance::bindings::PauseFlag);
     unsigned char online=1,active=1,paused=1;
@@ -832,7 +832,7 @@ bool writeReplayBoolean(A address,bool value=true){
     __except(EXCEPTION_EXECUTE_HANDLER){replayPresentationFailed=true;return false;}
 }
 void recordReplaySelection(A node,int family,int native,int output,bool allowed,int phase){
-    if(!enabled||mode!=0||at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)return;
+    if(!enabled||mode!=0||at<int>(image+0xd9eb808)!=14||at<int>(image+0xf3fddbc)!=3)return;
     A wrapper=at<A>(image+attendance::bindings::MatchWrapper),match=at<A>(wrapper+16);
     if(at<A>(match)!=image+attendance::bindings::MatchVtable)return;
     attendance::replaytrace::Record r;r.node=node;r.at=GetTickCount64();r.family=family;r.phase=phase;r.native=native;r.output=output;r.allowed=allowed;
@@ -930,8 +930,8 @@ attendance::audio::Wanted audioWanted(){
     // its target comes from the attendance checkpoint, not the replay's score.
     if(!emptyMode2020&&enabled&&audioSetting&&mode!=2&&std::atomic_load(&settings)->enabled&&wanted.match){
         ++audioWorldSnapshots;
-        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),actual=at<A>(wrapper+16),configuration=at<A>(image+0xf6379e0);
-        wanted.active=wanted.match==actual&&configuration&&at<unsigned char>(configuration+0x84)!=1&&at<A>(actual)==image+0xb4781e8&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3;
+        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),actual=at<A>(wrapper+16),configuration=at<A>(image+0xf63f9f0);
+        wanted.active=wanted.match==actual&&configuration&&at<unsigned char>(configuration+0x84)!=1&&at<A>(actual)==image+0xb47e908&&at<int>(image+0xd9eb808)==14&&at<int>(image+0xf3fddbc)==3;
     }
     wanted.remaining=(100-(std::clamp)(activeLoss.load(),0,100))*0.01f;
     wanted.arrivalFraction=(100-(std::clamp)(arrivalMissing.load(),0,100))*0.01f;
@@ -976,14 +976,14 @@ void sustainedNote(const char* message){
     log("roar",text);
 }
 
-bool entityValid(A p){return at<A>(p)==image+0xb47ec48&&at<A>(at<A>(p+0x38)+8)==image+0xf502b30;}
+bool entityValid(A p){return at<A>(p)==image+0xb485368&&at<A>(at<A>(p+0x38)+8)==image+0xf50ab30;}
 bool emptyWorld(EmptyWorld& world){
     // Empty stadiums use the verified shared native crowd layout in any
     // actual game mode. Normal DGA formulas remain Dynasty-only.
-    if(at<int>(image+0xd9e3818)!=14)return false;
+    if(at<int>(image+0xd9eb808)!=14)return false;
     A states=at<A>(image+attendance::bindings::GameStates),wrapper=at<A>(image+attendance::bindings::MatchWrapper);
     world.match=at<A>(wrapper+16);world.phase=at<int>(states+0xa0);
-    world.home=at<int>(image+0xd9f3970);world.away=at<int>(image+0xd9f3974);
+    world.home=at<int>(image+0xd9fba20);world.away=at<int>(image+0xd9fba24);
     return at<A>(states)==image+attendance::bindings::GameStatesVtable&&at<A>(world.match)==image+attendance::bindings::MatchVtable&&
         world.phase>=0&&world.phase<=8&&world.home>0&&world.home<2047&&world.away>0&&world.away<2047;
 }
@@ -991,8 +991,8 @@ void __fastcall presentationUpdate(A states,float delta){
     originalPresentationUpdate(states,delta);
     // Native post-update runs both presentation and gameplay. Using it alone
     // avoids the gameplay hook owned by Situational Practice and Call Sheet.
-    if(enabled&&states==at<A>(image+attendance::bindings::GameStates)&&at<A>(states)==image+0xb479070)CrowdTick();
-    if(sparseCameraAvailable&&states==at<A>(image+attendance::bindings::GameStates)&&at<A>(states)==image+0xb479070)
+    if(enabled&&states==at<A>(image+attendance::bindings::GameStates)&&at<A>(states)==image+0xb47f790)CrowdTick();
+    if(sparseCameraAvailable&&states==at<A>(image+attendance::bindings::GameStates)&&at<A>(states)==image+0xb47f790)
         if(!guardedSparseCameraTick()){sparseNativeCamera.fail();if(!sparseCameraFaultReported.exchange(true))audioNote("camera-fault: sparse native HFA update stopped; gameplay HFA was not changed.");}
     if(cameraAvailable&&!presentationCamera.healthy()&&!cameraFaultReported.exchange(true))audioNote("camera-fault: added motion stopped; the game's own camera is unchanged.");
 }
@@ -1020,12 +1020,12 @@ void __fastcall attendanceUpdate(A entity){
 }
 bool option(unsigned key,int width,int& value);
 bool gameState(attendance::State& s,A& match){
-    if(at<int>(image+0xd9e3818)!=14||at<int>(image+0xf3f5d48)!=3)return false;
-    A configuration=at<A>(image+0xf6379e0);
+    if(at<int>(image+0xd9eb808)!=14||at<int>(image+0xf3fddbc)!=3)return false;
+    A configuration=at<A>(image+0xf63f9f0);
     if(!configuration||at<unsigned char>(configuration+0x84)==1)return false;
     A states=at<A>(image+attendance::bindings::GameStates),wrapper=at<A>(image+attendance::bindings::MatchWrapper),clockManager=at<A>(image+attendance::bindings::ClockManager);
     match=at<A>(wrapper+16);
-    if(at<A>(match)!=image+0xb4781e8||at<A>(states)!=image+0xb479070||at<A>(clockManager)!=image+0xb4787a8)return false;
+    if(at<A>(match)!=image+0xb47e908||at<A>(states)!=image+0xb47f790||at<A>(clockManager)!=image+0xb47eec8)return false;
     A gameClock=at<A>(clockManager+0x28);
     if(!read(clockManager+8,&s.quarter,4)||!read(states+0xa0,&s.phase,4)||!read(match+0x1d8,&s.homeScore,4)||!read(match+0x1dc,&s.awayScore,4))return false;
     bool clockReady=read(gameClock+0x28,&s.seconds,4)&&read(gameClock+0x2c,&s.quarterSeconds,4);
@@ -1100,7 +1100,7 @@ bool swellBindings(){
 bool maskLayout(A crowd,A& renderer,A& begin,size_t& count,A& parts){
     __try {
         renderer=*reinterpret_cast<A*>(crowd+0x9f0);parts=*reinterpret_cast<A*>(crowd+0x908);
-        if(*reinterpret_cast<A*>(renderer)!=image+0xb7db228)return false;
+        if(*reinterpret_cast<A*>(renderer)!=image+0xb7e1988)return false;
         begin=*reinterpret_cast<A*>(renderer+0x188);A end=*reinterpret_cast<A*>(renderer+0x190);
         if(begin<0x10000||end<begin||(end-begin)%2||end-begin>0x200000)return false;
         count=(end-begin)/2;return count>0;
@@ -1304,7 +1304,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         std::lock_guard<std::mutex> guard(crowdMutex);
         for(const auto& item:startingCrowds){
             A renderer=item.first;const auto& base=item.second;
-            if(at<A>(base.scene)!=image+attendance::bindings::SceneCrowdVtable||at<A>(base.scene+0x9f0)!=renderer||at<A>(renderer)!=image+0xb7db228||at<A>(renderer+0x188)!=base.masks||
+            if(at<A>(base.scene)!=image+attendance::bindings::SceneCrowdVtable||at<A>(base.scene+0x9f0)!=renderer||at<A>(renderer)!=image+0xb7e1988||at<A>(renderer+0x188)!=base.masks||
                at<A>(renderer+0x190)!=base.masks+base.hidden.size()*2||!base.parts)continue;
             std::vector<unsigned short> current(base.hidden.size());if(!read(base.masks,current.data(),current.size()*2))continue;
             measured=true;
@@ -1373,7 +1373,7 @@ bool refreshReplayVisibility(){
 }
 void findEntities() {
     std::vector<A> found;
-    const A needle=image+0xb47ec48;std::vector<unsigned char> buffer(0x100007);
+    const A needle=image+0xb485368;std::vector<unsigned char> buffer(0x100007);
     for(A addr=0x10000;addr<0x100000000;){
         MEMORY_BASIC_INFORMATION m{};if(!VirtualQuery(reinterpret_cast<void*>(addr),&m,sizeof(m)))break;
         A start=reinterpret_cast<A>(m.BaseAddress),end=start+m.RegionSize;if(end<=addr)break;addr=end;
@@ -1390,32 +1390,32 @@ void findEntities() {
     for(A e:found)log("entity",hex(e)+" asset="+hex(at<A>(e+0x38)));
 }
 bool install() {
-    conferenceBinding=bytes(attendance::bindings::MatchVisualGetter,{0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x3d,0x5f,0x53,0x98,0x0b})&&
+    conferenceBinding=bytes(attendance::bindings::MatchVisualGetter,{0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x3d,0x5f,0xc5,0x98,0x0b})&&
         bytes(attendance::bindings::MatchVisualGetter+0x2f,{0x48,0x8b,0x57,0x20});
-    hfaBinding=bytes(attendance::bindings::HfaDisabledGetter+0x0f,{0x48,0x8b,0x05,0x22,0x1c,0xe5,0x0c})&&
+    hfaBinding=bytes(attendance::bindings::HfaDisabledGetter+0x0f,{0x48,0x8b,0x05,0x22,0x8e,0xe5,0x0c})&&
         bytes(attendance::bindings::HfaDisabledGetter+0x1e,{0x0f,0xb6,0xb0,0xf0,0x01,0,0});
     if(at<unsigned int>(image+0x3c)>0x1000)return false;
     if(!requiredBytes(attendance::bindings::CrowdVisibility,cleanEntry(attendance::bindings::CrowdVisibility))||
        !requiredBytes(attendance::bindings::PeriodChange,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x99,0x30,0x01,0,0,0x48,0x89,0x6c,0x24,0x30})||
        !requiredBytes(attendance::bindings::CrowdPartResolve,{0x4c,0x8b,0x91,0xa0,0,0,0,0x44,0x8b,0xca})||
-       !requiredBytes(0xa0ad090,{0x48,0x83,0xec,0x38,0x89,0x54,0x24,0x28})||
-       !requiredBytes(attendance::bindings::NeutralGetter,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x15,0x63,0x36,0x09,0x48,0x85,0xc9,0x74,0x18})||
-       !requiredBytes(0x90934d0,{0x40,0x53,0x48,0x83,0xec,0x50})||
+       !requiredBytes(0xa0b3000,{0x48,0x83,0xec,0x38,0x89,0x54,0x24,0x28})||
+       !requiredBytes(attendance::bindings::NeutralGetter,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x85,0xa7,0x36,0x09,0x48,0x85,0xc9,0x74,0x18})||
+       !requiredBytes(0x9099440,{0x40,0x53,0x48,0x83,0xec,0x50})||
        !requiredBytes(attendance::bindings::AttendanceUpdate,{0x40,0x55,0x56,0x41,0x57,0x48,0x8d,0xac,0x24,0x20,0xe9,0xff,0xff,0xb8,0xe0,0x17,0x00,0x00})||
        !requiredBytes(attendance::bindings::PresentationUpdate,{0x40,0x53,0x48,0x83,0xec,0x40,0x8b,0x81,0xa0,0,0,0,0x48,0x8b,0xd9})||
-       !requiredBytes(0x5d01b70,{0x48,0x63,0xc2,0x48,0x8b,0x4c,0xc1,0x20,0xc5,0xfa,0x10,0x41,0x28,0xc3})||
-       !requiredBytes(0x5d01b80,{0x48,0x8b,0x41,0x28,0x8b,0x51,0x08}))return false;
+       !requiredBytes(0x5d05640,{0x48,0x63,0xc2,0x48,0x8b,0x4c,0xc1,0x20,0xc5,0xfa,0x10,0x41,0x28,0xc3})||
+       !requiredBytes(0x5d05650,{0x48,0x8b,0x41,0x28,0x8b,0x51,0x08}))return false;
     signatures=true;
-    capacityBinding=bytes(attendance::bindings::StadiumCapacity,{0x40,0x53,0x48,0x83,0xec,0x30,0x33,0xc0,0x48,0x8b,0xda})&&bytes(attendance::bindings::OptionQuery,{0x40,0x53,0x48,0x83,0xec,0x50,0x48,0x8b,0x05,0xdb,0x55,0xbf,0x06,0x49,0x8b,0xd8});
-    superSimBinding=bytes(attendance::bindings::SuperSimModeGetter,{0x48,0x8b,0x05,0xd1,0x98,0x17,0x0c,0x48,0x85,0xc0,0x74,0x0d,0x83,0x78,0x08,0x01,0x75,0x07,0xb1,0x01});
-    replayModeBinding=bytes(attendance::bindings::ReplayRealtimeQuery,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x0d,0x48,0x1c,0x06,0x48,0x85,0xc9,0x74,0x10,0xe8,0xdb,0x74,0xcc,0xf9,0x84,0xc0,0x74,0x07,0xb0,0x01,0x48,0x83,0xc4,0x28,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x28,0xc3})&&
-        bytes(0x2ed5770,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0xe8,0x92,0xfa,0xe9,0x00,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x38,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x50,0xf7,0x43,0x08,0xf7,0xff,0xff,0xff,0x0f,0x95,0xc1,0x84,0xc0,0x74,0x1e,0x83,0x7b,0x14,0x00,0x75,0x18,0x84,0xc9,0x75,0x0c,0x38,0x4b,0x2c,0x0f,0x95,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3,0xb0,0x01,0x48,0x83,0xc4,0x20,0x5b,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3})&&
+    capacityBinding=bytes(attendance::bindings::StadiumCapacity,{0x40,0x53,0x48,0x83,0xec,0x30,0x33,0xc0,0x48,0x8b,0xda})&&bytes(attendance::bindings::OptionQuery,{0x40,0x53,0x48,0x83,0xec,0x50,0x48,0x8b,0x05,0x6b,0x7b,0xbf,0x06,0x49,0x8b,0xd8});
+    superSimBinding=bytes(attendance::bindings::SuperSimModeGetter,{0x48,0x8b,0x05,0x91,0xf1,0x17,0x0c,0x48,0x85,0xc0,0x74,0x0d,0x83,0x78,0x08,0x01,0x75,0x07,0xb1,0x01});
+    replayModeBinding=bytes(attendance::bindings::ReplayRealtimeQuery,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x9d,0x68,0x1c,0x06,0x48,0x85,0xc9,0x74,0x10,0xe8,0x3b,0x23,0xcc,0xf9,0x84,0xc0,0x74,0x07,0xb0,0x01,0x48,0x83,0xc4,0x28,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x28,0xc3})&&
+        bytes(0x2ed6540,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0xe8,0xe2,0x15,0xea,0x00,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x38,0x48,0x8b,0xc8,0x48,0x8b,0x10,0xff,0x52,0x50,0xf7,0x43,0x08,0xf7,0xff,0xff,0xff,0x0f,0x95,0xc1,0x84,0xc0,0x74,0x1e,0x83,0x7b,0x14,0x00,0x75,0x18,0x84,0xc9,0x75,0x0c,0x38,0x4b,0x2c,0x0f,0x95,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3,0xb0,0x01,0x48,0x83,0xc4,0x20,0x5b,0xc3,0x32,0xc0,0x48,0x83,0xc4,0x20,0x5b,0xc3})&&
         bytes(attendance::bindings::ReplayPlaycallQuery,{0x0f,0xb6,0x81,0x49,0x04,0x00,0x00,0xc3})&&
-        at<A>(image+attendance::bindings::ReplaySimApiVtable+0xb8)==image+0x7ba6bb0&&
+        at<A>(image+attendance::bindings::ReplaySimApiVtable+0xb8)==image+0x7baa750&&
         at<A>(image+attendance::bindings::ReplayFlowApiVtable+0x5e0)==image+attendance::bindings::ReplayPlaycallQuery;
     if(!replayModeBinding)log("major-replay","Native replay-mode queries differ; added inset routing disabled, original presentation retained.");
     if(!superSimBinding)log("simulation-unavailable","Super Sim binding differs; crowd changes will wait for ordinary selection and breaks.");
-    pauseBinding=bytes(attendance::bindings::PauseCheck,{0x48,0x8b,0x05,0xa9,0x0c,0x9a,0x07,0x48,0x85,0xc0,0x74,0x08,0x80,0x38,0x00,0x74,0x03,0xb0,0x01,0xc3,0x32,0xc0,0xc3});
+    pauseBinding=bytes(attendance::bindings::PauseCheck,{0x48,0x8b,0x05,0x09,0x51,0x9a,0x07,0x48,0x85,0xc0,0x74,0x08,0x80,0x38,0x00,0x74,0x03,0xb0,0x01,0xc3,0x32,0xc0,0xc3});
     replayBinding=bytes(attendance::bindings::ReplayTimeGetter,{0xc5,0xfb,0x10,0x41,0x40,0xc3})&&
         bytes(attendance::bindings::RecordingTimeGetter,{0xc5,0xfb,0x10,0x81,0x30,0x10,0,0,0xc3})&&
         bytes(attendance::bindings::ReplayActiveGetter,{0x0f,0xb6,0x41,0x38,0xc3})&&
@@ -1431,11 +1431,11 @@ bool install() {
     // Optional view-matrix copy hook. It never selects camera presets or retains
     // scene references, and uses the game's camera-effects accessibility gate.
     cameraBindings=pauseBinding&&replayBinding&&
-       bytes(0x809c3a7,{0xc5,0xf8,0x10,0x81,0xb4,0x02,0,0})&&
+       bytes(0x80a00b7,{0xc5,0xf8,0x10,0x81,0xb4,0x02,0,0})&&
        bytes(attendance::bindings::CameraViewCopy,{0x48,0x83,0xb9,0xc0,0x03,0,0,0,0x74,0x33,0xc5,0xf8,0x10,0x81,0x74,0x02,0,0})&&
        at<A>(image+attendance::bindings::CameraViewSlot)==image+attendance::bindings::CameraViewCopy&&
        bytes(attendance::bindings::CameraGet,{0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20})&&
-       bytes(attendance::bindings::CameraEffectsGetter,{0x48,0x83,0xec,0x28,0x8b,0xd1,0x41,0xb8,0x15,0,0,0,0x48,0x8b,0x0d,0x8d,0x94,0x0c,0x08})&&
+       bytes(attendance::bindings::CameraEffectsGetter,{0x48,0x83,0xec,0x28,0x8b,0xd1,0x41,0xb8,0x15,0x00,0x00,0x00,0x48,0x8b,0x0d,0xfd,0xd8,0x0c,0x08})&&
        bytes(attendance::bindings::CameraSettingGetter,{0x33,0xc0,0x41,0x83,0xf8,0x19,0x77,0x1a,0x83,0xfa,0x01,0x77,0x15,0x48,0x63,0xc2,0x48,0x6b,0xd0,0x1a,0x49,0x63,0xc0,0x48,0x03,0xd0,0x0f,0xb7,0x84,0x51,0xbc,0x03,0,0,0xc3});
     if(pauseBinding&&replayBinding&&
        bytes(attendance::bindings::MuseLogicEvaluate,cleanEntry(attendance::bindings::MuseLogicEvaluate))&&
@@ -1447,8 +1447,8 @@ bool install() {
            bytes(attendance::bindings::ReplayNodeUpdate,cleanEntry(attendance::bindings::ReplayNodeUpdate))&&
            at<A>(image+attendance::bindings::ReplayEventNodeVtable+0x60)==image+attendance::bindings::ReplayEventNodeUpdate&&
            at<A>(image+attendance::bindings::ReplayNodeVtable+0x60)==image+attendance::bindings::ReplayNodeUpdate&&
-           bytes(attendance::bindings::PresentationClient,{0x48,0x8b,0x05,0xe1,0x4c,0xd6,0x07,0xc3})&&
-           bytes(attendance::bindings::PresentationEvent,{0x48,0x83,0xec,0x28,0x45,0x33,0xc9,0x45,0x33,0xc0,0xe8,0x91,0xbc,0x3c,0x02,0xb0,0x01,0x48,0x83,0xc4,0x28,0xc3})){
+           bytes(attendance::bindings::PresentationClient,{0x48,0x8b,0x05,0x41,0x91,0xd6,0x07,0xc3})&&
+           bytes(attendance::bindings::PresentationEvent,{0x48,0x83,0xec,0x28,0x45,0x33,0xc9,0x45,0x33,0xc0,0xe8,0x61,0xe0,0x3c,0x02,0xb0,0x01,0x48,0x83,0xc4,0x28,0xc3})){
             if(!makePatch(attendance::bindings::ReplayEventNodeUpdate,reinterpret_cast<void*>(replayEventNode),reinterpret_cast<void**>(&originalReplayEventNode),19)||
                !makePatch(attendance::bindings::ReplayNodeUpdate,reinterpret_cast<void*>(nativeReplayNode),reinterpret_cast<void**>(&originalNativeReplayNode),18))return false;
             majorReplayBindings=true;
@@ -1456,17 +1456,17 @@ bool install() {
     }else log("replay-unavailable","Extra post-play replays are unavailable on this layout; normal replay selection remains active.");
     // These getters independently verify every new play-data field. A changed
     // layout disables energy/events while retaining the original attendance.
-    playBindingsAvailable=bytes(attendance::bindings::CurrentDownGetter,{0x48,0x8b,0x05,0x99,0xd0,0x65,0x09})&&
+    playBindingsAvailable=bytes(attendance::bindings::CurrentDownGetter,{0x48,0x8b,0x05,0x59,0x15,0x66,0x09})&&
         bytes(attendance::bindings::CurrentDownGetter+0x15,{0x8b,0x80,0xd0,0x01,0x00,0x00})&&
-        bytes(attendance::bindings::CurrentOffenseGetter,{0x48,0x8b,0x05,0x19,0xbc,0x65,0x09})&&
+        bytes(attendance::bindings::CurrentOffenseGetter,{0x48,0x8b,0x05,0xd9,0x00,0x66,0x09})&&
         bytes(attendance::bindings::CurrentOffenseGetter+0x15,{0x8b,0x80,0xc8,0x01,0x00,0x00})&&
         bytes(attendance::bindings::TimeoutGetter,{0x8b,0x41,0x4c,0x89,0x44,0x24,0x08,0x8b,0x41,0x50})&&
-        bytes(attendance::bindings::FirstDownGetter,{0x48,0x8b,0x05,0x09,0xc3,0x65,0x09})&&
+        bytes(attendance::bindings::FirstDownGetter,{0x48,0x8b,0x05,0xc9,0x07,0x66,0x09})&&
         bytes(attendance::bindings::FirstDownGetter+0x15,{0x48,0x81,0xc1,0x60,0x02,0x00,0x00})&&
         bytes(attendance::bindings::FirstDownGetter+0x2a,{0x8b,0x41,0x20,0xc1,0xe8,0x0a,0x24,0x01})&&
         bytes(attendance::bindings::FirstDownLine,{0x48,0x83,0xec,0x18,0x48,0x8b,0xd1})&&
-        bytes(0x61fa5a5,{0xc4,0xe2,0x79,0x18,0x98,0x6c,0x01,0x00,0x00})&&
-        bytes(0x2e905d0,{0x48,0x8b,0x05,0x09,0x1a,0x54,0x0c,0xc3})&&
+        bytes(0x61fe135,{0xc4,0xe2,0x79,0x18,0x98,0x6c,0x01,0x00,0x00})&&
+        bytes(0x2e913c0,{0x48,0x8b,0x05,0x19,0x8c,0x54,0x0c,0xc3})&&
         bytes(attendance::bindings::TurnoverGetter,{0x48,0x8b,0x81,0xd8,0x0c,0x00,0x00,0x8b,0x40,0x64,0xc3});
     // Broadcast key 14 tests ball state 5 with fumble substate 1 or 2.
     // Result kinds 3/4/5 belong to the incomplete-pass query (key 20).
@@ -1476,21 +1476,21 @@ bool install() {
         bytes(attendance::bindings::FieldGoalBlockedPredicate+0x20,{0x8b,0x40,0x20,0xc1,0xe8,0x08,0xa8,0x01});
     liveReactionBindings=playBindingsAvailable&&bytes(attendance::bindings::BallStateGetter,{0x8b,0x81,0x58,0x01,0,0,0x89,0x02,0x8b,0x81,0x68,0x01,0,0,0xc3})&&
         bytes(attendance::bindings::CatchPosition+0x49,{0xc5,0xc8,0x57,0xf6,0xc5,0xca,0x2a,0x70,0x44});
-    playCallBinding=bytes(attendance::bindings::OffensivePlayType,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0xdd,0xfd,0x0c,0x08})&&
+    playCallBinding=bytes(attendance::bindings::OffensivePlayType,{0x48,0x83,0xec,0x28,0x48,0x8b,0x0d,0x4d,0x42,0x0d,0x08})&&
         bytes(attendance::bindings::PlayCallTeamGet,{0x48,0x83,0xec,0x28,0x48,0x63,0xc2,0x48,0x83,0xc1,0x10,0x48,0x69,0xd0,0xe8,0x0d,0,0})&&
         bytes(attendance::bindings::PlayCallSelectedGet,{0x48,0x8d,0x41,0x08,0xc3})&&bytes(attendance::bindings::PlayCallGet,{0x48,0x8d,0x41,0x08,0xc3})&&
         bytes(attendance::bindings::PlayCallType,{0x8b,0x41,0x2c,0xc3})&&bytes(attendance::bindings::PlayCallFallbackType,{0x8b,0x41,0x30,0xc3});
-    runnerPositionBinding=bytes(0x2ea8ea0,{0xc5,0xf8,0x10,0x51,0x40})&&at<A>(image+0xb475420)==image+0x2ea8ea0;
+    runnerPositionBinding=bytes(0x2ea9c90,{0xc5,0xf8,0x10,0x51,0x40})&&at<A>(image+0xb47bb40)==image+0x2ea9c90;
     defensiveReactionBindings=bytes(attendance::bindings::SackPredicate,{0x48,0x89,0x5c,0x24,0x08})&&
-        bytes(0x61fccaf,{0x81,0xff,0xb7,0x0b,0,0})&&bytes(0x2e9b7a0,{0x48,0x83,0xec,0x48})&&
-        bytes(attendance::bindings::ForcedFumblePredicate,{0x40,0x53,0x48,0x83,0xec,0x20})&&bytes(0x61fd397,{0x83,0xfb,0x20,0x0f,0x94,0xc0});
+        bytes(0x620083f,{0x81,0xff,0xb7,0x0b,0,0})&&bytes(0x2e9c590,{0x48,0x83,0xec,0x48})&&
+        bytes(attendance::bindings::ForcedFumblePredicate,{0x40,0x53,0x48,0x83,0xec,0x20})&&bytes(0x6200f27,{0x83,0xfb,0x20,0x0f,0x94,0xc0});
     liveFumbleBinding=liveReactionBindings&&defensiveReactionBindings&&
-        bytes(0x276aad9,{0x48,0x8b,0x0d,0x68,0x4a,0xbe,0x0b})&&bytes(attendance::bindings::LiveFootballEventType,{0x8b,0x41,0x1c,0xc3})&&
+        bytes(0x276b8d9,{0x48,0x8b,0x0d,0x68,0xbc,0xbe,0x0b})&&bytes(attendance::bindings::LiveFootballEventType,{0x8b,0x41,0x1c,0xc3})&&
         at<A>(image+attendance::bindings::LiveFootballEventVtable+0x40)==image+attendance::bindings::LiveFootballEventType;
-    skillBindings=liveReactionBindings&&bytes(0x7dd5670,{0x48,0x83,0xec,0x38,0xba,0x4f,0,0,0})&&
-        bytes(0x7dd568e,{0xba,0xe8,0xea,0x84,0x37})&&bytes(0x7df6d70,{0x48,0x8b,0x05,0x69,0x63,0xcd,0x07,0xc3})&&
-        bytes(0x7dd56a7,{0xc5,0xfb,0x10,0x88,0x50,0x16,0,0})&&bytes(0x7dd5827,{0xc5,0xfb,0x10,0x88,0x40,0x16,0,0})&&
-        bytes(0x7dd5707,{0xc5,0xfb,0x10,0x88,0x68,0x16,0,0})&&bytes(0x7dd9982,{0x8b,0xd3,0x48,0x8b,0xc8});
+    skillBindings=liveReactionBindings&&bytes(0x7dd9210,{0x48,0x83,0xec,0x38,0xba,0x4f,0,0,0})&&
+        bytes(0x7dd922e,{0xba,0xe8,0xea,0x84,0x37})&&bytes(0x7dfa910,{0x48,0x8b,0x05,0xc9,0xa7,0xcd,0x07,0xc3})&&
+        bytes(0x7dd9247,{0xc5,0xfb,0x10,0x88,0x50,0x16,0,0})&&bytes(0x7dd93c7,{0xc5,0xfb,0x10,0x88,0x40,0x16,0,0})&&
+        bytes(0x7dd92a7,{0xc5,0xfb,0x10,0x88,0x68,0x16,0,0})&&bytes(0x7ddd522,{0x8b,0xd3,0x48,0x8b,0xc8});
     if(!skillBindings)log("skill-reactions-unavailable","Optional skill/hit event checks differ; these accents stay inactive. Other reactions remain available.");
     hurdleCountBinding=skillBindings&&bytes(attendance::bindings::HurdleCountGetter,{0x8b,0x81,0x60,0x08,0,0,0xc3});
     catchKnockoutBinding=liveReactionBindings&&bytes(attendance::bindings::CatchKnockoutStore,{0x88,0x83,0x75,0x01,0,0})&&
@@ -1498,7 +1498,7 @@ bool install() {
     passBreakupBinding=liveReactionBindings&&bytes(attendance::bindings::PassTippedQuery,{0xba,0x27,0,0,0,0x48,0x8b,0xc8})&&
         bytes(attendance::bindings::PlayEventLookup,{0x4c,0x8d,0x51,0x10,0x45,0x33,0xc9})&&
         bytes(attendance::bindings::PlayEventReceive+0x15,{0x41,0x81,0xf8,0xb5,0x01,0,0});
-    contactFumbleBinding=passBreakupBinding&&bytes(0x7dd9982,{0x8b,0xd3,0x48,0x8b,0xc8});
+    contactFumbleBinding=passBreakupBinding&&bytes(0x7ddd522,{0x8b,0xd3,0x48,0x8b,0xc8});
     if(!passBreakupBinding)log("pass-breakups-unavailable","Optional native deflection checks differ; pass-breakup accents stay inactive. Catch knockouts and other reactions remain available.");
     if(!defensiveReactionBindings)log("defensive-reactions-unavailable","Native sack/forced-fumble checks differ; their flag-based reactions stay inactive. The measured five-yard loss rule does not require these checks.");
     if(!runnerPositionBinding)log("runner-position-unavailable","Live runner position differs; long catches and interceptions remain available.");
@@ -1525,8 +1525,8 @@ bool install() {
         }else log("cheer-inactive","Native cheer bindings differ; celebration roars and volume remain available.");
         if(bytes(attendance::bindings::IntensityUpdate,cleanEntry(attendance::bindings::IntensityUpdate))&&
            bytes(attendance::bindings::IntensityPublish,{0x48,0x8b,0x09,0xe9,0x58,0x30,0,0})&&
-           bytes(attendance::bindings::IntensityLock,{0x48,0xff,0x25,0x21,0x64,0x63,0x10})&&
-           bytes(attendance::bindings::IntensityUnlock,{0x48,0xff,0x25,0xc9,0x55,0x63,0x10})){
+           bytes(attendance::bindings::IntensityLock,{0x48,0xff,0x25,0x45,0xda,0x63,0x10})&&
+           bytes(attendance::bindings::IntensityUnlock,{0x48,0xff,0x25,0xed,0xcb,0x63,0x10})){
             crowdIntensity.configure(image);
             if(!makePatch(attendance::bindings::IntensityUpdate,reinterpret_cast<void*>(intensityUpdate),reinterpret_cast<void**>(&originalIntensityUpdate),18))return false;
             intensityAvailable=true;
@@ -1556,13 +1556,13 @@ bool install() {
     if(capacityBinding&&bytes(attendance::turnout::native::Formula,cleanEntry(attendance::turnout::native::Formula))&&
        bytes(attendance::turnout::native::OptionSet,cleanEntry(attendance::turnout::native::OptionSet))&&
        bytes(attendance::turnout::native::LaunchCopy,{attendance::turnout::native::LaunchPrefix.begin(),attendance::turnout::native::LaunchPrefix.end()})&&
-       bytes(0x7f146e8,{0xba,0,0x69,0x2e,0x9f,0x49,0x8b,0xcf,0xe8,0x4b,0x72,0x18,0x01})&&
-       bytes(0x7f13845,{0xba,0,0x69,0x2e,0x9f,0x66,0x89,0x85,0x98,0,0,0,0x49,0x8b,0xcf,0xe8,0xe7,0x80,0x18,0x01})&&
-       bytes(0x7f1420b,{0xba,0,0x25,0x1d,0x9e,0x49,0x8b,0xcf,0xe8,0x28,0x77,0x18,0x01})&&
-       bytes(0x37f18a0,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20})&&
-       bytes(0x85ffd60,{0x40,0x55,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8b,0xec})&&
-       bytes(0x909b700,{0x40,0x53,0x48,0x83,0xec,0x60,0x48,0x8b,0x05,0xab,0xd3,0xbe,0x06,0x49,0x8b,0xd8})&&
-       bytes(0x7da8956,{0x3d,0x74,0x04,0,0,0x48,0x8b,0xcb,0x0f,0x9d,0xc2})){
+       bytes(0x7f182b8,{0xba,0x00,0x69,0x2e,0x9f,0x49,0x8b,0xcf,0xe8,0xeb,0x95,0x18,0x01})&&
+       bytes(0x7f17415,{0xba,0x00,0x69,0x2e,0x9f,0x66,0x89,0x85,0x98,0x00,0x00,0x00,0x49,0x8b,0xcf,0xe8,0x87,0xa4,0x18,0x01})&&
+       bytes(0x7f17ddb,{0xba,0x00,0x25,0x1d,0x9e,0x49,0x8b,0xcf,0xe8,0xc8,0x9a,0x18,0x01})&&
+       bytes(0x37f40a0,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20})&&
+       bytes(0x8603b00,{0x40,0x55,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8b,0xec})&&
+       bytes(0x90a1670,{0x40,0x53,0x48,0x83,0xec,0x60,0x48,0x8b,0x05,0x3b,0xf9,0xbe,0x06,0x49,0x8b,0xd8})&&
+       bytes(0x7dac4f6,{0x3d,0x74,0x04,0,0,0x48,0x8b,0xcb,0x0f,0x9d,0xc2})){
         size_t first=patches.size();
         initialBinding=makePatch(attendance::turnout::native::Formula,reinterpret_cast<void*>(initialFormula),reinterpret_cast<void**>(&originalInitialFormula),17)&&
             makePatch(attendance::turnout::native::OptionSet,reinterpret_cast<void*>(initialOptionSet),reinterpret_cast<void**>(&originalInitialOptionSet),15)&&prepareInitialLaunch();
@@ -1590,11 +1590,11 @@ bool install() {
 }
 // Read-only native context. The game uses these same options for its presentation data.
 bool option(unsigned key,int width,int& value){
-    A service=at<A>(image+0xe2dd3e8),vt=at<A>(service);
-    if(vt!=image+0xb298a70||at<A>(vt+0x68)!=image+0x90934d0)return false;
-    struct Variant {A vt,type,data;} v{image+0xb12f498,at<A>(image+0xfc88ab8),0};
+    A service=at<A>(image+0xe2e53e8),vt=at<A>(service);
+    if(vt!=image+0xb29ee30||at<A>(vt+0x68)!=image+0x9099440)return false;
+    struct Variant {A vt,type,data;} v{image+0xb135818,at<A>(image+0xfc90fb8),0};
     using Query=bool(__fastcall*)(A,unsigned,Variant*,A,A);
-    if(!reinterpret_cast<Query>(image+0x90934d0)(service,key,&v,0,0)||!v.data)return false;
+    if(!reinterpret_cast<Query>(image+0x9099440)(service,key,&v,0,0)||!v.data)return false;
     if(width==1){unsigned char x=0;if(!read(v.data,&x,1))return false;value=x;}
     else {unsigned short x=0;if(!read(v.data,&x,2))return false;value=x;}
     return true;
@@ -1616,8 +1616,8 @@ void refreshStadiumOccupancy(A match,unsigned epoch,uint64_t now){
     }else if(first)log("stadium-fullness","Seating measurement not ready; added soundscape waits for verified stadium fullness.");
 }
 bool context(attendance::State& s){
-    A weather=at<A>(image+0xf4fe000);
-    if(at<A>(weather)!=image+0xb323ed0)return false;
+    A weather=at<A>(image+0xf506000);
+    if(at<A>(weather)!=image+0xb32a290)return false;
     bool overrideWeather=at<unsigned char>(weather+0x388)!=0;
     float precipitation=at<float>(weather+(overrideWeather?0x39c:0xf0));
     int temperature=at<int>(weather+(overrideWeather?0x38c:0xe8));
@@ -1632,7 +1632,7 @@ bool context(attendance::State& s){
     s.rivalry=rivalry!=1023;
     bool conference=false;shownConferenceKnown=conferenceBinding&&attendance::nativecontext::conference(image,s.neutral,s.rivalry,conference);
     attendance::postseason(s,attendance::playoffBowl(s.bowl),conference);
-    int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
+    int team0=at<int>(image+0xd9fba20),team1=at<int>(image+0xd9fba24);
     if(team0<0||team0>=2047||team1<0||team1>=2047)return false;
     s.team0=team0;s.team1=team1;
     int kickoff=-1;
@@ -1643,7 +1643,7 @@ bool context(attendance::State& s){
     if(s.startingAttendance){s.night=initial->result.night;s.plannedKickoff=initial->result.kickoff;s.plannedFill=initial->result.fillPercent;s.plannedPeak=initial->result.attendance;s.plannedCapacity=initial->launch.capacity;s.plannedStadium=initial->launch.stadium;s.plannedWeek=initial->seed.week;s.plannedYear=initial->seed.year;s.exceptionalOpening=initial->result.exceptional;}
     // This native reader supplies HomeTeamRank/AwayTeamRank to the game UI.
     using Rank=int(__fastcall*)(A,int);
-    auto rank=reinterpret_cast<Rank>(image+0xa0ad090);
+    auto rank=reinterpret_cast<Rank>(image+0xa0b3000);
     s.rank0=rank(0,team0);s.rank1=rank(0,team1);
     if(s.rank0 < -1||s.rank0>255||s.rank1 < -1||s.rank1>255)return false;
     // Classification cannot change halfway through a match because a replay
@@ -1849,11 +1849,11 @@ bool playData(A match,attendance::energy::Play& p){
         int kind=at<int>(record+0x64);p.resultStamp=stamp;p.interception=kind==2;
         if(liveReactionBindings&&p.game.phase==3&&(kind==3||kind==1)){
             A control=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);
-            p.passReleased=at<A>(control)==image+0xb4753f0&&at<int>(control+0x168)==1&&at<A>(control+0x1a0)==0&&
+            p.passReleased=at<A>(control)==image+0xb47bb10&&at<int>(control+0x168)==1&&at<A>(control+0x1a0)==0&&
                 at<A>(tracker+0xcd8)==record&&at<int>(record+0x64)==kind;
         }
         if(fumbleBinding){A ball=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);int substate=at<int>(ball+0x158);
-            p.fumble=at<A>(ball)==image+0xb4753f0&&attendance::live::isFumbleState(at<int>(ball+0x168),substate);}
+            p.fumble=at<A>(ball)==image+0xb47bb10&&attendance::live::isFumbleState(at<int>(ball+0x168),substate);}
         if(defensiveReactionBindings&&enabled&&audioSetting&&std::atomic_load(&coreSettings)->enabled&&(p.game.phase==4||p.game.phase==5||p.game.phase==1||p.game.phase==7)){
             // The predicate's completed-play selector has its own identity,
             // separate from the mutable current result hash.
@@ -1879,7 +1879,7 @@ bool playData(A match,attendance::energy::Play& p){
 bool majorReplayWorld(attendance::State& state,A& match){
     if(!enabled||mode==2||!extraReplays||!replayPresentationInstalled||replayPresentationFailed||!pauseBinding||!replayBinding||!playBindingsAvailable)return false;
     if(!gameState(state,match))return false;
-    A config=at<A>(image+0xf6379e0);unsigned char online=1;
+    A config=at<A>(image+0xf63f9f0);unsigned char online=1;
     return config&&read(config+0x84,&online,1)&&online==0&&at<A>(match)==image+attendance::bindings::MatchVtable;
 }
 attendance::replaymode::Sample nativeReplayMode(){
@@ -2141,7 +2141,7 @@ void atmosphereTick(){
         auto tracker=at<A>(image+attendance::bindings::PlayStats);liveRecord=at<A>(tracker+0xcd8);liveKind=at<int>(liveRecord+0x64);
         int position=0;if(liveKind==1&&read(liveRecord+0x44,&position,4)&&position>=-50&&position<=50)catchSpot=static_cast<float>(position);
         auto control=at<A>(at<A>(image+attendance::bindings::BallControl)+0x10);ballState=at<int>(control+0x168);ballSubstate=at<int>(control+0x158);
-        if(runnerPositionBinding&&at<A>(control)==image+0xb4753f0){
+        if(runnerPositionBinding&&at<A>(control)==image+0xb47bb10){
             A carrier=at<A>(control+0x1a0);float runnerPosition=0;
             if(read(control+0x48,&runnerPosition,4)&&std::isfinite(runnerPosition)&&std::fabs(runnerPosition)<=65){runnerSpot=runnerPosition;ballHeld=carrier!=0;}
         }
@@ -2510,12 +2510,12 @@ void beginAttendanceHistory(attendance::State& s,bool midgame){
 }
 bool ordinaryOpeningAcknowledgement(A match,const attendance::State& s){
     if(!contextReady||match!=lastMatch||s.quarter!=1||s.homeScore||s.awayScore||s.seconds<s.quarterSeconds*0.95f||
-       (s.phase!=6&&s.phase!=1&&s.phase!=5)||at<int>(image+0xd9f3970)!=shownTeam0||at<int>(image+0xd9f3974)!=shownTeam1)return false;
+       (s.phase!=6&&s.phase!=1&&s.phase!=5)||at<int>(image+0xd9fba20)!=shownTeam0||at<int>(image+0xd9fba24)!=shownTeam1)return false;
     std::lock_guard<std::mutex> guard(historyMutex);return matchLifecycle.keepAtKickoff(match);
 }
 bool ordinarySessionAcknowledgement(A match,const attendance::State& s){
     if(ordinaryOpeningAcknowledgement(match,s))return true;
-    if(!contextReady||match!=lastMatch||s.phase==6||s.phase==7||at<int>(image+0xd9f3970)!=shownTeam0||at<int>(image+0xd9f3974)!=shownTeam1)return false;
+    if(!contextReady||match!=lastMatch||s.phase==6||s.phase==7||at<int>(image+0xd9fba20)!=shownTeam0||at<int>(image+0xd9fba24)!=shownTeam1)return false;
     {std::lock_guard<std::mutex> guard(historyMutex);if(matchLifecycle.needsReset(match,false))return false;}
     std::lock_guard<std::mutex> guard(timelineMutex);return attendanceArchive.active!=0;
 }
@@ -2536,7 +2536,7 @@ bool replayPresentation(){
                     !attendance::timeline::recordingRestarted(replay.valid,replay.recording,lastRecordingTime,s,departureModel.previous);
             }
             {std::lock_guard<std::mutex> guard(timelineMutex);currentSession=currentSession&&attendanceArchive.active!=0;}
-            int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
+            int team0=at<int>(image+0xd9fba20),team1=at<int>(image+0xd9fba24);
             if(team0>0&&team0<2047&&team1>0&&team1<2047&&(team0!=shownTeam0||team1!=shownTeam1))currentSession=false;
             auto signal=std::atomic_load(&resumeSignal);
             if(resumeTracker.pending(*signal,s,GetTickCount64(),ordinarySessionAcknowledgement(match,s)))currentSession=false;
@@ -2634,7 +2634,7 @@ void recordAttendance(){
 }
 bool guardedRecordAttendance(){__try{recordAttendance();return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
 bool carryPreparedOpening(A match,const attendance::State& s){
-    int home=at<int>(image+0xd9f3970),away=at<int>(image+0xd9f3974);
+    int home=at<int>(image+0xd9fba20),away=at<int>(image+0xd9fba24);
     bool same=contextReady&&home>0&&away>0&&home==shownTeam0&&away==shownTeam1;
     {std::lock_guard<std::mutex> guard(historyMutex);if(!matchLifecycle.carryOpening(match,s,same))return false;}
     A previous=lastMatch;lastMatch=match;audioMatch=match;auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==previous)publishSessionPlan(match,plan->state);
@@ -2685,7 +2685,7 @@ void decision(){
     bool nativeResume=resumeTracker.observe(*signal,s,now,sessionAcknowledgement);
     if(sessionAcknowledgement&&!nativeResume&&previousResumeKnown&&resumeTracker.game!=previousResumeGame)
         log("new-game",openingAcknowledgement?"Midgame Save confirmed the new game; keeping the prepared opening crowd.":"Midgame Save announced this game's first played snap after simulation; keeping the original seating baseline and attendance history.");
-    int team0=at<int>(image+0xd9f3970),team1=at<int>(image+0xd9f3974);
+    int team0=at<int>(image+0xd9fba20),team1=at<int>(image+0xd9fba24);
     bool changedTeams=contextReady&&team0>0&&team0<2047&&team1>0&&team1<2047&&(team0!=shownTeam0||team1!=shownTeam1);
     auto replay=replaySnapshot();
     bool restartedRecording=attendance::timeline::recordingRestarted(replay.valid,replay.recording,lastRecordingTime,s,departureModel.previous);

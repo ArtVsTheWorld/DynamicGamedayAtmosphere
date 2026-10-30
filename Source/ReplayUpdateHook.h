@@ -6,7 +6,7 @@ namespace attendance::replayhook {
 inline constexpr size_t SourceBytes=17,TrampolineBytes=37;
 // Complete instructions through mov rbx,[rip+ReplayManager]. The replay entity's
 // native updater consumes only RCX and continues even when gameplay is paused.
-inline constexpr std::array<unsigned char,SourceBytes> Prefix={0x48,0x89,0x5c,0x24,8,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x1d,0x17,0x1f,0xae,0x0b};
+inline constexpr std::array<unsigned char,SourceBytes> Prefix={0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x1d,0x17,0x91,0xae,0x0b};
 inline std::array<unsigned char,TrampolineBytes> trampoline(uintptr_t managerGlobal,uintptr_t resume){
     std::array<unsigned char,TrampolineBytes> code{};std::memcpy(code.data(),Prefix.data(),10);
     // Expand the RIP-relative load, so the trampoline can live anywhere. Its

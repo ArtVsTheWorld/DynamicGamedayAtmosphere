@@ -4,8 +4,11 @@
 #include <cstring>
 #include <iostream>
 #include "../Source/ReplayUpdateHook.h"
+#include "../Source/GameBindings.h"
 int main(){
     using namespace attendance::replayhook;
+    int32_t displacement=0;std::memcpy(&displacement,Prefix.data()+13,4);
+    assert(static_cast<intptr_t>(attendance::bindings::ReplayUpdate+SourceBytes)+displacement==static_cast<intptr_t>(attendance::bindings::ReplayManager));
     uintptr_t manager=0x123456789abc;auto memory=static_cast<unsigned char*>(VirtualAlloc(nullptr,4096,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE));assert(memory);
     // Resume after the expanded prologue; return the freshly loaded manager.
     const unsigned char finish[]={0x48,0x8b,0xc3,0x48,0x8b,0x5c,0x24,0x30,0x48,0x83,0xc4,0x20,0x5f,0xc3};

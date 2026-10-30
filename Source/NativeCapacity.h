@@ -11,13 +11,13 @@ struct Api {
 };
 inline bool nativeSnapshot(Address image,Address match,unsigned epoch,Snapshot& out,const Api* custom=nullptr){
     using sustained::at;
-    Address service=at<Address>(image+0xe2dd3e8),weather=at<Address>(image+0xf4fe000);
+    Address service=at<Address>(image+0xe2e53e8),weather=at<Address>(image+0xf506000);
     auto current=[&](){return at<Address>(at<Address>(image+bindings::MatchWrapper)+16);};
     if(!match||current()!=match||at<Address>(match)!=image+bindings::MatchVtable||
-       at<Address>(service)!=image+0xb298a70||at<Address>(at<Address>(service)+0x68)!=image+bindings::OptionQuery||
-       at<Address>(weather)!=image+0xb323ed0)return false;
+       at<Address>(service)!=image+0xb29ee30||at<Address>(at<Address>(service)+0x68)!=image+bindings::OptionQuery||
+       at<Address>(weather)!=image+0xb32a290)return false;
     int stadium=at<int>(weather+0x358);if(stadium<0||stadium>=1023)return false;
-    Variant value{image+0xb12f498,at<Address>(image+0xfc88ab8),0};if(!value.type)return false;
+    Variant value{image+0xb135818,at<Address>(image+0xfc90fb8),0};if(!value.type)return false;
     Api api=custom?*custom:Api{reinterpret_cast<Api::Query>(image+bindings::OptionQuery),reinterpret_cast<Api::Capacity>(image+bindings::StadiumCapacity)};
     if(!api.query||!api.capacity)return false;
     Address okay=0;

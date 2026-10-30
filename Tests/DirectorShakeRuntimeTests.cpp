@@ -15,11 +15,11 @@ int main(){
     auto global=[&](A rva,A value,bool integer=false){A p=(image+rva)&~A(0xffff);bool exists=false;for(auto v:pages)if(addr(*static_cast<char*>(v))==p)exists=true;if(!exists){auto v=VirtualAlloc(reinterpret_cast<void*>(p),65536,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(reinterpret_cast<A>(v)==p);pages.push_back(v);}if(integer)put(image+rva,static_cast<int>(value));else put(image+rva,value);};
     std::vector<A> wrapper(4),match(0x200/8),replay(0x80/8),settings(0x500/8),owner(2),data(0x300/8),views(4*0x68/8),view(0x800/8),foreign(0x800/8);
     std::vector<A> gameStates(0x200/8);put(addr(gameStates[0])+0xa0,1);global(bindings::GameStates,addr(gameStates[0]));
-    unsigned char paused=0;match[0]=image+0xb4781e8;wrapper[2]=addr(match[0]);
+    unsigned char paused=0;match[0]=image+0xb47e908;wrapper[2]=addr(match[0]);
     replay[0]=image+bindings::ReplayVtable;settings[0]=image+bindings::CameraSettingsVtable;
     put(addr(settings[0])+0x3e6,static_cast<unsigned short>(1));put(addr(settings[0])+0x41a,static_cast<unsigned short>(1));
     owner[0]=addr(data[0]);put(addr(data[0])+0x1f0,addr(views[0]));views[0]=addr(foreign[0]);views[0x68/8]=addr(view[0]);view[0]=foreign[0]=image+bindings::CameraVtable;
-    global(bindings::MatchWrapper,addr(wrapper[0]));global(0xd9e3818,14,true);global(0xf3f5d48,3,true);
+    global(bindings::MatchWrapper,addr(wrapper[0]));global(0xd9eb808,14,true);global(0xf3fddbc,3,true);
     global(bindings::PauseFlag,addr(paused));global(bindings::ReplayManager,addr(replay[0]));global(bindings::CameraSettings,addr(settings[0]));global(bindings::CameraOwner,addr(owner[0]));
     std::vector<A> selectedService(0x1c00/8);selectedService[0]=image+bindings::PlayCallServiceVtable;global(bindings::PlayCallService,addr(selectedService[0]));
     for(int side=0;side<2;++side){A team=addr(selectedService[0])+0x10+static_cast<A>(side)*0xde8;

@@ -10,6 +10,8 @@ void boundary(){assert(stage==0);stage=1;++visits;}
 A setup(A manager,int team,A roster){assert(stage==1&&manager==expectedManager&&team==expectedTeam&&roster==expectedRoster);stage=2;return 0x123456789abcdef0ull;}
 int main(){
     using namespace attendance::turnout::launchhook;
+    int32_t displacement=0;std::memcpy(&displacement,Prefix.data()+13,4);
+    assert(static_cast<intptr_t>(Site+SourceBytes)+displacement==static_cast<intptr_t>(NativeTeamSetup));
     auto memory=static_cast<unsigned char*>(VirtualAlloc(nullptr,4096,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE));assert(memory);
     auto code=trampoline(reinterpret_cast<A>(setup),reinterpret_cast<A>(memory+512));
     assert(!std::memcmp(code.data(),Prefix.data(),12));

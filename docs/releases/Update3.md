@@ -1,6 +1,8 @@
 # Update 3 - candidate
 
-Working build **2.0.8**. Not published; final live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+Working build **2.0.9**. Not published; final live acceptance remains pending. Update 2 (1.54.0) remains the latest public release.
+
+Candidate **2.0.9** ports native bindings to the Windows title update inspected on October 30. It retains 2.0.8 behavior and tuning. All 178 existing mapped-image byte/pointer checks and the current MMC host checks pass; final live activation remains pending. See the [compatibility review](../reviews/Update3-2.0.9-title-update.md).
 
 Candidate **2.0.8** adds semantic reaction variety from 80 listening-approved native selectors, excluding 13–15 and 23. Away equivalents remain sound-only, neutral support is symmetric, and selector intensity is bounded by occupied seats/fullness/event importance. The menu stays at 11 / 12 / 13 controls. It includes 2.0.7 overtime and 2020 Mode and retains the user-verified 2.0.5 whistle-hitch fix. See the [final review](../reviews/Update3-2.0.8.md) and [audio catalogue](../REACTION-AUDIO-CATALOG.md).
 

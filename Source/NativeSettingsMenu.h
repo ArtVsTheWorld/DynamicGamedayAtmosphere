@@ -8,7 +8,7 @@
 
 namespace attendance::settingsmenu::native {
 using A=uintptr_t;
-inline constexpr A ListSite=0x7f30460,ProviderGlobal=0xfb3eb58,ProviderVtable=0xbcf5558,FileManagerGlobal=0xfa5a218;
+inline constexpr A ListSite=0x7f34030,ProviderGlobal=0xfb46b98,ProviderVtable=0xbcfbcf8,FileManagerGlobal=0xfa62218;
 inline constexpr std::array<unsigned char,16> ListPrefix={0x40,0x56,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x30,0x49,0x8b,0,0x48,0x8b,0xf1};
 template<class T>inline T peek(A p){T v{};__try{std::memcpy(&v,reinterpret_cast<const void*>(p),sizeof(v));}__except(EXCEPTION_EXECUTE_HANDLER){return T{};}return v;}
 inline bool copy(A p,void* out,size_t size){__try{std::memcpy(out,reinterpret_cast<const void*>(p),size);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
@@ -51,12 +51,12 @@ class Menu {
         scriptReady_=false;
         A manager=peek<A>(image_+FileManagerGlobal),cache=peek<A>(manager+0x20);
         if(!cache)return false;
-        auto enter=peek<A>(image_+0x11783fc8),leave=peek<A>(image_+0x11783fd0);
+        auto enter=peek<A>(image_+0x1178c01c),leave=peek<A>(image_+0x1178c024);
         if(!enter||!leave||!invoke(enter,cache+8))return false;
         bool ready=false;A node=peek<A>(cache);
         for(unsigned i=0;node&&i<2048;++i){
             A file=peek<A>(node),name=peek<A>(file+0x10);
-            if(same(name+12,"fb_node_com/Scriptpod")&&peek<A>(file)==image_+0xbc39c78){
+            if(same(name+12,"fb_node_com/Scriptpod")&&peek<A>(file)==image_+0xbc403d8){
                 A data=peek<A>(file+0x30);
                 constexpr unsigned char head[]={0x59,0x87,0,0,0,0,0,0,1,0,0,0,0x17,0xb9,2,0x87,0,0,0,0,0xad,2,0x0b,0x53,0xa3};
                 constexpr unsigned char fallback[]={0xad,5,1,3,4,5,0x6e,0xa3,0x49,2,0x47,0xb9,2,0x47,0xa2,0xc5,0x47,0x74,0xb5,2,0xad,3,0x60,0x1f,0x61,0xb2,0xc6,0x99,0,0,0,0};
@@ -97,7 +97,7 @@ class Menu {
             if(!layoutNoted_&&note_)note_("Settings tab not added: the active frontend routing or provider did not match. Native tabs and INI editing remain available.");
             layoutNoted_=true;return false;
         }
-        uint64_t mask=0;if(!obtain(mask,image_+0x7f297d0,p))return false;
+        uint64_t mask=0;if(!obtain(mask,image_+0x7f2d3a0,p))return false;
         ArrayWriter out{output};int i=0;
         for(const auto& row:rows){
             if(row.hidden&mask)continue;
@@ -128,11 +128,11 @@ class Menu {
     }
 public:
     bool bindings()const{
-        constexpr A entries[]={0x7f240c0,0x7f2e100,0x7f2e440,0x7f300f0,0x7f30460,0x7f31410,0x7f2ca00,0x7f30e70,0x7f2bc60,0x7f2fe10,0x7f2bbe0,0x7f404d0,0x7f30aa0,0x7f30a80,0x7f30a20,0x7f30a40,0x7f30a60,0x7f29790,0x7f3d1f0,0x7f43fb0,0x7f435f0,0x7f435e0,0x7f43600,0x7f43fc0,0x7f43b40,0x7f43610,0x7f2f120,0x7f3fab0,0x7f3f0b0,0x7f24370,0x78c9aaa,0x78c9aaa,0x7f24310,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa,0x78c9aaa};
+        constexpr A entries[]={0x7f27c90,0x7f31cd0,0x7f32010,0x7f33cc0,0x7f34030,0x7f34fe0,0x7f305d0,0x7f34a40,0x7f2f830,0x7f339e0,0x7f2f7b0,0x7f440a0,0x7f34670,0x7f34650,0x7f345f0,0x7f34610,0x7f34630,0x7f2d360,0x7f40dc0,0x7f47b80,0x7f471c0,0x7f471b0,0x7f471d0,0x7f47b90,0x7f47710,0x7f471e0,0x7f32cf0,0x7f43680,0x7f42c80,0x7f27f40,0x78cd63a,0x78cd63a,0x7f27ee0,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a};
         for(size_t i=0;i<stock_.size();++i)if(peek<A>(image_+ProviderVtable+8*i)!=image_+entries[i])return false;
         return true;
     }
-    void configure(A image,const std::filesystem::path& path,Note note){image_=image;path_=path;note_=note;instance_=this;initNotify_=image+0x7a67db0;shutdownNotify_=image+0x7a67ff0;}
+    void configure(A image,const std::filesystem::path& path,Note note){image_=image;path_=path;note_=note;instance_=this;initNotify_=image+0x7a6b950;shutdownNotify_=image+0x7a6bb90;}
     void original(A p){original_=p;}
     static A callback(){return reinterpret_cast<A>(list);}
     bool ready()const{return scriptReady_&&!failed_;}
@@ -150,12 +150,12 @@ public:
         owner_=p;active_=true;
         for(size_t i=0;i<Count;++i){current_[i]=readOption(i);choices_[i]=Choices(Options[i],current_[i]).values;}
         *reinterpret_cast<unsigned char*>(p+0x62)=1;
-        invoke(initNotify_,image_+0xdab0ae0);
+        invoke(initNotify_,image_+0xdab8be0);
     }
     void finish(A p,A in){
         if(!active_){invoke(stock_[2],p,in);return;}
         active_=false;*reinterpret_cast<unsigned char*>(p+0x62)=0;*reinterpret_cast<unsigned char*>(p+0x34)=0;
-        invoke(shutdownNotify_,image_+0xdab0ae0,Category,true,"");
+        invoke(shutdownNotify_,image_+0xdab8be0,Category,true,"");
     }
     void getToggle(A p,A out,A category,A key){
         int id=number(key);

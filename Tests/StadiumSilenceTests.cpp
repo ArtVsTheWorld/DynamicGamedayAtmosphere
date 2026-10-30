@@ -15,7 +15,7 @@ Address __fastcall create(Address m,Address asset){
     auto group=at<Address>(groups),props=at<Address>(groups+8);auto id=at<unsigned short>(group+0x28);
     assert(id==9||id==74||id==75);assert(at<unsigned short>(group+0x2a)==(id==9?2:5));
     assert(at<unsigned>(groups+0x18)==1&&at<unsigned>(props-4)==1&&at<float>(props+4)==-60);
-    Address h=alloc();put(h,image+0xaefb4b8);put(h+8,asset);handles.emplace(h,id);++creates;return h;
+    Address h=alloc();put(h,image+0xaf01718);put(h+8,asset);handles.emplace(h,id);++creates;return h;
 }
 void __fastcall release(Address m,Address h){
     assert(m==manager&&handles.count(h));
@@ -31,10 +31,10 @@ struct Fixture {
             attendance::chants::Templates t;t.groupIndex=ids[i];t.parent=i?5:2;strcpy_s(t.name,names[i]);
             stocks[i]=std::make_unique<attendance::chants::Preset>(t,0.f,100+i);
             stocks[i]->asset.put(0x18,reinterpret_cast<Address>("Sound/CFB/CoreAudio/Utility/Mixers/VolumeSettings_MXR"));
-            put(m+0x200+i*0x20,image+0xaefb4b8);put(m+0x208+i*0x20,stocks[i]->asset.address());put(m+0x300+i*0x20,m+0x200+i*0x20);
+            put(m+0x200+i*0x20,image+0xaf01718);put(m+0x208+i*0x20,stocks[i]->asset.address());put(m+0x300+i*0x20,m+0x200+i*0x20);
         }
         InitializeCriticalSection(reinterpret_cast<CRITICAL_SECTION*>(m+0x30));put(m+0xc0,m+0x300);put(m+0xc8,m+0x360);
-        put(owner,image+0xb220ce8);put(owner+0x40,image+0xb220dc8);put(owner+0x48,image+0xb220dd8);
+        put(owner,image+0xb227098);put(owner+0x40,image+0xb227178);put(owner+0x48,image+0xb227188);
     }
     ~Fixture(){DeleteCriticalSection(reinterpret_cast<CRITICAL_SECTION*>(m+0x30));VirtualFree(reinterpret_cast<void*>(m),0,MEM_RELEASE);VirtualFree(reinterpret_cast<void*>(owner),0,MEM_RELEASE);}
 };

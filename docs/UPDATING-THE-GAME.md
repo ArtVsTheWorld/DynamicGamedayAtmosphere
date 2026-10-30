@@ -12,6 +12,16 @@ Keep the last working release's tag and download intact so users can go back if 
 
    This is an inspection report, not an automatic offset finder or compatibility certificate. One matching instruction does not establish that every layout is unchanged.
 
+   Protected disk code is not the readable runtime code. Preserve a private mapped-module snapshot after normal startup for comparisons, alongside its actual loaded base and EXE fingerprint. It is not a runnable unprotected EXE. Do not publish game snapshots or change disk protection for this workflow.
+
+   Existing source byte/pointer checks can be audited without executing the game code:
+
+   ```powershell
+   python .\Tools\AuditMappedGame.py --snapshot .\Build\private-mapped-image.bin --base 0x140000000 --out .\Build\mapped-checks.json
+   ```
+
+   Use the actual loaded base, not an assumed base if ASLR changed it. This tool does not locate new functions, update offsets, inspect active heap objects or prove full gameplay compatibility. It rejects ordinary disk EXEs and reports individual failed existing checks. Native constants can be hashes rather than addresses; preserve independent golden inputs when relocating.
+
 4. Check bindings and callers together:
 
    | Files | What to check |

@@ -43,10 +43,10 @@ class GameCompatibilityReportTests {
             }
             var tool=Assembly.ReflectionOnlyLoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"DgaDiagnostics.exe"));
             using(var resource=tool.GetManifestResourceStream("Dga.CompatibilitySites"))using(var reader=new StreamReader(resource)){
-                var embedded=GameCompatibility.Sites(reader.ReadToEnd());Check(embedded.Count==21&&embedded.Exists(x=>x.Name=="CrowdVisibility"&&x.Rva==0x64afda0));
-                Check(embedded.Exists(x=>x.Name=="StartingAttendanceFormula"&&x.Rva==0x8566710)&&embedded.Exists(x=>x.Name=="StartingAttendanceLaunch"&&x.Rva==0x909b940));
-                Check(embedded.Exists(x=>x.Name=="StartingAttendanceBoundary"&&x.Rva==0x7f146f8));
-                Check(embedded.Exists(x=>x.Name=="ReplayNodeUpdate"&&x.Rva==0x7dbec50)&&embedded.Exists(x=>x.Name=="ReplayEventNodeUpdate"&&x.Rva==0x7dc7520));
+                var embedded=GameCompatibility.Sites(reader.ReadToEnd());Check(embedded.Count==21&&embedded.Exists(x=>x.Name=="CrowdVisibility"&&x.Rva==0x64b3930));
+                Check(embedded.Exists(x=>x.Name=="StartingAttendanceFormula"&&x.Rva==0x856a4b0)&&embedded.Exists(x=>x.Name=="StartingAttendanceLaunch"&&x.Rva==0x90a18b0));
+                Check(embedded.Exists(x=>x.Name=="StartingAttendanceBoundary"&&x.Rva==0x7f182c8));
+                Check(embedded.Exists(x=>x.Name=="ReplayNodeUpdate"&&x.Rva==0x7dc27f0)&&embedded.Exists(x=>x.Name=="ReplayEventNodeUpdate"&&x.Rva==0x7dcb0c0));
             }
             Console.WriteLine("PASS: bounded read-only samples, real Windows reads against the test itself, embedded addresses, missing/outside addresses, PE validation, JSON round-trip and nested reports. No game process opened.");return 0;
         }catch(Exception error){Console.Error.WriteLine(error);return 1;}
