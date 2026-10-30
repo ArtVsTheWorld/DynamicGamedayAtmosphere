@@ -10,7 +10,7 @@
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
 inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cannon impact";case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
-struct Settings {float ordinary=4,critical=8,touchdown=16,eruption=22.5f,live=11,catchImpact=9;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=15;};
+struct Settings {float ordinary=4,critical=8,touchdown=16,eruption=22.5f,live=11,catchImpact=9;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=15;bool widePlayerCompensation=false;};
 inline float hostileOpeningStrength(uint64_t positions,float maximum=10){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
     return (std::clamp)(maximum,0.f,30.f)*venueScale(positions);
@@ -240,7 +240,7 @@ inline bool validMatrix(const std::array<float,16>& m){
 inline void rotate(std::array<float,16>& m,int a,int b,float radians){
     float c=std::cos(radians),s=std::sin(radians);for(int row=0;row<4;++row){float x=m[row*4+a],y=m[row*4+b];m[row*4+a]=c*x+s*y;m[row*4+b]=-s*x+c*y;}
 }
-inline float projectionScale(const std::array<float,16>& p,Kind kind){
+inline float projectionScale(const std::array<float,16>& p,Kind kind,bool widePlayerCompensation=false){
     if(kind==Kind::None)return 1;
     // The native projection getter exposes this separate perspective matrix.
     // Focal length magnifies angular motion; compensate without changing zoom.
@@ -249,10 +249,11 @@ inline float projectionScale(const std::array<float,16>& p,Kind kind){
     if(!valid)return .35f;
     constexpr float reference=3.1715948f; // 35-degree vertical field of view.
     // Preserve perceived movement on wide views as well as reducing closeups.
-    // Captured default RTG reaches 88.5 degrees vertically (3.09x). Allow
-    // that reference-equivalent motion, with a finite ceiling for extreme
-    // projections. Configured envelopes and close-up attenuation stay intact.
-    return (std::clamp)(reference/p[5],0.0f,4.0f);
+    // Wide broadcast and RTG projections overlap: FOV is not mode proof.
+    // Ordinary views never amplify the configured envelope. The previously
+    // captured RTG compensation is a separate explicit opt-in; close-ups
+    // keep the same attenuation in either policy.
+    return (std::clamp)(reference/p[5],0.0f,widePlayerCompensation?4.0f:1.0f);
 }
 inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;

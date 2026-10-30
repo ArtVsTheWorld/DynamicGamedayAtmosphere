@@ -18,11 +18,13 @@ inline Admission decide(const core::Settings& c,const energy::Play& p,uintptr_t 
     a.allowed=lineup.allowed||earned;
     return a;
 }
-inline bool suppress(const Admission& a,uintptr_t match,unsigned epoch,uint64_t now,float fullness,int minimum){
+inline bool suppress(const Admission& a,uintptr_t match,unsigned epoch,uint64_t now,float fullness,int minimum,bool dgaPlaying=false){
     // Preserve the advanced INI opt-out and stricter custom floor. Unknown or
     // expired context cannot authorize new context suppression (legacy floor remains).
     if(minimum<=0||!std::isfinite(fullness))return false;
     if(fullness<(std::clamp)(minimum,0,100)*.01f)return true;
-    return a.match==match&&a.epoch==epoch&&a.known&&now>=a.updated&&now-a.updated<=750&&!a.allowed;
+    // Admission permits native motion while DGA is idle. A fresh, actually
+    // rendered DGA effect owns camera movement instead of adding to HFA.
+    return a.match==match&&a.epoch==epoch&&a.known&&now>=a.updated&&now-a.updated<=750&&(!a.allowed||dgaPlaying);
 }
 }

@@ -78,5 +78,20 @@ int main(){
     for(unsigned i=1;i<4;++i)assert(current(cameras[i])==off); // Supported views still work.
     put(address(c),image+attendance::bindings::CameraVtable);
     assert(unsupported.filter(address(c),off+7,p,2900)==off);
+    // Healthy admitted crowds keep native motion while DGA is idle. During
+    // actual DGA output, withhold only HFA, remember newer native tiers, then
+    // restore the latest tier without changing unrelated event channels.
+    Runtime handoff;handoff.configure(image,&api);
+    attendance::nativecamera::Admission admitted{456,3,3000,true,true};
+    Lease owned{456,3,3000,attendance::nativecamera::suppress(admitted,456,3,3000,1,50,false)};
+    for(auto& row:cameras)native(row,off+9);
+    handoff.tick(456,owned,3000);assert(!handoff.active()&&current(c)==off+9);
+    owned.updated=3010;owned.suppress=attendance::nativecamera::suppress(admitted,456,3,3010,1,50,true);
+    handoff.tick(456,owned,3010);assert(handoff.active()&&current(c)==off);
+    output=handoff.filter(address(c),off+5,owned,3020);assert(output==off);native(c,output);
+    assert(handoff.filter(address(c),0x200001,owned,3020)==0x200001);
+    owned.updated=3030;owned.suppress=attendance::nativecamera::suppress(admitted,456,3,3030,1,50,false);
+    handoff.tick(456,owned,3030);assert(!handoff.active()&&current(c)==off+5&&gets==releases);
+    for(auto& row:cameras)assert(row.refs==0);
     std::puts("PASS: first-event/pre-row HFA suppression, compatible presentation-view skips, all four contexts, latest-tier restoration, native off/other-channel respect, lease/new-scene guards and balanced references.");
 }

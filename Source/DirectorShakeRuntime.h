@@ -56,14 +56,14 @@ public:
         if(!healthy_||cue.match!=match||cue.epoch!=epoch||strength(cue,now)<=0||!world(cue,view))return false;
         requestedBegan_=cue.began;requestedKind_=cue.kind;requestedAt_=now;return true;
     }
-    void tick(uintptr_t view,float* destination,const Cue& cue,uintptr_t match,unsigned epoch,uint64_t now){
+    void tick(uintptr_t view,float* destination,const Cue& cue,uintptr_t match,unsigned epoch,uint64_t now,bool widePlayerCompensation=false){
         if(!prepare(view,cue,match,epoch,now))return;
         auto address=reinterpret_cast<uintptr_t>(destination);
         if(address<view+0x800&&address+sizeof(float)*16>view)return;
         std::array<float,16> projection{},output{};Cue adjusted=cue;
         // Every added motion type softens on a zoomed view, not just scores.
         read(view+0x2b4,projection.data(),sizeof(projection));
-        float scale=projectionScale(projection,cue.kind);adjusted.percent*=scale;adjusted.impact*=scale;adjusted.transitionFrom*=scale;
+        float scale=projectionScale(projection,cue.kind,widePlayerCompensation);adjusted.percent*=scale;adjusted.impact*=scale;adjusted.transitionFrom*=scale;
         if(!read(address,output.data(),sizeof(output))||!apply(output,adjusted,now))return;
         SIZE_T n=0;if(!WriteProcessMemory(GetCurrentProcess(),destination,output.data(),sizeof(output),&n)||n!=sizeof(output))return;
         ++changed_;appliedBegan_=cue.began;unscaled_=strength(cue,now);zoomScale_=scale;percent_=strength(adjusted,now);kind_=cue.kind;last_=now;

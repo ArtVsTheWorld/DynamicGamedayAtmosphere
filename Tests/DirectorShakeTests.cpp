@@ -106,10 +106,11 @@ int main(){
     // displacement per small angular movement should match the reference view.
     projection[0]=.5773501992f;projection[5]=1.0264003277f;
     for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher}){
-        const auto scale=projectionScale(projection,kind);
+        assert(projectionScale(projection,kind)==1);
+        const auto scale=projectionScale(projection,kind,true);
         assert(scale>3.08f&&scale<3.10f);
         assert(std::fabs(projection[5]*scale-3.1715948f)<.00001f);
-        projection[5]=.11f;assert(projectionScale(projection,kind)==4);
+        projection[5]=.11f;assert(projectionScale(projection,kind)==1);assert(projectionScale(projection,kind,true)==4);
         projection[5]=1.0264003277f;
     }
     assert(projectionScale(projection,Kind::None)==1);

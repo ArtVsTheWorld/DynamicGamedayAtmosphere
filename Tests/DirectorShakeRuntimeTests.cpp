@@ -113,26 +113,33 @@ int main(){
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
-    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
+    for(bool widePlayer:{false,true})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
         auto tested=cue;tested.kind=kind;tested.until=17000;projection[5]=focal;
         projection[0]=.5773501992f; // Captured default RTG horizontal focal length.
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
-        output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000);
+        output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000,widePlayer);
         assert(output!=source&&view==saved&&zoom.playing(tested,2000));
-        const float expected=(std::min)(3.1715948f/focal,4.f);
+        const float expected=(std::min)(3.1715948f/focal,widePlayer?4.f:1.f);
         assert(std::fabs(zoom.unscaled()-5)<.001f&&std::fabs(zoom.zoomScale()-expected)<.001f);
         assert(std::fabs(zoom.percent()-5*zoom.zoomScale())<.001f);
-        if(focal>=1)assert(std::fabs(zoom.percent()*focal-5*3.1715948f)<.001f);
+        if(focal>=1&&(widePlayer||expected<1))assert(std::fabs(zoom.percent()*focal-5*3.1715948f)<.001f);
         auto other=tested;++other.began;assert(!zoom.playing(other,2000));
         assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
     }
     // The captured wide RTG view keeps the strongest profile distinct from a
     // regular reaction, including the original impact-to-hold progression.
     projection[5]=1.0264003277f;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
-    unchanged=view;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);
+    unchanged=view;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000,true);
     assert(zoom.unscaled()==30&&zoom.percent()>92&&zoom.percent()<93&&view==unchanged);
-    celebration.updated=3000;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,3000);
+    celebration.updated=3000;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,3000,true);
     assert(zoom.unscaled()==22.5f&&zoom.percent()>69&&zoom.percent()<70&&view==unchanged);
+    // Captured Miami critical buildup: default policy must not turn 7.2 into
+    // 22.2. The explicit wide-player policy remains independently available.
+    auto miami=cue;miami.kind=Kind::Critical;miami.percent=7.2f;
+    output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000);
+    assert(std::fabs(zoom.unscaled()-7.2f)<.001f&&zoom.zoomScale()==1&&std::fabs(zoom.percent()-7.2f)<.001f);
+    output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000,true);
+    assert(zoom.percent()>22&&zoom.percent()<22.3f);
     // Earned effects follow a verified cutaway outside all four cached views.
     views[0]=views[2*0x68/8]=views[3*0x68/8]=0;
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(output!=source);

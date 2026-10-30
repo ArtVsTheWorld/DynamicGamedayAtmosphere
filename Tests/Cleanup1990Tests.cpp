@@ -35,6 +35,15 @@ int main(){
     auto decide=[&](float f= .60f,bool earned=false){return nativecamera::decide(sound,p,123,2,1000,f,true,19375,3,false,false,earned);};
     auto a=decide();assert(a.known&&!a.allowed&&nativecamera::suppress(a,123,2,1000,.60f,50));
     p.game.rank0=6;p.game.rank1=11;a=decide(1);assert(a.allowed&&!nativecamera::suppress(a,123,2,1000,1,50));
+    // An admitted native context yields to actual DGA output, not merely an
+    // eligible/prepared cue. Ownership, freshness and explicit opt-out remain.
+    assert(nativecamera::suppress(a,123,2,1000,1,50,true));
+    assert(!nativecamera::suppress(a,123,2,1000,1,50,false));
+    assert(!nativecamera::suppress(a,123,2,1000,1,0,true));
+    assert(!nativecamera::suppress(a,456,2,1000,1,50,true));
+    assert(!nativecamera::suppress(a,123,3,1000,1,50,true));
+    assert(!nativecamera::suppress(a,123,2,1751,1,50,true));
+    assert(!nativecamera::suppress(a,123,2,999,1,50,true));
     p.game.rank0=p.game.rank1=60;p.down=3;a=decide(packed::standardMinimum(19375));assert(a.allowed);
     p.down=1;p.game.phase=3;a=decide(.95f,true);assert(a.allowed);
     a=decide(.95f,false);assert(!a.allowed); // No invented live context.

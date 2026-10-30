@@ -1,6 +1,6 @@
 # Troubleshooting Update 3
 
-Current release: **2.0.12**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
+Current release: **2.0.13**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
 
 ## Check the installed build
 
@@ -24,7 +24,7 @@ For attendance, use a fresh regular-season Dynasty launch for peak-formula check
 
 For sound, compare the same stadium and similar plays at different fullness. DGA may overlap native cheers; that is intended. The occupied-seat mix has no separate chant cut and no native excitement limiter. To disable DGA's audio hooks completely, turn off Crowd Sound Effects and restart the game/MMC.
 
-For camera movement, check the game's Dynamic Camera Effects setting and DGA's Added Camera Shake switch. Enough seats and a qualifying play/situation are still required. Cannons have a separate setting. Gameplay HFA remains native.
+For camera movement, check the game's Dynamic Camera Effects setting and DGA's Added Camera Shake switch. Enough seats and a qualifying play/situation are still required. Cannons have a separate setting. Gameplay HFA remains native. In 2.0.13, standard view compensation is capped at 1×; wide RTG/player-camera compensation is an explicit advanced INI opt-in. Native HFA camera shake yields while DGA output is rendered, then restores its latest tier. The native-filter minimum of zero retains its opt-out.
 
 For replays, note manual versus Slow Sim, any injury/penalty scene and whether playback was skipped. Manual major-play routing waits for full-screen playback before requesting an inset; Slow Sim has no inset destination. Native recordings and presentation still decide the visible sequence.
 
@@ -34,4 +34,4 @@ For 2020 Mode, check empty stands, no collective crowd/bands/drums/PA, retained 
 
 The 2.0.9 full-game title-update check passed activation and user-observed unskipped full-screen/inset playback. The repeated-whistle-hitch fix was previously confirmed by restarted OFF/ON comparisons and later live play. Subsequent cleanup, 2020 audio and logging changes have automated coverage. A passing fixture is not a claim that every rare play or presentation route has been seen live.
 
-The release build runs the complete native/managed checks, 828 game simulations, 497 configuration-reader cases, 14 Python tests, 178 mapped-image checks and an isolated MMC adapter check. The exact DLL extracted from the download is checked before publication. Private captures, EXEs and saves are not included in the repository or release.
+The release build runs the complete native/managed checks, 828 game simulations, 504 configuration-reader cases, 14 Python tests, 178 mapped-image checks and an isolated MMC adapter check. The exact DLL extracted from the download is checked before publication. Private captures, EXEs and saves are not included in the repository or release.

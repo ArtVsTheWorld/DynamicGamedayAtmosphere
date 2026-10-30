@@ -1,6 +1,6 @@
-# Update 3 — five release checks for 2.0.12
+# Update 3 — five release checks for 2.0.13
 
-The 2.0.9 full-game check passed activation, unskipped full-screen/inset playback and subjective smoothness. For the final cleanup smoke check, install 2.0.12 with game/MMC closed, load a fresh regular-season Dynasty game and pause at opening kickoff so the activation log can be checked. Use the staged build with game/MMC restarted. Keep normal logging enabled. Note quarter/clock/play result and whether you skipped presentation; report heard sounds and visible motion separately from logged dispatch.
+The 2.0.9 full-game check passed activation, unskipped full-screen/inset playback and subjective smoothness. For the final cleanup smoke check, install 2.0.13 with game/MMC closed, load a fresh regular-season Dynasty game and pause at opening kickoff so the activation log can be checked. Use the staged build with game/MMC restarted. Keep normal logging enabled. Note quarter/clock/play result and whether you skipped presentation; report heard sounds and visible motion separately from logged dispatch.
 
 1. **Home/away audio variety and ownership.** In a normal stadium game, get catches/gains, a defensive stop, a takeaway and touchdowns by both sides if possible. Home positives should use matching cheers; away positives should produce home disappointment without a new home shake. Spins/jukes/ordinary broken tackles remain sound-only. A takeaway should not be confused with an own fumble pickup.
 2. **Small/sparse versus large/full crowd.** Compare a small ordinary game as its crowd fills with a packed larger venue. Background/chant energy should remain on the accepted native-bus curve; reactions should grow in native variant intensity with occupied seats/fullness and play importance. Commentary/field sounds stay clean; no sharp silence at the snap or repeated cheer barrage.
@@ -9,3 +9,6 @@ The 2.0.9 full-game check passed activation, unskipped full-screen/inset playbac
 5. **Presentation and endurance.** Play through arrivals and halftime; save/resume if practical. Leave a TD/takeaway unskipped: manual play should offer full-screen then separate inset when the native sequence permits. Slow Sim needs full-screen coverage but no play-call inset. Check final-play carryover/cleanup, and especially no hitch at whistles with Additional Replays enabled.
 
 Earlier diagnostic checklists and evidence remain in `docs/reviews`. These are the final acceptance checks, not a claim that every native scene or selector is guaranteed to render/play in every game context.
+
+
+For the 2.0.13 camera correction, repeat an ordinary lineup, defensive third down and touchdown in the same Miami game. Technical status should show view compensation no higher than 1× with the new advanced option off. Native HFA camera movement should yield while DGA renders and restore when it stops; gameplay HFA/meter remains unchanged. Close-up views should stay gentler. The separate advanced `WidePlayerCameraCompensation=1` path retains the captured RTG projection allowance; disable it for ordinary views. This build has no newly verified automatic RTG camera identifier.

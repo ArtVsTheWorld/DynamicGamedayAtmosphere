@@ -446,12 +446,16 @@ void sparseCameraTick(){
     EmptyWorld empty;bool silence=emptyMode2020&&emptyWorld(empty);
     if(silence)lease.match=empty.match;
     auto admission=std::atomic_load(&nativeCameraAdmission);
+    auto motion=std::atomic_load(&cameraCue);
+    bool dgaPlaying=motion->match==wanted.match&&motion->epoch==wanted.epoch&&
+        motion->kind!=attendance::motion::Kind::Cannon&&presentationCamera.playing(*motion,now);
     lease.suppress=sparseNativeCamera.healthy()&&wanted.active&&enabled&&mode==0&&density->owns(wanted.match,wanted.epoch)&&
-        attendance::nativecamera::suppress(*admission,wanted.match,wanted.epoch,now,audibleFullness(wanted),nativeShakeMinimum.load())&&
+        attendance::nativecamera::suppress(*admission,wanted.match,wanted.epoch,now,audibleFullness(wanted),nativeShakeMinimum.load(),dgaPlaying)&&
         attendance::balance::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load());
     if(silence&&sparseNativeCamera.healthy())lease.suppress=true;
     std::shared_ptr<const attendance::sparsecamera::Lease> published=std::make_shared<attendance::sparsecamera::Lease>(lease);std::atomic_store(&sparseCameraLease,published);
-    // Admitted contexts add no camera query/ref traffic. A recently suppressed view
+    // Idle admitted contexts add no camera query/ref traffic. An active DGA cue
+    // owns motion; native tiers are remembered and restored when it stops. A suppressed view
     // gets a final borrowed-camera pass to restore the game's latest HFA event.
     if(lease.suppress||sparseNativeCamera.active())sparseNativeCamera.tick(attendance::sustained::at<A>(image+attendance::bindings::CameraOwner),lease,now);
 }
@@ -517,7 +521,7 @@ void __fastcall cameraView(A view,float* output){
             // Ready outputs validate once inside tick(), immediately before use.
             presentationCamera.prepare(view,cue,audioMatch.load(),audioEpoch.load(),now);return;
         }
-        presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),now);
+        presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),now,std::atomic_load(&cameraSettings)->widePlayerCompensation);
     }
     catch(...){presentationCamera.fail();}
 }
@@ -1747,6 +1751,7 @@ void readSettings(){
     core->cameraShake=number(L"Atmosphere",L"CameraShake",1,0,1)!=0;
     nativeShakeMinimum=number(L"Dynamic Gameday Broadcast",L"NativeShakeMinimumFullnessPercent",50,0,100);
     auto motion=std::make_shared<attendance::motion::Settings>();
+    motion->widePlayerCompensation=number(L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",0,0,1)!=0;
     motion->ordinary=static_cast<float>(number(L"Atmosphere",L"OrdinaryShakeStrengthPercent",4,0,100));
     motion->critical=static_cast<float>(number(L"Atmosphere",L"CriticalShakeStrengthPercent",8,0,100));
     motion->reactionFadeMs=static_cast<unsigned>(1000*percentage(L"Dynamic Gameday Broadcast",L"PlayReactionFadeSeconds",5.f,8,1));
@@ -3002,18 +3007,19 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Third/fourth-down pass breakups")<<(passBreakupBinding?"verified native deflection plus completed stop; small shake and cheer":"unavailable; optional native checks differ")<<"\n";
     report.field("Hit-stick shake")<<"confirmed third/fourth-down stops only; other landed hits keep sound"<<"\n";
     report.field("Skill / hit / broken tackle accents")<<(!audio->skillMoves?"disabled":skillBindings?"verified native success events; regular broken tackles sound-only; existing fullness gates":"unavailable; optional native checks differ")<<"\n";
-    report.field("Staggered major cheers")<<(audio->staggeredCheers?"one extra cheer after 0.9s; two-voice limit":"disabled")<<"\n";
+    report.field("Staggered major cheers")<<(audio->staggeredCheers?"one extra cheer after 0.9s; native cheer overlap allowed":"disabled")<<"\n";
     report.field("Packed marquee reactions")<<(audio->contextReactions?"enabled; packed big games/rivalries only":"disabled")<<"\n";
     report.field("Live long catches / picks")<<shownLiveCatches<<" / "<<shownLivePicks<<"\n";
     report.field("Drive escalation")<<100*shownDrive.load()<<"% (excitement, no separate volume bonus)\n";
     report.field("Native sack/fumble checks")<<(defensiveReactionBindings?"verified":"unavailable; measured five-yard loss fallback independent")<<"\n";
     report.field("Blocked-field-goal detection")<<(fieldGoalBlockBinding?"verified native block flag":"unavailable; normal missed kicks do not count as blocks")<<"\n";
-    report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged (INI opt-out)":sparseNativeCamera.active()?"shake suppressed by shared atmosphere admission":"shared atmosphere admission ready")<<" (gameplay HFA unchanged)\n";
+    report.field("Native HFA camera")<<(!sparseCameraAvailable?"filter unavailable":!sparseNativeCamera.healthy()?"filter stopped after a fault":nativeShakeMinimum==0?"unchanged (INI opt-out)":sparseNativeCamera.active()?"shake withheld below admission or while DGA owns motion":"shared atmosphere admission ready")<<" (gameplay HFA unchanged)\n";
     report.field("Cannon sound observer")<<(cannonAvailable?"ready":"unavailable")<<"; confirmed native blasts "<<cannonStarts.load()<<"\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds 0.75x; native cannon impact is separate\n";}
     {auto venue=std::atomic_load(&renderedOccupancy);float full=venue->owns(audioMatch.load(),audioEpoch.load())?venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:0;
         report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";}
+    report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"opt-in: up to 4x; intended for wide RTG/player cameras":"off: wide views capped at 1x; close-ups soften")<<"\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
     report.field("Presentation atmosphere")<<(presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Opening?"pregame buildup":presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Postgame?"postgame stadium atmosphere":"inactive")<<"\n";

@@ -1,10 +1,10 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 — 2.0.12** · College Football 27 for Windows · MMC plugin
+By Ace · **Update 3 — 2.0.13** · College Football 27 for Windows · MMC plugin
 
 Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
 
-**[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.12)** · [Full feature list](FEATURES.md)
+**[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.13)** · [Full feature list](FEATURES.md)
 
 ## Install or update
 
@@ -24,6 +24,7 @@ This build supports the Windows game update checked on October 30, 2026. **Offli
 - **A new crowd mix:** sparse crowds are quieter but still alive. Full stadiums can be louder than the base game, up to a 30% audio-signal increase in the largest packed venue. Chants follow the same background mix.
 - **More reaction variety:** 80 listening-tested crowd sounds for existing plays and situations, including disappointment and visitor responses.
 - **Better shake and overtime:** strength follows occupied seats, transitions blend into touchdowns, and overtime covers more important results.
+- **Camera correction:** ordinary views no longer multiply shake for a wide field of view. Native HFA camera shake yields while DGA movement is active; the larger RTG/player-camera allowance is a separate advanced opt-in.
 - **More control in game:** open Settings → Gameday Atmosphere. Attendance, Soundscape and Broadcast each have a short list of plainly explained options.
 - **2020 Mode:** empty stands, no collective crowd or bands, quieter individual detail and a more open stadium sound.
 - **Performance and reliability fixes:** fixes for the repeated post-whistle hitch, carried-over sack flags, duplicate reactions, saved crowds and replay cleanup.

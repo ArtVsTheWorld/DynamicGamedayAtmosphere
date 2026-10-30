@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3, build 2.0.12** · College Football 27 for Windows · MMC
+By Ace · **Update 3, build 2.0.13** · College Football 27 for Windows · MMC
 
 ## Attendance: the crowd for this game
 
@@ -250,11 +250,11 @@ The same stadium strengthens as fans arrive and softens as they leave. Neutral-s
 
 Pre-snap shake stays on gameplay views. Third down needs ten or fewer yards to go; fourth down needs an offensive go-for-it call. Field goals can get ordinary buildup; routine PATs and kickoffs do not. A qualifying fresh big-game opening kickoff has its own motion.
 
-Shake eases in, softens on close-ups and compensates within bounds for wider cameras. The game keeps its own camera angle and zoom. At the snap, lineup shake fades over 0.9 seconds while following the new live camera. Run/catch effects build into touchdown/eruption impact over about 300 ms without restarting the motion. The stronger effect wins rather than stacking amplitudes.
+Shake eases in and softens on close-ups. By default, wide cameras never amplify the configured shake: view compensation is capped at 1×. The captured wide RTG/player-camera allowance remains available through the advanced Broadcast INI option `WidePlayerCameraCompensation=1`, which allows up to 4×. It defaults to 0. Field of view cannot reliably distinguish RTG from a wide normal camera, so this is an explicit opt-in, not automatic mode detection. Turn it off when returning to ordinary broadcast views. The game keeps its own camera angle and zoom. At the snap, lineup shake fades over 0.9 seconds while following the new live camera. Run/catch effects build into touchdown/eruption impact over about 300 ms without restarting the motion. The stronger effect wins rather than stacking amplitudes.
 
 Runs, catch-and-runs and qualifying returns use a shared five-second whistle fade by default, adjustable from one to eight seconds. Play distance adds no extra time. Short impacts have their own roughly 2–3-second envelopes; a confirmed force has a sharper 35 ms onset. Camera cuts and timeout scenes keep the original timer. Recorded replays stay steady. Pause, interactive replay, new games and the game's Dynamic Camera Effects switch stop added shake.
 
-Native Stadium Pulse camera motion follows DGA's crowd/context admission, with an additional advanced minimum-fullness safeguard. This changes only its camera channel: composure, the HFA meter, play art and gameplay advantages stay native. Setting the advanced filter minimum to zero preserves its opt-out. A cannon blast does not depend on the crowd gate.
+Native Stadium Pulse camera motion follows DGA's crowd/context admission, with an additional advanced minimum-fullness safeguard. While a fresh DGA crowd-shake output is actually being rendered, native HFA camera motion yields instead of adding another effect. Its latest requested tier is remembered and restored when DGA stops. Mere eligibility or a prepared request does not take ownership. This changes only its camera channel: composure, the HFA meter, play art and gameplay advantages stay native. Setting the advanced filter minimum to zero preserves its opt-out. A cannon blast does not depend on the crowd gate.
 
 ### Stadium cannons
 
