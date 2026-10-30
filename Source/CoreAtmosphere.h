@@ -26,7 +26,7 @@ inline bool positiveResult(energy::Event e){
     using energy::Event;
     return e==Event::ExplosiveGain||e==Event::ThirdDownConversion||e==Event::FourthDown||e==Event::BackfieldStop||
         e==Event::ThirdStop||e==Event::FourthStop||e==Event::Turnover||e==Event::FumbleRecovery||e==Event::GoalLine||
-        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::Safety||e==Event::BlockedFieldGoal||e==Event::GameSealingStop||e==Event::GameSealingFirstDown;
+        e==Event::HomeScore||e==Event::LongTouchdown||e==Event::TakeLead||e==Event::TieScore||e==Event::PickSix||e==Event::Sack||e==Event::ForcedFumble||e==Event::MadeFieldGoal||e==Event::OvertimeConversion||e==Event::ConversionStop||e==Event::Safety||e==Event::BlockedFieldGoal||e==Event::GameSealingStop||e==Event::GameSealingFirstDown;
 }
 // Listening-tested families: yardage/conversions and defensive stops. The
 // native game retains its own opponent-success reactions.
@@ -34,11 +34,11 @@ inline int resultReaction(const energy::Outcome& r){
     using energy::Event;
     if(r.safety)return 91; // Same cheer family as a touchdown, with a shorter profile.
     switch(r.event){
-    case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
+    case Event::ConversionStop:case Event::BackfieldStop:case Event::ThirdStop:case Event::FourthStop:
     case Event::GameSealingStop:case Event::Turnover:case Event::FumbleRecovery:case Event::GoalLine:case Event::Sack:case Event::ForcedFumble:case Event::BlockedFieldGoal:return 59;
     case Event::GameSealingFirstDown:return 91;
     case Event::ExplosiveGain:return r.yards>=40?91:83;
-    case Event::ThirdDownConversion:case Event::FourthDown:return 83;
+    case Event::OvertimeConversion:case Event::ThirdDownConversion:case Event::FourthDown:return 83;
     default:return r.firstDown?83:91;
     }
 }
@@ -50,7 +50,7 @@ struct Model {
     double eruptionSeconds=EruptionSeconds,roarHoldSeconds=RoarHoldSeconds;
     double resultCheerAt=-1000;uint64_t resultCheer=0,resultSequence=0;int resultType=91;
     postplay::Profile resultProfile;float resultWeight=0;
-    bool resultScoring=false,resultLongTouchdown=false;
+    bool resultScoring=false,resultLongTouchdown=false,resultOvertime=false;
     float eruptionMinimum=ReactionMinimumFullness,resultMinimum=ReactionMinimumFullness;
     void reset(){*this=Model{};}
     float eruptionWeight(double now)const{
@@ -77,13 +77,14 @@ struct Model {
         bool own=result.side==0||(s.neutral&&result.side==1);
         // Verified big plays receive their own bounded reaction, including at
         // ordinary matchups. Routine short first downs still need active layers.
-        bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6;
+        bool scoring=result.safety||result.homePoints>=6||result.awayPoints>=6||(overtime(s)&&(result.homePoints==2||result.awayPoints==2));
+        bool otMoment=overtime(s)&&(result.event==energy::Event::OvertimeConversion||result.event==energy::Event::ConversionStop||result.event==energy::Event::MadeFieldGoal||result.event==energy::Event::ThirdStop||result.event==energy::Event::FourthStop);
         bool scoreUpgrade=scoring&&result.sequence==resultSequence&&!resultScoring;
         bool longTouchdown=c.eruptions&&layeredActive&&postplay::longCloseTouchdown(result);
         if((!durationOwned||scoring||result.contextClincher)&&c.enabled&&c.lineups&&normalLimit(c)>0&&result.accepted&&result.completed&&result.sequence&&
            (result.sequence!=resultSequence||scoreUpgrade)&&own&&competition(s)>0&&(result.safety||positiveResult(result.event)||(layeredActive&&result.firstDown))&&std::isfinite(now)&&
-           (now-resultCheerAt>=4||scoreUpgrade)&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds)){
-            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s,longTouchdown);resultLongTouchdown=longTouchdown;resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring||result.contextClincher;resultMinimum=minimum;++resultCheer;
+           (now-resultCheerAt>=4||scoreUpgrade||otMoment)&&(eruptionAt<0||now-eruptionAt>=eruptionSeconds||otMoment)){
+            resultSequence=result.sequence;resultCheerAt=now;resultType=resultReaction(result);resultProfile=postplay::choose(result,s,longTouchdown);resultLongTouchdown=longTouchdown;resultProfile.release+=(std::min)(distanceExtraMs,8000u)*.001;resultScoring=scoring||result.contextClincher;resultOvertime=otMoment;resultMinimum=minimum;++resultCheer;
         }
         if(!c.enabled||!c.eruptions||normalLimit(c)<=0||!result.accepted||!std::isfinite(now))return false;
         // The verified tracker supplies only home scores, or either side at a neutral venue.
@@ -159,7 +160,7 @@ struct Model {
         if(erupting&&c.eruptions){
             if(postgameHeld||now/1000.0-eruptionAt<roarHoldSeconds){
                 out.celebration=celebration;out.celebrationUntil=static_cast<uint64_t>((eruptionAt+6)*1000);
-                out.resultCheer=0;out.deepCheers=true;
+                if(!resultOvertime||resultCheerAt<eruptionAt)out.resultCheer=0;out.deepCheers=true;
                 out.reason=sustained::Reason::Eruption;out.priority=6;out.continuous=true;out.size=3;out.attackMs=500;out.releaseMs=20000;out.supporting=true;
                 return out;
             }

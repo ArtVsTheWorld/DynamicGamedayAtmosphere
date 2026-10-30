@@ -17,7 +17,7 @@ class MenuCatalogTests(unittest.TestCase):
         pairs = re.findall(r'\{[^\n]*?L"([^"]+)",L"([^"]+)"', source)
         self.assertEqual(len(pairs), len(set(pairs)))
         self.assertTrue(set(pairs) < expected)
-        self.assertEqual(len(pairs), 35)
+        self.assertEqual(len(pairs), 36)
         self.assertTrue(all(section != 'Logging' for section, key in pairs))
         self.assertNotIn(('Dynamic Gameday Soundscape', 'MaximumBoostPercent'), pairs)
         self.assertNotIn(('Dynamic Gameday Attendance', 'MaximumDeparturePerQuarter'), pairs)
@@ -43,7 +43,7 @@ class MenuCatalogTests(unittest.TestCase):
             if row:
                 groups.setdefault(row[1], []).append(row[2])
         self.assertEqual(list(groups), ['Attendance', 'Soundscape', 'Broadcast'])
-        self.assertEqual([len(x) for x in groups.values()], [10, 12, 13])
+        self.assertEqual([len(x) for x in groups.values()], [11, 12, 13])
         for controls in groups.values():
             self.assertLessEqual(len(controls), 15)
             numeric_seen = False

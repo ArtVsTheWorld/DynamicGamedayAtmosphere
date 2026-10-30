@@ -2,7 +2,9 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.6). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 test candidate (2.0.7). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+
+Candidate 2.0.7 adds off-by-default **2020 Mode** in Attendance: empty stands and native crowd/band mute, with the normal attendance history preserved for restoration. Qualifying overtime gains a generic confirmed defensive-stop shake, two-point and field-goal result coverage, a steady sound floor through kicks/tries and a 10% crowd-shake lift. Ownership, fullness, accessibility and replay guards remain. See the [change review and live checks](docs/reviews/Update3-2.0.7.md).
 
 Candidate 2.0.6 removes duplicate intensity-context and camera checks, rejects unrelated cannon events earlier, and adds sound/camera callback timing. It retains the live-verified 2.0.5 whistle-hitch fix. See the [remaining-path performance audit](docs/reviews/Update3-2.0.6-performance.md); the candidate still needs a short audio/camera smoke test.
 
@@ -43,7 +45,7 @@ Forced fumbles also have a fallback for delayed game signals: a recent opposing-
 
 Candidate 2.0.3 rebalances qualified crowd motion: a smooth occupied-seat curve gives 0.80x at 6,060 spectators and 1.10x at 61,888, with separate strengths for preplay tension, gains, stops, takeaways and scoring plays. Short impacts settle in 2-3 seconds. Earned reactions build smoothly into scoring peaks. See the [strength table and first tests](docs/reviews/Update3-2.0.3.md).
 
-The working build adds a **Gameday Atmosphere** tab at the far right of the game's Settings menu. It contains 35 essential controls across Attendance (10), Soundscape (12) and Broadcast (13), with On/Off controls first and numeric settings below. There is no troubleshooting section. Advanced options remain in the INI; changing the menu does not reset them. The tab and fullness toggle were verified in game; complete navigation, numeric editing and Reset remain on the final-build checklist. A long-run touchdown also carries its earned crowd level into the celebration instead of restarting a full-size native swell's attack.
+The working build adds a **Gameday Atmosphere** tab at the far right of the game's Settings menu. It contains 36 essential controls across Attendance (11), Soundscape (12) and Broadcast (13), with On/Off controls first and numeric settings below. There is no troubleshooting section. Advanced options remain in the INI; changing the menu does not reset them. The tab and fullness toggle were verified in game; complete navigation, numeric editing and Reset remain on the final-build checklist. A long-run touchdown also carries its earned crowd level into the celebration instead of restarting a full-size native swell's attack.
 
 An existing live shake now rises into the TD/eruption level over 300 ms, without a new impact or an amplitude dip. Neutral crowd movement uses 75% of normal strength for either team. Successful spins/jukes get a cheer without added shake. Confirmed turnover-on-downs stops get a small paired shake and cheer.
 
@@ -66,7 +68,7 @@ If the mod is not working, try these steps in order:
 
 Include your plugin, game and MMC versions, matchup and relevant settings. You can also [open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose). Activation errors in `launcher.log` name the failed step and Windows error; reported MMC/game administrator levels help diagnose access-denied errors.
 
-For missing audio, disable Soundscape's `Enabled` option and restart MMC and the game. Re-enabling it also needs a restart. There is no EXE hash requirement, but an EA update may still require new game bindings.
+For missing audio, check that 2020 Mode is off, then compare Soundscape's `Enabled` option off/on. The native callback support stays installed for live toggles; disabled Soundscape retires its additions. Replacing the DLL still requires closing MMC and the game. There is no EXE hash requirement, but an EA update may still require new game bindings.
 
 ## Source and updates
 

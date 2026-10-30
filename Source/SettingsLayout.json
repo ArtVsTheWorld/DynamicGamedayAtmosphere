@@ -1,6 +1,12 @@
 [
   {
     "oldSection": "Attendance",
+    "oldKey": "2020ModeEnabled",
+    "section": "Dynamic Gameday Attendance",
+    "key": "2020ModeEnabled"
+  },
+  {
+    "oldSection": "Attendance",
     "oldKey": "Enabled",
     "section": "Dynamic Gameday Attendance",
     "key": "Enabled"

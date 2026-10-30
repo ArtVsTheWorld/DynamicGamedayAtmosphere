@@ -16,12 +16,14 @@ public:
         if(match_!=match||epoch_!=epoch){reset();match_=match;epoch_=epoch;}
         if(!r.accepted||!r.completed||!r.sequence)return {};
         int points=r.side==1?r.awayPoints:r.homePoints;
-        bool scoring=r.safety||points==3||(points>=6&&points<=8);
+        bool scoring=r.safety||points==3||(points>=6&&points<=8)||(energy::overtimeTry(snap)&&points==2);
         if(seen_==r.sequence&&(!scoring||scored_))return {};
         if(seen_!=r.sequence){seen_=r.sequence;scored_=false;}scored_=scored_||scoring;
         // Consume unavailable/covered results now, never queue them for later
         // arrival, unpause, setting changes or a new fullness threshold.
         if(!allowed||layered||!match||p.simulated||energy::clockManagement(snap)||(!energy::normalDown(snap)&&snap.down!=0&&snap.down!=-1))return {};
+        if(!p.game.neutral&&energy::overtimeTry(snap)&&snap.selectedType!=21&&snap.offense==0&&!r.homePoints&&!r.awayPoints&&p.offense!=snap.offense)
+            return situational?Outcome{r.sequence,95}:Outcome{};
         if(!p.game.neutral&&(r.visitorScore||(r.takeaway&&r.side==1)))return situational?Outcome{r.sequence,95}:Outcome{};
         if(r.side<0||r.side>1||(!p.game.neutral&&r.side!=0)||(!scoring&&coveredByLive))return {};
         if(scoring||r.firstDown||core::positiveResult(r.event))return {r.sequence,core::resultReaction(r)};

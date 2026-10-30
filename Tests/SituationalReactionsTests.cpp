@@ -26,5 +26,18 @@ int main(){
     {Case c;c.allowed=false;c.tick(3,3,1,20,false);c.allowed=true;c.finish(0);assert(!c.tick(4,3,1,20,false).id);}
     {Case c;c.tick(3,3,1,20,false);c.time+=1000;c.finish(0);assert(!c.tick(4,3,1,20,false).id);}
     {Case c;c.p.simulated=true;c.tick(3,3,1,20,false);c.finish(0);assert(!c.tick(4,3,1,20,false).id);}
-    std::puts("PASS: home disappointment, 15-air-yard defensive incompletions, immediate away deep-catch/INT letdown, home TFL, neutral symmetry, successful/score rejection, dedupe, stale/sim/lost-context guards.");
+    // Layered OT still needs a disappointed home-crowd sound for visitor
+    // successes; the below-layered sound-only fallback does not run there.
+    for(int side:{0,1})for(bool neutral:{false,true})for(bool made:{false,true})for(bool kick:{false,true}){
+        situational::Model m;energy::Play p;p.game={5,24,24,1,0,720};p.game.neutral=neutral;p.down=kick?4:-1;p.offense=side;p.selectedType=kick?21:103;
+        auto snap=p;energy::Outcome r;m.observe(p,snap,r,123,1,0,1000,true,0,2,0,0,true,p.selectedType);
+        p.game.phase=3;m.observe(p,snap,r,123,1,1,1100,true,0,2,0,0,true,p.selectedType);
+        p.game.phase=4;p.offense=1-side;r.accepted=r.completed=true;r.sequence=1;r.side=made?side:1-side;
+        if(made){if(side==0)r.homePoints=kick?3:2;else r.awayPoints=kick?3:2;}
+        auto out=m.observe(p,snap,r,123,1,1,1200,true,0,9,0,0,false,p.selectedType);
+        if(made){assert(bool(out.id)==(!neutral&&side==1));if(out.id)assert(out.type==95&&out.event==situational::Event::OvertimeVisitorScore);}
+        else{assert(out.id&&out.type==(!neutral&&side==0?95:59));if(!kick&&(neutral||side==1))assert(out.event==situational::Event::OvertimeDefensiveConversionStop);}
+        assert(!m.observe(p,snap,r,123,1,1,1300,true,0,9,0,0,false,p.selectedType).id);
+    }
+    std::puts("PASS: home disappointment, deep incompletions, away catch/INT letdown, home TFL, neutral symmetry, OT tries/kicks and layered visitor scores, dedupe, stale/sim/lost-context guards.");
 }

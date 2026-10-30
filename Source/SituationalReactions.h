@@ -1,8 +1,8 @@
 #pragma once
 #include "LineupAtmosphere.h"
 namespace attendance::situational {
-enum class Event {None,FailedConversion,DeepIncomplete,DeepDefensiveIncomplete,DeepVisitorCatch,HomeInterception,HomeTackleForLoss,HomeTurnover,MissedHomeFieldGoal,MissedVisitorFieldGoal,AwayShowboat};
-inline const char* name(Event e){switch(e){case Event::AwayShowboat:return "Away live ballcarrier showboat (native boos)";case Event::FailedConversion:return "Home failed conversion";case Event::DeepIncomplete:return "Home deep incompletion";case Event::DeepDefensiveIncomplete:return "Deep defensive incompletion / breakup";case Event::DeepVisitorCatch:return "Visitor deep completion";case Event::MissedHomeFieldGoal:return "Home missed field goal";case Event::MissedVisitorFieldGoal:return "Opponent missed field goal";case Event::HomeTurnover:return "Home turnover";case Event::HomeInterception:return "Home pass intercepted";case Event::HomeTackleForLoss:return "Home defensive tackle for loss";default:return "inactive";}}
+enum class Event {None,FailedConversion,DeepIncomplete,DeepDefensiveIncomplete,DeepVisitorCatch,HomeInterception,HomeTackleForLoss,HomeTurnover,MissedHomeFieldGoal,MissedVisitorFieldGoal,AwayShowboat,OvertimeVisitorScore,OvertimeDefensiveConversionStop};
+inline const char* name(Event e){switch(e){case Event::OvertimeVisitorScore:return "Opponent overtime conversion / field-goal score";case Event::OvertimeDefensiveConversionStop:return "Overtime two-point defensive stop";case Event::AwayShowboat:return "Away live ballcarrier showboat (native boos)";case Event::FailedConversion:return "Home failed conversion";case Event::DeepIncomplete:return "Home deep incompletion";case Event::DeepDefensiveIncomplete:return "Deep defensive incompletion / breakup";case Event::DeepVisitorCatch:return "Visitor deep completion";case Event::MissedHomeFieldGoal:return "Home missed field goal";case Event::MissedVisitorFieldGoal:return "Opponent missed field goal";case Event::HomeTurnover:return "Home turnover";case Event::HomeInterception:return "Home pass intercepted";case Event::HomeTackleForLoss:return "Home defensive tackle for loss";default:return "inactive";}}
 struct Outcome {uint64_t id=0;int type=95;Event event=Event::None;};
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t sequence_=0,last_=0,serial_=0;
@@ -17,8 +17,8 @@ public:
             sequence_=0;last_=now;flight_=caught_=sent_=ready_=passReset_=false;phase_=-1;air_=0;return {};
         }
         last_=now;
-        bool snapSeen=p.game.phase==3&&phase_==1&&ready_&&energy::normalDown(snap);
-        if(p.game.phase==1){ready_=energy::normalDown(p);readyType_=selectedType;}else if(p.game.phase==3)ready_=false;
+        bool snapSeen=p.game.phase==3&&phase_==1&&ready_&&(energy::normalDown(snap)||(energy::overtimeTry(snap)&&readyType_!=21));
+        if(p.game.phase==1){ready_=energy::normalDown(p)||(energy::overtimeTry(p)&&selectedType!=21);readyType_=selectedType;}else if(p.game.phase==3)ready_=false;
         phase_=p.game.phase;
         if(!sequence)return {};
         if(sequence_!=sequence){
@@ -27,6 +27,12 @@ public:
         }
         auto emit=[&](int type,Event event){sent_=true;return Outcome{++serial_,type,event};};
         bool live=p.game.phase==3,post=p.game.phase==4||p.game.phase==5||p.game.phase==1||p.game.phase==7;
+        if(overtime(snap.game)&&post&&!sent_&&result.accepted&&result.completed&&result.sequence==sequence&&!p.game.neutral&&
+           !result.homePoints&&((energy::overtimeTry(snap)&&snap.selectedType!=21&&result.awayPoints==2)||(fieldGoal_&&result.awayPoints==3)))
+            return emit(95,Event::OvertimeVisitorScore);
+        if(energy::overtimeTry(snap)&&snap.selectedType!=21&&post&&!sent_&&result.accepted&&result.completed&&result.sequence==sequence&&
+           !result.homePoints&&!result.awayPoints&&p.offense!=snap.offense)
+            return snap.offense==0&&!p.game.neutral?emit(95,Event::FailedConversion):emit(59,Event::OvertimeDefensiveConversionStop);
         if(fieldGoal_){
             if(!post||sent_||!result.accepted||!result.completed||result.sequence!=sequence||result.homePoints||result.awayPoints||
                std::abs(p.game.homeScore-p.game.awayScore)>8||p.offense==snap.offense)return {};

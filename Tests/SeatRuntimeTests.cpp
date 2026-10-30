@@ -202,6 +202,43 @@ void testAudioCameraCallbacks(TestWorld& world){
     originalIntensityUpdate=savedIntensity;originalCameraView=savedView;std::atomic_store(&renderedOccupancy,savedDensity);std::atomic_store(&cameraCue,savedCue);std::atomic_store(&motionSound,savedSound);
     testGlobal(attendance::bindings::ReplayManager,A(0));testGlobal(attendance::bindings::CameraSettings,A(0));testGlobal(attendance::bindings::CameraOwner,A(0));
 }
+void testEmptyMode(TestWorld& world){
+    auto savedEntities=entities;auto savedScenes=testScenes;TestScene stadium(1536);
+    std::vector<A> controller(8),link(2);controller[0]=image+0xb47ec48;controller[7]=reinterpret_cast<A>(link.data());link[1]=image+0xf502b30;
+    entities={reinterpret_cast<A>(controller.data())};testScenes={&stadium};world.phase(1);
+    testGlobal(0xf3f5d48,1);attendance::State noDynasty;A match=0;assert(!gameState(noDynasty,match));
+    auto revision=attendanceArchive.revision;activeLoss=17;arrivalMissing=34;emptyMode2020=true;emptyModePending=true;
+    assert(guardedEmptyService()&&emptyCrowdActive&&appliedVisibilityTarget==100&&shownVisibleFans==0);
+    for(auto mask:stadium.masks)assert((mask&3)==3);
+    assert(activeLoss==17&&arrivalMissing==34&&attendanceArchive.revision==revision);
+    // Replacement renderer masks and replay refreshes stay empty without
+    // changing the underlying attendance timeline or original empty seats.
+    replayLoss=30;assert(refreshReplayVisibility());for(auto mask:stadium.masks)assert((mask&3)==3);replayLoss=-1;
+    auto oldMasks=std::move(stadium.masks);stadium.masks=stadium.native;stadium.buffers();testUpdate(0);assert(guardedEmptyService());
+    for(auto mask:stadium.masks)assert((mask&3)==3);
+    emptyMode2020=false;emptyModePending=true;assert(guardedEmptyService()&&!emptyCrowdActive);assert(stadium.masks==stadium.native);
+    assert(activeLoss==17&&arrivalMissing==34&&attendanceArchive.revision==revision);
+    // Mode is also available with normal attendance disabled. Its own mask
+    // override is reversible and must not become a permanent100% departure.
+    auto disabled=std::make_shared<attendance::Settings>();disabled->enabled=false;auto savedSettings=std::atomic_load(&settings);
+    std::shared_ptr<const attendance::Settings> off=disabled;std::atomic_store(&settings,off);
+    emptyMode2020=true;emptyModePending=true;assert(guardedEmptyService()&&emptyCrowdActive);assert(!audioWanted().active&&audioWanted().remaining==0);
+    emptyMode2020=false;emptyModePending=true;assert(guardedEmptyService()&&!emptyCrowdActive&&stadium.masks==stadium.native);
+    std::atomic_store(&settings,savedSettings);testGlobal(0xf3f5d48,3);
+    // A normal owned Dynasty must restore its CURRENT arrival/departure target,
+    // including seats which were temporarily hidden only by 2020 Mode.
+    contextReady=true;lastMatch=world.wrapper[2];
+    shownTeam0=at<int>(image+0xd9f3970);shownTeam1=at<int>(image+0xd9f3974);matchLifecycle.join(lastMatch,false);
+    exactVisibility=true;assert(guardedApply(true,true));exactVisibility=false;auto normalMasks=stadium.masks;
+    emptyMode2020=true;emptyModePending=true;assert(guardedEmptyService()&&shownVisibleFans==0);
+    auto passes=forcedCrowdPasses.load();for(int i=0;i<50;++i)assert(guardedEmptyService());assert(forcedCrowdPasses==passes);
+    emptyMode2020=false;emptyModePending=true;assert(guardedEmptyService()&&stadium.masks==normalMasks&&!exactVisibility);
+    // MMC's existing restore/stop protocol also releases the independent mode.
+    emptyMode2020=true;emptyModePending=true;assert(guardedEmptyService()&&shownVisibleFans==0);
+    auto priorRequest=request.load();assert(DynamicGamedayAtmosphereStop(nullptr)==0&&!emptyMode2020&&emptyModePending&&request==3);
+    assert(guardedEmptyService()&&stadium.masks==normalMasks);request=priorRequest;
+    world.phase(6);resetMatch();entities=savedEntities;testScenes=savedScenes;emptyModePending=false;
+}
 }
 int main(){
     image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
@@ -308,6 +345,7 @@ int main(){
     resetMatch();mode=0;entities.clear();testScenes.clear();TestWorld world;originalPeriod=testPeriod;lastDecision=0;
     testReplaySelectors(world);
     testAudioCameraCallbacks(world);
+    testEmptyMode(world);
     assert(guardedDecision());int opening=arrivalMissing.load();assert(opening>0&&visibilityRetry&&arrivalModel.active);
     assert(!crowdChangeWindow.pending); // No new ordinary crowd-change window.
     TestScene intro(1536);testScenes={&intro};testUpdate(0);assert(seatPatternPending);originalPresentationUpdate=testPresentation;

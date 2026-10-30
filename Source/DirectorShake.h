@@ -86,6 +86,7 @@ struct Input {
     float venueScale=1;
     Profile profile=Profile::Default;float leverage=0;bool homeCritical=false,gameSavingBlock=false;
     Profile buildupProfile=Profile::Gain;
+    bool overtime=false;
 };
 inline float liveStrength(const Settings& s,Profile p,float leverage,bool catchImpact=false){
     if(p==Profile::Default)return catchImpact?limit(s.catchImpact):limit(s.live);
@@ -108,7 +109,7 @@ public:
         // Scale each crowd target once by occupied seats, and by
         // three quarters for either side of a neutral crowd, before envelopes.
         Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.1f):0;
-        float crowdScale=(x.neutral?.75f:1.f)*size;
+        float crowdScale=(x.neutral?.75f:1.f)*size*(x.overtime?1.10f:1.f);
         settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
         settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
         settings.live=limit(settings.live)*crowdScale;settings.catchImpact=limit(settings.catchImpact)*crowdScale;

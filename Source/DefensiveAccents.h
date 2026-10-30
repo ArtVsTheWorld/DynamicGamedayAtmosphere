@@ -32,9 +32,9 @@ inline motion::Profile shakeProfile(live::Event e){
     case E::Truck:case E::StiffArm:case E::Hurdle:return P::Skill;
     case E::LongCatch:case E::CompletedPass:return P::Catch;
     case E::LongRun:case E::RunAfterCatch:case E::KickReturn:case E::PuntReturn:return P::Gain;
-    case E::CatchKnockout:case E::PassBreakup:case E::HitStickStop:case E::ThirdGoalStop:return P::Stop;
+    case E::OvertimeStop:case E::OvertimeConversionStop:case E::OvertimeMissedFieldGoal:case E::CatchKnockout:case E::PassBreakup:case E::HitStickStop:case E::ThirdGoalStop:return P::Stop;
     case E::Sack:case E::TackleForLoss:return P::Loss;
-    case E::FourthConversion:return P::Conversion;
+    case E::OvertimeConversion:case E::OvertimeFieldGoal:case E::FourthConversion:return P::Conversion;
     case E::DownsStop:return P::Downs;
     case E::Interception:case E::FumbleRecovery:return P::Takeaway;
     case E::ForcedFumble:return P::Force;

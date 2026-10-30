@@ -8,6 +8,7 @@ namespace DynamicGamedayAtmosphere {
         sealed class LayoutKey {public string OldSection,OldKey,Section,Key;public LayoutKey(string os,string ok,string ns,string nk){OldSection=os;OldKey=ok;Section=ns;Key=nk;}}
         static readonly LayoutKey[] Layout={
             new LayoutKey("Attendance","Enabled","Dynamic Gameday Attendance","Enabled"),
+            new LayoutKey("Attendance","2020ModeEnabled","Dynamic Gameday Attendance","2020ModeEnabled"),
             new LayoutKey("Attendance","InitialAttendanceEnabled","Dynamic Gameday Attendance","InitialAttendanceEnabled"),
             new LayoutKey("Attendance","Profile","Dynamic Gameday Attendance","Profile"),
             new LayoutKey("Retention","FormulaStrength","Dynamic Gameday Attendance","FormulaStrength"),
@@ -901,6 +902,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,47);
             upgraded=RetuneShake2030(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,48);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,49);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

@@ -1,4 +1,6 @@
 #include "../Source/DefensiveMotion.h"
+#include "../Source/OvertimeAtmosphere.h"
+#include "../Source/SoundOnlyReactions.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance;
@@ -79,7 +81,7 @@ int main(){
     // Ownership, accepted penalties, score correction, clock plays, gate loss,
     // replay/pause/gaps and resume cannot manufacture or queue defensive motion.
     for(int bad=0;bad<20;++bad){Case c(3);c.finish(-6);
-        if(bad==0)c.allowed=false;if(bad==1)c.p.simulated=true;if(bad==2)c.p.resumed=true;
+        if(bad==0)c.allowed=false;if(bad==1)c.p.simulated=true;if(bad==2){c.p.resumed=true;c.result.accepted=false;}
         if(bad==3)c.now+=800;if(bad==4)c.result.accepted=false;if(bad==5)c.result.completed=false;
         if(bad==6)++c.result.sequence;if(bad==7)c.snap.specialTeams=true;if(bad==8)c.snap.selectedType=37;
         if(bad==9)c.snap.selectedType=38;if(bad==10)c.result.firstDown=true;if(bad==11)c.result.takeaway=true;
@@ -105,5 +107,62 @@ int main(){
     for(auto event:{live::Event::Spin,live::Event::Juke,live::Event::BrokenTackle,live::Event::HitStick})
         assert(defensivemotion::cameraId({event,1,0,0},99,{})==0);
     assert(!defensivemotion::cameraId({},99,{}));
+    // The reported OT third-down incompletion has a confirmed stop but no
+    // fresh knockout/deflection event. It still gets one generic stop impact.
+    for(int side:{0,1})for(bool neutral:{false,true}){
+        Case c(3,side,neutral);c.snap.game.quarter=c.p.game.quarter=5;c.snap.game.seconds=c.p.game.seconds=0;c.finish();c.result.event=energy::Event::ThirdStop;
+        auto out=c.tick(4);assert(bool(out.id)==(side==1||neutral));if(out.id)assert(out.event==live::Event::OvertimeStop);
+        assert(!c.tick(5).id);
+    }
+    {Case c(3);c.snap.game.quarter=c.p.game.quarter=5;c.finish();c.p.resumed=true;assert(c.tick(4).event==live::Event::OvertimeStop);} // A fresh tracked play after resume.
+    for(bool neutral:{false,true})for(int side:{0,1})for(bool made:{false,true}){
+        Case c(-1,side,neutral);c.snap.game.quarter=c.p.game.quarter=5;c.snap.game.seconds=c.p.game.seconds=0;c.finish();
+        c.result.side=made?side:1-side;c.result.event=made?energy::Event::OvertimeConversion:energy::Event::ConversionStop;c.p.offense=1-side;
+        if(made){if(side==0){c.result.homePoints=2;c.p.game.homeScore+=2;}else{c.result.awayPoints=2;c.p.game.awayScore+=2;c.result.visitorScore=!neutral;}}
+        auto out=c.tick(4);assert(bool(out.id)==(neutral||c.result.side==0));
+        if(out.id)assert(out.event==(made?live::Event::OvertimeConversion:live::Event::OvertimeConversionStop));
+        assert(!c.tick(5).id);
+        core::Settings settings;assert(core::positiveResult(c.result.event));assert(core::resultReaction(c.result)==(made?83:59));
+        soundonly::Model sounds;auto sound=sounds.observe(c.result,c.snap,c.p,123,1,true,false,false);assert(sound.sequence);
+        assert(sound.type==(!neutral&&c.result.side==1?95:made?83:59));
+    }
+    for(int side:{0,1})for(bool made:{false,true}){
+        Case c(4,side);c.snap.game.quarter=c.p.game.quarter=5;c.snap.selectedType=21;c.snap.specialTeams=true;c.finish();c.result.turnoverOnDowns=false;c.result.side=made?side:1-side;
+        if(made){if(side==0){c.result.homePoints=3;c.p.game.homeScore+=3;}else{c.result.awayPoints=3;c.p.game.awayScore+=3;}}
+        auto out=c.tick(4);assert(bool(out.id)==(c.result.side==0));if(out.id)assert(out.event==(made?live::Event::OvertimeFieldGoal:live::Event::OvertimeMissedFieldGoal));
+    }
+    {core::Settings settings;energy::Play p;p.game={5,14,14,1,0,720};p.down=-1;p.offense=0;
+        sustained::Intent base;base.match=123;base.epoch=1;base.updated=1000;
+        for(int phase:{1,3,4,5}){p.game.phase=phase;auto out=overtimeeffects::fill(base,settings,p,.88f,true,40000,true);assert(out.active&&out.continuous&&out.reason==sustained::Reason::Overtime&&!out.cheers&&!out.shake&&out.layerBoostPercent==0);}
+        auto earned=base;earned.active=true;earned.reason=sustained::Reason::Result;earned.priority=5;earned.resultCheer=123;assert(overtimeeffects::fill(earned,settings,p,.88f,true,40000,true).resultCheer==123);
+        assert(!overtimeeffects::fill(base,settings,p,.3f,true,40000,true).active);p.game.quarter=4;assert(!overtimeeffects::fill(base,settings,p,.88f,true,40000,true).active);
+    }
+    {motion::Model normal,extra;motion::Settings settings;motion::Input x;x.match=123;x.epoch=1;x.phase=4;x.now=1000;x.allowed=x.duringAllowed=true;x.duringPlay=1;x.duringImpact=true;x.profile=motion::Profile::Stop;x.venueScale=.9f;
+        auto a=normal.observe(settings,x);x.overtime=true;auto b=extra.observe(settings,x);assert(std::fabs(b.percent/a.percent-1.10f)<.0001f);
+        x.now+=50;auto again=extra.observe(settings,x);assert(again.percent==b.percent); // Never compound each frame.
+    }
+    // Real tracker outcomes, including the stationary OT clock and late score
+    // proof, feed the new motion/audio routes without fabricated contact flags.
+    for(int side:{0,1})for(bool neutral:{false,true})for(bool made:{false,true}){
+        energy::Tracker tracker;energy::Settings energySettings;energy::Play p;p.game={5,24,24,1,0,720};p.game.neutral=neutral;
+        p.offense=side;p.down=-1;p.selectedType=103;p.resultStamp=100;tracker.observe(energySettings,p);auto snap=p;
+        p.game.phase=3;tracker.observe(energySettings,p);p.game.phase=1;p.offense=1-side;++p.resultStamp;
+        if(made){if(side==0)p.game.homeScore+=2;else p.game.awayScore+=2;}
+        auto result=tracker.observe(energySettings,p);assert(result.accepted&&result.completed&&result.sequence==1);
+        defensivemotion::Model camera;auto out=camera.observe(snap,p,result,{},123,1,1,1000,true);
+        assert(bool(out.id)==(neutral||(made?side==0:side==1)));assert(!tracker.observe(energySettings,p).completed);
+        core::Model sound;core::Settings settings;sound.react(settings,result,1,p.game,true,true,.5f);
+        if(out.id)assert(sound.resultCheer==1&&sound.resultType==(made?83:59));else assert(!sound.resultCheer);
+    }
+    {core::Model sound;core::Settings settings;energy::Play p;p.game={5,26,24,4,0,720};p.down=-1;
+        energy::Outcome r;r.accepted=r.completed=true;r.sequence=1;r.side=0;r.homePoints=2;r.event=energy::Event::OvertimeConversion;
+        // A just-started winning envelope and four-second ordinary cooldown
+        // cannot swallow the next independently verified OT two-point result.
+        sound.eruptionAt=.5;sound.eruptionSeconds=60;sound.celebration=1;
+        sound.react(settings,r,1,p.game,true,true,.5f);sound.update(settings,p,1.1,1,1);
+        auto intent=sound.intent(settings,p,123,1,1100,true);assert(intent.resultCheer==1&&intent.resultType==83);
+        assert(!sound.react(settings,r,1.2,p.game,true,true,.5f)&&sound.resultCheer==1);
+        r.sequence=2;sound.react(settings,r,2,p.game,true,true,.5f);assert(sound.resultCheer==2);
+    }
     std::printf("PASS: %u loss/sack/down/owner/phase combinations; tracker-to-camera integration; one confirmed stop; early/late contact flavor; exclusions, cleanup and audio independence.\n",cases);
 }

@@ -80,6 +80,7 @@ int main(){
     // and unrelated groups keep their attenuation-only ceiling.
     Runtime boost;boost.configure(image,nullptr,create,release,source,12,clockSource);
     put(second.stock.group.address()+0x28,static_cast<unsigned short>(9));
+    put(second.stock.group.address()+0x2a,static_cast<unsigned short>(2));strcpy_s(second.stock.groupName,"Crowd");
     boost.tick(second.owner+0x40,true,3,false,false,9);assert(boost.db()==3);
     Address boostedGroups=get<Address>(get<Address>(get<Address>(currentHandle+8)+0x20)+0x28);
     assert(get<float>(get<Address>(boostedGroups+8)+4)==3);
@@ -97,6 +98,7 @@ int main(){
     boost.tick(second.owner+0x40,true,3,false,false,14);assert(boost.db()==0);
     boost.tick(second.owner+0x40,true,3,false,false,31);assert(boost.db()==0); // Crowd runtime cannot boost commentary.
     put(second.stock.group.address()+0x28,static_cast<unsigned short>(13));
+    put(second.stock.group.address()+0x2a,static_cast<unsigned short>(9));
     std::memcpy(second.stock.groupName,"Beds",5);
     Runtime bed;bed.configure(image,nullptr,create,release,source,3,clockSource,13);
     gainTime+=300;bed.tick(second.owner+0x40,true,1,false,false,13);assert(bed.db()==1);

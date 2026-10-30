@@ -51,6 +51,7 @@
 #include "CoreAtmosphere.h"
 #include "LineupAtmosphere.h"
 #include "SoundOnlyReactions.h"
+#include "OvertimeAtmosphere.h"
 #include "OpeningKickoffAtmosphere.h"
 #include "PresentationAtmosphere.h"
 #include "OpeningWelcome.h"
@@ -79,6 +80,7 @@
 #include "NativePlayCall.h"
 #include "NativeSackFacts.h"
 #include "AttendanceMixer.h"
+#include "StadiumSilenceRuntime.h"
 #include "NativeAtmosphereContext.h"
 #include "NativeCapacity.h"
 #include "NativeStartingAttendance.h"
@@ -251,6 +253,11 @@ SetPeriod originalPeriod=nullptr;
 SetVisibility originalSet=nullptr;
 unsigned long long restoreAt=0;
 std::atomic<uint64_t> nativeAudioCallbacks{0};
+std::atomic<bool> emptyMode2020{false},emptyCrowdActive{false},emptyModePending{false};
+struct EmptyWorld {A match=0;int phase=-1,home=-1,away=-1;};
+bool emptyWorld(EmptyWorld& world);bool guardedEmptyService();
+attendance::silence::Runtime stadiumSilence;
+std::atomic<bool> silenceBindingsReady{false};
 attendance::timing::Counts audioMixerTimings,intensityCallbackTimings,reactionCallbackTimings,cameraCallbackTimings,sparseCameraTimings,cannonCallbackTimings;
 std::atomic<uint64_t> audioContextSnapshots{0},audioWorldSnapshots{0};
 using NativeAudioUpdate=A(__fastcall*)(A,A,A,A);NativeAudioUpdate originalAudioUpdate=nullptr;
@@ -431,10 +438,13 @@ void sparseCameraTick(){
     bool offline=actual&&actual==wanted.match&&attendance::sustained::at<A>(actual)==image+0xb4781e8&&config&&
         attendance::sustained::at<unsigned char>(config+0x84)==0&&attendance::sustained::at<int>(image+0xd9e3818)==14&&attendance::sustained::at<int>(image+0xf3f5d48)==3;
     lease.match=offline?actual:0;
+    EmptyWorld empty;bool silence=emptyMode2020&&emptyWorld(empty);
+    if(silence)lease.match=empty.match;
     auto admission=std::atomic_load(&nativeCameraAdmission);
     lease.suppress=sparseNativeCamera.healthy()&&wanted.active&&enabled&&mode==0&&density->owns(wanted.match,wanted.epoch)&&
         attendance::nativecamera::suppress(*admission,wanted.match,wanted.epoch,now,audibleFullness(wanted),nativeShakeMinimum.load())&&
         attendance::balance::audiblePhase(audioPresentationPhase(),nativeUnpaused(),replaySuspendsAtmosphere.load());
+    if(silence&&sparseNativeCamera.healthy())lease.suppress=true;
     std::shared_ptr<const attendance::sparsecamera::Lease> published=std::make_shared<attendance::sparsecamera::Lease>(lease);std::atomic_store(&sparseCameraLease,published);
     // Admitted contexts add no camera query/ref traffic. A recently suppressed view
     // gets a final borrowed-camera pass to restore the game's latest HFA event.
@@ -456,7 +466,7 @@ bool cannonPlaying(A instance){
     __except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
 void observeCannon(A entity,A event){
-    if(!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!cameraAvailable||!nativeMasterAudible)return;
+    if(emptyMode2020||!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!cameraAvailable||!nativeMasterAudible)return;
     // The receiver sees many parameter/stop events too. They cannot start a
     // cannon, so do not sample the world or resolve sound assets for them.
     unsigned eventHash=0;if(!cannonRead(event+8,&eventHash,sizeof(eventHash))||eventHash!=attendance::cannon::PlayEvent)return;
@@ -479,7 +489,7 @@ void __fastcall legacySoundReceive(A entity,A event){
 void __fastcall cameraView(A view,float* output){
     originalCameraView(view,output);
     attendance::timing::Scope measured(cameraCallbackTimings);
-    if(!enabled||mode!=0||!cameraAvailable||replayLoss.load()>=0)return; // Recorded clips, including play-selection insets, stay steady.
+    if(emptyMode2020||!enabled||mode!=0||!cameraAvailable||replayLoss.load()>=0)return; // Recorded clips, including play-selection insets, stay steady.
     auto published=std::atomic_load(&cameraCue);auto cue=*published;auto preview=std::atomic_load(&diagnosticPreview);
     if(preview->fresh(audioMatch.load(),audioEpoch.load(),GetTickCount64())&&(preview->active||preview->cooling)){
         auto config=std::atomic_load(&coreSettings);
@@ -522,6 +532,9 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
     audible=audible&&nativeMasterAudible;
     if(!notedAudioState.exchange(true))logAudioState(nativeCrowdSlider.load());
     audioAudible=audible;lastAudibleUpdate=GetTickCount64();
+    if(silenceBindingsReady&&(emptyMode2020||stadiumSilence.active())){
+        EmptyWorld world;stadiumSilence.tick(owner,emptyMode2020&&emptyWorld(world));
+    }
     if(swellAvailable)try {
         auto wanted=wantedSwell();auto primary=wanted;auto preview=std::atomic_load(&diagnosticPreview);
         bool diagnostic=preview->sound&&preview->playing(wanted.match,wanted.epoch,GetTickCount64())&&wanted.active;
@@ -747,8 +760,10 @@ const char* __fastcall pauseMenuText(A tile,A key,A){
         c.replay=at<A>(replay)!=image+attendance::bindings::ReplayVtable||!read(replay+0x38,&replaying,1)||replaying!=0||replaySuspendsAtmosphere.load();
         {std::lock_guard<std::mutex> guard(historyMutex);c.leaving=matchLifecycle.leftWorld||matchLifecycle.match!=c.match;}
         auto density=std::atomic_load(&renderedOccupancy);c.mapped=density->valid();c.measuredMatch=density->match;c.measuredEpoch=density->epoch;c.peak=density->peak();
-        c.loss=activeLoss.load();c.arrivalMissing=arrivalMissing.load();
-        if(audioEpoch.load()!=c.epoch||audioMatch.load()!=c.match||at<A>(wrapper+16)!=c.match)return nullptr;
+        c.loss=emptyCrowdActive?100:activeLoss.load();c.arrivalMissing=emptyCrowdActive?0:arrivalMissing.load();
+        EmptyWorld empty;bool emptyReadout=emptyCrowdActive&&emptyWorld(empty)&&empty.match==c.match;
+        if(emptyReadout){c.enabled=c.offlineDynasty=c.mapped=true;c.leaving=false;c.measuredMatch=c.match;c.measuredEpoch=c.epoch;c.peak=1;}
+        if(audioEpoch.load()!=c.epoch||(!emptyReadout&&audioMatch.load()!=c.match)||at<A>(wrapper+16)!=c.match)return nullptr;
         int value=attendance::pausemenu::percent(c);const char* label=pauseMenuLabels.get(value);
         if(label){pauseMenuLastPercent=value;++pauseMenuDisplays;}
         return label;
@@ -910,7 +925,7 @@ attendance::audio::Wanted audioWanted(){
     attendance::audio::Wanted wanted;wanted.epoch=audioEpoch.load();wanted.match=audioMatch.load();
     // Replay may use different clocks. Ownership and match identity gate audio;
     // its target comes from the attendance checkpoint, not the replay's score.
-    if(enabled&&audioSetting&&mode!=2&&std::atomic_load(&settings)->enabled&&wanted.match){
+    if(!emptyMode2020&&enabled&&audioSetting&&mode!=2&&std::atomic_load(&settings)->enabled&&wanted.match){
         ++audioWorldSnapshots;
         A wrapper=at<A>(image+attendance::bindings::MatchWrapper),actual=at<A>(wrapper+16),configuration=at<A>(image+0xf6379e0);
         wanted.active=wanted.match==actual&&configuration&&at<unsigned char>(configuration+0x84)!=1&&at<A>(actual)==image+0xb4781e8&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3;
@@ -922,6 +937,7 @@ attendance::audio::Wanted audioWanted(){
     wanted.active=wanted.active&&owned;
     wanted.remaining=owned?wanted.remaining*peak:.75f;
     wanted.arrivalFraction=owned?wanted.arrivalFraction*peak:.75f;
+    if(emptyMode2020){wanted.active=false;wanted.remaining=wanted.arrivalFraction=0;}
     return wanted;
 }
 
@@ -958,6 +974,16 @@ void sustainedNote(const char* message){
 }
 
 bool entityValid(A p){return at<A>(p)==image+0xb47ec48&&at<A>(at<A>(p+0x38)+8)==image+0xf502b30;}
+bool emptyWorld(EmptyWorld& world){
+    // Empty stadiums use the verified shared native crowd layout in any
+    // actual game mode. Normal DGA formulas remain Dynasty-only.
+    if(at<int>(image+0xd9e3818)!=14)return false;
+    A states=at<A>(image+attendance::bindings::GameStates),wrapper=at<A>(image+attendance::bindings::MatchWrapper);
+    world.match=at<A>(wrapper+16);world.phase=at<int>(states+0xa0);
+    world.home=at<int>(image+0xd9f3970);world.away=at<int>(image+0xd9f3974);
+    return at<A>(states)==image+attendance::bindings::GameStatesVtable&&at<A>(world.match)==image+attendance::bindings::MatchVtable&&
+        world.phase>=0&&world.phase<=8&&world.home>0&&world.home<2047&&world.away>0&&world.away<2047;
+}
 void __fastcall presentationUpdate(A states,float delta){
     originalPresentationUpdate(states,delta);
     // Native post-update runs both presentation and gameplay. Using it alone
@@ -1160,7 +1186,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
             // invalidate replay's no-op cache when native callbacks reveal a
             // new seated renderer/buffer; tiny sideline draws stay optional.
             if(replacement&&count>=512){visibilityRetry=true;seatPatternPending=true;}
-            if((applying||collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&replacement){
+            if((applying||collecting||emptyCrowdActive||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&replacement){
                 StartingCrowd baseline;baseline.masks=begin;baseline.scene=crowd;baseline.hidden.resize(count);baseline.temporary.resize(count);baseline.nativeSeen.resize(count);
                 if(!read(begin,baseline.hidden.data(),count*2)){log("baseline-unavailable","Crowd write skipped");return;}
                 baseline.nativeHidden=baseline.hidden;
@@ -1210,6 +1236,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
             }
         }else if(applying)return;
     }else if(applying)return;
+    if(emptyCrowdActive)hidden=true;
     originalSet(crowd,part,agent,hidden);
 }
 void resetMatch(){
@@ -1269,7 +1296,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
     else if(captureOnly||arrivalMissing>0)captureArrivalBaseline=false;
     attendance::VisibilityCount population;bool measured=false;
     const int historical=replayLoss.load();
-    const int measuredLoss=historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
+    const int measuredLoss=emptyCrowdActive?100:(!thin||mode==2)?0:historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
     if(!captureOnly&&result.verified){
         std::lock_guard<std::mutex> guard(crowdMutex);
         for(const auto& item:startingCrowds){
@@ -1299,13 +1326,41 @@ bool guardedApply(bool thin,bool arrivals=false,bool captureOnly=false) {
     __try {apply(thin,arrivals,captureOnly);return true;}
     __except(EXCEPTION_EXECUTE_HANDLER){applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
 }
+void serviceEmptyMode(){
+    static EmptyWorld previous;static bool hadWorld=false;
+    if(!emptyMode2020&&!emptyCrowdActive&&!emptyModePending)return;
+    EmptyWorld world;if(!emptyWorld(world)){if(emptyCrowdActive)emptyModePending=true;emptyCrowdActive=false;hadWorld=false;return;}
+    bool was=emptyCrowdActive.load(),wanted=emptyMode2020.load(),pending=emptyModePending.exchange(false);
+    bool worldChanged=!hadWorld||world.match!=previous.match||world.home!=previous.home||world.away!=previous.away||(world.phase==6&&previous.phase!=6);
+    bool owned=contextReady&&world.match==lastMatch&&world.home==shownTeam0&&world.away==shownTeam1;
+    if(owned){std::lock_guard<std::mutex> guard(historyMutex);owned=!matchLifecycle.needsReset(world.match,world.phase==6);}
+    if(worldChanged&&!owned){
+        std::lock_guard<std::mutex> guard(crowdMutex);startingCrowds.clear();originalSeatLayouts.reset();seatPatternPending=false;visibilityRetry=true;
+        appliedVisibilityTarget=appliedVisibilityMode=-1;
+    }
+    emptyCrowdActive=wanted;
+    bool dirty=visibilityRetry||seatPatternPending||visibilityGeneration!=entityGeneration.load();
+    if((pending||worldChanged||was!=wanted||dirty||(wanted&&appliedVisibilityTarget!=100))&&(wanted||was||pending)){
+        bool thin=wanted||(owned&&(activeLoss>0||arrivalMissing>0));
+        // The override hid additional seats without owning permanent exits.
+        // Reconstruct the exact normal/replay selection on release rather than
+        // letting monotonic departure logic preserve the forced empty masks.
+        bool priorExact=exactVisibility.load();if(!wanted)exactVisibility=true;
+        bool applied=guardedApply(thin,true);exactVisibility=priorExact;
+        if(!applied){enabled=false;log("fault","2020 Mode crowd update failed; further visibility changes stopped.");return;}
+        visibilityGeneration=entityGeneration.load();emptyModePending=visibilityRetry.load();
+        if(was!=wanted)log("2020-mode",wanted?"Empty stadium override active; normal attendance history is preserved underneath.":"Empty stadium override released; restoring this game's normal crowd.");
+    }
+    previous=world;hadWorld=true;
+}
+bool guardedEmptyService(){__try{serviceEmptyMode();return true;}__except(EXCEPTION_EXECUTE_HANDLER){emptyModePending=true;return false;}}
 // Replay timing changes do not imply a different seating picture. Avoid
 // forcing another complete native fan pass when this exact target is already
 // applied. Native renderer callbacks still discover streamed/replaced buffers
 // and set visibilityRetry; generation, pending-layout and mode changes remain
 // independent reasons to refresh.
 bool refreshReplayVisibility(){
-    int historical=replayLoss.load();int target=historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
+    int historical=replayLoss.load();int target=emptyCrowdActive?100:mode==2?0:historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
     bool dirty=visibilityRetry||seatPatternPending||visibilityGeneration!=entityGeneration.load();
     if(!dirty&&target==appliedVisibilityTarget.load()&&mode.load()==appliedVisibilityMode.load()){
         ++unchangedReplaySkips;return true;
@@ -1450,9 +1505,9 @@ bool install() {
        !makePatch(attendance::bindings::PresentationUpdate,reinterpret_cast<void*>(presentationUpdate),reinterpret_cast<void**>(&originalPresentationUpdate),15)||
        !makePatch(attendance::bindings::CrowdVisibility,reinterpret_cast<void*>(visibility),reinterpret_cast<void**>(&originalSet),15)||
        !makePatch(attendance::bindings::PeriodChange,reinterpret_cast<void*>(periodChanged),reinterpret_cast<void**>(&originalPeriod),18))return false;
-    if(audioSetting&&bytes(attendance::bindings::AudioUpdate,cleanEntry(attendance::bindings::AudioUpdate))){
+    if(bytes(attendance::bindings::AudioUpdate,cleanEntry(attendance::bindings::AudioUpdate))){
         if(!makePatch(attendance::bindings::AudioUpdate,reinterpret_cast<void*>(audioUpdate),reinterpret_cast<void**>(&originalAudioUpdate),16))return false;
-        audioHookInstalled=true;
+        audioHookInstalled=true;stadiumSilence.configure(image,audioNote);
         if(swellBindings()){
             if(!makePatch(attendance::bindings::SwellSend,reinterpret_cast<void*>(crowdSend),reinterpret_cast<void**>(&originalCrowdSend),17))return false;
             auto api=attendance::sustained::Api::native(image);api.send=originalCrowdSend;
@@ -1475,9 +1530,9 @@ bool install() {
         }else log("intensity-inactive","Native excitement bindings differ; sustained roar playback and existing audio remain available.");
         if(bytes(attendance::bindings::MixerCreate,{0x4c,0x8b,0xdc,0x53,0x55,0x48,0x83,0xec,0x78})&&
            bytes(attendance::bindings::MixerRelease,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20})){
-            attendanceMixer.configure(image);chantAvailable=true;
+            attendanceMixer.configure(image);chantAvailable=true;silenceBindingsReady=true;
         }else log("chants-inactive","Native crowd-bus mixer layout differs; native crowd audio remains unchanged");
-    }else log("audio-inactive",audioSetting?"Native audio layout differs; visible attendance remains available":"Soundscape disabled at startup; native audio callbacks left untouched. Restart after enabling Soundscape.");
+    }else log("audio-inactive","Native audio layout differs; visible attendance remains available, crowd/band muting is unavailable.");
     if(pauseBinding&&replayBinding&&
        bytes(attendance::bindings::CameraSet,{0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20})&&
        bytes(attendance::bindings::CameraFind,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0x48,0x8b,0xca})&&
@@ -1633,6 +1688,8 @@ void readSettings(){
         return value.value;
     };
     c->enabled=number(L"Attendance",L"Enabled",1,0,1)!=0;
+    bool empty=number(L"Attendance",L"2020ModeEnabled",0,0,1)!=0;
+    if(emptyMode2020.exchange(empty)!=empty)emptyModePending=true;
     initialSetting=number(L"Attendance",L"InitialAttendanceEnabled",1,0,1)!=0;
     pauseMenuSetting=number(L"Dynamic Gameday Broadcast",L"PauseMenuFullness",1,0,1)!=0;
     extraReplays=number(L"Replays",L"Enabled",1,0,1)!=0;
@@ -1722,7 +1779,7 @@ void readSettings(){
     std::shared_ptr<const attendance::Settings> next=c;std::atomic_store(&settings,next);
     static bool missingAudioReported=false;
     bool missingAudio=enabled&&audioSetting&&!audioHookInstalled;
-    if(missingAudio&&!missingAudioReported)log("configuration","Soundscape is requested but native audio hooks are unavailable. If it was off at launch, restart MMC/game; otherwise check binding failures above.");
+    if(missingAudio&&!missingAudioReported)log("configuration","Soundscape is requested but native audio hooks are unavailable; check the binding failures above.");
     missingAudioReported=missingAudio;
 }
 int sackPlayIdentity(A tracker){
@@ -2050,7 +2107,7 @@ void atmosphereTick(){
     // Historical clip fullness may change the audible presentation, but must
     // never feed a past crowd into live event eligibility or cancel an earned
     // postgame celebration. Keep those models on the live owned crowd.
-    float remaining=fullnessReady?rendered->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:.75f;
+    float remaining=emptyCrowdActive?0:fullnessReady?rendered->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:.75f;
     bool hadLayers=lineupAtmosphere.match==match&&lineupAtmosphere.epoch==epoch&&lineupAtmosphere.playContextActive();
     float hadMinimum=hadLayers?lineupAtmosphere.qualifiedMinimum:1.01f;
     auto previousHostileCheer=lineupAtmosphere.match==match&&lineupAtmosphere.epoch==epoch?lineupAtmosphere.hostileCheer:0;
@@ -2069,7 +2126,10 @@ void atmosphereTick(){
     shownBigAtmosphere=attendance::lineup::bigGame(p.game);shownPackedHouse=lineupAtmosphere.packedHouse;shownDrive=lineupAtmosphere.drive.heat;
     shownOpeningDrive=lineupAtmosphere.openingDriveQualified;
     float reactionMinimum=(std::min)(hadMinimum,lineupAtmosphere.playContextActive()?lineupAtmosphere.qualifiedMinimum:1.01f);
+    bool overtimeQualified=!clockPlay&&attendance::overtimeeffects::qualified(*std::atomic_load(&coreSettings),p,remaining,fullnessReady,fullnessReady?rendered->seats:0,enabled&&audioSetting&&mode==0);
+    if(overtimeQualified)reactionMinimum=(std::min)(reactionMinimum,attendance::nightRequirement(p.game,attendance::packed::specialMinimum(rendered->seats)));
     bool reactionEligible=!clockPlay&&attendance::lineup::reactionEligible(p.game,remaining,fullnessReady,hadLayers||lineupAtmosphere.playContextActive(),reactionMinimum);
+    reactionEligible=reactionEligible||overtimeQualified;
     result=contextReactions.observe(result,playTracker.start,p,playTracker.serial,match,epoch,now,remaining,fullnessReady?rendered->seats:0,
         reactionEligible&&std::atomic_load(&coreSettings)->contextReactions);
     uintptr_t liveRecord=0;int liveKind=-1,ballState=-1,ballSubstate=-1;float runnerSpot=std::numeric_limits<float>::quiet_NaN();bool ballHeld=false;float catchSpot=std::numeric_limits<float>::quiet_NaN();
@@ -2245,6 +2305,7 @@ void atmosphereTick(){
     auto presentation=presentationAtmosphere.observe(*audio,p.game,match,epoch,now,active&&enabled&&audioSetting,
         fullnessReady,fullnessReady?audibleFullness(audioWanted()):remaining,fullnessReady?rendered->seats:0,coreAtmosphere.postgameMenu);
     if(presentation.active&&!wanted.celebration&&wanted.reason==attendance::sustained::Reason::None)wanted=presentation;
+    wanted=attendance::overtimeeffects::fill(wanted,*audio,p,remaining,fullnessReady,fullnessReady?rendered->seats:0,active&&enabled&&audioSetting&&!clockPlay);
     if(wanted.active&&(p.game.phase==3||p.game.phase==4||p.game.phase==5||((p.game.phase==1||p.game.phase==7)&&liveReactionPost))&&basicReactionEligible&&liveReactionId&&now<liveReactionUntil&&!wanted.celebration){wanted.liveCheer=liveReactionId;wanted.liveCheerUntil=liveReactionUntil;wanted.liveType=liveReactionType;if(reactionEligible&&!attendance::population::negative(liveReactionType))wanted.intensity=(std::max)(wanted.intensity,950*std::sqrt(remaining));}
     // Keep the result roar/eruption, but do not add a second ordinary cheer
     // when this play's early accent was already delivered (or native-equivalent).
@@ -2256,7 +2317,7 @@ void atmosphereTick(){
     uint64_t motionId=attendance::defensivemotion::cameraId(liveResult,liveReactionId,stopMotion);
     if(stopMotion.id){liveMotionSequence=playTracker.serial;liveMotionEvent=stopMotion.event;
         log("defensive-motion","Play #"+std::to_string(playTracker.serial)+": "+attendance::live::name(stopMotion.event)+"; shared confirmed loss/stop route; one camera request.");}
-    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;motion.neutral=p.game.neutral;motion.venueScale=attendance::motion::occupiedScale(fullnessReady?rendered->seats:0,remaining);
+    attendance::motion::Input motion;motion.match=match;motion.epoch=audioEpoch.load();motion.now=now;motion.phase=p.game.phase;motion.neutral=p.game.neutral;motion.venueScale=attendance::motion::occupiedScale(fullnessReady?rendered->seats:0,remaining);motion.overtime=attendance::overtime(p.game)&&audio->overtime;
     auto audioContext=audioWanted();
     // Camera cuts can briefly stop crowd-entity updates. The last verified
     // slider state is still authoritative for this owned match; cue freshness,
@@ -2512,6 +2573,7 @@ void __fastcall replayUpdate(A entity){
     std::unique_lock<std::mutex> frame(presentationMutex,std::try_to_lock);if(!frame.owns_lock())return;
     // This callback also runs when gameplay/post-update is suspended. Broadcast
     // clips keep audio intents fresh without feeding replay state to departures.
+    if(!guardedEmptyService()){log("fault","2020 Mode could not update its crowd safely.");return;}
     bool historical=guardedReplayPresentation();
     guardedMajorReplay(true);
     if(!historical){
@@ -2855,7 +2917,9 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Native HFA active")<<(shownHfa?"yes":"no")<<" (gameplay unchanged)\n";
 
     report.section("VISIBLE ATTENDANCE");
-    report.field("Crowd target")<<(100-(std::max)(activeLoss.load(),arrivalMissing.load()))<<"% of original attendance\n";
+    report.field("2020 Mode")<<(!emptyMode2020?"off":emptyCrowdActive?"active; empty stadium override":"on; waiting for a verified stadium scene")<<"\n";
+    report.field("2020 crowd / away band / home band mute")<<(stadiumSilence.muted(0)?"on":"off")<<" / "<<(stadiumSilence.muted(1)?"on":"off")<<" / "<<(stadiumSilence.muted(2)?"on":"off")<<(!silenceBindingsReady?"; native mixer bindings unavailable":!stadiumSilence.healthy()?"; mute controller fault; retirement will retry":"")<<"\n";
+    report.field("Crowd target")<<(emptyCrowdActive?0:100-(std::max)(activeLoss.load(),arrivalMissing.load()))<<"% of original attendance\n";
     report.field("Crowd measured");
     if(visibilityMeasured)state<<100.0*static_cast<double>(shownVisibleFans.load())/static_cast<double>((std::max)(1ull,shownOriginalFans.load()))<<"% of original attendance\n";
     else state<<"waiting for renderer\n";
@@ -3078,7 +3142,7 @@ DWORD WINAPI worker(void*) {
             else if(command=="probe")request=2;
             else if(command=="empty")request=4;
             else if(command=="auto")request=5;
-            else if(command=="restore"||command=="stop")request=3;
+            else if(command=="restore"||command=="stop"){emptyMode2020=false;emptyModePending=true;request=3;}
             log("requested",command);
         }
         auto now=GetTickCount64();readDiagnosticRequest(now);if(now-last>1000){
@@ -3111,13 +3175,14 @@ extern "C" void CrowdTick() {
     ++ticks;
     if(!enabled)return;
     std::unique_lock<std::mutex> frame(presentationMutex,std::try_to_lock);if(!frame.owns_lock())return;
+    if(!guardedEmptyService()){log("fault","2020 Mode could not update its crowd safely.");return;}
     bool replay=guardedReplayPresentation();
     guardedMajorReplay(true);
     if(!replay&&!guardedDecision()){enabled=false;log("fault","Attendance callback failed; automatic updates stopped");}
     if(enabled&&!replay&&!guardedRecordAttendance())log("history","Crowd snapshot unavailable; existing history preserved.");
     if(enabled&&!guardedAtmosphereTick()){playBindingsAvailable=false;crowdBoost=0;log("audio-inactive","Play data became unavailable; winning-event updates stopped. Quarter departures remain active.");}
 }
-extern "C" __declspec(dllexport) DWORD WINAPI DynamicGamedayAtmosphereStop(void*){request=3;return 0;}
+extern "C" __declspec(dllexport) DWORD WINAPI DynamicGamedayAtmosphereStop(void*){emptyMode2020=false;emptyModePending=true;request=3;return 0;}
 BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,LPVOID) {
     if(reason==DLL_PROCESS_ATTACH){self=instance;DisableThreadLibraryCalls(instance);HANDLE t=CreateThread(nullptr,0,worker,nullptr,0,nullptr);if(t)CloseHandle(t);}
     return TRUE;

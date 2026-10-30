@@ -67,6 +67,9 @@ class Runtime {
                     if(selectedGroup_==13&&(templates_.parent!=9||std::strcmp(templates_.name,"Beds")!=0))result=false;
                     if(selectedGroup_==15&&(templates_.parent!=9||std::strcmp(templates_.name,"Reactions")!=0))result=false;
                     if(selectedGroup_==18&&(templates_.parent!=9||std::strcmp(templates_.name,"Swells")!=0))result=false;
+                    if(selectedGroup_==9&&(templates_.parent!=2||std::strcmp(templates_.name,"Crowd")!=0))result=false;
+                    if(selectedGroup_==74&&(templates_.parent!=5||std::strcmp(templates_.name,"BandAway")!=0))result=false;
+                    if(selectedGroup_==75&&(templates_.parent!=5||std::strcmp(templates_.name,"BandHome")!=0))result=false;
                     break;
                 }
             }
@@ -93,7 +96,7 @@ public:
         clock_=clock;positiveGroup_=positiveGroup;
     }
     void tick(Address owner,bool active,float requestedDb,bool forceNeutral=false,bool mute=false,unsigned short group=14,bool immediateReduction=false){
-        if(!healthy_||!borrowedOwner(owner)||!std::isfinite(requestedDb))return;
+        if(!borrowedOwner(owner)||!std::isfinite(requestedDb))return;
         if(group<1||group>87)return;
         std::lock_guard<std::mutex> lock(mutex_);
         Address manager=managerSource_?managerSource_():at<Address>(image_+bindings::MixerManager);
@@ -105,7 +108,7 @@ public:
         // This is an additive level, not an absolute output target.
         float ceiling=group==positiveGroup_&&(group==9||group==13||group==15||group==18)?positiveLimit_:0;
         float desired=active?std::round((std::fmax)(-160.0f,(std::fmin)(ceiling,requestedDb))*4)*0.25f:0;
-        bool wanted=active&&(desired!=0||forceNeutral||mute);
+        bool wanted=healthy_&&active&&(desired!=0||forceNeutral||mute);
         auto time=clock_?clock_():GetTickCount64();
         // Native presets ease for 250 ms. Let each positive-gain transition
         // finish before replacing it again, rather than accumulating fades.

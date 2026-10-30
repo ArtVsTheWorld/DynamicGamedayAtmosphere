@@ -19,12 +19,28 @@ public:
         uintptr_t match,unsigned epoch,uint64_t sequence,uint64_t now,bool allowed,uint64_t priorMotion=0){
         if(match!=match_||epoch!=epoch_){reset();match_=match;epoch_=epoch;}
         if(sequence!=sequence_){sequence_=sequence;used_=confirmed_=false;until_=0;flavor_=live::Event::None;}
-        if(!match||!sequence||!valid(p.game)||p.simulated||p.resumed||now<last_||(last_&&now-last_>750)){suspend();last_=now;return {};}
+        if(!match||!sequence||!valid(p.game)||p.simulated||now<last_||(last_&&now-last_>750)){suspend();last_=now;return {};}
         last_=now;
         if(used_)return {};
         if(!allowed){suspend();return {};}
         bool post=p.game.phase==4||p.game.phase==5||p.game.phase==1;
         if(p.game.phase!=3&&!post){suspend();return {};}
+        // These events already have a verified, once-per-snap official result.
+        // A restored game's persistent resume marker must not suppress fresh
+        // plays; a raw resume snapshot has no accepted tracked result here.
+        if(overtime(snap.game)&&post&&result.accepted&&result.completed&&result.sequence==sequence&&priorMotion!=sequence){
+            auto special=live::Event::None;int side=-1;
+            int points=result.side==0?result.homePoints:result.awayPoints;
+            if(energy::overtimeTry(snap)&&snap.selectedType!=21&&points==2){special=live::Event::OvertimeConversion;side=result.side;}
+            else if(energy::overtimeTry(snap)&&snap.selectedType!=21&&result.event==energy::Event::ConversionStop&&!result.homePoints&&!result.awayPoints){special=live::Event::OvertimeConversionStop;side=1-snap.offense;}
+            else if(energy::normalDown(snap)&&snap.selectedType==21){
+                if(points==3){special=live::Event::OvertimeFieldGoal;side=result.side;}
+                else if(!result.homePoints&&!result.awayPoints&&!result.blockedFieldGoal&&!result.takeaway&&p.offense!=snap.offense){special=live::Event::OvertimeMissedFieldGoal;side=1-snap.offense;}
+            }
+            if(special!=live::Event::None&&side>=0&&side<=1&&(p.game.neutral||side==0)){
+                used_=true;return {special,(uint64_t{1}<<63)|++serial_,side,0};
+            }
+        }
         if(!energy::normalDown(snap)||snap.specialTeams||energy::clockManagement(snap)||(!p.game.neutral&&snap.offense!=1))return {};
         if(p.interception||p.fumble||p.game.homeScore!=snap.game.homeScore||p.game.awayScore!=snap.game.awayScore){suspend();return {};}
         if(priorMotion==sequence||evidence.event==live::Event::ForcedFumble||evidence.event==live::Event::Interception||evidence.event==live::Event::BlockedFieldGoal){used_=true;return {};}
@@ -48,6 +64,7 @@ public:
             if(result_.highLeverageStop&&snap_.game.quarter==4)event=live::Event::CriticalStop;
             else if(flavor_!=live::Event::None)event=flavor_;
             else if(result_.turnoverOnDowns)event=live::Event::DownsStop;
+            else if(overtime(snap_.game))event=live::Event::OvertimeStop;
         }
         if(event==live::Event::None)return {};
         used_=true;return {event,(uint64_t{1}<<63)|++serial_,1-snap.offense,loss?result_.yards:0};
