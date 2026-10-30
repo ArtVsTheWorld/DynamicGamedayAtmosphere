@@ -320,7 +320,7 @@ The included local diagnostics tool offers bounded sound/camera previews and a r
 
 ### Compatibility and limits
 
-Offline Dynasty is the verified mode. The Windows title update inspected October 30, 2026 is supported. Other modes and future title updates need their own compatibility checks. The plugin does not patch the game EXE on disk or ship game files.
+Live testing includes offline Dynasty and Road to Glory, including the default RTG player-camera capture and shake adjustments. The revised peak-attendance formula remains Dynasty-only. The Windows title update inspected October 30, 2026 is supported. Testing does not establish every rare play or presentation route in both modes; other modes and future title updates need their own compatibility checks. The plugin does not patch the game EXE on disk or ship game files.
 
 Custom stadium songs, new crowd animation behavior, spectacular-catch detection and a replacement postgame highlight picker are not included. Seat desirability is inferred from geometry, not ticket prices. Quiet individual-detail gain is limited by native routing. Replay requests cannot guarantee the game's final presentation.
 

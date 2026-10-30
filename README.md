@@ -13,7 +13,7 @@ Make the stadium feel like the game being played. Fans arrive after kickoff, lea
 3. Copy `DynamicGamedayAtmosphere.dll` from the ZIP's `Plugins` folder into your MMC `Plugins` folder. Replace the old copy. Keep only one DGA DLL installed.
 4. Open MMC and launch the game through it.
 
-This build supports the Windows game update checked on October 30, 2026. **Offline Dynasty is the tested mode.** Other modes are not guaranteed to support every feature.
+This build supports the Windows game update checked on October 30, 2026. **Offline Dynasty and Road to Glory have been tested.** The revised peak-attendance formula is for fresh regular-season Dynasty games. Other modes are not guaranteed to support every feature.
 
 **Update 3 resets old DGA settings once, including earlier Update 3 test builds.** Your old INI is backed up automatically. You do not need to delete it. Reapply any settings you want afterward. Your new settings are kept on later launches. Game saves and the game's own settings are not reset.
 
