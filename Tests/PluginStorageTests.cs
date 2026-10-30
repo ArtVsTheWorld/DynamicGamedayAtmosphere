@@ -9,13 +9,13 @@ class PluginStorageTests {
   Check(PluginStorage.NeedsReset(plugins,defaults));
   string saved=PluginStorage.Ensure(plugins,defaults);Check(saved!=null&&File.ReadAllBytes(saved).SequenceEqual(bytes));
   string ini=PluginStorage.SettingsFile(plugins),text=File.ReadAllText(ini);
-  Check(text.Contains("SettingsResetVersion=4")&&text.Contains("CannonShakeStrengthPercent=15")&&!text.Contains("Obsolete=99")&&!text.Contains("CannonShakeStrengthPercent=29"));
+  Check(text.Contains("SettingsResetVersion=4")&&text.Contains("CannonShakeStrengthPercent=18")&&!text.Contains("Obsolete=99")&&!text.Contains("CannonShakeStrengthPercent=29"));
   Check(!PluginStorage.NeedsReset(plugins,defaults));
   // User edits after the reset survive launch and a routine newer-default update.
-  text=text.Replace("CannonShakeStrengthPercent=15","CannonShakeStrengthPercent=7.5");File.WriteAllText(ini,text);
+  text=text.Replace("CannonShakeStrengthPercent=18","CannonShakeStrengthPercent=7.5");File.WriteAllText(ini,text);
   int count=Directory.GetFiles(Path.Combine(PluginStorage.DataFolder(plugins),"Backups")).Length;
   Check(PluginStorage.Ensure(plugins,defaults)==null&&File.ReadAllText(ini)==text);
-  Check(PluginStorage.Ensure(plugins,defaults.Replace("CannonShakeStrengthPercent=15","CannonShakeStrengthPercent=18"))==null&&File.ReadAllText(ini)==text);
+  Check(PluginStorage.Ensure(plugins,defaults.Replace("CannonShakeStrengthPercent=18","CannonShakeStrengthPercent=21"))==null&&File.ReadAllText(ini)==text);
   Check(Directory.GetFiles(Path.Combine(PluginStorage.DataFolder(plugins),"Backups")).Length==count);
  }
  static int Main(){

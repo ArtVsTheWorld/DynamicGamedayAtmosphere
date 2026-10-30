@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.15 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.16 — not publicly released** · College Football 27 for Windows · MMC
 
 ## Attendance: the crowd for this game
 
@@ -176,7 +176,7 @@ In the final three minutes of Q4, a home offense tied or down by at most eight c
 
 ### Live plays, skills and defensive results
 
-- **Runs, scrambles and short catch-and-runs:** buildup starts at 13 yards, targets its peak at 20, and requests one cheer at 20. Strength rises toward the distance target over up to about 0.8 seconds, so a late first sample does not jump straight to the peak. A tackle fades from the movement actually reached. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
+- **Runs, scrambles and short catch-and-runs:** buildup starts at 11 total yards, targets its peak at 15, and requests one cheer at 20. Strength rises toward the distance target over up to about 0.8 seconds, so a late first sample does not jump straight to the peak. A tackle fades from the movement actually reached. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
 - **Long catches:** 20 yards at the catch can earn an immediate response. An immediate tackle gets a short impact; a running receiver keeps the live-play reaction. A short official-result confirmation window covers delayed completion data.
 - **Pass anticipation:** either offense's qualifying airborne pass can get a fast swell. No pre-catch cheer, shake or separate volume bonus is added.
 - **Kick and punt returns:** buildup starts at 30 return yards, peaks and cheers at 40.
@@ -263,7 +263,7 @@ Native Stadium Pulse camera motion follows DGA's crowd/context admission, with a
 
 ### Stadium cannons
 
-All nine native cannon variants use a separate adjustable impact, default 15%, range 0–30%, lasting 0.9 seconds. It works at any crowd fullness, respects camera settings and uses the stronger of cannon/crowd movement rather than adding them. Setting it to zero removes only the added cannon shake. A detected blast gets one numbered log entry with its variant and requested strength; this is not proof of visible output.
+All nine native cannon variants use a separate adjustable impact, default 18%, range 0–30%, lasting 0.9 seconds. It works at any crowd fullness, respects camera settings and uses the stronger of cannon/crowd movement rather than adding them. Setting it to zero removes only the added cannon shake. A detected blast gets one numbered log entry with its variant and requested strength; this is not proof of visible output.
 
 ### Extra replays
 

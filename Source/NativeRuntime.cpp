@@ -1767,7 +1767,7 @@ void readSettings(){
     reactionDistanceMaximum=0; // Play length never extends the shared settling fade.
     motion->eruptionMs=1000u*number(L"Atmosphere",L"EruptionShakeDurationSeconds",16,5,60);
     motion->live=percentage(L"Dynamic Gameday Broadcast",L"DuringPlayShakeStrengthPercent",11,30);
-    motion->cannon=percentage(L"Dynamic Gameday Broadcast",L"CannonShakeStrengthPercent",15,30);
+    motion->cannon=percentage(L"Dynamic Gameday Broadcast",L"CannonShakeStrengthPercent",18,30);
     auto liveSettings=std::make_shared<attendance::live::Settings>();
     liveSettings->enabled=number(L"Dynamic Gameday Soundscape",L"DuringPlayReactionsEnabled",1,0,1)!=0;
     liveSettings->minimumCatchYards=static_cast<float>(number(L"Dynamic Gameday Soundscape",L"LongCompletionMinimumYards",20,10,60));
@@ -3022,7 +3022,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
         report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";
         auto dense=attendance::dense::layers(venue->seats,full);
         report.field("Dense-crowd layer support")<<dense.full*100<<"% medium tier; "<<dense.veryLarge*100<<"% very-large tier; up to "<<dense.multiplier()<<"x added layer intensity within native cap; existing admission required, no extra bus gain\n";}
-    {auto cue=std::atomic_load(&cameraCue);if(cue->smoothRunBuildup)report.field("Run/YAC strength ramp")<<cue->buildupStrength<<"% reached before view/envelope; 800ms full-range rise; "<<(cue->tail?"fading from reached strength":"following 13-20 yard target")<<"\n";}
+    {auto cue=std::atomic_load(&cameraCue);if(cue->smoothRunBuildup)report.field("Run/YAC strength ramp")<<cue->buildupStrength<<"% reached before view/envelope; 800ms full-range rise; "<<(cue->tail?"fading from reached strength":"following 11-15 yard target")<<"\n";}
     report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"opt-in: up to 4x; intended for wide RTG/player cameras":"off: wide views capped at 1x; close-ups soften")<<"\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
@@ -3090,7 +3090,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Game Dynamic Camera Effects")<<(!cameraOptionsReady?"unavailable":at<unsigned short>(nativeCameraSettings+0x3e6)&&at<unsigned short>(nativeCameraSettings+0x41a)?"on":"off; all added camera motion blocked")<<"\n";
     report.field("Play-call profile")<<"40 seconds including its fade\n";
     report.field("Long catch minimum")<<std::atomic_load(&liveReactionSettings)->minimumCatchYards<<" yards at the catch\n";
-    report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards; shake ramps over the previous seven yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
+    report.field("Long run / catch-and-run minimum")<<std::atomic_load(&liveReactionSettings)->minimumGainYards<<" total yards for cheer; shake builds at 11-15 total yards; live position "<<(runnerPositionBinding?"verified":"unavailable")<<"\n";
     report.field("Pass-in-flight anticipation")<<shownPassGate.load()<<"; verified flights this match "<<shownPassFlights<<"\n";
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
     report.field("Native shake requires")<<"DGA crowd/context admission plus "<<nativeShakeMinimum<<"% minimum fullness (0 disables the native filter)\n";

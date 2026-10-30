@@ -12,11 +12,11 @@ int main(){
             p.game.phase=phase;now+=100;auto event=runner.observe(settings,p,123,1,now,true,456,kind,ball,0,p.fieldSpot+yards*direction,held);
             sound.observe(p,123,1,now,true,event,held,false,4500,runner.runBuildup());return event;
         };
-        tick(1,0);tick(3,0);for(float gain=1;gain<13;++gain)assert(!tick(3,gain).id&&!runner.runBuildup().id);
-        assert(!tick(3,13).id&&runner.runBuildup().id);
+        tick(1,0);tick(3,0);for(float gain=1;gain<11;++gain)assert(!tick(3,gain).id&&!runner.runBuildup().id);
+        assert(!tick(3,11).id&&runner.runBuildup().id);
         sustained::Intent base;base.active=true;base.match=123;base.epoch=1;
         auto buildup=sound.merge(base,now,.9f);assert(buildup.continuous&&buildup.supporting&&buildup.reason==sustained::Reason::Result);
-        for(float gain=14;gain<20;++gain)assert(!tick(3,gain).id);
+        for(float gain=12;gain<20;++gain)assert(!tick(3,gain).id);
         auto hit=tick(3,20);assert(hit.event==live::Event::LongRun&&runner.runBuildup().progress==1);
         auto peak=sound.merge(base,now,.9f);assert(peak.supporting&&peak.continuous&&peak.size==3&&peak.intensity>900);
         assert(!tick(3,20,1).id&&runner.runBuildup().progress==1); // Tucked QB changes state while moving sideways, not a thrown pass.
@@ -36,5 +36,5 @@ int main(){
     }
     {motion::Model camera;motion::Settings s;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
         auto cue=camera.observe(s,x);assert(cue.until==7400);x.now=7400;assert(camera.observe(s,x).kind==motion::Kind::None);}
-    std::puts("PASS: default 13-to-20-yard runs/YAC, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 6.4-second impacts.");
+    std::puts("PASS: fixed 11-to-15-yard runs/YAC with twenty-yard cheer, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 6.4-second impacts.");
 }

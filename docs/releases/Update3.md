@@ -1,8 +1,13 @@
 # Update 3 — working release notes
 
-Working build **2.0.15**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
+Working build **2.0.16**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
 
 Changes since Update 2 (1.54.0).
+
+### Tuning candidate 2.0.16 — awaiting live testing
+
+- Run/scramble and short catch-and-run shake now builds from 11 to 15 total yards, retaining the 800 ms smoothing and twenty-yard default cheer. Long-catch and kick-return cutoffs stay unchanged.
+- Native stadium cannon impact defaults to 18%, independent of crowd size and the live-play strength setting. Former stock 15% updates once; custom and zero strengths are kept.
 
 ### Tuning candidate 2.0.15 — awaiting live testing
 

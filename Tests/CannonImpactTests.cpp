@@ -35,12 +35,12 @@ int main(){
     put(event+8,0x82b90c1cu);assert(cannon::started(image,entity,event,read,integer,playing)==-1);
     put(event+8,0x01ade220u);assert(cannon::started(image,entity,event,read,integer,playing)==10);
     cannon::Blast blast{123,1,1000,10};motion::Cue quiet;motion::Settings settings;
-    assert(settings.cannon==15&&settings.live==11);
+    assert(settings.cannon==18&&settings.live==11);
     for(int selector=10;selector<=18;++selector)for(float liveStrength:{0.f,10.f,30.f}){
         settings.live=liveStrength;blast.effect=selector;
         auto impact=cannon::merge(quiet,blast,1100,settings.cannon,true);
-        assert(impact.kind==motion::Kind::Cannon&&impact.impactOnly&&impact.percent==15&&impact.until==1900);
-        for(uint64_t now=1000;now<1900;now+=25)assert(motion::strength(cannon::merge(quiet,blast,now,settings.cannon,true),now)<=15.001f);
+        assert(impact.kind==motion::Kind::Cannon&&impact.impactOnly&&impact.percent==18&&impact.until==1900);
+        for(uint64_t now=1000;now<1900;now+=25)assert(motion::strength(cannon::merge(quiet,blast,now,settings.cannon,true),now)<=18.001f);
     }
     assert(cannon::merge(quiet,blast,1900,15,true).kind==motion::Kind::None);
     assert(cannon::merge(quiet,blast,999,15,true).kind==motion::Kind::None);
@@ -51,5 +51,5 @@ int main(){
     motion::Cue touchdown{123,1,1100,500,11500,motion::Kind::Touchdown,15,false,20};
     auto winner=cannon::merge(touchdown,blast,1100,15,true);assert(winner.kind==motion::Kind::Touchdown&&winner.began==500&&winner.until==11500);
     assert(cannon::merge(touchdown,blast,1100,0,true).kind==motion::Kind::Touchdown);
-    std::puts("PASS: authored-graph start/release/start; independent all-nine cannon selector coverage; separate 15% default unaffected by live strength; zero/custom strength; sound/patch/parameter validation; no horn/firework triggers; bounded 900ms overlay and unchanged stronger touchdown.");
+    std::puts("PASS: authored-graph start/release/start; independent all-nine cannon selector coverage; separate 18% default unaffected by live strength; zero/custom strength; sound/patch/parameter validation; no horn/firework triggers; bounded 900ms overlay and unchanged stronger touchdown.");
 }

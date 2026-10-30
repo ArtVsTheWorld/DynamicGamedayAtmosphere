@@ -39,6 +39,7 @@ inline Outcome completedImpact(const energy::Outcome& result,const State& state,
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
 struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=20;bool passFlight=true;};
+inline constexpr float RunShakeStartYards=11.f,RunShakePeakYards=15.f;
 struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
 // Verified native traces: kind 3 / ball 1 / no holder is the pass in flight.
 // Ball 4 can already name the receiver before the stats record becomes kind 1;
@@ -237,10 +238,11 @@ public:
                 if(coherent){runnerLast_=runnerSpot;runnerAt_=now;if(gain>=0&&gain<=110)measuredGain_=(std::max)(measuredGain_,gain);}
                 if(coherent&&caught_&&gain-catchGain_>.5f)afterCatchRun_=true;
                 float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):20;
-                float rampStart=minimum-7;
+                // Camera/companion buildup is independent of the configurable cheer cutoff.
+                constexpr float rampStart=RunShakeStartYards,rampWidth=RunShakePeakYards-RunShakeStartYards;
                 bool runningGain=!caught_||afterCatchRun_;
                 if((!used_||buildup_.id)&&own&&coherent&&runningGain&&std::fabs(runnerSpot)<=60&&gain>=rampStart&&gain<=110){
-                    float progress=(std::clamp)((gain-rampStart)/7.f,.0001f,1.f);
+                    float progress=(std::clamp)((gain-rampStart)/rampWidth,.0001f,1.f);
                     if(progress>=buildup_.progress)buildup_={began_,progress,gain};
                 }
                 if(!out.id&&!used_&&own&&coherent&&std::fabs(runnerSpot)<=60&&gain<=110&&
