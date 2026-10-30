@@ -171,11 +171,13 @@ public:
     }
     void setToggle(A p,A out,A category,A key,A value,A reason){
         if(number(category)!=Category){invoke(stock_[6],p,out,category,key,value,reason);return;}
+        if(!active_||p!=owner_)return;
         int id=number(key),index=number(value);if(!owned(id)||find(id)->kind==Kind::Slider||index<0)return;
         const auto& values=choices_[static_cast<size_t>(id-FirstKey)];if(static_cast<size_t>(index)<values.size())save(id,values[index]);
     }
     void setSlider(A p,A out,A category,A key,int value,A reason){
         if(number(category)!=Category){invoke(stock_[8],p,out,category,key,value,reason);return;}
+        if(!active_||p!=owner_)return;
         int id=number(key);if(owned(id)&&find(id)->kind==Kind::Slider)save(id,value);
     }
 };

@@ -1,8 +1,15 @@
 # Update 3 — working release notes
 
-Working build **2.0.17**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
+Working build **2.0.18**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
 
 Changes since Update 2 (1.54.0).
+
+### Final review candidate 2.0.18
+
+- Attendance Profile offers Fuller Crowds above Default. Fuller adds 8 peak-capacity points and 7 kickoff-share points, within existing caps. Default preserves the current balance. Fresh regular-season Dynasty launches get the peak change; postseason and recorded crowd plans remain protected.
+- A short skill swell cannot restore positive home energy after possession is lost.
+- Mixer faults stop new adjustments while keeping owned-preset cleanup available on later callbacks.
+- Settings writes are restricted to the active menu owner. The full feature list includes the profile, current shake strengths, sound mix and every visible setting in plain language.
 
 ### Tuning candidate 2.0.17 — skill handoffs and dense background
 
@@ -87,7 +94,7 @@ Changes since Update 2 (1.54.0).
 
 - Manual major-play replay handling waits for full-screen playback before requesting a separate inset. Slow Sim uses full-screen presentation without an inset request. Injuries, penalties and native recordings can still affect playback.
 - Better saved-crowd restoration, Q1 arrival continuity and recorded attendance in replays.
-- New Gameday Atmosphere tab: 37 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
+- New Gameday Atmosphere tab: 38 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
 - Optional 2020 Mode: empty stands, collective crowd/bands/drums/PA muted, quiet individual detail and a more open stadium sound.
 - Dynasty and RTG have been tested, including adjustments for RTG's wider player camera. The revised peak formula is Dynasty-only.
 - Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.

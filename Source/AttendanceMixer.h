@@ -49,5 +49,6 @@ public:
  float db()const{return parent_;}float netDb(unsigned i)const{return i<7?net_[i].load():0;}
  float chantDb()const{return netDb(2);}bool muted()const{return muted_;}bool healthy()const{return healthy_;}
  uint64_t creations()const{return creates_;}uint64_t releases()const{return releases_;}
+ void fail(){healthy_=false;} // Keep callbacks alive to retire an owned preset.
 };
 }

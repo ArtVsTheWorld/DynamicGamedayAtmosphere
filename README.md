@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 working build — 2.0.17** · College Football 27 for Windows · MMC plugin
+By Ace · **Update 3 working build — 2.0.18** · College Football 27 for Windows · MMC plugin
 
 Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
 
@@ -21,6 +21,7 @@ This build supports the Windows game update checked on October 30, 2026. **Offli
 
 - **Rebuilt attendance:** expected crowds use school support, season performance and matchup demand. Openers, night games, local opponents, senior day and service-academy matchups can draw more fans.
 - **More natural seating:** fans favor desirable seats, with smaller group gaps and less uniform thinning.
+- **Attendance Profile:** keep Default, or choose Fuller Crowds for higher regular-season Dynasty peaks and fuller kickoffs. Select it before loading a fresh game.
 - **A new crowd mix:** sparse crowds are quieter but still alive. Full stadiums can be louder than the base game, with dense background sound reaching +3.5 dB and the largest packed venues reaching +4 dB. Collective reactions keep their separate +30% signal ceiling. Chants follow the same background mix.
 - **More reaction variety:** 80 listening-tested crowd sounds for existing plays and situations, including disappointment and visitor responses.
 - **Better shake and overtime:** strength follows occupied seats, transitions blend into touchdowns, and overtime covers more important results.

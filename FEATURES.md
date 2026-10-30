@@ -1,8 +1,31 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.17 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.18 — not publicly released** · College Football 27 for Windows · MMC
+
+This list describes the active features at the default settings. Most effects have their own switch. A crowd sound request does not guarantee EA will play it, and a replay request does not guarantee a clip exists.
+
+Three numbers matter:
+
+- **Expected peak:** how many fans are expected to attend, compared with the stadium capacity.
+- **Kickoff share:** how many of those expected fans are seated at the start.
+- **Current fullness:** how many seats are actually filled now, after arrivals, breaks and departures.
+
+For example, a 60% expected peak with a 55% kickoff share means about 33% of stadium seats are filled at kickoff. Shake qualification and the crowd mix follow actual seated fans.
 
 ## Attendance: the crowd for this game
+
+### Attendance Profile
+
+Settings → Gameday Atmosphere → Attendance offers two choices, in this order:
+
+| Choice | Expected peak | Kickoff crowd |
+| --- | --- | --- |
+| Fuller Crowds | Adds 8 capacity percentage points to a fresh regular-season Dynasty target | Adds 7 points to the share of expected fans seated at kickoff |
+| Default | The normal mod formula below | The normal arrival balance below |
+
+**Default stays selected unless you change it.** For example, a 60% peak and 55% seated share become 68% and 62% with Fuller Crowds: about 42% of stadium seats filled at kickoff rather than 33%. Existing caps, weather deductions, school arrival groups and arrival timing still apply. A sellout is not guaranteed. The ordinary 70% kickoff ceiling and exceptional 80% ceiling remain.
+
+Choose before launching a fresh game. Existing crowd plans and Midgame Saves keep their recorded kickoff plan; changing the setting does not refill a game in progress. Postseason peak attendance is unchanged. Play Now, RTG and launches without verified revised-attendance inputs keep their existing attendance behavior. Fan Patience is a separate setting for departures.
 
 ### Expected turnout
 
@@ -191,7 +214,7 @@ In the final three minutes of Q4, a home offense tied or down by at most eight c
 - **Live showboating:** a fresh verified home-carrier running celebration builds slowly; visitor showboating gets boos. Both need layered atmosphere. Cached tags and post-whistle celebrations do not trigger it.
 - **Kicks and tries:** close made field goals, opponent misses and blocked field goals get appropriate reactions. A game-saving block can use a touchdown-style profile. Overtime includes made/failed two-point tries and field goals; failed home results use disappointment. Safeties use a shorter touchdown-style response.
 
-Positive shake favors home successes and defensive stops at home venues; either team can qualify at neutral sites. Visitor versions of existing triggers can add sound-only disappointment instead. Away takeaways promptly clear old positive home movement. Neutral crowds avoid treating one team's success as a stadium-wide home disappointment. Clock plays, stale data, pauses and recorded replays do not start new live reactions.
+Positive shake favors home successes and defensive stops at home venues; either team can qualify at neutral sites. Visitor versions of existing triggers can add sound-only disappointment instead. Away takeaways promptly clear old positive home movement and its short skill-move swell. A skill accent cannot restart an existing run sound or shorten its fade. Neutral crowds avoid treating one team's success as a stadium-wide home disappointment. Clock plays, stale data, pauses and recorded replays do not start new live reactions.
 
 ### Reaction variety and overlapping cheers
 
@@ -243,6 +266,8 @@ The same stadium strengthens as fans arrive and softens as they leave. Neutral-s
 | Before a punt | 1.25–2.5% |
 | Special lineup cheer | 4–6% |
 | Close defensive third/fourth down | 7.5–10%; home offense 5.625–7.5% |
+| Successful truck | 5–6%; quick 0.1-second rise, about 2 seconds total |
+| Hurdle / stiff arm | 3–4%; gentler rise, about 2 seconds total |
 | Long gain / return | 10–12% |
 | Five-yard loss / fourth-down conversion | 8–10% |
 | Qualified breakup / knockout / hit-stick stop | 6–8% |
@@ -289,7 +314,7 @@ History keeps the last eight games in the DGA folder. New games and real scenari
 
 ## Settings, files and support
 
-The **Gameday Atmosphere** tab appears after Audio Settings. It has 37 controls: **Attendance 11, Soundscape 12, Broadcast 14**. On/Off switches come first; numeric controls follow. Each has plain-language help. The pause menu can show Stadium Fullness beside Resume; a dash means the measurement is not ready.
+The **Gameday Atmosphere** tab appears after Audio Settings. It has 38 controls: **Attendance 12, Soundscape 12, Broadcast 14**. On/Off switches come first; numeric controls follow. Each has plain-language help. The pause menu can show Stadium Fullness beside Resume; a dash means the measurement is not ready.
 
 The full option list follows below. Advanced settings remain in `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`, with defaults, accepted ranges and explanations. They cover arrival/traffic limits, comeback protection, halftime timing, atmosphere admission, reaction thresholds/durations, replay routing, camera profiles and logging. Retired excitement-limiter and independent chant-cut values do not affect the new mix. Gameplay HFA is not an adjustable DGA feature.
 
@@ -343,6 +368,7 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | 2020 Mode | Play with empty stands. Mute the crowd, bands, drums and PA announcer, but keep quiet individual voices and a more open stadium sound. Turn off to bring back normal attendance and sound. |
 | Fans Arriving After Kickoff | Start with some fans still outside, then fill their seats during the first quarter. Turn off to start with the full expected crowd. This does not guarantee a sellout. |
 | Beat the Traffic | Let fans leave sooner when the home team is far behind late in the game. With 12-minute quarters, this starts at 4:00 in Q4 when down 17+, or gently at 6:00 when down 28+. |
+| Attendance Profile | Default keeps the normal mod balance. Fuller Crowds raises the expected peak by 8 percentage points in fresh regular-season Dynasty games and seats 7 more of every 100 expected fans at kickoff in those games. Existing caps and weather rules still apply. Choose before loading a fresh game. Postseason crowds keep their own rules. |
 | Fan Patience | Automatic follows the matchup and weather. Normal uses standard departures. Patient Fans makes people stay longer. Bad Weather makes people leave sooner. This does not change the starting crowd. |
 | Ordinary Kickoff Crowd (%) | How much of the expected crowd starts in its seats. At 55, about 55 of every 100 expected fans are seated at kickoff. Smaller stadiums and special games can start fuller. Higher means more fans at kickoff. Applies to fresh games. |
 | Late-Arriving Schools: Kickoff (%) | Kickoff crowd for UCLA, Miami (FL), Georgia Tech, Maryland and Utah. At 45, about 45 of every 100 expected fans start seated. Higher means more fans at kickoff. Night games and weather can change it. Applies to fresh games. |
@@ -350,7 +376,6 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | When Arrivals Finish (% of Q1) | How far into Q1 ordinary schools finish filling up. At 50, fans finish halfway through the quarter. Higher means later arrivals. Big games, late-arriving schools and postseason games keep their own timing. Applies to fresh games. |
 | Fans Leaving Early (%) | How strongly the score, time and matchup make fans leave. 100 is normal, 50 is gentler and 200 is stronger. At 0, these departures stop. Halftime breaks and special late-game exits have their own settings. |
 | Halftime Seat Breaks (%) | How many fans temporarily leave their seats around halftime. 100 is normal; higher leaves more empty seats and lower leaves fewer. At 0, there are no temporary breaks. Fans who stay at the stadium return early in Q3. |
-
 
 ### Soundscape options
 
@@ -363,12 +388,11 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | Overtime Atmosphere | Keep a qualifying overtime crowd lively between plays, kicks and two-point tries. Important results get a reaction, and crowd shake gets a small 10% lift. The crowd still needs enough seats filled. |
 | Upset Watch Sounds | Build excitement from Q2 onward when a home underdog threatens a Top 25 visitor. At least half the seats must be filled. At neutral sites, either underdog can qualify. |
 | Live Play Reactions | Let the crowd react during catches, runs, sacks, takeaways and returns. Bigger plays and larger crowds can use stronger sounds. Sparse crowds can still get sounds, but shake needs the normal crowd requirements. |
-| Skill Move and Big Hit Reactions | React to successful moves and big hits. Spins, jukes and ordinary broken tackles add sound only. Trucks add a quick impact; hurdles and stiff arms add gentler shake. A hit stick needs a confirmed third- or fourth-down stop to add shake. |
+| Skill Move and Big Hit Reactions | React to successful moves and big hits. Trucks add a quick shake; hurdles and stiff arms add a gentler one. Spins, jukes and ordinary broken tackles add sound only. Hit sticks need a confirmed third- or fourth-down stop for shake. |
 | Buildup During Passes | Let the crowd build anticipation while a qualifying pass is in the air, then settle after the catch or incompletion. Does not add shake before the catch. Live Play Reactions must be on. |
 | Cheers and Disappointment | Cheer defensive plays and add disappointment for home mistakes or visitor successes. Visitor versions add sound without positive home-team shake. At neutral sites, either team can get cheers without treating the whole crowd as home fans. |
 | Major Celebrations | Use the biggest celebration for special moments, such as a very early touchdown, a late winning score, an overtime winner or a game-sealing takeaway. A long touchdown alone gets the normal touchdown celebration. |
 | Crowd Volume Adjustment (%) | How much the mod changes crowd volume for the fans present. 100 uses the full mix: quieter sparse crowds and louder full crowds. Lower stays closer to the game's normal volume; 0 keeps normal volume unless the stands are empty. Does not reduce the game's own excitement. |
-
 
 ### Broadcast options
 

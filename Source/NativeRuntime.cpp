@@ -158,6 +158,7 @@ std::atomic<int> arrivalEnabled{1},arrivalStart{55},arrivalLateStart{45},arrival
 attendance::halftime::ExitConversion halftimeExitConversion;
 std::atomic<int> halftimeConvertPercent{25},shownHalftimeConverted{0};
 std::atomic<int> arrivalBigBonus{3},arrivalWeatherPenalty{5};
+std::atomic<int> attendanceProfile{1}; // 0 Fuller Crowds, 1 Default; only new launches change peak.
 std::atomic<bool> arrivalReconcilePending{false};
 std::atomic<bool> visibilityRetry{false},captureArrivalBaseline{false};
 std::atomic<bool> pregameRendererRetry{false};
@@ -556,7 +557,7 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
     }catch(...){sustainedAudio.fail();supportingSwell.fail();audioNote("swell-fault: new starts stopped; cleanup will retry on the next audio update");}
     if(chantAvailable)try {
         auto mix=audioBusMix();attendanceMixer.tick(owner,mix.valid,mix);
-    }catch(...){chantAvailable=false;audioNote("audio-fault: attendance boost mixer stopped after exception");}
+    }catch(...){attendanceMixer.fail();audioNote("audio-fault: new crowd mix adjustments stopped; owned preset cleanup will retry on the next audio update");}
 
     return result;
 }
@@ -718,9 +719,9 @@ void initialLaunch(){
     if(!seed.regular||seed.resumed){log("starting-attendance","EA attendance preserved: postseason, non-regular-season or resumed game.");return;}
     if(seed.homeStadium<0){log("starting-attendance","EA attendance preserved: native home-venue inputs unavailable.");return;}
     launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
-    Result result=calculate(seed,launch);
+    Result result=calculate(seed,launch,attendanceProfile.load()==0);
     if(!result.applied){log("starting-attendance","EA attendance preserved: postseason, non-regular-season, resumed game, or incomplete inputs.");return;}
-    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus,result.percent,launch.capacity,sameState(seed));
+    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus,result.percent,launch.capacity,sameState(seed),result.fuller);
     result.exceptional=exceptional(result.percent,result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,arrivalBigBonus);
     result.fillPercent=!launch.neutral&&lateArrivalSchool(seed.home.id)?arrivalLateFinish.load():big(seed.home.rank,seed.away.rank,launch.rivalry)?30:arrivalFinish.load();
     std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
@@ -730,7 +731,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<"; native school states "<<seed.home.state<<"/"<<seed.away.state<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather policy "<<(launch.weatherKnown?(launch.dynamicWeather?"dynamic forecast; no guaranteed-rain penalty":"verified static precipitation"):"unverified forecast; no launch penalty")<<", configured precipitation "<<launch.configuredPrecipitation<<", weather "<<result.weather<<", variation "<<result.variation<<", breakout "<<result.breakout<<", event multiplier "<<result.eventMultiplier<<", opener/night/senior/local/academy bonuses "<<100*result.openerBoost<<"/"<<100*result.nightBoost<<"/"<<100*result.seniorBoost<<"/"<<100*result.stateBoost<<"/"<<100*result.academyBoost<<"%; schedule "<<(launch.seniorKnown?"native senior-day flag verified":"senior-day flag unavailable")<<"; access +"<<result.accessBonus<<" kickoff points; floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout ("<<(result.fuller?"Fuller Crowds":"Default")<<", peak bonus "<<result.profileBoost<<" points): EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<"; native school states "<<seed.home.state<<"/"<<seed.away.state<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather policy "<<(launch.weatherKnown?(launch.dynamicWeather?"dynamic forecast; no guaranteed-rain penalty":"verified static precipitation"):"unverified forecast; no launch penalty")<<", configured precipitation "<<launch.configuredPrecipitation<<", weather "<<result.weather<<", variation "<<result.variation<<", breakout "<<result.breakout<<", event multiplier "<<result.eventMultiplier<<", opener/night/senior/local/academy bonuses "<<100*result.openerBoost<<"/"<<100*result.nightBoost<<"/"<<100*result.seniorBoost<<"/"<<100*result.stateBoost<<"/"<<100*result.academyBoost<<"%; schedule "<<(launch.seniorKnown?"native senior-day flag verified":"senior-day flag unavailable")<<"; access +"<<result.accessBonus<<" kickoff points; floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -1717,6 +1718,7 @@ void readSettings(){
     replayMinimumYards=number(L"Replays",L"FullScreenMinimumYards",15,10,60);
     audioSetting=number(L"Audio",L"Enabled",1,0,1)!=0;
     busMixStrength=number(L"Dynamic Gameday Soundscape",L"CrowdMixStrengthPercent",100,0,100);
+    attendanceProfile=number(L"Attendance",L"AttendanceProfile",1,0,1);
     arrivalEnabled=number(L"Arrivals",L"Enabled",1,0,1);arrivalStart=number(L"Arrivals",L"StartPercent",55,50,60);
     arrivalLateStart=number(L"Arrivals",L"LateSchoolStartPercent",45,40,50);
     arrivalFinish=number(L"Arrivals",L"FinishPercentOfQuarter",50,10,100);
@@ -2407,7 +2409,7 @@ void atmosphereTick(){
     if(lostHomeMotion&&std::atomic_load(&cameraCue)->kind!=attendance::motion::Kind::None)log("live-play","Home possession lost: previous home crowd motion cleared immediately; no positive turnover shake.");
     std::shared_ptr<const attendance::motion::Cue> nextCamera=std::make_shared<attendance::motion::Cue>(cameraMotion.observe(*std::atomic_load(&cameraSettings),motion));
     wanted=attendance::pairing::merge(wanted,*nextCamera,now,remaining,playTracker.serial,(presentationCamera.playing(*nextCamera,now)||presentationCamera.requested(*nextCamera,now)),!returnAtmosphere.lostPossession());
-    wanted=skillSwell.merge(wanted,now,remaining);
+    wanted=skillSwell.merge(wanted,now,remaining,!returnAtmosphere.lostPossession());
     wanted=scoringSoundHandoff.merge(wanted,p.game.phase,now,remaining,!returnAtmosphere.lostPossession());
     wanted.playSequence=playTracker.serial;wanted.staggered=audio->staggeredCheers;wanted.majorLive=liveReactionMajor;wanted.overlapMilestone=audio->staggeredCheers&&liveReactionMilestone;
     auto welcome=openingWelcome.observe(*audio,p,match,epoch,now,active&&enabled&&audioSetting&&!clockPlay,fullnessReady,remaining,&result);
@@ -3046,6 +3048,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("First-quarter arrivals")<<(arrivalEnabled?"enabled":"disabled")<<"\n";
     report.field("Opening attendance policy")<<"regular 50-65% of peak ordinarily; severe-late starts 45%; weather-only floor 35%; usual marquee ceiling70%, exceptional cap80%; small-venue access adds up to8 kickoff points; same-state adds2. Postseason 70-80%; championships 80-90%.\n";
     report.field("Fallback opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% of planned crowd\n";
+    report.field("Attendance profile")<<(attendanceProfile==0?"Fuller Crowds":"Default")<<" (peak changes on fresh regular-season Dynasty launches; existing crowd plans retained)\n";
     report.field("Arrival finish points")<<"normal 50% / marquee 30% / severe 75% / postseason 20% through Q1 when revised inputs qualify; fallback normal "<<arrivalFinish<<"%, severe "<<arrivalLateFinish<<"%\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";

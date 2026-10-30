@@ -7,6 +7,7 @@ namespace DynamicGamedayAtmosphere {
     public static class SettingsMigration {
         sealed class LayoutKey {public string OldSection,OldKey,Section,Key;public LayoutKey(string os,string ok,string ns,string nk){OldSection=os;OldKey=ok;Section=ns;Key=nk;}}
         static readonly LayoutKey[] Layout={
+            new LayoutKey("Attendance","AttendanceProfile","Dynamic Gameday Attendance","AttendanceProfile"),
             new LayoutKey("Attendance","Enabled","Dynamic Gameday Attendance","Enabled"),
             new LayoutKey("Attendance","2020ModeEnabled","Dynamic Gameday Attendance","2020ModeEnabled"),
             new LayoutKey("Attendance","InitialAttendanceEnabled","Dynamic Gameday Attendance","InitialAttendanceEnabled"),
@@ -870,7 +871,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<53&&Number(defaults,"General","AudioBalanceVersion",0)>=53)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<54&&Number(defaults,"General","AudioBalanceVersion",0)>=54)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -942,6 +943,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=RetuneCannon2016(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,52);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,53);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,54);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

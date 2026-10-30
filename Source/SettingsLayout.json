@@ -352,5 +352,11 @@
     "oldKey": "DefensiveHighlights",
     "section": "Dynamic Gameday Broadcast",
     "key": "DefensiveHighlights"
+  },
+  {
+    "oldSection": "Attendance",
+    "oldKey": "AttendanceProfile",
+    "section": "Dynamic Gameday Attendance",
+    "key": "AttendanceProfile"
   }
 ]

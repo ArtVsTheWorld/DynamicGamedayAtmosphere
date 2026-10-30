@@ -9,7 +9,8 @@
 
 namespace attendance::settingsmenu {
 inline constexpr int Category=0x444741,FirstKey=0x44470000;
-enum class Kind {Toggle,Slider,Choice,Profile};
+enum class Kind {Toggle,Slider,Choice,Profile,AttendanceProfile};
+inline constexpr const char* AttendanceProfileLabels[]={"Fuller Crowds","Default"};
 inline constexpr const wchar_t* ProfileValues[]={L"Auto",L"Default",L"Reduced",L"BadWeather"};
 inline constexpr const char* ProfileLabels[]={"Automatic","Normal","Patient Fans","Bad Weather"};
 struct Option {const char* group;const wchar_t* section;const wchar_t* key;const char* label;const char* help;double factory,low,high;Kind kind;};
@@ -49,7 +50,8 @@ template<class Writer>void list(Writer& out){
 template<class Writer>void toggle(Writer& out,const Option& o,const Choices& choices,double current){
     for(size_t i=0;i<choices.values.size();++i){
         char label[48]{};double value=choices.values[i];
-        if(o.kind==Kind::Profile)std::snprintf(label,sizeof(label),"%s",ProfileLabels[static_cast<int>(value)]);
+        if(o.kind==Kind::AttendanceProfile)std::snprintf(label,sizeof(label),"%s",AttendanceProfileLabels[static_cast<int>(value)]);
+        else if(o.kind==Kind::Profile)std::snprintf(label,sizeof(label),"%s",ProfileLabels[static_cast<int>(value)]);
         else if(o.kind==Kind::Toggle)std::snprintf(label,sizeof(label),"%s",value==0?"Off":"On");
         else std::snprintf(label,sizeof(label),"%.4g",value);
         int row=static_cast<int>(i);out.text(row,"display",label);out.integer(row,"key",row);

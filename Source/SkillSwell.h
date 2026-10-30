@@ -14,8 +14,8 @@ public:
         if(began_&&(now<began_||now-began_>=2000))began_=id_=0;
         phase_=p.game.phase;last_=now;
     }
-    sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness)const{
-        if(!began_||!sustained::fresh(out,match_,epoch_,now)||out.match!=match_||out.epoch!=epoch_||now<last_||now-last_>750||now<began_||now-began_>=2000||
+    sustained::Intent merge(sustained::Intent out,uint64_t now,float fullness,bool earnedAllowed=true)const{
+        if(!earnedAllowed||!began_||!sustained::fresh(out,match_,epoch_,now)||out.match!=match_||out.epoch!=epoch_||now<last_||now-last_>750||now<began_||now-began_>=2000||
            !std::isfinite(fullness)||fullness<=0||fullness>1||out.celebration||out.scoringReaction||out.reason==sustained::Reason::Eruption||
            (out.reason==sustained::Reason::Result&&out.priority>=4&&!out.motionCompanion))return out;
         float level=650.f*std::sqrt(fullness)*shape::skillBuildup(static_cast<float>(now-began_),2000);

@@ -61,6 +61,7 @@ inline Route route(const wchar_t* section,const wchar_t* key){
     if(!_wcsicmp(section,L"Replays")&&!_wcsicmp(key,L"FullScreenBigPlays"))return {L"Dynamic Gameday Broadcast",L"FullScreenBigPlays"};
     if(!_wcsicmp(section,L"Replays")&&!_wcsicmp(key,L"FullScreenMinimumYards"))return {L"Dynamic Gameday Broadcast",L"FullScreenMinimumYards"};
     if(!_wcsicmp(section,L"Replays")&&!_wcsicmp(key,L"DefensiveHighlights"))return {L"Dynamic Gameday Broadcast",L"DefensiveHighlights"};
+    if(!_wcsicmp(section,L"Attendance")&&!_wcsicmp(key,L"AttendanceProfile"))return {L"Dynamic Gameday Attendance",L"AttendanceProfile"};
     return {section,key};
 }
 }

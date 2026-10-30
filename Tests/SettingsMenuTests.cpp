@@ -39,7 +39,7 @@ struct Fixture {
 }
 int main(){
     using namespace attendance::settingsmenu::native;
-    assert(Count==37);std::set<std::wstring> unique;
+    assert(Count==38);std::set<std::wstring> unique;
     Output catalog;ArrayWriter writer{catalog.address()};attendance::settingsmenu::list(writer);assert(writer.okay);
     size_t controls=0,headers=0;
     for(const auto& row:catalog.fields){const auto& fields=row.second;
@@ -59,7 +59,7 @@ int main(){
     assert(controls==Count&&headers==3);
     std::map<std::string,size_t> sizes;std::map<std::string,bool> numericSeen;
     for(const auto& o:Options){++sizes[o.group];if(o.kind!=Kind::Toggle)numericSeen[o.group]=true;else assert(!numericSeen[o.group]);}
-    assert(sizes.size()==3&&sizes["Attendance"]==11&&sizes["Soundscape"]==12&&sizes["Broadcast"]==14);
+    assert(sizes.size()==3&&sizes["Attendance"]==12&&sizes["Soundscape"]==12&&sizes["Broadcast"]==14);
     for(const auto& group:sizes)assert(group.second<=15);
     // Execute the new bytecode fallback's branch semantics: only DGA can pass
     // through the finite native tab switch; every other unknown key returns zero.
@@ -72,6 +72,9 @@ int main(){
     Menu menu;menu.configure(0,path,nullptr);Fixture::configure(menu);Reader category(Category);std::array<unsigned char,0x120> provider{};A p=reinterpret_cast<A>(provider.data());
     menu.initialize(p,category.address());assert(Fixture::initialized==1&&provider[0x62]==1);
     for(size_t i=0;i<Count;++i){const auto& o=Options[i];Reader key(FirstKey+static_cast<int>(i));
+        if(o.kind!=Kind::Slider){Reader foreignChoice(0);menu.setToggle(p+8,0,category.address(),key.address(),foreignChoice.address(),0);assert(Fixture::current(menu,i)==o.factory);}
+        else {menu.setSlider(p+8,0,category.address(),key.address(),static_cast<int>(o.low),0);assert(Fixture::current(menu,i)==o.factory);}
+
         if(o.kind==Kind::Slider){menu.setSlider(p,0,category.address(),key.address(),static_cast<int>(o.high)+1,0);assert(Fixture::current(menu,i)==o.factory);menu.setSlider(p,0,category.address(),key.address(),static_cast<int>(o.low),0);}
         else {
             auto choices=Fixture::choices(menu,i);int selected=-1;for(size_t n=0;n<choices.size();++n)if(choices[n]==o.low)selected=static_cast<int>(n);

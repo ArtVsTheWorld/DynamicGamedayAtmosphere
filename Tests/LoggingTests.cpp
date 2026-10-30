@@ -32,7 +32,7 @@ int main(){
  assert(attendance::readable::event(event("audio-inactive","callback unavailable")).find("callback unavailable")!=std::string::npos);
  assert(attendance::readable::event(event("play-summary","Play #4: None; 2 yards; snap down 1;")).find("Play completed")!=std::string::npos);
  std::string status="Dynamic Gameday Atmosphere 2.0.11\nUpdated: 14:00:00\nGame process ID: 42\nAudio stadium fullness: 75.4% of mapped seating\nDiagnostic preview: idle\nDGA crowd apply: 20 calls; max 15000 us\n";
- auto readable=attendance::readable::status(status);assert(readable.find("75.4% of mapped seating")!=std::string::npos&&readable.find("technical-status.txt")!=std::string::npos&&readable.find("15.00 ms")!=std::string::npos);
+ status+="Attendance profile: Fuller Crowds\n";auto readable=attendance::readable::status(status);assert(readable.find("Fuller Crowds")!=std::string::npos);assert(readable.find("75.4% of mapped seating")!=std::string::npos&&readable.find("technical-status.txt")!=std::string::npos&&readable.find("15.00 ms")!=std::string::npos);
  auto inactive=attendance::readable::status("Dynamic Gameday Atmosphere 2.0.11\nGame process ID: 42\nActivation: INACTIVE\nReason: signature differs\n");assert(inactive.find("signature differs")!=std::string::npos&&inactive.find("INACTIVE")!=std::string::npos);
  std::filesystem::remove_all(folder/"Logs");
  assert(attendance::appendLog(path,"recreated\n",16)&&contents(path)=="recreated\n");

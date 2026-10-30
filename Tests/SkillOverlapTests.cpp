@@ -52,6 +52,8 @@ int main(){
         base.motionCompanion=true;base.continuous=true;base.intensity=100;base.reactionId=77;base.reactionUntil=9000;base.reactionHoldUntil=5000;
         base.releaseMs=5000;base.size=3;base.liveCheer=77;
         for(uint64_t now=1000;now<3000;now+=50){swell.observe(p,123,1,now,true,{},0);base.updated=now;auto out=swell.merge(base,now,1);
+            auto empty=base;empty.continuous=false;empty.intensity=0;auto silent=swell.merge(empty,now,1,false);assert(silent.intensity==0&&!silent.supporting);
+            auto blocked=swell.merge(base,now,1,false);assert(blocked.intensity==base.intensity&&blocked.reactionId==base.reactionId);
             assert(out.reactionId==77&&out.reactionUntil==9000&&out.reactionHoldUntil==5000&&out.releaseMs==5000&&out.size==3);
             assert(out.continuous&&!out.reaction&&!out.supportingOnly&&out.liveCheer==77&&out.priority==4&&out.intensity>=100);
         }

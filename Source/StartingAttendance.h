@@ -30,11 +30,11 @@ struct Launch {
     bool dynamicWeather=false,weatherKnown=true;int configuredPrecipitation=-1;
 };
 struct Result {
-    bool applied=false,night=false,exceptional=false;
+    bool applied=false,night=false,exceptional=false,fuller=false;
     int attendance=0,kickoff=55,fillPercent=50;
     float standing=0,score=0,adjustmentLimit=0;
     float demand=0,momentum=0,appeal=0,nightBonus=0,weather=0,variation=0,limits=0,percent=0;
-    float breakout=0,eventMultiplier=1,openerBoost=0,nightBoost=0,seniorBoost=0,stateBoost=0,academyBoost=0,accessBonus=0;
+    float breakout=0,eventMultiplier=1,openerBoost=0,nightBoost=0,seniorBoost=0,stateBoost=0,academyBoost=0,accessBonus=0,profileBoost=0;
 };
 inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156||team==1218;}
 inline bool fcs(int id){return id>=1500&&id<=1504;}
@@ -77,11 +77,12 @@ inline float accessBonus(int capacity){
     float t=(std::clamp)(std::log((std::max)(15000,capacity)/15000.f)/std::log(100000.f/15000.f),0.f,1.f);
     return 8*(1-t*t*(3-2*t));
 }
-inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=55,int severeBase=45,int bigBonus=3,float peak=0,int capacity=0,bool sameState=false){
+inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=55,int severeBase=45,int bigBonus=3,float peak=0,int capacity=0,bool sameState=false,bool fuller=false){
     float start=!neutral&&lateArrivalSchool(home)?static_cast<float>((std::clamp)(severeBase,40,50)):
         (std::clamp)(normalBase+10.f*((std::clamp)(standing,0.f,1.f)-.5f),50.f,60.f);
     start+=(!neutral?accessBonus(capacity)+(sameState?2.f:0.f):0.f);
     start+=(night?5.f:0.f)+(opener&&!neutral?1.f:0.f)+(big(rank0,rank1,rivalry)?static_cast<float>((std::clamp)(bigBonus,0,3)):0.f)+(top(rank0,10)&&top(rank1,10)?1.f:0.f);
+    if(fuller)start+=7;
     start=(std::clamp)(start,40.f,70.f);
     if(exceptional(peak,standing,home,rank0,rank1,neutral,night,rivalry,opener,bigBonus))
         start=(std::max)(start,70.f+(5.f+5.f*(std::clamp)((standing-.8f)/.2f,0.f,1.f))*(std::clamp)(bigBonus,0,3)/3.f);
@@ -120,7 +121,7 @@ inline uint32_t fixtureHash(const Seed& s,bool neutral=false){
     for(int n:{a,b,s.stadium,s.week,s.year}){h^=static_cast<uint32_t>(n);h*=16777619u;}
     return h;
 }
-inline Result calculate(const Seed& s,const Launch& l){
+inline Result calculate(const Seed& s,const Launch& l,bool fuller=false){
     Result r;r.attendance=l.ea;
     if(!s.regular||s.resumed||s.week<0||s.week>31||s.year<0||s.year>4095||s.schools<100||s.schools>512||!validTeam(s.home,s.schools)||!validTeam(s.away,s.schools)||
        s.home.id==s.away.id||l.home!=s.home.id||l.away!=s.away.id||l.stadium!=s.stadium||l.ea!=s.ea||
@@ -153,11 +154,12 @@ inline Result calculate(const Seed& s,const Launch& l){
     r.nightBonus=(ordinary+r.breakout)*r.nightBoost;
     const float weather[]={0.f,5.f,9.f,14.f};r.weather=s.roof>=1&&s.roof<=3?0.f:-weather[l.precipitation];
     r.variation=static_cast<float>(static_cast<int>(hash%7)-3);
-    float raw=(ordinary+r.breakout)*r.eventMultiplier+r.weather+r.variation;
+    r.fuller=fuller;r.profileBoost=fuller?8.f:0.f;
+    float raw=(ordinary+r.breakout)*r.eventMultiplier+r.weather+r.variation+r.profileBoost;
     r.percent=(std::clamp)(raw,r.weather<0?20.f:25.f,100.f);r.limits=r.percent-raw;
     r.attendance=(std::clamp)(static_cast<int>(std::lround(l.capacity*r.percent*.01f)),1,l.capacity);
     r.exceptional=exceptional(r.percent,r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0);
-    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3,55,45,3,r.percent,l.capacity,sameState(s));
+    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3,55,45,3,r.percent,l.capacity,sameState(s),fuller);
     r.accessBonus=!l.neutral?accessBonus(l.capacity):0;
     r.fillPercent=!l.neutral&&lateArrivalSchool(s.home.id)?75:big(s.home.rank,s.away.rank,l.rivalry)?30:50;
     r.applied=true;return r;
