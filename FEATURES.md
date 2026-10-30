@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3, build 2.0.14** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.14 — not publicly released** · College Football 27 for Windows · MMC
 
 ## Attendance: the crowd for this game
 

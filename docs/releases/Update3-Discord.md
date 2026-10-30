@@ -56,4 +56,4 @@
 - Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.
 
 **Close the game and MMC before updating. Old settings reset once with a backup; no INI deletion needed.**
-Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.14
+Download: [add the official link when the final build is released]

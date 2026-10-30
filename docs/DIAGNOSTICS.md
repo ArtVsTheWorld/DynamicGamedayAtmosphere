@@ -1,6 +1,6 @@
 # Troubleshooting Update 3
 
-Current release: **2.0.14**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
+Current working build: **2.0.14**, not publicly released. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
 
 ## Check the installed build
 

@@ -1,6 +1,6 @@
-# Update 3
+# Update 3 — working release notes
 
-Build **2.0.14** · [Full feature list](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/blob/v2.0.14/FEATURES.md)
+Working build **2.0.14**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
 
 Changes since Update 2 (1.54.0).
 
@@ -74,7 +74,7 @@ Changes since Update 2 (1.54.0).
 - Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.
 
 **Close the game and MMC before updating. Old settings reset once with a backup; no INI deletion needed.**
-Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.14
+Download: to be added after the final build is approved for release.
 
 ## Remaining limits
 
