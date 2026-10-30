@@ -117,6 +117,35 @@ int main(){
     assert(density->owns(123,7)&&density->groups==2&&density->seats==3072);
     assert(density->original==startingCrowds.at(bowl.render()).selection.original+startingCrowds.at(deck.render()).selection.original);
     float peakDensity=density->peak();
+    // Reproduce a full/live-equivalent replay after every play. A replay
+    // timestamp change alone must not force a second full stadium traversal.
+    assert(guardedApply(false,true));visibilityGeneration=entityGeneration.load();
+    auto passes=forcedCrowdPasses.load();auto skips=unchangedReplaySkips.load();
+    for(int play=0;play<20;++play){replayLoss=0;assert(refreshReplayVisibility());replayLoss=-1;assert(refreshReplayVisibility());}
+    assert(forcedCrowdPasses==passes&&unchangedReplaySkips==skips+40);
+    replayLoss=60;assert(refreshReplayVisibility());assert(forcedCrowdPasses>passes);passes=forcedCrowdPasses;
+    assert(refreshReplayVisibility()&&forcedCrowdPasses==passes);for(auto* scene:testScenes)checkScene(*scene,60);
+    replayLoss=-1;exactVisibility=true;assert(refreshReplayVisibility());exactVisibility=false;assert(forcedCrowdPasses>passes);for(auto* scene:testScenes)checkScene(*scene,0);passes=forcedCrowdPasses;
+    // New controllers, retired masks, pending layouts and explicit restore
+    // mode cannot be hidden by the equal-target optimization.
+    ++entityGeneration;assert(refreshReplayVisibility()&&forcedCrowdPasses>passes);passes=forcedCrowdPasses;
+    visibilityRetry=true;assert(refreshReplayVisibility()&&forcedCrowdPasses>passes);passes=forcedCrowdPasses;
+    mode=2;assert(refreshReplayVisibility()&&forcedCrowdPasses>passes);mode=0;assert(refreshReplayVisibility());
+    appliedVisibilityTarget=-1;passes=forcedCrowdPasses;assert(refreshReplayVisibility()&&forcedCrowdPasses>passes);
+    // Equal nonzero live/history targets also skip. A genuinely different
+    // target and a renderer that has not delivered native callbacks retry.
+    arrivalMissing=30;assert(refreshReplayVisibility());passes=forcedCrowdPasses;
+    replayLoss=30;assert(refreshReplayVisibility()&&forcedCrowdPasses==passes);
+    replayLoss=-1;exactVisibility=true;assert(refreshReplayVisibility()&&forcedCrowdPasses==passes);exactVisibility=false;
+    auto scenes=testScenes;testScenes.clear();visibilityRetry=true;assert(refreshReplayVisibility()&&visibilityRetry);passes=forcedCrowdPasses;
+    assert(refreshReplayVisibility()&&forcedCrowdPasses>passes&&visibilityRetry);testScenes=scenes;assert(refreshReplayVisibility()&&!visibilityRetry);
+    arrivalMissing=0;exactVisibility=true;assert(refreshReplayVisibility());exactVisibility=false;for(auto* scene:testScenes)checkScene(*scene,0);
+    // A new mask buffer at 100% live attendance must invalidate the cache
+    // through the natural native callback, without an attendance change.
+    auto previousFullMasks=std::move(bowl.masks);bowl.masks=bowl.native;bowl.buffers();
+    testUpdate(0);assert(visibilityRetry&&seatPatternPending);passes=forcedCrowdPasses;
+    replayLoss=0;assert(refreshReplayVisibility()&&forcedCrowdPasses>passes&&!visibilityRetry);replayLoss=-1;
+    for(auto* scene:testScenes)checkScene(*scene,0);
     auto savedMasks=bowl.masks;std::fill(bowl.masks.begin(),bowl.masks.end(),static_cast<unsigned short>(0xffff));
     {std::lock_guard<std::mutex> lock(crowdMutex);publishRenderedOccupancyLocked();}
     assert(std::atomic_load(&renderedOccupancy)->peak()==peakDensity); // Camera/current masks never redefine original seating.

@@ -594,7 +594,9 @@ bool commitPatches(){
 }
 
 attendance::LogQueue queuedLogs;
-attendance::timing::Counts atmosphereTimings,decisionTimings;
+attendance::timing::Counts atmosphereTimings,decisionTimings,crowdApplyTimings,replayCrowdTimings,nativeCrowdTimings,naturalCrowdTimings;
+std::atomic<uint64_t> forcedCrowdPasses{0},unchangedReplaySkips{0};
+std::atomic<int> appliedVisibilityTarget{-1},appliedVisibilityMode{-1};
 void drainLogs(){
     std::vector<std::string> lines;
     {std::lock_guard<std::mutex> guard(logMutex);lines=queuedLogs.take();}
@@ -922,6 +924,7 @@ void __fastcall presentationUpdate(A states,float delta){
     if(cameraAvailable&&!presentationCamera.healthy()&&!cameraFaultReported.exchange(true))audioNote("camera-fault: added motion stopped; the game's own camera is unchanged.");
 }
 void __fastcall attendanceUpdate(A entity){
+    attendance::timing::Scope measured(naturalCrowdTimings);
     originalAttendanceUpdate(entity);
     // Observe controllers only after their native scene update has completed.
     // This discovers a freshly loaded crowd without waiting for a heap scan.
@@ -1108,7 +1111,12 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
             std::lock_guard<std::mutex> guard(crowdMutex);
             auto found=startingCrowds.find(renderer);
             const bool collecting=(collectingStartingCrowd.load()&&!applying)||capturingBaseline;
-            if((applying||collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(found==startingCrowds.end()||found->second.scene!=crowd||found->second.masks!=begin||found->second.hidden.size()!=count)){
+            bool replacement=found==startingCrowds.end()||found->second.scene!=crowd||found->second.masks!=begin||found->second.hidden.size()!=count;
+            // A full live crowd may have no active visibility override. Still
+            // invalidate replay's no-op cache when native callbacks reveal a
+            // new seated renderer/buffer; tiny sideline draws stay optional.
+            if(replacement&&count>=512){visibilityRetry=true;seatPatternPending=true;}
+            if((applying||collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&replacement){
                 StartingCrowd baseline;baseline.masks=begin;baseline.scene=crowd;baseline.hidden.resize(count);baseline.temporary.resize(count);baseline.nativeSeen.resize(count);
                 if(!read(begin,baseline.hidden.data(),count*2)){log("baseline-unavailable","Crowd write skipped");return;}
                 baseline.nativeHidden=baseline.hidden;
@@ -1161,6 +1169,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
     originalSet(crowd,part,agent,hidden);
 }
 void resetMatch(){
+    appliedVisibilityTarget=appliedVisibilityMode=-1;
     replayLoss=-1;exactVisibility=false;replaySuspendsAtmosphere=false;replayWasActive=false;replayRestorePending=false;bootstrapPending=false;lastRecordingTime=-1;shownResumeSource=0;
     crowdChangeWindow.reset();simulationRecording=-1;shownSuperSim=false;
     attendanceSeed=0;publishSessionPlan(0,attendance::State{});
@@ -1187,6 +1196,7 @@ void resetMatch(){
     std::shared_ptr<const attendance::motion::Cue> quietCamera=std::make_shared<attendance::motion::Cue>();std::atomic_store(&cameraCue,quietCamera);
 }
 void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
+    attendance::timing::Scope applyMeasured(crowdApplyTimings);
     collectingStartingCrowd=false;
     std::vector<A> snapshot;{std::lock_guard<std::mutex> guard(entityMutex);snapshot=entities;}
     bool needCapture=(captureArrivalBaseline&&activeLoss==0)||seatPatternPending||visibilityGeneration!=entityGeneration.load();
@@ -1200,7 +1210,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         thinning=!baseline&&thin;reconcilingArrivals=!baseline&&arrivals;
         // The engine resolves controller -> scene crowds. Renderer readiness
         // is checked on each actual crowd in visibility(), before any write.
-        originalAttendanceUpdate(entity);
+        {attendance::timing::Scope nativeMeasured(nativeCrowdTimings);++forcedCrowdPasses;originalAttendanceUpdate(entity);}
         if(baseline){std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)
             if(item.second.captureToken==activeCaptureToken)item.second.baselineComplete=true;
         }
@@ -1234,6 +1244,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         shownOriginalFans=population.original;shownVisibleFans=population.visible;shownExpectedFans=population.expected;
         shownNativeExtra=population.nativeExtra;shownOtherExtra=population.otherExtra;shownExtraVisible=population.extraVisible;
         visibilityMeasured=measured&&population.original>0;
+        if(result.verified&&!visibilityRetry){appliedVisibilityTarget=measuredLoss;appliedVisibilityMode=mode.load();}
     }
     std::string detail="controllers="+std::to_string(result.controllers)+" verified visibility calls="+std::to_string(result.verified)+" hidden overrides="+std::to_string(result.changed);
     if(visibilityMeasured)detail+="; measured "+std::to_string(shownVisibleFans.load())+" / "+std::to_string(shownOriginalFans.load())+" original crowd agents visible";
@@ -1243,6 +1254,20 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
 bool guardedApply(bool thin,bool arrivals=false,bool captureOnly=false) {
     __try {apply(thin,arrivals,captureOnly);return true;}
     __except(EXCEPTION_EXECUTE_HANDLER){applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
+}
+// Replay timing changes do not imply a different seating picture. Avoid
+// forcing another complete native fan pass when this exact target is already
+// applied. Native renderer callbacks still discover streamed/replaced buffers
+// and set visibilityRetry; generation, pending-layout and mode changes remain
+// independent reasons to refresh.
+bool refreshReplayVisibility(){
+    int historical=replayLoss.load();int target=historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
+    bool dirty=visibilityRetry||seatPatternPending||visibilityGeneration!=entityGeneration.load();
+    if(!dirty&&target==appliedVisibilityTarget.load()&&mode.load()==appliedVisibilityMode.load()){
+        ++unchangedReplaySkips;return true;
+    }
+    if(!guardedApply(true,true))return false;
+    visibilityGeneration=entityGeneration.load();return true;
 }
 void findEntities() {
     std::vector<A> found;
@@ -2366,6 +2391,7 @@ bool ordinarySessionAcknowledgement(A match,const attendance::State& s){
 // Runs on presentation and native replay callbacks, including paused viewers.
 // It changes visibility only; the live departure/history/audio models stay put.
 bool replayPresentation(){
+    attendance::timing::Scope measured(replayCrowdTimings);
     auto replay=replaySnapshot();
     attendance::State s;A match=0;
     if(replay.active||replayWasActive||replayRestorePending){
@@ -2402,19 +2428,16 @@ bool replayPresentation(){
         attendance::timeline::Point point;bool found=false;
         {std::lock_guard<std::mutex> guard(timelineMutex);found=attendanceArchive.replay(replay.playback,point);}
         int loss=found?point.total():(std::max)(activeLoss.load(),arrivalMissing.load());
-        bool changedTarget=replayLoss.exchange(loss)!=loss;
+        replayLoss=loss;
         if(!replayWasActive)log("replay",found?std::string(policy.suspendAtmosphere?"Replay":"Automatic replay")+": showing the recorded crowd; live attendance is preserved.":"No earlier crowd record; using this scenario's initialized attendance.");
         replayWasActive=true;
-        if(changedTarget||visibilityRetry||visibilityGeneration!=entityGeneration.load()){
-            if(!guardedApply(true,true)){enabled=false;log("fault","Replay crowd update failed; automatic updates stopped.");return true;}
-            visibilityGeneration=entityGeneration.load();
-        }
+        if(!refreshReplayVisibility()){enabled=false;log("fault","Replay crowd update failed; automatic updates stopped.");return true;}
         return true;
     }
     if(replayWasActive){replayWasActive=false;replayLoss=-1;replayRestorePending=true;log("replay","Replay ended; restoring the live game's crowd.");}
     if(replayRestorePending){
         exactVisibility=true;
-        if(!guardedApply(true,true)){enabled=false;log("fault","Live crowd restoration failed; automatic updates stopped.");return false;}
+        if(!refreshReplayVisibility()){enabled=false;log("fault","Live crowd restoration failed; automatic updates stopped.");return false;}
         if(!visibilityRetry){exactVisibility=false;replayRestorePending=false;}
     }
     return false;
@@ -2744,6 +2767,10 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Game process ID")<<GetCurrentProcessId()<<"\n";
     report.field("DGA atmosphere callback")<<atmosphereTimings.calls.load()<<" calls; max "<<atmosphereTimings.maximumUs.load()<<" us; >=4ms "<<atmosphereTimings.over4ms.load()<<"; >=16ms "<<atmosphereTimings.over16ms.load()<<" (wall time; not FPS)\n";
     report.field("DGA attendance decision")<<decisionTimings.calls.load()<<" calls; max "<<decisionTimings.maximumUs.load()<<" us; >=4ms "<<decisionTimings.over4ms.load()<<"; >=16ms "<<decisionTimings.over16ms.load()<<"\n";
+    report.field("DGA crowd apply")<<crowdApplyTimings.calls.load()<<" calls; max "<<crowdApplyTimings.maximumUs.load()<<" us; >=4ms "<<crowdApplyTimings.over4ms.load()<<"; >=16ms "<<crowdApplyTimings.over16ms.load()<<"\n";
+    report.field("DGA replay crowd check")<<replayCrowdTimings.calls.load()<<" calls; max "<<replayCrowdTimings.maximumUs.load()<<" us; >=4ms "<<replayCrowdTimings.over4ms.load()<<"; >=16ms "<<replayCrowdTimings.over16ms.load()<<"\n";
+    report.field("Forced native crowd passes")<<forcedCrowdPasses.load()<<"; max "<<nativeCrowdTimings.maximumUs.load()<<" us (native + DGA visibility work); unchanged replay refreshes skipped "<<unchangedReplaySkips.load()<<"\n";
+    report.field("Natural crowd update")<<naturalCrowdTimings.calls.load()<<" calls; max "<<naturalCrowdTimings.maximumUs.load()<<" us; >=4ms "<<naturalCrowdTimings.over4ms.load()<<"; >=16ms "<<naturalCrowdTimings.over16ms.load()<<" (native + DGA observer; not isolated DGA time)\n";
     {size_t pending=0;uint64_t dropped=0;{std::lock_guard<std::mutex> guard(logMutex);pending=queuedLogs.size();dropped=queuedLogs.dropped();}report.field("Deferred log queue")<<pending<<" pending; "<<dropped<<" dropped by bounded overflow\n";}
     report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
     report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";

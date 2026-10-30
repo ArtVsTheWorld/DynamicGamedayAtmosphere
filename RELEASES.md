@@ -1,6 +1,6 @@
 # Releases
 
-Staged Update 3 test candidate: **2.0.3**. More noticeable small-crowd motion, explicit event-strength hierarchy, shorter routine impacts and smooth scoring handoffs. Includes the previous attendance/audio changes. Not installed or published. See [strengths and first tests](docs/reviews/Update3-2.0.3.md).
+Staged Update 3 test candidate: **2.0.4**. Skips redundant replay/live crowd updates and adds timing coverage for the reported post-play hitch. Includes the prior attendance, audio and shake changes. Live hitch clearance remains pending. See [investigation and test](docs/reviews/Update3-2.0.4.md).
 
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 

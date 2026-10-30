@@ -2,7 +2,9 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.3). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 test candidate (2.0.4). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+
+Candidate 2.0.4 skips redundant stadium-wide updates when a replay and the live game use the same crowd target. It adds separate timing counters for crowd application, replay handling and natural crowd updates. The reported post-play hitch still needs live retesting. See the [performance investigation](docs/reviews/Update3-2.0.4.md).
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
