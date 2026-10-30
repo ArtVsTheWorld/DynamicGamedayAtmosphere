@@ -88,9 +88,17 @@ int main(){
     check(0,[&]{tick(3030);tick(3060);tick(3100);});++wanted.playSequence;check(0,[&]{tick(3130);});put<Address>(addr(entity)+0xd0,0);put<Address>(addr(entity)+0xd8,0);
     voices(4);attendance::cheer::Runtime synchronous;synchronous.configure(image,&api,receive,report);wanted=intent();wanted.playSequence=10;wanted.liveCheer=1;wanted.liveCheerUntil=1500;wanted.liveType=83;
     immediateVoice=true;check(1,[&]{synchronous.tick(addr(entity),wanted,1000);});immediateVoice=false;wanted.updated=1030;check(0,[&]{synchronous.tick(addr(entity),wanted,1030);});assert(reports.back()==attendance::cheer::Delivery::Registered);voices(0);
-    for(int family:{2,14,18,20,22,23,25})for(int size=0;size<4;++size)check(1,[&]{assert(attendance::cheer::emit(api,receive,image,addr(entity),family*4+size));});
-    for(int invalid:{87,99,107})assert(!attendance::cheer::emit(api,receive,image,addr(entity),invalid));
-    for(int original:{59,83}){std::set<int> families;for(uint64_t play=1;play<=100;++play){int type=attendance::cheer::variedPositive(original,play,play+1,1);families.insert(type);assert(type==attendance::cheer::variedPositive(original,play,play+1,1));}assert(families.size()==2);}
-    for(int specific:{11,75,91,95})assert(attendance::cheer::variedPositive(specific,1,1,1)==specific);
+    // Rushing-TD is now also a primary family. Receipt ownership follows
+    // dispatch order rather than mistaking every family18 voice for a followup.
+    voices(0);attendance::cheer::Runtime rushing;rushing.configure(image,&api,receive,report);wanted=intent();wanted.playSequence=11;wanted.celebration=1;wanted.celebrationUntil=2500;wanted.celebrationType=75;
+    immediateVoice=true;check(1,[&]{rushing.tick(addr(entity),wanted,1000);});immediateVoice=false;wanted.updated=1030;check(0,[&]{rushing.tick(addr(entity),wanted,1030);});assert(reports.back()==attendance::cheer::Delivery::Registered);voices(0);
+    // Every listening-approved selector reaches the same native construction
+    // path; excluded and untested selectors are rejected before allocation.
+    unsigned valid=0;
+    for(int id=0;id<112;++id){bool heard=id%4!=0&&id!=13&&id!=14&&id!=15&&id!=23;
+        if(heard){check(1,[&]{assert(attendance::cheer::emit(api,receive,image,addr(entity),id));});assert(received.back()==id);++valid;}
+        else check(0,[&]{assert(!attendance::cheer::emit(api,receive,image,addr(entity),id));});
+    }assert(valid==80);
+    for(int invalid:{-1,112,999})assert(!attendance::cheer::emit(api,receive,image,addr(entity),invalid));
     std::puts("PASS: all earned layers dispatch over matching/multiple native voices, once-per-event and reentrant guards, bounded followups/recovery, complete prior-handle receipts, ownership/expiry/callback/fault safety and native family validation.");
 }

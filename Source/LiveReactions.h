@@ -1,6 +1,7 @@
 #pragma once
 #include "ExcitementRules.h"
 #include "SustainedCrowd.h"
+#include "ReactionCatalog.h"
 namespace attendance::live {
 enum class Event {None,LongCatch,Interception,RunAfterCatch,LongRun,Sack,ForcedFumble,KickReturn,PuntReturn,FourthConversion,GoalLineStop,CompletedPass,CriticalStop,FumbleRecovery,TackleForLoss,BlockedFieldGoal,Truck,StiffArm,Hurdle,Juke,Spin,HitStick,BrokenTackle,ThirdGoalStop,CatchKnockout,PassBreakup,HitStickStop,DownsStop,OvertimeStop,OvertimeConversion,OvertimeConversionStop,OvertimeFieldGoal,OvertimeMissedFieldGoal};
 inline bool skill(Event e){return e==Event::Truck||e==Event::StiffArm||e==Event::Hurdle||e==Event::Juke||e==Event::Spin;}
@@ -32,7 +33,7 @@ inline Outcome completedImpact(const energy::Outcome& result,const State& state,
     bool recovery=result.takeaway&&result.event==energy::Event::FumbleRecovery;
     bool fourth=result.firstDown&&result.event==energy::Event::FourthDown;
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
-       (result.sequence==previousSequence&&previousType!=95)||!(fourth||recovery||result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns))return {};
+       (result.sequence==previousSequence&&!catalog::negative(previousType))||!(fourth||recovery||result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns))return {};
     Event selected=fourth?Event::FourthConversion:result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:recovery?Event::FumbleRecovery:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }

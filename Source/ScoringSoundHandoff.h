@@ -1,6 +1,7 @@
 #pragma once
 #include "SustainedCrowd.h"
 #include "ReactionShape.h"
+#include "ReactionCatalog.h"
 
 namespace attendance::soundhandoff {
 // Carry an already-earned crowd level through the next reaction's attack.
@@ -20,7 +21,7 @@ public:
         bool eruption=out.reason==sustained::Reason::Eruption&&out.celebration;
         bool scoring=eruption||(out.scoringReaction&&out.reason==sustained::Reason::Result&&out.reactionId);
         bool reaction=(eruption||(out.reason==sustained::Reason::Result&&out.reactionId))&&(!scoring||phase!=3);
-        bool negative=out.liveCheer&&out.liveType==95;
+        bool negative=out.liveCheer&&catalog::negative(out.liveType);
         uint64_t id=eruption?out.celebration:out.reactionId;
         bool newSnap=phase==3&&phase_!=3;
         if(newSnap&&(reason_==sustained::Reason::Result||reason_==sustained::Reason::Eruption)){began_=0;voiced_=false;}

@@ -1,5 +1,6 @@
 from pathlib import Path
 import configparser
+import json
 import re
 import unittest
 
@@ -21,6 +22,20 @@ class MenuCatalogTests(unittest.TestCase):
         self.assertTrue(all(section != 'Logging' for section, key in pairs))
         self.assertNotIn(('Dynamic Gameday Soundscape', 'MaximumBoostPercent'), pairs)
         self.assertNotIn(('Dynamic Gameday Attendance', 'MaximumDeparturePerQuarter'), pairs)
+
+    def test_audio_catalog_matches_dispatch_allowlist(self):
+        data = json.loads((ROOT / 'docs/REACTION-AUDIO-CATALOG.json').read_text(encoding='utf-8'))
+        source = (ROOT / 'Source/ReactionCatalog.h').read_text()
+        masks = [int(mask) for mask in re.findall(r'\{"[A-Z_]+",(\d+),(?:true|false)\}', source)]
+        self.assertEqual(len(masks), 28)
+        heard = set()
+        for family in data['families']:
+            index = family['family']
+            expected = [index * 4 + level for level in range(1, 4) if masks[index] & (1 << level)]
+            self.assertEqual(family['audible_ids'], expected)
+            heard.update(expected)
+        self.assertEqual(len(heard), 80)
+        self.assertTrue(heard.isdisjoint({13, 14, 15, 23}))
 
     def test_numeric_bounds_match_configuration_audit(self):
         audit = (ROOT / 'Tests/ConfigurationOptions.inc').read_text()

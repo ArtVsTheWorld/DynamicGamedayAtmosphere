@@ -9,15 +9,6 @@ using Receiver=Address(__fastcall*)(Address,Address);
 enum class Source {Live,Lineup,Result,Eruption,Followup};
 enum class Delivery {Sent,Failed,Expired,Registered,Recovery,Unregistered};
 using Note=void(*)(Source,uint64_t,Delivery);
-// The two positive, full-size families may serve either side of the ball.
-// Stable play/event identity prevents callback-by-callback rerolls. Dedicated
-// disappointment, big-hit and scoring families keep their authored purpose.
-inline int variedPositive(int type,uint64_t play,uint64_t event,unsigned epoch){
-    if((type!=59&&type!=83)||!play||!event)return type;
-    uint64_t mix=play*0x9e3779b97f4a7c15ull+event*0xbf58476d1ce4e5b9ull+epoch;
-    mix^=mix>>30;mix*=0xbf58476d1ce4e5b9ull;mix^=mix>>27;
-    return mix&1?59:83;
-}
 // Eruption, conversion and defensive-stop families passed listening tests. Their native
 // owner limits each reaction to 25 seconds; no borrowed entity is retained.
 inline bool emit(const sustained::Api& api,Receiver receiver,Address image,Address entity,int type=91){
@@ -179,15 +170,17 @@ public:
             // Re-read after each send: the native instance array may reallocate.
             Address begin=at<Address>(entity+0x120),end=at<Address>(entity+0x128);
             if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;return;}
-            if(type/4!=18)receipt(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,type,entity,wanted,now);
+            // Observe the primary, including rushing-TD selectors. A secondary
+            // layer must not overwrite its receipt merely because families match.
+            if(!sentNow)receipt(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,type,entity,wanted,now);
             if(emit(api_,receiver_,image_,entity,type)){++sent_;++sentNow;}else{receipt_={};healthy_=false;}
         };
-        send(result?wanted.resultType:lineup?wanted.lineupType:91);
+        send(result?wanted.resultType:lineup?wanted.lineupType:wanted.celebrationType);
         // Keep the immediate primary; the optional second layer has one
         // bounded delayed opportunity, never a repeated cheer barrage.
         bool stagger=wanted.staggered&&(victory||(result&&wanted.deepCheers));
         if((victory||lineup||result)&&wanted.deepCheers&&!stagger&&healthy_)send(75);
-        if(stagger&&healthy_&&sentNow)arm(victory?Source::Eruption:Source::Result,victory?wanted.celebration:wanted.resultCheer,result?wanted.resultType:91,wanted,now);
+        if(stagger&&healthy_&&sentNow)arm(victory?Source::Eruption:Source::Result,victory?wanted.celebration:wanted.resultCheer,result?wanted.resultType:wanted.celebrationType,wanted,now);
         report(victory?Source::Eruption:result?Source::Result:Source::Lineup,victory?wanted.celebration:result?wanted.resultCheer:wanted.lineupCheer,
             !healthy_?Delivery::Failed:sentNow?Delivery::Sent:Delivery::Failed);
     }

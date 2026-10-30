@@ -1,6 +1,7 @@
 #pragma once
 #include "SustainedCrowd.h"
 #include "VenueMotion.h"
+#include "ReactionCatalog.h"
 namespace attendance::population {
 inline double occupied(uint64_t positions,float fullness){
     return positions>=512&&positions<=12800000&&std::isfinite(fullness)?positions*static_cast<double>((std::clamp)(fullness,0.f,1.f)):0;
@@ -8,10 +9,10 @@ inline double occupied(uint64_t positions,float fullness){
 inline float presence(uint64_t positions,float fullness){
     return static_cast<float>(std::sqrt((std::clamp)(occupied(positions,fullness)/packed::LargePositions,0.,1.)));
 }
-inline int size(uint64_t positions,float fullness){double count=occupied(positions,fullness);return count<12000?1:count<36000?2:3;}
-inline bool reactionFamily(int type){int family=type/4;return type>=0&&(family==2||family==14||family==18||family==20||family==22||family==23||family==25);}
-inline bool negative(int type){return type>=0&&(type/4==23||type/4==25);}
-inline int reactionType(int type,int sizeCode){return reactionFamily(type)?type/4*4+(std::clamp)(sizeCode,1,3):type;}
+inline int size(uint64_t positions,float fullness){double count=occupied(positions,fullness);int tier=count<12000?1:count<36000?2:3;return (std::min)(tier,fullness<.30f?1:fullness<.60f?2:3);}
+inline bool reactionFamily(int type){return catalog::usable(type);}
+inline bool negative(int type){return catalog::negative(type);}
+inline int reactionType(int type,int sizeCode){return catalog::selector(type,sizeCode);}
 // Replace the existing density-presence factor for DGA's added layer intent.
 // Native excitement/cheer peaks, background quieting and volume caps remain
 // with their existing owners. Apply once, before final-play intent capture.

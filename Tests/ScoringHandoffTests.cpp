@@ -37,5 +37,14 @@ int main(){
     assert(upgrade.merge(burst,4,1200,1).intensity==970);
     // Ordinary non-scoring reactions keep their own envelope unchanged.
     auto ordinary=running(1250,1);ordinary.intensity=200;assert(upgrade.merge(ordinary,4,1250,1).intensity==200);
+    // Every negative family cancels a previous positive attack-floor carry,
+    // including the smaller population selectors and newly enabled families.
+    for(int id=0;id<112;++id)if(catalog::usable(id)&&catalog::negative(id)){
+        soundhandoff::Model h;auto before=running(1000,1);h.merge(before,3,1000,1);
+        auto negative=running(1100,1);negative.liveCheer=1;negative.liveType=id;negative.intensity=0;
+        assert(h.merge(negative,4,1100,1).intensity==0);
+        auto after=negative;after.updated=1200;after.liveCheer=0;after.scoringReaction=true;after.priority=5;after.reactionId=8;
+        assert(h.merge(after,4,1200,1).intensity==0);
+    }
     std::puts("PASS: earned run-to-TD/eruption continuity, first-attack floor, TD upgrade, exact existing timers/IDs, density/caps, and cold/stale/pause/world/new-snap guards.");
 }

@@ -24,7 +24,8 @@ int main(){
     assert(population::size(61888,1)==3);
     assert(population::reactionType(83,1)==81&&population::reactionType(59,2)==58&&population::reactionType(103,1)==101);
     assert(population::negative(101)&&population::negative(95)&&!population::negative(83));
-    assert(population::reactionType(107,1)==107); // Unknown/unrequested family stays unsupported.
+    assert(population::reactionType(107,1)==105); // Auditioned applause/cheer family.
+    assert(population::reactionType(23,3)==22&&population::reactionType(15,3)==0);
     assert(population::layers(base,61888,0).intensity==0&&population::layers(base,0,1).intensity==0);
     base.reason=sustained::Reason::Diagnostics;assert(population::layers(base,6060,1).intensity==base.intensity);
     base.reason=sustained::Reason::None;assert(population::layers(base,6060,1).intensity==base.intensity);

@@ -837,7 +837,7 @@ namespace DynamicGamedayAtmosphere {
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<48&&Number(defaults,"General","AudioBalanceVersion",0)>=48)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<50&&Number(defaults,"General","AudioBalanceVersion",0)>=50)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -903,6 +903,7 @@ namespace DynamicGamedayAtmosphere {
             upgraded=RetuneShake2030(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,48);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,49);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,50);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");
