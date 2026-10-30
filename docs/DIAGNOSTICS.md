@@ -1,57 +1,37 @@
-# Update 3 testing and diagnostics
+# Troubleshooting Update 3
 
-Current candidate **1.99.0**, staged only after its build/host checks pass. Update 2 (1.54.0) remains the public release. Confirm the installed runtime in status.txt; staging does not install it. Earlier tests do not establish live acceptance of later changes. Historical evidence is retained in [validation history](reviews/Update3-validation-history-through-1.97.md).
+Current release: **2.0.12**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
 
-## First checks for 1.99
+## Check the installed build
 
-Start with a **fresh ordinary daytime Dynasty launch at a lower-demand school**, then a qualified ranked rivalry. Inspect the starting-attendance line for prestige 0-10, separate AP/media rank, score/standing, EA/revised peak and kickoff share. The demand distribution and 80% regular cap stay in place; individual program ordering can change. Midgame Saves restore their existing peak.
+Close the game and MMC before replacing the DLL, then restart both. Keep one copy of DGA installed. Open `Plugins/DynamicGamedayAtmosphere/Logs/status.txt` and check the version, game process and activation state. A version line alone does not establish that every optional feature activated.
 
-Compare a crowd above50% but below its layered gate with a qualified crowd at normal play selection and after earned plays. The former should have sound-only reactions without native HFA motion; the latter can retain native motion while no DGA cue is playing. Include critical downs and night admission. A deliberately configured INI zero opts out of this native filter; cannon stays independent.
+Update 3 refreshes old settings once and backs up the exact old INI. Do not delete the History or Backups folders. New custom settings survive later launches.
 
-Use matched regular-season day/night games with the same teams, venue, weather, quarter length and scoring path. Fresh launches are required for revised peak turnout; resume tests validate restored history. Night means verified stadium-local kickoff at or after 19:00.
+## Report a problem
 
-- Atmosphere thresholds are 90% of their daytime values, with an absolute 50% measured-fullness floor. An 80% gate becomes 72%; 55% becomes 50%. Verify status reports the effective night gates. Actual packed-house classification, occupied-seat strengths, voice/volume budgets, cannon behavior remain separate; native HFA uses effective crowd/context admission.
-- During Q3 the night/scoring pressure ramps in, reaching its full effect at Q4. Night adds up to 20% pressure; a projected full-game total of 24 or less adds up to 15%, while 72 or more reduces it by up to 10%, with smooth transitions around 48. Pace is game-clock normalized. These multiply existing pressure/approach speed, not remaining crowd. They do not create a score-triggered group or lower existing floors.
-- One-score games receive only a quarter of those modifiers; credible comeback/upset protection still owns admission. Check a low-scoring close game against a close shootout, and a low-scoring 21-point loss against a high-scoring 21-point loss. No refill, pause/replay accumulation or retroactive deduction across Super Sim jumps.
-- Bowl, CFP and championship atmosphere/departure policies do not receive these modifiers. Neutral regular-season games receive symmetric night/scoring pressure; side-specific home-loss traffic remains excluded.
+Send the whole Logs folder. Include teams, mode, quarter/clock, down, play result, whether you skipped presentation, and what you heard or saw. A recording with a timestamp helps. No files upload automatically.
 
-## Representative games
+- `status.txt` and `DynamicGamedayAtmosphere.log` are the readable summaries.
+- `technical-status.txt` and `technical.log` retain detailed settings, native proof, IDs, replay stages and timing counters under normal logging.
+- `launcher.log` records startup and loading failures.
+- A requested sound, registered voice or camera cue does not prove audible or visible output.
+- Timing maxima include the labeled callback work; they are not FPS measurements.
 
-| Test | Main checks |
-| --- | --- |
-| Lower-demand daytime game, kept close | Revised peak can remain sparse after arrivals finish. Sound-only reactions below layered admission; modest permanent losses; temporary halftime returns. |
-| High-demand large venue at night | Ordinary versus exceptional opening band, effective gates, occupied-seat strength as fans arrive, 13-to-20-yard gain buildup and scoring handoffs. Use a venue besides Kyle Field too. |
-| Severe-late outdoor home in rain, developing into a rout | Utah/UCLA/Miami/Georgia Tech/Maryland baseline; late arrivals, weather reduction, halftime conversion and late traffic without refills or repeated deductions. |
-| Neutral regular-season rivalry | Both teams' qualifying reactions at 75% crowd-motion strength; symmetric crowd policy; manual/Slow Sim transitions. |
-| Bowl/CFP and championship spot checks | Native peak preserved; 70-80% and 80-90% opening fractions of peak, protected floors and no new regular-season modifiers. |
+## Useful comparisons
 
-A rivalry with either side Top25 or both Top50 qualifies for the expanded opening/arrival rules. Weak #135-versus-#137 rivals do not get that shortcut. The shared identity drives automatic regular-season patience, halftime conversion protection and packed-reaction premiums. Each effect retains its own crowd/situation gate; postseason profile/rate/floor policies remain dedicated.
+For attendance, use a fresh regular-season Dynasty launch for peak-formula checks. A loaded game cannot regenerate its original seating. Compare expected peak, kickoff share and actual fullness separately. Saves and replays should restore their own recorded crowd without refilling permanent departures.
 
-## Attendance checkpoints
+For sound, compare the same stadium and similar plays at different fullness. DGA may overlap native cheers; that is intended. The occupied-seat mix has no separate chant cut and no native excitement limiter. To disable DGA's audio hooks completely, turn off Crowd Sound Effects and restart the game/MMC.
 
-1. At kickoff, record EA/revised peak, actual capacity fullness, fraction still arriving and local kickoff. Confirm revised turnout applied rather than an EA fallback. Demand uses atmosphere35/prestige25/tradition20/brand10/conference5/AP5. General rankings still drive matchup and upset calculations.
-2. Opening fractions are of expected peak: ordinary 50-60% day, 55-65% night; severe-late baseline 45%/50%; ordinary marquee ceiling70%, exceptional cap80%. Only weather can go below40%, with35% minimum. Postseason bands stay protected.
-3. Arrivals finish after50/30/75/20% of Q1 for ordinary/marquee/severe/postseason. In five-minute quarters that is2:30/3:30/1:15/4:00 remaining. Changes wait for hidden windows; arrivals never restore permanent exits.
-4. Halftime departures begin during the last20-30% of Q2. Most temporary fans return during the first15-25% of Q3; the smaller wave finishes25-35% into Q3. Close marquee/packed games hold more fans until halftime. Permanent and temporary absences must stay distinct.
-5. Midgame Save: pause during arrivals, save/reload and compare the same clock. No paused drift or invented new opening. Keep history intact. A later-quarter save must not restart arrivals.
-6. Replays: older clips may use a fuller historical crowd; leaving them restores live attendance. Streamed views/postgame use the proper crowd. The 1.97 seating pattern is accepted on one Kyle Field preview, but installed arrivals/replay/resume and other venue shapes still need checks.
-7. At late Q4/final, compare the score's history and weather rather than expecting a universal final percentage. Floors/caps are percentages of peak; visible fullness is percentage of mapped capacity.
+For camera movement, check the game's Dynamic Camera Effects setting and DGA's Added Camera Shake switch. Enough seats and a qualifying play/situation are still required. Cannons have a separate setting. Gameplay HFA remains native.
 
-## Reactions and broadcast
+For replays, note manual versus Slow Sim, any injury/penalty scene and whether playback was skipped. Manual major-play routing waits for full-screen playback before requesting an inset; Slow Sim has no inset destination. Native recordings and presentation still decide the visible sequence.
 
-- Below layered admission, earned sound-only reactions must remain audible without a new DGA event shake, passive roar, followup or volume premium. Native HFA follows shared crowd/context admission plus its advanced floor/zero opt-out; cannons are independent.
-- Native big-play excitement should rise above the calmer sparse background without an abrupt collapse at50% fullness. Queued/registered audio logs are not listening proof.
-- Run/scramble/catch-and-run buildup spans13-20 yards. Spins, jukes and ordinary broken tackles must not start shake. Check airborne anticipation for both offenses.
-- Five-yard-or-greater defensive losses share one motion route; shorter sacks retain audio/replay classification. Retest a strip sack followed by an ordinary minus-two-yard run and genuine consecutive sacks.
-- Home-defense forced fumbles can react on any down; defensive returns use interception-style motion, own pickups do not. Away takeaways at a home venue cancel positive home motion. Neutral ownership follows either side.
-- Dedicated goal-line motion requires fourth down; special high-leverage stops require Q4. Ordinary third-down incompletion alone does not trigger the contact stop impact. Take contact/knockout/breakup opportunities naturally.
-- Qualified home showboating builds slowly; away showboating requests boos. Cached/post-whistle tags must not repeat it.
-- Check softer pre-punt/home-critical buildup, snap fade, return/gain-to-TD handoffs, and bounded final-play carry. Final menus stop effects; no late restart from postgame highlights.
-- Manual TD/takeaway: let full-screen presentation finish, then inspect the separate inset. The user accepted current intermittent replay stability; it is an accepted limitation, not proof every native route is fixed. Slow Sim has no play-call inset destination; current mode-aware full-screen behavior still needs rendered confirmation.
-- The settings menu was accepted. Check reset/persistence and native accessibility/DGA camera-off behavior if changing settings. No crowd-animation changes were adopted after the replay-offset A/B showed no noticeable benefit.
+For 2020 Mode, check empty stands, no collective crowd/bands/drums/PA, retained quiet detail and clean field/commentary sound. The accepted ambience/reverb treatment is included; final individual-detail balance remains a live-check item on this release. Switching off should restore the current normal crowd and retire the audio overrides.
 
-## Reporting
+## Validation record
 
-Use normal logging (Debug=0) for routine games. Note quarter/clock, side, down, result and what was visibly/audibly wrong. Preserve the complete Logs folder plus relevant status. The status gate and request explain eligibility; neither proves rendered/audible output. No files upload automatically.
+The 2.0.9 full-game title-update check passed activation and user-observed unskipped full-screen/inset playback. The repeated-whistle-hitch fix was previously confirmed by restarted OFF/ON comparisons and later live play. Subsequent cleanup, 2020 audio and logging changes have automated coverage. A passing fixture is not a claim that every rare play or presentation route has been seen live.
 
-Install only with the game and MMC closed, preserving INI/save/history files. A build version line alone is not activation proof. See [candidate scope](releases/Update3.md), [build instructions](BUILDING.md) and [support notes](../README.md#problems).
+The release build runs the complete native/managed checks, 828 game simulations, 497 configuration-reader cases, 14 Python tests, 178 mapped-image checks and an isolated MMC adapter check. The exact DLL extracted from the download is checked before publication. Private captures, EXEs and saves are not included in the repository or release.

@@ -1,85 +1,47 @@
 # Dynamic Gameday Atmosphere
 
-By Ace. A College Football 27 plugin for MMC.
+By Ace · **Update 3 — 2.0.12** · College Football 27 for Windows · MMC plugin
 
-This branch contains the Update 3 release candidate (2.0.11). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
 
-Candidate 2.0.11 adds readable status/events alongside full technical logs, batched background log writes, a final-release settings refresh (including test-build INIs) and migration of known loose DGA helpers into its Backups folder. No manual INI deletion is required. 2020 Mode adds the listening-approved outdoor ambience/reverb-return treatment, mutes the separate drum cadence and PA announcer, and retains subdued individual details while suppressing collective crowd sounds. The individual-detail balance needs the next live smoke check. See the [logging/storage review](docs/reviews/Update3-2.0.11.md).
-
-Candidate 2.0.10 fixes dynamic-weather launch penalties, duplicate fourth-down fallback dispatch and repeated away catch/gain reactions. It caches native part resolutions within each forced crowd pass, reuses seat-depth calculations and clarifies status wording. Native cheers can still overlap DGA cheers; distinct earned milestones and touchdown upgrades remain. See the [final cleanup review](docs/reviews/Update3-2.0.10.md).
-
-Candidate 2.0.9 updates the native bindings for the Windows title update inspected on October 30. All 178 mapped-image byte/pointer checks pass, including 42 settings dispatch slots. This is a compatibility port with the 2.0.8 tuning retained; fresh-game activation and an entire game completed without observed binding errors. The user confirmed unskipped full-screen-to-inset replays and did not particularly notice hitches. The 2.0.10 changes still require a short live smoke check. See the [compatibility review](docs/reviews/Update3-2.0.9-title-update.md).
-
-Candidate 2.0.8 integrates the listening-tested reaction catalogue: 80 audible native selectors across 27 usable families, with four failed selectors excluded. Existing catches, gains, takeaways, touchdowns, stops, skills, kicks and lineup opportunities use matching variety, capped by occupied seats, fullness and play importance. Away counterparts add sound only; neutral games support either team. The menu remains 11 Attendance / 12 Soundscape / 13 Broadcast controls. See the [audio catalogue](docs/REACTION-AUDIO-CATALOG.md), [final review](docs/reviews/Update3-2.0.8.md) and [five release checks](docs/UPDATE3-TEST-PLAN.md).
-
-Candidate 2.0.7 adds off-by-default **2020 Mode** in Attendance: empty stands and native crowd/band mute, with the normal attendance history preserved for restoration. Qualifying overtime gains a generic confirmed defensive-stop shake, two-point and field-goal result coverage, a steady sound floor through kicks/tries and a 10% crowd-shake lift. Ownership, fullness, accessibility and replay guards remain. See the [change review and live checks](docs/reviews/Update3-2.0.7.md).
-
-Candidate 2.0.6 removes duplicate intensity-context and camera checks, rejects unrelated cannon events earlier, and adds sound/camera callback timing. It retains the live-verified 2.0.5 whistle-hitch fix. See the [remaining-path performance audit](docs/reviews/Update3-2.0.6-performance.md); the candidate still needs a short audio/camera smoke test.
-
-Candidate 2.0.5 reduces repeated play sampling and same-process expression-read overhead in Additional Replays. After the user's restarted OFF/ON comparison isolated that feature, the candidate passed the focused whistle-hitch test through arrivals completion and a touchdown's full-screen/inset sequence. It retains the prior equal-target crowd-update optimization and adds selector/routing timing. See the [performance investigation](docs/reviews/Update3-2.0.5.md).
-
-Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
-
-**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** · [Full feature list](FEATURES.md)
+**[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.12)** · [Full feature list](FEATURES.md)
 
 ## Install or update
 
-1. Close the game and MMC.
-2. Download the ZIP from Releases.
-3. Copy `DynamicGamedayAtmosphere.dll` from its `Plugins` folder into MMC's `Plugins` folder.
-4. Start MMC and launch the game through it.
+1. Close College Football 27 and MMC.
+2. Download and unzip the release.
+3. Copy `DynamicGamedayAtmosphere.dll` from the ZIP's `Plugins` folder into your MMC `Plugins` folder. Replace the old copy. Keep only one DGA DLL installed.
+4. Open MMC and launch the game through it.
 
-**The final Update 3 release resets previous DGA settings, including prerelease/test builds, to the current defaults once.** You do not need to delete your INI: the plugin saves the original in `Plugins/DynamicGamedayAtmosphere/Backups` before replacing it. Reapply any custom settings afterward using the new INI or the in-game Gameday Atmosphere tab. Later launches and routine updates preserve your new settings. Restart both programs after replacing the DLL.
+This build supports the Windows game update checked on October 30, 2026. **Offline Dynasty is the tested mode.** Other modes are not guaranteed to support every feature.
 
-Candidate 1.94 adds occupied-seat scaling for crowd motion and DGA reaction audio, live home showboat buildup/away boos, fourth-down-only goal-line motion, Q4-only high-leverage stops and a 13–20-yard gain ramp. Existing fullness qualification remains.
+**Update 3 resets old DGA settings once, including earlier Update 3 test builds.** Your old INI is backed up automatically. You do not need to delete it. Reapply any settings you want afterward. Your new settings are kept on later launches. Game saves and the game's own settings are not reset.
 
-Candidate 1.93 simplifies defensive shake: sacks and runs use one confirmed five-yard-loss rule, and qualifying third/fourth-down stops share one motion decision. Short sacks retain their sounds and replay classification. Existing atmosphere gates and motion strengths remain.
+## What's new since Update 2
+
+- **Rebuilt attendance:** expected crowds use school support, season performance and matchup demand. Openers, night games, local opponents, senior day and service-academy matchups can draw more fans.
+- **More natural seating:** fans favor desirable seats, with smaller group gaps and less uniform thinning.
+- **A new crowd mix:** sparse crowds are quieter but still alive. Full stadiums can be louder than the base game, up to a 30% audio-signal increase in the largest packed venue. Chants follow the same background mix.
+- **More reaction variety:** 80 listening-tested crowd sounds for existing plays and situations, including disappointment and visitor responses.
+- **Better shake and overtime:** strength follows occupied seats, transitions blend into touchdowns, and overtime covers more important results.
+- **More control in game:** open Settings → Gameday Atmosphere. Attendance, Soundscape and Broadcast each have a short list of plainly explained options.
+- **2020 Mode:** empty stands, no collective crowd or bands, quieter individual detail and a more open stadium sound.
+- **Performance and reliability fixes:** fixes for the repeated post-whistle hitch, carried-over sack flags, duplicate reactions, saved crowds and replay cleanup.
 
 ## Settings
 
-Edit `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each option explains its default, range and what it changes.
+Open **Settings → Gameday Atmosphere** in game. Most people can keep the defaults. Turn on the game's **Dynamic Camera Effects** if you want added shake.
 
-- **Attendance:** arrivals, departures, halftime seat breaks and seating patterns.
-- **Soundscape:** crowd sound, anticipation, play reactions and celebrations.
-- **Broadcast:** camera movement and extra replay opportunities.
+The advanced settings file is `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each option includes an explanation. Restart the game and MMC after replacing the DLL or changing the main Crowd Sound Effects switch.
 
-Fresh regular-season Dynasty games use grade/rank demand calibrated to real capacity-ratio statistics, including local-time night detection. Ordinary openings use a 50-60% baseline of expected peak by day, with up to8 small-venue access points,2 same-state points and5 night points, within the usual70% ceiling, with a hard 80% cap reserved for exceptional regular-season games; postseason starts 70-80% and championships 80-90%. Utah joins the severe-late arrival group. Postseason/non-regular games retain EA turnout. The new value is applied during launch; saved/simulated attendance stays native. See the [formula and examples](FEATURES.md#starting-turnout---first-pass-candidate). Sound uses how full the mapped stands actually look. Gameplay home-field advantage stays unchanged. Offline Dynasty is the verified mode; other modes are not guaranteed.
+**2020 Mode is off by default.** It empties the stadium and mutes collective crowd, bands, drums and the PA announcer. Turn it off to restore normal attendance and sound.
 
-Deep throws by either offense use a fast native swell while the pass is airborne. It works alongside lineup buildup, settles after the pass ends and adds no pre-catch cheer, shake or volume bonus. `PassFlightAnticipation=0` disables it.
+Fullness means the share of seats currently filled. Kickoff settings use a share of the crowd expected for that game. For example, if the expected crowd fills half the stadium and half those fans start seated, kickoff fullness is about 25%.
 
-Stadium cannon blasts have their own **Stadium Cannon Shake (%)** setting, default **15%** (`CannonShakeStrengthPercent` under Broadcast). Higher values make the blast stronger; lower values make it gentler; 0 disables its shake while keeping the native sound. It covers all nine native cannon variants through the shared stadium sound route, with no team or fullness restriction. The impact lasts 0.9 seconds, respects Dynamic Camera Effects and does not stack on top of a stronger celebration. Detected blasts appear once in the normal log as numbered `[cannon]` entries, including variant and configured strength; Debug logging is not required.
+## Problems
 
-Forced fumbles also have a fallback for delayed game signals: a recent opposing-player contact, the carrier losing the ball and fresh native fumble confirmation must all agree. A verified live defensive fumble return now uses the interception-return shake, subject to the same atmosphere gates. A result-only recovery adds no impact, and own-team pickups add no new motion. The reaction follows the original carrier, so an away defender forcing a home fumble does not produce a positive home-crowd impact.
+Check `Plugins/DynamicGamedayAtmosphere/Logs/status.txt` for the loaded version and activation status. If something is wrong, send the **whole Logs folder**, plus the teams, quarter/clock and what you saw or heard. The readable files are `status.txt` and `DynamicGamedayAtmosphere.log`; the technical files keep the detail needed for troubleshooting.
 
-Candidate 2.0.3 rebalances qualified crowd motion: a smooth occupied-seat curve gives 0.80x at 6,060 spectators and 1.10x at 61,888, with separate strengths for preplay tension, gains, stops, takeaways and scoring plays. Short impacts settle in 2-3 seconds. Earned reactions build smoothly into scoring peaks. See the [strength table and first tests](docs/reviews/Update3-2.0.3.md).
+Replays use the game's own recordings and presentation system. Injuries, penalties, skipped scenes and missing recordings can interrupt them. Slow Sim uses full-screen replays without a play-selection inset. DGA does not fix the base game's repeated kneel-down postgame highlights.
 
-The working build adds a **Gameday Atmosphere** tab at the far right of the game's Settings menu. It contains 36 essential controls across Attendance (11), Soundscape (12) and Broadcast (13), with On/Off controls first and numeric settings below. There is no troubleshooting section. Advanced options remain in the INI; changing the menu does not reset them. The tab and fullness toggle were verified in game; complete navigation, numeric editing and Reset remain on the final-build checklist. A long-run touchdown also carries its earned crowd level into the celebration instead of restarting a full-size native swell's attack.
-
-An existing live shake now rises into the TD/eruption level over 300 ms, without a new impact or an amplitude dip. Neutral crowd movement uses 75% of normal strength for either team. Successful spins/jukes get a cheer without added shake. Confirmed turnover-on-downs stops get a small paired shake and cheer.
-
-In verified manual play, the candidate major-play replay route waits for the full native clip sequence before requesting a separate inset repeat. Slow Sim keeps native full-screen playback and does not receive added inset requests; unavailable UI queries retain original inset handling. It requires live verification, and cannot create missing recordings. DGA no longer promotes knees/spikes into routine replays; the native postgame repeated-highlight issue remains under investigation.
-
-Quieter games now have a **sound-only reaction route**: verified big plays and results can get a single native cheer or disappointment sound, plus softer skill/pass swells. These do not unlock shake, sustained roar layers, follow-up cheers, eruptions or extra volume. Ordinary broken tackles are sound-only; knees/spikes do not get false sack reactions, and away takeaways clear previous home-positive motion.
-
-The working build also adds **Upset Watch sound** for credible home underdog bids against Top 25 visitors from Q2 onward. Ranking gap, score and game stage can qualify roars/swells and earned reactions below the normal sound gate, never below 50% actual fullness. Packed-house requirements and volume caps stay unchanged. `UpsetWatchAtmosphere=0` disables this route.
-
-The working build shows **Stadium Fullness** beside Resume in the regular pause menu. This is how full the mapped stands are, not attendance remaining. Set `PauseMenuFullness=0` under Dynamic Gameday Broadcast to hide it, then reopen the menu.
-
-## Problems?
-
-If the mod is not working, try these steps in order:
-
-1. **Run MMC as administrator.** Right-click your mod manager and select **Run as administrator**, then launch the game through it.
-2. **Update your mod manager** to the latest available version, then try again.
-3. **Restore the game's executable.** Close the game and MMC, delete `CollegeFB27.exe` from the game's installation folder, then use your game launcher's **Repair** or **Verify/Validate game files** option to restore it. Once repair finishes, launch through MMC again.
-4. **If it still does not work, send Ace all the logs.** Reproduce the issue, then collect every file in `Plugins\DynamicGamedayAtmosphere\Logs` inside your MMC folder. You can ZIP the Logs folder and send it together.
-
-Include your plugin, game and MMC versions, matchup and relevant settings. You can also [open a bug report](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/issues/new/choose). Activation errors in `launcher.log` name the failed step and Windows error; reported MMC/game administrator levels help diagnose access-denied errors.
-
-For missing audio, check that 2020 Mode is off, then compare Soundscape's `Enabled` option off/on. The native callback support stays installed for live toggles; disabled Soundscape retires its additions. Replacing the DLL still requires closing MMC and the game. There is no EXE hash requirement, but an EA update may still require new game bindings.
-
-## Source and updates
-
-[Build instructions](docs/BUILDING.md) · [Updating after an EA patch](docs/UPDATING-THE-GAME.md) · [Release history](RELEASES.md)
-
-[Working diagnostics and remaining live checks](docs/DIAGNOSTICS.md)
+The DLL belongs directly in MMC's `Plugins` folder. Settings, logs, backups, history and extracted tools stay inside `Plugins/DynamicGamedayAtmosphere/`. Keep that folder when updating so crowd history and backups remain available.

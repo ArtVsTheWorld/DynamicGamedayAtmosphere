@@ -8,7 +8,7 @@ From the repository folder:
 .\Source\Build.ps1 -Automatic
 ```
 
-This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release1800` for working build 1.80.0. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release2012` for build 2.0.12. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
 
 To compile the MMC adapter and make a download:
 
@@ -16,7 +16,7 @@ To compile the MMC adapter and make a download:
 .\Source\Package.ps1 -MmcRoot 'C:\Your\MMC' -ReleaseName 'Update 3'
 ```
 
-Set the working version in `Source/Product.json` and build it first. Use the actual public update name; the command above is an example for a future release. `MmcRoot` must contain `FrostyCore.dll` and `FrostySdk.dll`. Those files belong to MMC and are not included here. Packaging does not install anything unless you add `-Install`.
+Set the working version in `Source/Product.json` and build it first. Use the actual public update name; the command above packages the current public release. `MmcRoot` must contain `FrostyCore.dll` and `FrostySdk.dll`. Those files belong to MMC and are not included here. Packaging does not install anything unless you add `-Install`.
 
 The ZIP contains only the adapter DLL, README and feature list. The native runtime, loader and default INI are embedded in the adapter. Do not upload game files, MMC assemblies, dumps, saves or local runtime history.
 
