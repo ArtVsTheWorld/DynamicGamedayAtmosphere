@@ -2,7 +2,9 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 release candidate (2.0.10). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 release candidate (2.0.11). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+
+Candidate 2.0.11 adds readable status/events alongside full technical logs, batched background log writes, a final-release settings refresh (including test-build INIs) and migration of known loose DGA helpers into its Backups folder. No manual INI deletion is required. 2020 Mode adds the listening-approved outdoor ambience/reverb-return treatment, mutes the separate drum cadence and PA announcer, and retains subdued individual details while suppressing collective crowd sounds. The individual-detail balance needs the next live smoke check. See the [logging/storage review](docs/reviews/Update3-2.0.11.md).
 
 Candidate 2.0.10 fixes dynamic-weather launch penalties, duplicate fourth-down fallback dispatch and repeated away catch/gain reactions. It caches native part resolutions within each forced crowd pass, reuses seat-depth calculations and clarifies status wording. Native cheers can still overlap DGA cheers; distinct earned milestones and touchdown upgrades remain. See the [final cleanup review](docs/reviews/Update3-2.0.10.md).
 
@@ -27,7 +29,7 @@ Fans arrive late, take halftime breaks and leave as games get out of reach. Crow
 3. Copy `DynamicGamedayAtmosphere.dll` from its `Plugins` folder into MMC's `Plugins` folder.
 4. Start MMC and launch the game through it.
 
-**Update 3 resets previous DGA settings to the current defaults once.** You do not need to delete your INI: the plugin saves the original in `Plugins/DynamicGamedayAtmosphere/Backups` before replacing it. Reapply any custom settings afterward using the new INI or the in-game Gameday Atmosphere tab. Later launches and routine updates preserve your new settings. Restart both programs after replacing the DLL.
+**The final Update 3 release resets previous DGA settings, including prerelease/test builds, to the current defaults once.** You do not need to delete your INI: the plugin saves the original in `Plugins/DynamicGamedayAtmosphere/Backups` before replacing it. Reapply any custom settings afterward using the new INI or the in-game Gameday Atmosphere tab. Later launches and routine updates preserve your new settings. Restart both programs after replacing the DLL.
 
 Candidate 1.94 adds occupied-seat scaling for crowd motion and DGA reaction audio, live home showboat buildup/away boos, fourth-down-only goal-line motion, Q4-only high-leverage stops and a 13–20-yard gain ramp. Existing fullness qualification remains.
 

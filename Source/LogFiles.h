@@ -56,4 +56,27 @@ inline bool appendLog(const std::filesystem::path& path,const std::string& entry
     std::ofstream file(path,std::ios::binary|std::ios::out|(clear?std::ios::trunc:std::ios::app));
     file.write(entry.data(),static_cast<std::streamsize>(bytes));return file.good();
 }
+// One worker-side open per batch/file. Caps still apply at entry boundaries.
+inline bool appendLogBatch(const std::filesystem::path& path,const std::vector<std::string>& entries,uintmax_t limit){
+    if(!limit||!ensureFolder(path.parent_path()))return false;
+    std::error_code ec;uintmax_t existing=0;
+    if(std::filesystem::exists(path,ec)){existing=std::filesystem::file_size(path,ec);if(ec)return false;}if(ec)return false;
+    std::ofstream file;bool okay=true;
+    for(const auto& entry:entries){
+        if(entry.empty())continue;size_t n=static_cast<size_t>((std::min)(limit,static_cast<uintmax_t>(entry.size())));
+        bool clear=existing>=limit||n>limit-existing;
+        if(clear||!file.is_open()){if(file.is_open())file.close();file.open(path,std::ios::binary|std::ios::out|(clear?std::ios::trunc:std::ios::app));if(!file)return false;if(clear)existing=0;}
+        file.write(entry.data(),static_cast<std::streamsize>(n));if(!file){okay=false;break;}existing+=n;
+    }
+    return okay;
+}
+// First conversion preserves the previous detailed log before starting the
+// readable one. Copy failure never destroys the old troubleshooting evidence.
+inline void prepareReadableLogs(const std::filesystem::path& folder){
+    std::error_code ec;auto human=folder/L"DynamicGamedayAtmosphere.log",technical=folder/L"technical.log";
+    if(!std::filesystem::exists(technical,ec)&&!ec&&std::filesystem::exists(human,ec)&&!ec){
+        if(std::filesystem::copy_file(human,technical,std::filesystem::copy_options::none,ec)&&!ec){std::ofstream fresh(human,std::ios::trunc);}
+    }
+}
+
 }

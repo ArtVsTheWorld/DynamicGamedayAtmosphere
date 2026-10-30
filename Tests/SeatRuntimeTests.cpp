@@ -243,6 +243,8 @@ void testEmptyMode(TestWorld& world){
 int main(){
     image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
     logsFolder=std::filesystem::temp_directory_path()/L"Ace-SeatRuntimeTests";std::filesystem::create_directories(logsFolder);
+    writeActivationStatus("INACTIVE","Private fixture ownership refusal");
+    for(auto name:{"status.txt","technical-status.txt"}){std::ifstream f(logsFolder/name);std::string text((std::istreambuf_iterator<char>(f)),{});assert(text.find("Activation: INACTIVE")!=std::string::npos&&text.find("Private fixture ownership refusal")!=std::string::npos);}
     // Reproduce the reported incompatible visibility entry in this private
     // test executable. The required check must exit BEFORE creating hooks,
     // touching any game code, or enabling the audio/presentation subsystems.

@@ -1,7 +1,7 @@
 // Curated in-game essentials. Advanced options remain available in the INI.
 // Group order: Attendance, Soundscape, Broadcast; toggles precede numeric controls.
 {"Attendance",L"Dynamic Gameday Attendance",L"Enabled","Dynamic Attendance","Let fans arrive late, leave early and take halftime breaks as the game unfolds.",1.0,0.0,1.0,Kind::Toggle},
-{"Attendance",L"Dynamic Gameday Attendance",L"2020ModeEnabled","2020 Mode","Empty the stands and mute crowd and both marching bands in games. Normal attendance returns when switched off; commentary, field sounds and other music stay available.",0.0,0.0,1.0,Kind::Toggle},
+{"Attendance",L"Dynamic Gameday Attendance",L"2020ModeEnabled","2020 Mode","Empty the stands; mute collective crowd, bands, drums and the PA announcer. Keep quiet individual details and a more open field ambience. Switch off to restore normal attendance/audio.",0.0,0.0,1.0,Kind::Toggle},
 {"Attendance",L"Dynamic Gameday Attendance",L"ArrivalsEnabled","Fans Arriving After Kickoff","Start with some fans still outside and let them arrive during the first quarter, up to the expected peak crowd.",1.0,0.0,1.0,Kind::Toggle},
 {"Attendance",L"Dynamic Gameday Attendance",L"LateTrafficEnabled","Beat the Traffic Departures","Let fans leave faster in a home blowout: 17+ deficits start in the last third of Q4, or gently in the last half for 28+. With 12-minute quarters, that means 4:00 or a gentle 6:00 start.",1.0,0.0,1.0,Kind::Toggle},
 {"Attendance",L"Dynamic Gameday Attendance",L"Profile","Fan Patience","Automatic chooses patience from the matchup and weather. Normal uses standard departures; Patient Fans slows departures; Bad Weather makes fans leave sooner.",0,0,3,Kind::Profile},

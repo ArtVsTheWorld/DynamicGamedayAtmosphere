@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace DynamicGamedayAtmosphere {
     // Only DGA-owned names are migrated. Other plugins' settings/logs are untouched.
@@ -18,6 +20,17 @@ namespace DynamicGamedayAtmosphere {
                 if(File.Exists(path))return path;
             return null;
         }
+        // Exact DGA helper names/versioned native runtimes only. The MMC adapter
+        // stays beside the other plugins; unknown files are never swept up.
+        static IEnumerable<string> LooseHelpers(string plugins){
+            if(!Directory.Exists(plugins))yield break;
+            foreach(string file in Directory.GetFiles(plugins)){
+                string name=Path.GetFileName(file);
+                if(String.Equals(name,"LoadDynamicGamedayAtmosphere.exe",StringComparison.OrdinalIgnoreCase)||String.Equals(name,"LoadDynamicAttendance.exe",StringComparison.OrdinalIgnoreCase)||String.Equals(name,"DgaDiagnostics.exe",StringComparison.OrdinalIgnoreCase)||
+                   Regex.IsMatch(name,@"^(DynamicGamedayAtmosphereNative|DynamicAttendanceNative)-\d+\.\d+\.\d+\.dll$",RegexOptions.IgnoreCase))yield return file;
+            }
+        }
+        public static bool NeedsRelocation(string plugins){foreach(string file in LooseHelpers(plugins)){if(File.Exists(file))return true;}return false;}
         public static bool NeedsReset(string plugins,string defaults){
             string path=ExistingSettings(plugins);if(path==null)return false;
             string existing=File.ReadAllText(path);
@@ -56,6 +69,7 @@ namespace DynamicGamedayAtmosphere {
             Retire(Path.Combine(plugins,"DynamicGamedayAtmosphere-control.txt"),backup);
             foreach(string name in new[]{"DynamicGamedayAtmosphere.log","DynamicGamedayAtmosphere-launcher.log","DynamicGamedayAtmosphere-status.txt"})
                 Retire(Path.Combine(plugins,name),backup);
+            foreach(string file in LooseHelpers(plugins))Retire(file,backup);
             return resetBackup;
         }
     }

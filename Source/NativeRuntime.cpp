@@ -33,6 +33,7 @@
 #include "LogFiles.h"
 #include "SettingsPoll.h"
 #include "StatusReport.h"
+#include "HumanDiagnostics.h"
 #include "CrowdVisibility.h"
 #include "SeatMapping.h"
 #include "SeatBaseline.h"
@@ -537,7 +538,8 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
     if(!notedAudioState.exchange(true))logAudioState(nativeCrowdSlider.load());
     audioAudible=audible;lastAudibleUpdate=GetTickCount64();
     if(silenceBindingsReady&&(emptyMode2020||stadiumSilence.active())){
-        EmptyWorld world;stadiumSilence.tick(owner,emptyMode2020&&emptyWorld(world));
+        EmptyWorld world;bool emptyAudio=emptyMode2020&&emptyWorld(world);
+        stadiumSilence.tick(owner,emptyAudio,nativeUnpaused()&&(world.phase==1||world.phase==3||world.phase==4||world.phase==5));
     }
     if(swellAvailable)try {
         auto wanted=wantedSwell();auto primary=wanted;auto preview=std::atomic_load(&diagnosticPreview);
@@ -638,8 +640,12 @@ std::atomic<int> appliedVisibilityTarget{-1},appliedVisibilityMode{-1};
 void drainLogs(){
     std::vector<std::string> lines;
     {std::lock_guard<std::mutex> guard(logMutex);lines=queuedLogs.take();}
-    auto path=logsFolder/L"DynamicGamedayAtmosphere.log";
-    for(const auto& line:lines)attendance::appendLog(path,line,static_cast<uintmax_t>(logLimitMB.load())*1024*1024);
+    if(lines.empty())return;
+    auto limit=static_cast<uintmax_t>(logLimitMB.load())*1024*1024;
+    attendance::appendLogBatch(logsFolder/L"technical.log",lines,limit);
+    std::vector<std::string> readable;readable.reserve(lines.size());
+    for(const auto& line:lines){auto summary=attendance::readable::event(line);if(!summary.empty())readable.push_back(std::move(summary));}
+    attendance::appendLogBatch(logsFolder/L"DynamicGamedayAtmosphere.log",readable,limit);
 }
 void log(const char* event,const std::string& message) {
     std::lock_guard<std::mutex> guard(logMutex);
@@ -2904,6 +2910,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("GAME & MATCHUP");
     report.field("Game")<<"Q"<<shownQuarter<<" | "<<shownSeconds<<" seconds remaining | Home "<<shownScore0<<" - Away "<<shownScore1<<"\n";
+    report.field("Presentation phase")<<shownPhase<<"\n";
     report.field("Game process ID")<<GetCurrentProcessId()<<"\n";
     report.field("DGA atmosphere callback")<<atmosphereTimings.calls.load()<<" calls; max "<<atmosphereTimings.maximumUs.load()<<" us; >=4ms "<<atmosphereTimings.over4ms.load()<<"; >=16ms "<<atmosphereTimings.over16ms.load()<<" (wall time; not FPS)\n";
     report.field("DGA attendance decision")<<decisionTimings.calls.load()<<" calls; max "<<decisionTimings.maximumUs.load()<<" us; >=4ms "<<decisionTimings.over4ms.load()<<"; >=16ms "<<decisionTimings.over16ms.load()<<"\n";
@@ -2944,7 +2951,11 @@ void writeStatus(std::ostream& state,unsigned long long now){
 
     report.section("VISIBLE ATTENDANCE");
     report.field("2020 Mode")<<(!emptyMode2020?"off":emptyCrowdActive?"active; empty stadium override":"on; waiting for a verified stadium scene")<<"\n";
-    report.field("2020 crowd / away band / home band mute")<<(stadiumSilence.muted(0)?"on":"off")<<" / "<<(stadiumSilence.muted(1)?"on":"off")<<" / "<<(stadiumSilence.muted(2)?"on":"off")<<(!silenceBindingsReady?"; native mixer bindings unavailable":!stadiumSilence.healthy()?"; mute controller fault; retirement will retry":"")<<"\n";
+    report.field("2020 collective crowd / away band / home band mute")<<(stadiumSilence.muted(0)?"on":"off")<<" / "<<(stadiumSilence.muted(1)?"on":"off")<<" / "<<(stadiumSilence.muted(2)?"on":"off")<<(!silenceBindingsReady?"; native mixer bindings unavailable":!stadiumSilence.healthy()?"; mute controller fault; retirement will retry":"")<<"\n";
+    report.field("2020 drum cadence mute")<<(stadiumSilence.drumMuted()?"on":"off")<<"\n";
+    report.field("2020 PA announcer mute")<<(stadiumSilence.paMuted()?"on":"off")<<"\n";
+    report.field("2020 ambience / reverb return")<<stadiumSilence.ambienceDb()<<" / "<<stadiumSilence.spaceDb()<<" dB (native outdoor ambience / existing reverb return)\n";
+    report.field("2020 individual detail gain")<<stadiumSilence.detailDb()<<" dB; native field/player audio remains available\n";
     report.field("Crowd target")<<(emptyCrowdActive?0:100-(std::max)(activeLoss.load(),arrivalMissing.load()))<<"% of original attendance\n";
     report.field("Crowd measured");
     if(visibilityMeasured)state<<100.0*static_cast<double>(shownVisibleFans.load())/static_cast<double>((std::max)(1ull,shownOriginalFans.load()))<<"% of original attendance\n";
@@ -3092,7 +3103,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("TD / eruption duration")<<motion->touchdownMs/1000<<"s / "<<motion->eruptionMs/1000<<"s\n";
     report.field("Safety shake duration")<<attendance::motion::safetyDuration(*motion)/1000.0<<"s (70% of touchdown duration)\n";
     report.section("SETTINGS - LOGGING");
-    report.field("Log size limit")<<logLimitMB<<" MB; status is replaced each second\n";
+    report.field("Log size limit")<<logLimitMB<<" MB per event log; readable and technical status refresh once per second\n";
 
     if(debugLog){
         report.section("DEBUG - TECHNICAL COUNTERS");
@@ -3123,16 +3134,23 @@ void readDiagnosticRequest(uint64_t now){
     std::shared_ptr<const attendance::diagnostic::Request> next=std::make_shared<attendance::diagnostic::Request>(command);std::atomic_store(&diagnosticRequest,next);
     log("diagnostics",std::string("Requested ")+attendance::diagnostic::name(command.preset)+" preview; maximum "+std::to_string(command.seconds)+" seconds, current sound limits retained.");
 }
+void writeActivationStatus(const char* activation,const char* reason){
+    if(!attendance::ensureFolder(logsFolder))return;
+    std::ostringstream text;text<<"Dynamic Gameday Atmosphere " GAMEDAY_VERSION "\nGame process ID: "<<GetCurrentProcessId()<<"\nActivation: "<<activation<<"\nReason: "<<reason<<"\nSee technical.log and launcher.log for startup details.\n";
+    for(const auto* name:{L"status.txt",L"technical-status.txt"}){std::ofstream file(logsFolder/name,std::ios::trunc);file<<text.str();}
+}
 DWORD WINAPI worker(void*) {
     struct FlushOnExit {~FlushOnExit(){for(unsigned i=0;i<8;++i)drainLogs();}} flushOnExit;
     std::vector<wchar_t> path(32768);DWORD pathLength=GetModuleFileNameW(self,path.data(),static_cast<DWORD>(path.size()));if(!pathLength||pathLength>=path.size())return 1;folder=std::filesystem::path(std::wstring(path.data(),pathLength)).parent_path();dataFolder=folder.parent_path();pluginsFolder=dataFolder.parent_path();logsFolder=dataFolder/L"Logs";image=reinterpret_cast<A>(GetModuleHandleW(nullptr));
     lastApplied=0;shownCurrent=shownTarget=0;
+    attendance::ensureFolder(logsFolder);attendance::prepareReadableLogs(logsFolder);
+    writeActivationStatus("STARTING","Checking runtime ownership and native bindings.");
     readSettings();log("starting","Dynamic Gameday Atmosphere " GAMEDAY_VERSION "; attendance, retention and crowd audio.");
     if(GetPrivateProfileIntW(L"General",L"ConfigVersion",GAMEDAY_SCHEMA,(dataFolder/L"DynamicGamedayAtmosphere.ini").c_str())>GAMEDAY_SCHEMA){
-        log("inactive","Settings belong to a newer version. Update the plugin before using this configuration.");return 1;
+        log("inactive","Settings belong to a newer version. Update the plugin before using this configuration.");writeActivationStatus("INACTIVE","Settings belong to a newer plugin version.");return 1;
     }
     HANDLE modules=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE|TH32CS_SNAPMODULE32,GetCurrentProcessId());
-    if(modules==INVALID_HANDLE_VALUE){log("inactive","Could not check for another atmosphere runtime; no hooks installed.");return 1;}
+    if(modules==INVALID_HANDLE_VALUE){log("inactive","Could not check for another atmosphere runtime; no hooks installed.");writeActivationStatus("INACTIVE","Could not check runtime ownership; no hooks installed.");return 1;}
     MODULEENTRY32W module{};module.dwSize=sizeof(module);bool conflict=false;
     if(Module32FirstW(modules,&module))do{
         if(module.hModule==self)continue;
@@ -3140,16 +3158,15 @@ DWORD WINAPI worker(void*) {
         if(name.find(L"DynamicAttendanceNative")==0||name.find(L"DynamicAttendanceProbe")==0||name.find(L"DynamicGamedayAtmosphereNative")==0)conflict=true;
     }while(Module32NextW(modules,&module));
     CloseHandle(modules);
-    if(conflict){log("inactive","An older attendance/atmosphere runtime is already loaded. Restart both MMC and the game; no new hooks installed.");return 1;}
+    if(conflict){log("inactive","An older attendance/atmosphere runtime is already loaded. Restart both MMC and the game; no new hooks installed.");writeActivationStatus("INACTIVE","Older runtime already loaded; restart MMC and the game.");return 1;}
     const std::wstring mutexName=L"Local\\Ace.DynamicGamedayAtmosphere.Game."+std::to_wstring(GetCurrentProcessId());
     HANDLE lifetime=CreateMutexW(nullptr,FALSE,mutexName.c_str());
-    if(!lifetime||GetLastError()==ERROR_ALREADY_EXISTS){if(lifetime)CloseHandle(lifetime);log("inactive","Another atmosphere runtime already owns this game.");return 1;}
+    if(!lifetime||GetLastError()==ERROR_ALREADY_EXISTS){if(lifetime)CloseHandle(lifetime);log("inactive","Another atmosphere runtime already owns this game.");writeActivationStatus("INACTIVE","Another atmosphere runtime already owns this game.");return 1;}
     loadAttendanceHistory();readResumeStatus(GetTickCount64());
     if(!install()){
         const char* reason=signatures?"No compatible crowd entities or hook installation failed":"Required native bytes differ; no hooks installed";
         log("inactive",reason);
-        std::ofstream status(logsFolder/L"status.txt",std::ios::trunc);
-        status<<"Dynamic Gameday Atmosphere " GAMEDAY_VERSION "\nGame process ID: "<<GetCurrentProcessId()<<"\nActivation: INACTIVE\nReason: "<<reason<<"\nSee DynamicGamedayAtmosphere.log for the failing code check.\n";
+        writeActivationStatus("INACTIVE",reason);
         return 1;
     }
     log("ready","Ready. Regular-season starting turnout and local night detection ready when native launch inputs qualify; other games retain EA turnout. First-quarter arrivals fill toward that planned crowd. Formula-based departures settle between plays and at breaks, with the largest exit window at halftime.");
@@ -3181,8 +3198,9 @@ DWORD WINAPI worker(void*) {
             readResumeStatus(now);saveAttendanceHistory();
             readSettings();
             if(attendance::ensureFolder(logsFolder)){
-                std::ofstream state(logsFolder/L"status.txt",std::ios::trunc);
-                writeStatus(state,now);
+                std::ostringstream technical;writeStatus(technical,now);auto full=technical.str();
+                {std::ofstream state(logsFolder/L"technical-status.txt",std::ios::trunc);state<<full;}
+                {std::ofstream state(logsFolder/L"status.txt",std::ios::trunc);state<<attendance::readable::status(full);}
             }
             last=now;
         }

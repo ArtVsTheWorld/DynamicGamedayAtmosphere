@@ -9,7 +9,7 @@ class PluginStorageTests {
   Check(PluginStorage.NeedsReset(plugins,defaults));
   string saved=PluginStorage.Ensure(plugins,defaults);Check(saved!=null&&File.ReadAllBytes(saved).SequenceEqual(bytes));
   string ini=PluginStorage.SettingsFile(plugins),text=File.ReadAllText(ini);
-  Check(text.Contains("SettingsResetVersion=3")&&text.Contains("CannonShakeStrengthPercent=15")&&!text.Contains("Obsolete=99")&&!text.Contains("CannonShakeStrengthPercent=29"));
+  Check(text.Contains("SettingsResetVersion=4")&&text.Contains("CannonShakeStrengthPercent=15")&&!text.Contains("Obsolete=99")&&!text.Contains("CannonShakeStrengthPercent=29"));
   Check(!PluginStorage.NeedsReset(plugins,defaults));
   // User edits after the reset survive launch and a routine newer-default update.
   text=text.Replace("CannonShakeStrengthPercent=15","CannonShakeStrengthPercent=7.5");File.WriteAllText(ini,text);
@@ -23,7 +23,7 @@ class PluginStorageTests {
   string defaults=File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","Source","DynamicGamedayAtmosphere.ini"));
   try{
    string modern=Path.Combine(root,"DynamicGamedayAtmosphere.ini"),legacy=Path.Combine(root,"DynamicAttendance.ini"),nested=PluginStorage.SettingsFile(root);
-   File.WriteAllText(modern,"[General]\nConfigVersion=2\nSettingsResetVersion=3\nAudioBalanceVersion=39\n[Dynamic Gameday Attendance]\nStartPercent=47\n[Custom]\nMyValue=keep\n");
+   File.WriteAllText(modern,"[General]\nConfigVersion=2\nSettingsResetVersion=4\nAudioBalanceVersion=39\n[Dynamic Gameday Attendance]\nStartPercent=47\n[Custom]\nMyValue=keep\n");
    File.WriteAllText(legacy,"old legacy content");File.WriteAllText(Path.Combine(root,"AnotherPlugin.ini"),"untouched");
    File.WriteAllText(Path.Combine(root,"DynamicGamedayAtmosphere.log"),"old log");File.WriteAllText(Path.Combine(root,"DynamicGamedayAtmosphere-control.txt"),"empty");
    PluginStorage.Ensure(root,defaults);
@@ -40,17 +40,26 @@ class PluginStorageTests {
    ResetCase(root,"Update2","DynamicGamedayAtmosphere.ini",stale,defaults);
    ResetCase(root,"Legacy","DynamicAttendance.ini","[Attendance]\nEnabled=0\n[Custom]\nObsolete=99\n",defaults);
    ResetCase(root,"WorkingBuild",Path.Combine("DynamicGamedayAtmosphere","DynamicGamedayAtmosphere.ini"),stale,defaults);
+   ResetCase(root,"PreReleaseMarker3",Path.Combine("DynamicGamedayAtmosphere","DynamicGamedayAtmosphere.ini"),"[General]\nConfigVersion=2\nSettingsResetVersion=3\nAudioBalanceVersion=50\n[Dynamic Gameday Broadcast]\nCannonShakeStrengthPercent=29\n",defaults);
    ResetCase(root,"Malformed",Path.Combine("DynamicGamedayAtmosphere","DynamicGamedayAtmosphere.ini"),"Obsolete=99\n",defaults);
    ResetCase(root,"BadMarker",Path.Combine("DynamicGamedayAtmosphere","DynamicGamedayAtmosphere.ini"),"[General]\nSettingsResetVersion=invalid\nObsolete=99\n",defaults);
    string fresh=Path.Combine(root,"Fresh");Check(!PluginStorage.NeedsReset(fresh,defaults)&&PluginStorage.Ensure(fresh,defaults)==null);
-   Check(File.ReadAllText(PluginStorage.SettingsFile(fresh)).Contains("SettingsResetVersion=3")&&!Directory.Exists(Path.Combine(PluginStorage.DataFolder(fresh),"Backups")));
+   Check(File.ReadAllText(PluginStorage.SettingsFile(fresh)).Contains("SettingsResetVersion=4")&&!Directory.Exists(Path.Combine(PluginStorage.DataFolder(fresh),"Backups")));
    // Do not let a stale loose copy overwrite an already-reset nested INI.
    File.WriteAllText(Path.Combine(fresh,"DynamicGamedayAtmosphere.ini"),stale);
    string current=File.ReadAllText(PluginStorage.SettingsFile(fresh));Check(!PluginStorage.NeedsReset(fresh,defaults));
    Check(PluginStorage.Ensure(fresh,defaults)==null&&File.ReadAllText(PluginStorage.SettingsFile(fresh))==current);
    string newer=Path.Combine(root,"NewerReset");Directory.CreateDirectory(PluginStorage.DataFolder(newer));
-   File.WriteAllText(PluginStorage.SettingsFile(newer),"[General]\nConfigVersion=2\nSettingsResetVersion=4\n[Custom]\nObsolete=99\n");
-   Check(!PluginStorage.NeedsReset(newer,defaults)&&PluginStorage.Ensure(newer,defaults)==null&&File.ReadAllText(PluginStorage.SettingsFile(newer)).Contains("SettingsResetVersion=4"));
+   File.WriteAllText(PluginStorage.SettingsFile(newer),"[General]\nConfigVersion=2\nSettingsResetVersion=5\n[Custom]\nObsolete=99\n");
+   Check(!PluginStorage.NeedsReset(newer,defaults)&&PluginStorage.Ensure(newer,defaults)==null&&File.ReadAllText(PluginStorage.SettingsFile(newer)).Contains("SettingsResetVersion=5"));
+   string helpers=Path.Combine(root,"LooseHelpers");Directory.CreateDirectory(helpers);
+   string[] owned={"LoadDynamicGamedayAtmosphere.exe","LoadDynamicAttendance.exe","DGADIAGNOSTICS.EXE","DynamicGamedayAtmosphereNative-2.0.10.dll","DynamicAttendanceNative-1.2.3.dll"};
+   foreach(string name in owned)File.WriteAllText(Path.Combine(helpers,name),name);
+   foreach(string name in new[]{"DynamicGamedayAtmosphere.dll","AnotherPlugin.dll","OtherTool.exe","DynamicGamedayAtmosphereNative-user.dll"})File.WriteAllText(Path.Combine(helpers,name),"untouched");
+   Check(PluginStorage.NeedsRelocation(helpers));PluginStorage.Ensure(helpers,defaults);Check(!PluginStorage.NeedsRelocation(helpers));
+   foreach(string name in owned)Check(!File.Exists(Path.Combine(helpers,name)));
+   foreach(string name in new[]{"DynamicGamedayAtmosphere.dll","AnotherPlugin.dll","OtherTool.exe","DynamicGamedayAtmosphereNative-user.dll"})Check(File.ReadAllText(Path.Combine(helpers,name))=="untouched");
+   Check(Directory.GetFiles(Path.Combine(PluginStorage.DataFolder(helpers),"Backups")).Length==owned.Length);
    string blocked=Path.Combine(root,"Locked");Directory.CreateDirectory(PluginStorage.DataFolder(blocked));string blockedIni=PluginStorage.SettingsFile(blocked);File.WriteAllText(blockedIni,stale);
    using(var held=new FileStream(blockedIni,FileMode.Open,FileAccess.Read,FileShare.Read)){
     failed=false;try{PluginStorage.Ensure(blocked,defaults);}catch(IOException){failed=true;}

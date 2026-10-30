@@ -97,7 +97,7 @@ namespace DynamicGamedayAtmosphere
                     using(var reader=new StreamReader(input))defaults=reader.ReadToEnd();
                     // An Update 2 runtime still uses the loose settings file.
                     // Never move its settings out from under a running game.
-                    bool moving=File.Exists(Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere.ini"))||File.Exists(Path.Combine(PluginsFolder,"DynamicAttendance.ini"))||PluginStorage.NeedsReset(PluginsFolder,defaults);
+                    bool moving=File.Exists(Path.Combine(PluginsFolder,"DynamicGamedayAtmosphere.ini"))||File.Exists(Path.Combine(PluginsFolder,"DynamicAttendance.ini"))||PluginStorage.NeedsReset(PluginsFolder,defaults)||PluginStorage.NeedsRelocation(PluginsFolder);
                     bool noted=false;
                     while(moving){
                         watcherStep="wait for the running game before migrating settings";

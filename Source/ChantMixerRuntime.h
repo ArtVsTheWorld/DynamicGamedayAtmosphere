@@ -64,6 +64,15 @@ class Runtime {
                     templates_.groupIndex=selectedGroup_;templates_.parent=at<unsigned short>(group+0x2a);templates_.properties.fill(0);
                     Address label=at<Address>(group+0x20);std::memset(templates_.name,0,sizeof(templates_.name));
                     for(size_t j=0;j<sizeof(templates_.name)-1;++j){char c=0;if(!read(label+j,c)){result=false;break;}templates_.name[j]=c;if(!c)break;}
+                    if(selectedGroup_==11&&(templates_.parent!=2||std::strcmp(templates_.name,"WeatherAndAmbience")!=0))result=false;
+                    if(selectedGroup_==86&&(templates_.parent!=8||std::strcmp(templates_.name,"ReverbMaster")!=0))result=false;
+                    if(selectedGroup_==32&&(templates_.parent!=3||std::strcmp(templates_.name,"PAAnnouncer")!=0))result=false;
+                    if(selectedGroup_==12&&(templates_.parent!=9||std::strcmp(templates_.name,"Anticipation_Home_Pass")!=0))result=false;
+                    if(selectedGroup_==14&&(templates_.parent!=9||std::strcmp(templates_.name,"Chants/Response")!=0))result=false;
+                    if(selectedGroup_==16&&(templates_.parent!=9||std::strcmp(templates_.name,"StudentSection")!=0))result=false;
+                    if(selectedGroup_==17&&(templates_.parent!=9||std::strcmp(templates_.name,"Sweeteners")!=0))result=false;
+                    if(selectedGroup_==23&&(templates_.parent!=17||std::strcmp(templates_.name,"CrowdNIS")!=0))result=false;
+                    if(selectedGroup_==77&&(templates_.parent!=5||std::strcmp(templates_.name,"DrumCadence")!=0))result=false;
                     if(selectedGroup_==13&&(templates_.parent!=9||std::strcmp(templates_.name,"Beds")!=0))result=false;
                     if(selectedGroup_==15&&(templates_.parent!=9||std::strcmp(templates_.name,"Reactions")!=0))result=false;
                     if(selectedGroup_==18&&(templates_.parent!=9||std::strcmp(templates_.name,"Swells")!=0))result=false;
@@ -106,7 +115,8 @@ public:
         if(!manager)return;
         // Range permits empty-crowd attenuation and stock preplay boost offsets.
         // This is an additive level, not an absolute output target.
-        float ceiling=group==positiveGroup_&&(group==9||group==13||group==15||group==18)?positiveLimit_:0;
+        bool spatial=group==11||group==86;
+        float ceiling=group==positiveGroup_&&(spatial||group==9||group==13||group==15||group==18)?(spatial?(std::min)(positiveLimit_,6.f):positiveLimit_):0;
         float desired=active?std::round((std::fmax)(-160.0f,(std::fmin)(ceiling,requestedDb))*4)*0.25f:0;
         bool wanted=healthy_&&active&&(desired!=0||forceNeutral||mute);
         auto time=clock_?clock_():GetTickCount64();

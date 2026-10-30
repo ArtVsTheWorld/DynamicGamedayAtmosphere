@@ -115,6 +115,7 @@ int main(){
         layer.tick(second.owner+0x40,true,3,false,false,31);assert(layer.db()==0);
     }
     put(second.stock.group.address()+0x28,static_cast<unsigned short>(14));
+    strcpy_s(second.stock.groupName,"Chants/Response"); // Restore the identity after testing other groups.
     Runtime failed;failed.configure(image,nullptr,create,release,source);failCreate=true;
     failed.tick(second.owner+0x40,true,-6);assert(!failed.healthy());unsigned attempts=created;
     failed.tick(second.owner+0x40,true,-6);assert(created==attempts);
