@@ -91,7 +91,8 @@ inline Pattern build(const std::vector<Position>& positions,const std::vector<un
     std::vector<unsigned> ids;for(unsigned i=0;i<baseline.size();++i)if((baseline[i]&parts)!=parts)ids.push_back(i);
     if(!plausible(positions,ids))return result;
     const size_t n=ids.size();auto byDepth=ids;
-    std::sort(byDepth.begin(),byDepth.end(),[&](unsigned a,unsigned b){double da=distance(positions[a]),db=distance(positions[b]);return da==db?a<b:da<db;});
+    std::vector<double> distances(positions.size());for(unsigned i:ids)distances[i]=distance(positions[i]);
+    std::sort(byDepth.begin(),byDepth.end(),[&](unsigned a,unsigned b){double da=distances[a],db=distances[b];return da==db?a<b:da<db;});
     std::vector<double> percentile(positions.size()),logWeight(positions.size()),area(positions.size()),choice(positions.size()),quality(positions.size());
     for(size_t k=0;k<n;++k)percentile[byDepth[k]]=(static_cast<double>(k)+.5)/static_cast<double>(n);
     for(unsigned i:ids){

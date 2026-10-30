@@ -25,13 +25,14 @@ inline int cheerType(const Outcome& event){
     default:return std::isfinite(event.yards)&&event.yards>=40?91:83;
     }
 }
-inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType){
+inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType,bool fourthAlready=false){
     bool phase=state.phase==4||state.phase==5||state.phase==1;
     bool loss=result.fiveYardLoss&&std::isfinite(result.yards)&&result.yards>=-100&&result.yards<=-4.99f;
     // Official defensive takeaways can supply one missed recovery impact. Own
     // pickups lack takeaway proof; verified force and live return retain priority.
     bool recovery=result.takeaway&&result.event==energy::Event::FumbleRecovery;
     bool fourth=result.firstDown&&result.event==energy::Event::FourthDown;
+    if(fourth&&fourthAlready)return {}; // Live crossing already owns this conversion, even after a later gain accent.
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
        (result.sequence==previousSequence&&!catalog::negative(previousType))||!(fourth||recovery||result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns))return {};
     Event selected=fourth?Event::FourthConversion:result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:recovery?Event::FumbleRecovery:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;

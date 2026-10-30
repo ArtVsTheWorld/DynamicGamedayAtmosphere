@@ -25,6 +25,15 @@ int main(){
     assert(!visibility::resolvePart(validPart,0x10000,16,bit));
     assert(!visibility::resolvePart(retiredPart,0x10000,3,bit));
     assert(visibility::resolvePart(validPart,0x10000,3,bit)&&bit==3); // A later valid scene still works.
+    visibility::PassParts cache;partLookups=0;cache.begin();
+    for(unsigned fan=0;fan<34393;++fan)for(unsigned part=0;part<3;++part)assert(cache.resolve(validPart,0x10000,part,bit)&&bit==part);
+    assert(partLookups==3); //103179 lookups become3; identical bit result.
+    assert(!cache.resolve(retiredPart,0x10000,1,bit));
+    assert(cache.resolve(validPart,0x20000,1,bit)&&partLookups==4);
+    cache.end();assert(cache.resolve(validPart,0x10000,1,bit)&&partLookups==5);
+    cache.begin();assert(cache.resolve(validPart,0x10000,1,bit)&&partLookups==6);
+    for(unsigned part=3;part<80;++part)assert(!cache.resolve(validPart,0x10000,part+16,bit));
+    cache.end();
     Crowd crowd;Controller controller{&crowd},dead{&crowd,false};
     std::vector<uintptr_t> controllers{reinterpret_cast<uintptr_t>(&controller),reinterpret_cast<uintptr_t>(&dead)};
     int permanent=0,temporary=40;unsigned capturePasses=0,applyPasses=0;

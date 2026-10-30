@@ -12,6 +12,13 @@ int main(){
  for(bool neutral:{false,true}){Fixture f(1,neutral);f.begin();f.tick(3,3,1,10,false);auto catchSound=f.tick(3,1,4,10);assert(bool(catchSound.type)==!neutral);if(!neutral)assert(catchSound.type/4==5);assert(!f.tick(3,1,4,20).type);
   f.p.game.awayScore+=6;f.p.game.seconds-=8;auto score=f.tick(4,1,4,50);assert(bool(score.type)==!neutral);if(!neutral)assert(score.scoring&&score.type/4==17);assert(!f.tick(5).type);
  }
+ // The existing visitor-deep-catch route can speak before the20-yard shadow
+ // threshold. Cover it across ticks without blocking a later verified TD.
+ {Fixture f;f.begin();f.tick(3,3,1,5,false);f.model.cover(f.sequence);
+  assert(!f.tick(3,1,4,10).type);assert(!f.tick(3,1,4,20).type);
+  f.p.game.awayScore+=6;f.p.game.seconds-=8;auto score=f.tick(4,1,4,50);assert(score.scoring&&score.type/4==17);assert(!f.tick(5).type);
+  ++f.sequence;f.p.resultStamp+=1;f.begin();f.tick(3,3,1,10,false);assert(f.tick(3,1,4,10).type);}
+ {Fixture f;f.begin();f.model.cover(f.sequence,true);f.p.game.awayScore+=6;f.p.game.seconds-=8;assert(!f.tick(4).type);}
  // A home success cannot produce its opponent's disappointment counterpart.
  {Fixture f(0);f.begin();f.tick(3,3,1,10,false);assert(!f.tick(3,1,4,10).type);f.p.game.homeScore+=6;f.p.game.seconds-=8;assert(!f.tick(4,1,4,50).type);}
  // A home third-down incompletion becomes the existing away defensive-stop sound.

@@ -177,7 +177,12 @@ inline bool launch(A image,Launch& l,const Seed& seed,const char** failure=nullp
     for(const auto& field:fields)if(!option(r,service,field.key,field.name,field.width,*field.value))return fail(field.name);
     if(bowl!=127)return fail("gameBowlId is postseason");
     l.home=static_cast<int>(h);l.away=static_cast<int>(a);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);
-    l.minutes=static_cast<int>(time);l.precipitation=static_cast<int>(precip);l.rivalry=rivalry!=1023;
+    if(precip>3)return fail("gameWeatherPrecipitation range");
+    // Dynamic severity is a possible forecast, not proof of rain at kickoff.
+    // Keep the native forecast untouched; actual live weather still drives exits.
+    unsigned dynamic=0;l.weatherKnown=option(r,service,0x9f793700,"gameWeatherDynamicEnabled",1,dynamic)&&dynamic<=1;
+    l.dynamicWeather=l.weatherKnown&&dynamic!=0;l.configuredPrecipitation=static_cast<int>(precip);
+    l.minutes=static_cast<int>(time);l.precipitation=l.weatherKnown&&!l.dynamicWeather?static_cast<int>(precip):0;l.rivalry=rivalry!=1023;
     if(stadium>=1023)return fail("gameStadiumId range");
     unsigned senior=0;
     l.seniorKnown=option(r,service,0x9e6ce400,"gameFlagIsSeniorDay",1,senior)&&senior<=1;

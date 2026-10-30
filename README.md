@@ -2,9 +2,11 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.9). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 release candidate (2.0.10). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights and section patterns are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
 
-Candidate 2.0.9 updates the native bindings for the Windows title update inspected on October 30. All 178 mapped-image byte/pointer checks pass, including 42 settings dispatch slots. This is a compatibility port with the 2.0.8 tuning retained; fresh-game live activation still needs confirmation. See the [compatibility review](docs/reviews/Update3-2.0.9-title-update.md).
+Candidate 2.0.10 fixes dynamic-weather launch penalties, duplicate fourth-down fallback dispatch and repeated away catch/gain reactions. It caches native part resolutions within each forced crowd pass, reuses seat-depth calculations and clarifies status wording. Native cheers can still overlap DGA cheers; distinct earned milestones and touchdown upgrades remain. See the [final cleanup review](docs/reviews/Update3-2.0.10.md).
+
+Candidate 2.0.9 updates the native bindings for the Windows title update inspected on October 30. All 178 mapped-image byte/pointer checks pass, including 42 settings dispatch slots. This is a compatibility port with the 2.0.8 tuning retained; fresh-game activation and an entire game completed without observed binding errors. The user confirmed unskipped full-screen-to-inset replays and did not particularly notice hitches. The 2.0.10 changes still require a short live smoke check. See the [compatibility review](docs/reviews/Update3-2.0.9-title-update.md).
 
 Candidate 2.0.8 integrates the listening-tested reaction catalogue: 80 audible native selectors across 27 usable families, with four failed selectors excluded. Existing catches, gains, takeaways, touchdowns, stops, skills, kicks and lineup opportunities use matching variety, capped by occupied seats, fullness and play importance. Away counterparts add sound only; neutral games support either team. The menu remains 11 Attendance / 12 Soundscape / 13 Broadcast controls. See the [audio catalogue](docs/REACTION-AUDIO-CATALOG.md), [final review](docs/reviews/Update3-2.0.8.md) and [five release checks](docs/UPDATE3-TEST-PLAN.md).
 
@@ -16,7 +18,7 @@ Candidate 2.0.5 reduces repeated play sampling and same-process expression-read 
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
-**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** Ã‚Â· [Full feature list](FEATURES.md)
+**[Download the latest release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest)** · [Full feature list](FEATURES.md)
 
 ## Install or update
 
@@ -76,6 +78,6 @@ For missing audio, check that 2020 Mode is off, then compare Soundscape's `Enabl
 
 ## Source and updates
 
-[Build instructions](docs/BUILDING.md) Ã‚Â· [Updating after an EA patch](docs/UPDATING-THE-GAME.md) Ã‚Â· [Release history](RELEASES.md)
+[Build instructions](docs/BUILDING.md) · [Updating after an EA patch](docs/UPDATING-THE-GAME.md) · [Release history](RELEASES.md)
 
 [Working diagnostics and remaining live checks](docs/DIAGNOSTICS.md)

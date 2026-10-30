@@ -20,6 +20,14 @@ int main(){
         auto tick=[&](uint64_t now,int phase,float runner){p.game.phase=phase;return m.observe(c,p,123,1,now,true,456,0,9,0,runner,true,true);};
         tick(1000,1,-20);tick(1100,3,-20);assert(tick(1200,3,-18).event==live::Event::FourthConversion);
         live::Outcome run;for(int i=1;i<=20;++i){auto a=tick(1200+i*100,3,-18.f+i);if(a.id)run=a;}assert(run.event==live::Event::LongRun);}
+    // Production result fallback: a live conversion is already delivered,
+    // even if a skill or20-yard gain has since replaced its camera cue.
+    {energy::Outcome result;result.accepted=result.completed=result.firstDown=true;result.sequence=75;result.side=0;result.event=energy::Event::FourthDown;
+     State state{4,28,21,4,140,720};
+     assert(live::completedImpact(result,state,true,0,59).event==live::Event::FourthConversion);
+     assert(!live::completedImpact(result,state,true,0,59,true).id);
+     result.event=energy::Event::FumbleRecovery;result.firstDown=false;result.takeaway=true;
+     assert(live::completedImpact(result,state,true,0,59,true).event==live::Event::FumbleRecovery);}
     motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
     m.observe(settings,x);x.now=1100;x.duringPlay=1;x.duringImpact=x.supplementalImpact=true;x.impactMilliseconds=2400;x.reactionScale=.7f;
     auto a=m.observe(settings,x);assert(a.kind==motion::Kind::LivePlay&&a.impactOnly&&a.percent==7&&a.until==3500);

@@ -79,13 +79,27 @@ int main(){
     for(A p:{image+OptionService,image+OptionType,image+OptionVtable,image+0xd9eb808,image+0xf63f9f0})page(p);
     unsigned char options[0x200]{},config[0x100]{};put(image+OptionService,address(options));put(address(options),image+OptionVtable);put(image+OptionVtable+0x80,image+0x90a1670);
     put<int>(image+0xd9eb808,14);put(image+0xf63f9f0,address(config));
-    const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId","gameFlagIsSeniorDay"};
-    unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900,0x9e6ce400};
-    unsigned short offsets[]={0x30,0x20,0x46,0x14,0x3c,0x49,0x32,0x22,0x25};Member members[9]{};
-    for(unsigned i=0;i<9;++i){members[i].name=reinterpret_cast<A>(names[i]);members[i].flags=keys[i];members[i].offset=offsets[i];}
-    put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,9);
+    const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId","gameFlagIsSeniorDay","gameWeatherDynamicEnabled"};
+    unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900,0x9e6ce400,0x9f793700};
+    unsigned short offsets[]={0x30,0x20,0x46,0x14,0x3c,0x49,0x32,0x22,0x25,0x51};Member members[10]{};
+    for(unsigned i=0;i<10;++i){members[i].name=reinterpret_cast<A>(names[i]);members[i].flags=keys[i];members[i].offset=offsets[i];}
+    put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,10);
     put<unsigned short>(address(options)+0x30,1153);put<unsigned short>(address(options)+0x20,1193);put<unsigned short>(address(options)+0x46,553);put<int>(address(options)+0x14,45000);put<unsigned short>(address(options)+0x3c,1140);put<unsigned char>(address(options)+0x49,0);put<unsigned short>(address(options)+0x32,1023);put<unsigned char>(address(options)+0x22,127);
     Launch launchInput;assert(launch(image,launchInput,seed)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
+    // Reported dry dynamic game had severity2 with a20% rain chance.
+    // Severity is not a guaranteed current-weather observation in that mode.
+    put<unsigned char>(address(options)+0x49,2);put<unsigned char>(address(options)+0x51,1);
+    assert(launch(image,launchInput,seed)&&launchInput.weatherKnown&&launchInput.dynamicWeather&&launchInput.configuredPrecipitation==2&&launchInput.precipitation==0);
+    auto dynamicResult=calculate(seed,launchInput);assert(dynamicResult.applied&&dynamicResult.weather==0);
+    put<unsigned char>(address(options)+0x51,0);
+    assert(launch(image,launchInput,seed)&&launchInput.weatherKnown&&!launchInput.dynamicWeather&&launchInput.precipitation==2);
+    assert(calculate(seed,launchInput).weather==-9);
+    members[9].name=reinterpret_cast<A>("unverifiedWeatherFlag");
+    assert(launch(image,launchInput,seed)&&!launchInput.weatherKnown&&launchInput.precipitation==0);
+    members[9].name=reinterpret_cast<A>(names[9]);put<unsigned char>(address(options)+0x51,2);
+    assert(launch(image,launchInput,seed)&&!launchInput.weatherKnown&&launchInput.precipitation==0);
+    put<unsigned char>(address(options)+0x49,4);assert(!launch(image,launchInput,seed));
+    put<unsigned char>(address(options)+0x49,0);put<unsigned char>(address(options)+0x51,0);
     put<unsigned char>(address(options)+0x25,1);assert(launch(image,launchInput,seed)&&launchInput.seniorKnown&&launchInput.senior);
     members[8].name=reinterpret_cast<A>("unavailableSeniorFlag");assert(launch(image,launchInput,seed)&&!launchInput.seniorKnown&&!launchInput.senior);members[8].name=reinterpret_cast<A>("gameFlagIsSeniorDay");put<unsigned char>(address(options)+0x25,0);
     // Correct captured capacity binds without executing a native capacity RPC.

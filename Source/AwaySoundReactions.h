@@ -10,6 +10,9 @@ class Model {
  uint64_t sequence_=0;bool emitted_=false,scored_=false;
 public:
  void reset(){*this=Model{};}
+ // Main situational reactions can arrive before the symmetric gain threshold.
+ // Cover that play across ticks, while retaining a later verified score upgrade.
+ void cover(uint64_t sequence,bool scoring=false){if(sequence_!=sequence){sequence_=sequence;emitted_=scored_=false;}emitted_=true;scored_=scored_||scoring;}
  void track(const energy::Settings& c,const energy::Play& p,uint64_t mainSequence){auto symmetric=p;symmetric.game.neutral=true;if(p.game.phase==6){tracker_.primeOpeningIntro(symmetric);result_={};}else result_=tracker_.observe(c,symmetric);if(result_.accepted)result_.sequence=mainSequence;}
  Outcome observe(const live::Settings& c,const energy::Play& p,uintptr_t match,unsigned epoch,uint64_t sequence,uint64_t now,bool allowed,
   uintptr_t record,int kind,int ball,float catchSpot,float runnerSpot,bool held,bool skillAllowed,const skills::Sample& sample){

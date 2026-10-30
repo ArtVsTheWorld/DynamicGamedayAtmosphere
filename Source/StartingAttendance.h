@@ -27,6 +27,7 @@ struct Seed {
 struct Launch {
     int home=-1,away=-1,stadium=-1,capacity=0,ea=0,minutes=-1,precipitation=-1;
     bool rivalry=false,neutral=false,senior=false,seniorKnown=false;
+    bool dynamicWeather=false,weatherKnown=true;int configuredPrecipitation=-1;
 };
 struct Result {
     bool applied=false,night=false,exceptional=false;

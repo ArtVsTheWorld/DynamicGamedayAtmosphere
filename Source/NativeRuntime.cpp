@@ -188,6 +188,7 @@ unsigned lastGeneration=0;
 unsigned long long lastDecision=0,lastFrame=0;
 std::atomic<bool> enabled{false};
 thread_local bool applying=false;
+thread_local attendance::visibility::PassParts passParts;
 thread_local bool thinning=false;
 thread_local bool reconcilingArrivals=false,capturingBaseline=false;
 thread_local unsigned int removalLimit=0;
@@ -627,6 +628,7 @@ bool commitPatches(){
 
 attendance::LogQueue queuedLogs;
 attendance::timing::Counts atmosphereTimings,decisionTimings,crowdApplyTimings,replayCrowdTimings,nativeCrowdTimings,naturalCrowdTimings;
+attendance::timing::Counts seatPreparationTimings,crowdMeasurementTimings;
 attendance::timing::Counts replaySelectorTimings,replaySelectorIntervals,replayOriginalTimings,majorReplayTimings;
 attendance::timing::Counts replayEventNativeTimings,replayNodeNativeTimings;
 std::atomic<uint64_t> replaySelectorWorkNs{0},replayMajorSelectorSamples{0};
@@ -718,7 +720,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<"; native school states "<<seed.home.state<<"/"<<seed.away.state<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", breakout "<<result.breakout<<", event multiplier "<<result.eventMultiplier<<", opener/night/senior/local/academy bonuses "<<100*result.openerBoost<<"/"<<100*result.nightBoost<<"/"<<100*result.seniorBoost<<"/"<<100*result.stateBoost<<"/"<<100*result.academyBoost<<"%; schedule "<<(launch.seniorKnown?"native senior-day flag verified":"senior-day flag unavailable")<<"; access +"<<result.accessBonus<<" kickoff points; floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<"; native school states "<<seed.home.state<<"/"<<seed.away.state<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather policy "<<(launch.weatherKnown?(launch.dynamicWeather?"dynamic forecast; no guaranteed-rain penalty":"verified static precipitation"):"unverified forecast; no launch penalty")<<", configured precipitation "<<launch.configuredPrecipitation<<", weather "<<result.weather<<", variation "<<result.variation<<", breakout "<<result.breakout<<", event multiplier "<<result.eventMultiplier<<", opener/night/senior/local/academy bonuses "<<100*result.openerBoost<<"/"<<100*result.nightBoost<<"/"<<100*result.seniorBoost<<"/"<<100*result.stateBoost<<"/"<<100*result.academyBoost<<"%; schedule "<<(launch.seniorKnown?"native senior-day flag verified":"senior-day flag unavailable")<<"; access +"<<result.accessBonus<<" kickoff points; floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -1137,6 +1139,7 @@ void refreshRenderedOccupancy(){
 // Runs after the native baseline pass, outside the per-fan callback. Build one
 // immutable order per renderer, then share it across every attendance purpose.
 void prepareSeatPatterns(){
+    attendance::timing::Scope measured(seatPreparationTimings);
     std::lock_guard<std::mutex> guard(crowdMutex);bool pending=false;unsigned ready=0,fallback=0;
     for(auto cursor=startingCrowds.begin();cursor!=startingCrowds.end();){
         auto& item=*cursor;
@@ -1180,7 +1183,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
     if(enabled&&maskLayout(crowd,renderer,begin,count,parts)&&agent<count){
         // The backend stores a hidden bit per resolved part, for each fan.
         unsigned bit=16;
-        if(attendance::visibility::resolvePart(reinterpret_cast<attendance::visibility::PartResolver>(image+attendance::bindings::CrowdPartResolve),parts,part,bit)){
+        if(passParts.resolve(reinterpret_cast<attendance::visibility::PartResolver>(image+attendance::bindings::CrowdPartResolve),parts,part,bit)){
             std::lock_guard<std::mutex> guard(crowdMutex);
             auto found=startingCrowds.find(renderer);
             const bool collecting=(collectingStartingCrowd.load()&&!applying)||capturingBaseline;
@@ -1275,16 +1278,17 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
     std::vector<A> snapshot;{std::lock_guard<std::mutex> guard(entityMutex);snapshot=entities;}
     bool needCapture=(captureArrivalBaseline&&activeLoss==0)||seatPatternPending||visibilityGeneration!=entityGeneration.load();
     {std::lock_guard<std::mutex> guard(crowdMutex);needCapture=needCapture||startingCrowds.empty();}
+    bool prepared=false;
     auto result=attendance::visibility::dispatch(snapshot,captureOnly,needCapture,[&](A entity){
         if(entityValid(entity))return true;refreshEntities=true;return false;
     },[&](A entity,bool baseline){
-        if(!baseline)prepareSeatPatterns();
+        if(!baseline&&!prepared){prepareSeatPatterns();prepared=true;}
         calls=changed=verifiedCalls=0;applying=true;capturingBaseline=baseline;
         activeCaptureToken=baseline?++captureSequence:0;
         thinning=!baseline&&thin;reconcilingArrivals=!baseline&&arrivals;
         // The engine resolves controller -> scene crowds. Renderer readiness
         // is checked on each actual crowd in visibility(), before any write.
-        {attendance::timing::Scope nativeMeasured(nativeCrowdTimings);++forcedCrowdPasses;originalAttendanceUpdate(entity);}
+        {attendance::timing::Scope nativeMeasured(nativeCrowdTimings);++forcedCrowdPasses;passParts.begin();originalAttendanceUpdate(entity);passParts.end();}
         if(baseline){std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)
             if(item.second.captureToken==activeCaptureToken)item.second.baselineComplete=true;
         }
@@ -1301,6 +1305,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
     const int historical=replayLoss.load();
     const int measuredLoss=emptyCrowdActive?100:(!thin||mode==2)?0:historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load());
     if(!captureOnly&&result.verified){
+        attendance::timing::Scope measuredCrowd(crowdMeasurementTimings);
         std::lock_guard<std::mutex> guard(crowdMutex);
         for(const auto& item:startingCrowds){
             A renderer=item.first;const auto& base=item.second;
@@ -1327,7 +1332,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
 }
 bool guardedApply(bool thin,bool arrivals=false,bool captureOnly=false) {
     __try {apply(thin,arrivals,captureOnly);return true;}
-    __except(EXCEPTION_EXECUTE_HANDLER){applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
+    __except(EXCEPTION_EXECUTE_HANDLER){passParts.end();applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
 }
 void serviceEmptyMode(){
     static EmptyWorld previous;static bool hadWorld=false;
@@ -2206,7 +2211,7 @@ void atmosphereTick(){
     // this play already received camera motion. Keep that ownership separate
     // so a later confirmed five-yard loss/forced fumble can request its impact.
     bool supplementalPrevious=attendance::live::accent(liveMotionEvent)||liveMotionEvent==attendance::live::Event::FourthConversion;
-    auto confirmedImpact=attendance::live::completedImpact(result,p.game,liveAllowed&&liveSettings->enabled,supplementalPrevious?0:liveMotionSequence,59);
+    auto confirmedImpact=attendance::live::completedImpact(result,p.game,liveAllowed&&liveSettings->enabled,supplementalPrevious?0:liveMotionSequence,59,liveReactions.fourthConverted()||(liveMotionSequence==result.sequence&&liveMotionEvent==attendance::live::Event::FourthConversion));
     bool defensiveImpact=confirmedImpact.id!=0;
     if(defensiveImpact&&(!liveResult.id||attendance::live::accent(liveResult.event)))liveResult=confirmedImpact;
     auto breakupSample=passBreakupBinding?attendance::defense::snapshot(image,read,defensiveAccents.lookupAfter()):attendance::defense::Sample{};
@@ -2217,6 +2222,8 @@ void atmosphereTick(){
     auto situation=situationalReactions.observe(p,playTracker.start,result,match,epoch,playTracker.serial,now,
         liveAllowed&&liveSettings->enabled&&situationalReactionsEnabled&&(attendance::lineup::offensivePlay(selectedPlayType)||selectedPlayType==21),liveKind,ballState,catchSpot,runnerSpot,ballHeld,selectedPlayType);
     if(showboat.id&&showboat.side==1&&!p.game.neutral&&!liveResult.id&&!situation.id)situation={showboat.id,103,attendance::situational::Event::AwayShowboat};
+    if(liveResult.id||situation.id)awaySoundReactions.cover(playTracker.serial,
+        result.accepted&&result.completed&&(result.homePoints>0||result.awayPoints>0));
     auto awaySound=awaySoundReactions.observe(*liveSettings,p,match,epoch,playTracker.serial,now,
         liveAllowed&&liveSettings->enabled&&situationalReactionsEnabled&&!kickPlay,liveRecord,liveKind,ballState,catchSpot,runnerSpot,ballHeld,skillAllowed,skillSample);
     auto basicResult=soundOnlyReactions.observe(result,playTracker.start,p,match,epoch,basicReactionEligible,reactionEligible,
@@ -2287,7 +2294,7 @@ void atmosphereTick(){
         celebrationReactionType=result.accepted&&result.completed?attendance::palette::resultType(result,playTracker.start,p.game,playTracker.sawPassReleased,playTracker.serial,epoch):attendance::palette::generic(attendance::catalog::hash(playTracker.serial,coreAtmosphere.celebration,epoch));
         int seconds=static_cast<int>(p.game.seconds);char stamp[32]{};
         if(p.game.phase==7)sprintf_s(stamp,"Final");else sprintf_s(stamp,"Q%d %d:%02d",p.game.quarter,seconds/60,seconds%60);
-        log("eruption",std::string(attendance::energy::name(coreAtmosphere.event))+" ("+(coreAtmosphere.winner==1?"away":"home")+") at "+stamp+"; "+std::to_string(static_cast<int>(coreAtmosphere.eruptionSeconds))+"-second celebration, sustained roar and native cheer; volume boost up to +"+std::to_string(static_cast<int>(std::lround(attendance::volume::boostPercent(attendance::core::eruptionLimit(*audio)))))+"%.");
+        log("eruption",std::string(attendance::energy::name(coreAtmosphere.event))+" ("+(coreAtmosphere.winner==1?"away":"home")+") at "+stamp+"; "+std::to_string(static_cast<int>(coreAtmosphere.eruptionSeconds))+"-second celebration, sustained roar and native cheer; crowd bus gain stays within the occupied-seat mix and configured total cap; no extra eruption gain.");
     }
     if(previousOpening<=0&&coreAtmosphere.openingWeight>0)log("opening","Big-game opening atmosphere started.");
     if(previousOpening>0&&coreAtmosphere.openingWeight<=0)log("opening","Opening atmosphere settled into the normal crowd mix.");
@@ -2901,6 +2908,8 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("DGA atmosphere callback")<<atmosphereTimings.calls.load()<<" calls; max "<<atmosphereTimings.maximumUs.load()<<" us; >=4ms "<<atmosphereTimings.over4ms.load()<<"; >=16ms "<<atmosphereTimings.over16ms.load()<<" (wall time; not FPS)\n";
     report.field("DGA attendance decision")<<decisionTimings.calls.load()<<" calls; max "<<decisionTimings.maximumUs.load()<<" us; >=4ms "<<decisionTimings.over4ms.load()<<"; >=16ms "<<decisionTimings.over16ms.load()<<"\n";
     report.field("DGA crowd apply")<<crowdApplyTimings.calls.load()<<" calls; max "<<crowdApplyTimings.maximumUs.load()<<" us; >=4ms "<<crowdApplyTimings.over4ms.load()<<"; >=16ms "<<crowdApplyTimings.over16ms.load()<<"\n";
+    report.field("DGA seat preparation")<<seatPreparationTimings.calls.load()<<" calls; max "<<seatPreparationTimings.maximumUs.load()<<" us (layout preparation, not every play)\n";
+    report.field("DGA crowd measurement")<<crowdMeasurementTimings.calls.load()<<" calls; max "<<crowdMeasurementTimings.maximumUs.load()<<" us (mask measurement after actual updates)\n";
     report.field("DGA replay crowd check")<<replayCrowdTimings.calls.load()<<" calls; max "<<replayCrowdTimings.maximumUs.load()<<" us; >=4ms "<<replayCrowdTimings.over4ms.load()<<"; >=16ms "<<replayCrowdTimings.over16ms.load()<<"\n";
     report.field("Forced native crowd passes")<<forcedCrowdPasses.load()<<"; max "<<nativeCrowdTimings.maximumUs.load()<<" us (native + DGA visibility work); unchanged replay refreshes skipped "<<unchangedReplaySkips.load()<<"\n";
     report.field("Natural crowd update")<<naturalCrowdTimings.calls.load()<<" calls; max "<<naturalCrowdTimings.maximumUs.load()<<" us; >=4ms "<<naturalCrowdTimings.over4ms.load()<<"; >=16ms "<<naturalCrowdTimings.over16ms.load()<<" (native + DGA observer; not isolated DGA time)\n";
@@ -2970,7 +2979,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Native attendance / capacity")<<(known?std::to_string(population->attendance)+" / "+std::to_string(population->capacity):"waiting for verified values")<<" (reference only; sound uses mapped seating)\n";
 
     report.section("ATMOSPHERE & CAMERA - LIVE EFFECTS");
-    report.field("Opening-drive allowance")<<(shownOpeningDrive?"qualified at critical-down fullness":"inactive / first possession ended or below requirement")<<"\n";
+    report.field("Opening-drive allowance")<<(shownOpeningDrive?"qualified at opening-drive fullness (separate opening threshold)":"inactive / first possession ended or below requirement")<<"\n";
     report.field("Play-call atmosphere")<<(!audio->enabled||!audio->lineups?"disabled":shownLineup?(shownPackedHouse?"packed-house buildup active":"active"):shownBigAtmosphere?"big game; waiting for lineup / enough fans":"waiting for a qualifying lineup / enough fans")<<"\n";
     report.field("Upset Watch sound")<<(!audio->enabled||!audio->lineups||!audio->upsetWatch?"disabled":attendance::upsetsound::name(shownUpsetStage))<<"; ";
     if(shownUpsetStage)state<<(shownUpsetSound?"qualified":"waiting for enough fans")<<"; needs "<<100*shownUpsetMinimum.load()<<"% actual fullness; ";
@@ -3001,7 +3010,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Supporting gameplay swell")<<(supportingSwell.playing()?"playing":"inactive")<<"\n";
     report.field("Successful-play reaction")<<(atmosphere.active&&atmosphere.reason==attendance::sustained::Reason::Result?(atmosphere.reaction?"settling":"active"):"inactive")<<"\n";
     report.field("Crowd eruption")<<((shownEruption&&now<shownDecisiveUntil.load())?"active":"inactive")<<"\n";
-    report.field("Postgame celebration carry")<<(shownPostgameCarry?"active":"inactive")<<"\n";
+    report.field("Postgame celebration carry")<<(shownPostgameCarry?"eligible / retained; actual sound and camera states shown above":"inactive")<<"\n";
 
     report.section("REPLAYS");
     report.field("Replay crowd")<<(replayLoss>=0?std::to_string(100-replayLoss.load())+(replaySuspendsAtmosphere?"% (interactive; live target preserved)":"% (automatic; live target preserved)"):"inactive")<<"\n";
