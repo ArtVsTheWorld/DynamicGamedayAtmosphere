@@ -2,7 +2,7 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.2). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 test candidate (2.0.3). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
@@ -37,7 +37,7 @@ Stadium cannon blasts have their own **Stadium Cannon Shake (%)** setting, defau
 
 Forced fumbles also have a fallback for delayed game signals: a recent opposing-player contact, the carrier losing the ball and fresh native fumble confirmation must all agree. A verified live defensive fumble return now uses the interception-return shake, subject to the same atmosphere gates. A result-only recovery adds no impact, and own-team pickups add no new motion. The reaction follows the original carrier, so an away defender forcing a home fumble does not produce a positive home-crowd impact.
 
-Confirmed home-defense pass breakups on third and fourth down now get a small shake and cheer even without a catch-knockout flag. The shake lasts 1.8 seconds at half the Live-play shake strength (5% with the default setting). Landed hit sticks keep their cheer, but only add shake after a confirmed third- or fourth-down stop. Knockouts and larger reactions on the same play take priority. Existing fullness gates, volume caps and the native Dynamic Camera Effects switch still apply.
+Candidate 2.0.3 rebalances qualified crowd motion: a smooth occupied-seat curve gives 0.80x at 6,060 spectators and 1.10x at 61,888, with separate strengths for preplay tension, gains, stops, takeaways and scoring plays. Short impacts settle in 2-3 seconds. Earned reactions build smoothly into scoring peaks. See the [strength table and first tests](docs/reviews/Update3-2.0.3.md).
 
 The working build adds a **Gameday Atmosphere** tab at the far right of the game's Settings menu. It contains 35 essential controls across Attendance (10), Soundscape (12) and Broadcast (13), with On/Off controls first and numeric settings below. There is no troubleshooting section. Advanced options remain in the INI; changing the menu does not reset them. The tab and fullness toggle were verified in game; complete navigation, numeric editing and Reset remain on the final-build checklist. A long-run touchdown also carries its earned crowd level into the celebration instead of restarting a full-size native swell's attack.
 

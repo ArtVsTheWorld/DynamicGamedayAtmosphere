@@ -7,10 +7,10 @@ using namespace attendance;
 energy::Play opening(int side,float length){energy::Play p;p.game={1,0,0,6,length,length};p.offense=side;p.down=0;p.toGoal=75;p.toFirst=10;return p;}
 int main(){
     core::Settings config;motion::Settings settings;
-    assert(std::abs(motion::hostileOpeningStrength(6060)-5.25f)<.001f&&std::abs(motion::hostileOpeningStrength(61888)-16.5f)<.001f);
-    assert(std::abs(motion::hostileOpeningStrength(512)-5.25f)<.001f&&std::abs(motion::hostileOpeningStrength(200000)-16.5f)<.001f);
+    assert(std::abs(motion::hostileOpeningStrength(6060)-8.f)<.001f&&std::abs(motion::hostileOpeningStrength(61888)-11.f)<.001f);
+    assert(std::abs(motion::hostileOpeningStrength(512)-10*motion::venueScale(512))<.001f&&std::abs(motion::hostileOpeningStrength(200000)-11.f)<.001f);
     assert(motion::hostileOpeningStrength(0)==0&&motion::hostileOpeningStrength(6060,0)==0);
-    float previous=0;for(uint64_t seats=512;seats<=100000;seats+=127){float value=motion::hostileOpeningStrength(seats);assert(value>=previous&&value>=5.249f&&value<=16.501f);previous=value;}
+    float previous=0;for(uint64_t seats=512;seats<=100000;seats+=127){float value=motion::hostileOpeningStrength(seats);assert(value>=previous&&value>6.79f&&value<=11.001f);previous=value;}
     for(int side:{0,1})for(float length:{60.f,300.f,720.f,1200.f})for(uint64_t seats:{6060ull,26101ull,61888ull}){
         auto p=opening(side,length);lineup::Model layers;motion::Model camera;float gate=packed::standardMinimum(seats);
         auto tick=[&](uint64_t now){layers.observe(config,p,123,1,now,true,gate,true,nullptr,seats);};
@@ -85,7 +85,7 @@ int main(){
     motion::Model priority;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.venueEligible=x.lineup=true;x.lineupId=1;x.now=1000;x.phase=5;
     x.duringPlay=1;x.duringImpact=true;auto cue=priority.observe(settings,x);assert(cue.kind==motion::Kind::LivePlay);
     x.now=1200;priority.observe(settings,x);x.now=7400;cue=priority.observe(settings,x);assert(cue.kind==motion::Kind::Ordinary&&motion::strength(cue,x.now)==0);
-    x.now=7600;cue=priority.observe(settings,x);assert(motion::strength(cue,x.now)==5);
+    x.now=7600;cue=priority.observe(settings,x);assert(motion::strength(cue,x.now)==4);
     x.allowed=false;x.now=7700;assert(priority.observe(settings,x).kind==motion::Kind::None);
     std::puts("PASS: earlier selection ramp, preserved lineup identity/priority, first-away-snap-only hostile profile, shared venue curve, gates/false starts/quarter lengths and fresh fourth-down sack ownership proof.");
 }

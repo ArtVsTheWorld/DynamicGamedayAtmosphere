@@ -77,8 +77,8 @@ int main(){
     // and a shared roar/swell companion. Native-camera/mute gates stay upstream.
     motion::Input x;x.match=123;x.epoch=1;x.now=1000;x.phase=4;x.allowed=true;x.duringPlay=1;
     live::Outcome event{live::Event::PassBreakup,1,0,0};defense::motion(event,x);
-    motion::Model camera;motion::Settings settings;auto cue=camera.observe(settings,x);assert(cue.until==2800&&cue.impactOnly&&cue.percent==5);
-    x.now=1200;x.duringPlay=0;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>0&&motion::strength(cue,x.now)<=5);
+    motion::Model camera;motion::Settings settings;auto cue=camera.observe(settings,x);assert(cue.until==3300&&cue.impactOnly&&cue.percent==6);
+    x.now=1200;x.duringPlay=0;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>0&&motion::strength(cue,x.now)<=6);
     sustained::Intent sound;sound.active=true;sound.match=123;sound.epoch=1;sound.updated=x.now;
     assert(pairing::merge(sound,cue,x.now,1,1).intensity>0&&live::cheerType(event)==59);
     x.touchdown=1;x.now=1300;assert(camera.observe(settings,x).kind==motion::Kind::Touchdown);
@@ -91,11 +91,11 @@ int main(){
         input.phase=3;input.lineup=false;input.now=2100;fast.observe(settings,input);ordinary.observe(settings,input);
         input.now=2110;input.duringPlay=1;input.duringImpact=true;
         auto normal=ordinary.observe(settings,input);defense::motion({live::Event::ForcedFumble,1,0,0},input);auto forced=fast.observe(settings,input);
-        assert(forced.percent==normal.percent&&forced.until==normal.until&&forced.began==normal.began);
+        assert(forced.percent==13&&normal.percent==settings.live&&forced.began==normal.began);
         input.now=2145;forced=fast.observe(settings,input);input.forcedImpact=false;normal=ordinary.observe(settings,input);
         assert(motion::strength(forced,input.now)>motion::strength(normal,input.now));
-        input.forcedImpact=true;input.now=2160;forced=fast.observe(settings,input);assert(std::fabs(motion::strength(forced,input.now)-settings.live)<.001f);
-        assert(forced.until==normal.until&&forced.began==2110); // Same ID cannot restart it.
+        input.forcedImpact=true;input.now=2160;forced=fast.observe(settings,input);assert(std::fabs(motion::strength(forced,input.now)-13)<.001f);
+        assert(forced.until==5110&&forced.began==2110); // Same ID cannot restart it.
         input.allowed=false;input.now=2170;assert(fast.observe(settings,input).kind==motion::Kind::None);
     }
     std::puts("PASS: captured defender deflection layout; third/fourth confirmed breakup stops; paired sound/motion; ownership and stale guards; fast forced-fumble onset at unchanged peak/duration and smooth takeover; hit-stick sound-only until a confirmed critical-down stop.");

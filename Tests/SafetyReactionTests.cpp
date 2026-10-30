@@ -28,7 +28,7 @@ int main(){
         core::Model gate;assert(!gate.react(sound,result,1,s,true,false)&&!gate.resultCheer);
     }
     motion::Model camera;motion::Settings settings;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.safety=1;
-    auto cue=camera.observe(settings,x);assert(cue.kind==motion::Kind::Safety&&cue.until==8700&&cue.percent==15&&cue.impact==20);
+    auto cue=camera.observe(settings,x);assert(cue.kind==motion::Kind::Safety&&cue.until==8700&&cue.percent==12&&cue.impact==16);
     auto until=cue.until;
     for(uint64_t now=1250;now<until;now+=250){x.now=now;x.phase=now<3000?4:now<5000?5:1;cue=camera.observe(settings,x);assert(cue.kind==motion::Kind::Safety&&cue.until==until&&motion::strength(cue,now)>0);}
     x.now=until;assert(camera.observe(settings,x).kind==motion::Kind::None);

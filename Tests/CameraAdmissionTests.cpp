@@ -40,8 +40,8 @@ int main(){
     auto p=fixture();p.game.quarter=5;p.game.seconds=0;motion::Settings settings;
     for(bool critical:{false,true}){
         p.down=critical?3:1;p.toFirst=10;auto admit=lineup::cameraAdmission(c,p,.50f,true,61888,3);assert(admit.allowed&&admit.critical==critical);
-        motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.phase=1;x.now=1000;x.allowed=x.lineup=true;x.lineupId=1;x.lineupScale=.5f;x.venueEligible=admit.allowed;x.critical=admit.critical;x.lineupStrengthScale=admit.strengthScale;
-        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=(critical?7.5f:4.0f)*admit.strengthScale;
+        motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.phase=1;x.now=1000;x.allowed=x.lineup=true;x.lineupId=1;x.lineupScale=.5f;x.venueEligible=admit.allowed;x.critical=admit.critical;x.homeCritical=admit.critical&&!p.game.neutral&&p.offense==0;x.lineupStrengthScale=x.homeCritical?1.f:admit.strengthScale;
+        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=(critical?(x.homeCritical?5.25f:7.f):3.f);
         assert(std::fabs(motion::strength(cue,x.now)-level)<.001f);
         x.phase=3;x.lineup=false;x.now=2100;assert(model.observe(settings,x).tail);x.now=3000;assert(model.observe(settings,x).kind==motion::Kind::None);
     }
@@ -58,9 +58,9 @@ int main(){
         assert(admit.strengthScale==scale);
         auto custom=settings;custom.ordinary=custom.critical=ceiling;
         motion::Model model;motion::Input x;x.match=456;x.epoch=1;x.now=1000;x.phase=1;x.allowed=x.lineup=x.venueEligible=true;
-        x.lineupId=1;x.lineupScale=.5f;x.critical=admit.critical;x.lineupStrengthScale=admit.strengthScale;
+        x.lineupId=1;x.lineupScale=.5f;x.critical=admit.critical;x.homeCritical=admit.critical&&!p.game.neutral&&p.offense==0;x.lineupStrengthScale=x.homeCritical?1.f:admit.strengthScale;
         model.observe(custom,x);x.now=2000;auto cue=model.observe(custom,x);
-        float expected=motion::lineupStrength(custom,admit.critical,.5f)*scale;
+        float expected=motion::lineupStrength(custom,admit.critical,.5f)*x.lineupStrengthScale*(x.homeCritical?.75f:1.f);
         assert(std::fabs(motion::strength(cue,x.now)-expected)<.001f);
         x.phase=3;x.lineup=false;x.now=2100;cue=model.observe(custom,x);
         assert(std::fabs(motion::strength(cue,x.now)-expected)<.001f);
@@ -69,7 +69,7 @@ int main(){
         x.now=3100;x.duringPlay=1;model.observe(custom,x);x.now=3400;cue=model.observe(custom,x);
         assert(cue.kind==motion::Kind::LivePlay&&std::fabs(motion::strength(cue,x.now)-custom.live)<.001f);
         x.phase=4;x.now=3500;x.touchdown=1;model.observe(custom,x);x.now=3800;cue=model.observe(custom,x);
-        assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-custom.touchdown)<.001f);
+        assert(cue.kind==motion::Kind::Touchdown&&std::fabs(motion::strength(cue,x.now)-(std::max)(custom.touchdown,custom.touchdownImpact))<.001f);
         x.allowed=false;x.now=3900;assert(model.observe(custom,x).kind==motion::Kind::None);
     }
     // Sound-only venues above the independent native HFA cutoff still cannot

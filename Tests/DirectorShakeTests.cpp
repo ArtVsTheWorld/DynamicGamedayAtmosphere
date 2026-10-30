@@ -22,12 +22,12 @@ int main(){
             assert(std::fabs(strength(normal,now)*.75f-strength(neutral,now))<.002f);
         }
     }
-    Settings s;assert(s.ordinary==5&&s.critical==10&&s.touchdownMs==11000&&s.lineupCheer==5);
-    assert(lineupStrength(s,false,0)==3&&lineupStrength(s,false,1)==5);
-    assert(lineupStrength(s,true,0)==5&&lineupStrength(s,true,1)==10);
+    Settings s;assert(s.ordinary==4&&s.critical==8&&s.touchdownMs==11000&&s.lineupCheer==5);
+    assert(lineupStrength(s,false,0)==2&&lineupStrength(s,false,1)==4);
+    assert(lineupStrength(s,true,0)==6&&lineupStrength(s,true,1)==8);
     {auto custom=s;custom.ordinary=custom.critical=0;assert(lineupStrength(custom,false,1)==0&&lineupStrength(custom,true,0)==0);
-        custom.ordinary=1;custom.critical=3;assert(lineupStrength(custom,false,0)==1&&lineupStrength(custom,true,0)==3);}
-    s.ordinary=5;s.critical=10;s.touchdownMs=9000; // Explicit legacy profile exercises the existing envelope math.
+        custom.ordinary=1;custom.critical=3;assert(lineupStrength(custom,false,0)==.5f&&lineupStrength(custom,true,0)==2.25f);}
+    s.ordinary=5;s.critical=10;s.touchdown=15;s.live=10;s.catchImpact=8;s.touchdownMs=9000; // Explicit legacy profile exercises the existing envelope math.
     Input x;x.match=123;x.epoch=1;x.now=1000;x.phase=1;x.allowed=x.lineup=true;x.lineupId=1;
     Model m;auto c=m.observe(s,x);assert(c.kind==Kind::None); // A critical down alone cannot qualify.
     x.critical=true;x.now=1100;c=m.observe(s,x);assert(c.kind==Kind::None);
@@ -66,7 +66,7 @@ int main(){
     s.ordinary=999;s.critical=-1;s.touchdown=std::numeric_limits<float>::quiet_NaN();
     assert(configured(s,Kind::Ordinary)==100&&configured(s,Kind::Critical)==0&&configured(s,Kind::Touchdown)==0);
     // During-play motion has priority over the lineup tail and settles after the whistle.
-    Settings liveSettings;liveSettings.reactionFadeMs=2000;liveSettings.impactExtraMs=0;liveSettings.ordinary=5;Model liveModel;Input v;v.match=999;v.epoch=1;v.allowed=true;v.venueEligible=true;v.phase=3;v.now=50000;v.duringPlay=1;
+    Settings liveSettings;liveSettings.live=10;liveSettings.touchdown=15;liveSettings.catchImpact=8;liveSettings.reactionFadeMs=2000;liveSettings.impactExtraMs=0;liveSettings.ordinary=5;Model liveModel;Input v;v.match=999;v.epoch=1;v.allowed=true;v.venueEligible=true;v.phase=3;v.now=50000;v.duringPlay=1;
     auto liveCue=liveModel.observe(liveSettings,v);assert(liveCue.kind==Kind::LivePlay);
     v.now=50200;liveCue=liveModel.observe(liveSettings,v);assert(strength(liveCue,v.now)==10);
     auto anchor=liveCue.oscillationBegan;v.now=50900;liveModel.observe(liveSettings,v);v.phase=4;v.now=51000;liveCue=liveModel.observe(liveSettings,v);assert(liveCue.tail&&strength(liveCue,v.now)==10&&liveCue.oscillationBegan==anchor);
@@ -87,10 +87,10 @@ int main(){
     Model joined;Input j;j.match=777;j.epoch=1;j.allowed=true;j.phase=3;j.now=70000;j.duringPlay=1;
     joined.observe(liveSettings,j);j.now=70200;auto moving=joined.observe(liveSettings,j);assert(strength(moving,j.now)==10);
     j.phase=4;j.now=70400;j.touchdown=1;auto scoredCue=joined.observe(liveSettings,j);assert(scoredCue.kind==Kind::Touchdown&&strength(scoredCue,j.now)==10&&scoredCue.oscillationBegan==moving.oscillationBegan);
-    j.now=70600;scoredCue=joined.observe(liveSettings,j);float joinedTd=10+5*smooth(200.f/300);assert(std::fabs(strength(scoredCue,j.now)-joinedTd)<.001f);
+    j.now=70600;scoredCue=joined.observe(liveSettings,j);float joinedTd=10+10*smooth(200.f/300);assert(std::fabs(strength(scoredCue,j.now)-joinedTd)<.001f);
     j.eruption=1;j.eruptionAlive=true;auto eruptedCue=joined.observe(liveSettings,j);assert(eruptedCue.kind==Kind::Eruption&&std::fabs(strength(eruptedCue,j.now)-joinedTd)<.001f&&eruptedCue.oscillationBegan==moving.oscillationBegan);
-    j.now=70800;eruptedCue=joined.observe(liveSettings,j);assert(std::fabs(strength(eruptedCue,j.now)-(joinedTd+(22.5f-joinedTd)*smooth(200.f/300)))<.001f);
-    j.now=70900;eruptedCue=joined.observe(liveSettings,j);assert(strength(eruptedCue,j.now)==22.5f);
+    j.now=70800;eruptedCue=joined.observe(liveSettings,j);assert(std::fabs(strength(eruptedCue,j.now)-(joinedTd+(30.f-joinedTd)*smooth(200.f/300)))<.001f);
+    j.now=70900;eruptedCue=joined.observe(liveSettings,j);assert(strength(eruptedCue,j.now)==30.f);
     Model kick;Input k;k.match=888;k.epoch=1;k.allowed=k.lineup=k.venueEligible=k.openingKickoff=true;k.lineupId=1;k.phase=1;k.now=80000;
     kick.observe(liveSettings,k);k.now=81000;assert(strength(kick.observe(liveSettings,k),k.now)==5);
     k.lineup=false;k.phase=3;k.now=82000;auto heldKick=kick.observe(liveSettings,k);assert(!heldKick.tail&&strength(heldKick,k.now)==5);

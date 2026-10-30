@@ -38,7 +38,7 @@ int main(){
         assert(!f.observe(p,123,1,1200,true,none,3,5,false,true).id);p.offense=0;
         assert(f.observe(p,123,1,1300,true,none,4,9,true,true).event==live::Event::FumbleRecovery);
     }
-    {motion::Model m;motion::Settings s;assert(s.reactionFadeMs==5000);motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
+    {motion::Model m;motion::Settings s;s.live=10;s.catchImpact=8;assert(s.reactionFadeMs==5000);motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
         m.observe(s,x);x.now=1200;assert(motion::strength(m.observe(s,x),1200)==10);
         x.now=1900;m.observe(s,x);x.phase=4;x.now=2000;x.duringPlay=0;auto tail=m.observe(s,x);assert(tail.tail&&tail.until==7000);
         x.now=4500;tail=m.observe(s,x);assert(motion::strength(tail,4500)>7&&motion::strength(tail,4500)<8);

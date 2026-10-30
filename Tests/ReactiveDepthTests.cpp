@@ -64,13 +64,13 @@ int main(){
     p.game.phase=4;p.game.seconds-=12;p.game.homeScore+=6;p.resultStamp=2;
     assert(!delayedTick(49000)&&lateSnap.resultLongTouchdown&&lateSnap.celebration==0);
     settled.suspend();assert(!settled.playContextActive());
-    // Long TDs use a 15% camera accent with the normal TD clock and priority.
+    // Long TDs share the capped 20/16 camera profile with the normal TD clock and priority.
     for(float scale:{1.f,postplay::LongTouchdownScale}){
         motion::Model model;motion::Settings settings;motion::Input in;
         in.match=123;in.epoch=1;in.allowed=true;in.phase=4;in.now=1000;in.touchdown=1;in.touchdownScale=scale;
         auto cue=model.observe(settings,in);assert(cue.kind==motion::Kind::Touchdown&&cue.until==12000);
-        in.now=1200;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-20*scale)<.001f);
-        in.now=3000;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-15*scale)<.001f);
+        in.now=1200;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-20)<.001f);
+        in.now=3000;cue=model.observe(settings,in);assert(std::fabs(motion::strength(cue,in.now)-16)<.001f);
         assert(cue.began==1000&&cue.until==12000); // Repeated observations do not restart it.
         in.now=3100;in.eruption=1;in.eruptionAlive=true;cue=model.observe(settings,in);
         assert(cue.kind==motion::Kind::Eruption&&cue.percent==22.5f&&cue.reactionScale==1);

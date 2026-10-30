@@ -4,7 +4,7 @@
 #include <cstdio>
 using namespace attendance;
 int main(){
-    assert(std::abs(motion::occupiedScale(6060,1)-.35f)<.00001f);
+    assert(std::abs(motion::occupiedScale(6060,1)-.80f)<.00001f);
     assert(std::abs(motion::occupiedScale(61888,1)-1.1f)<.00001f);
     assert(motion::occupiedScale(60600,.1f)==motion::occupiedScale(6060,1));
     assert(motion::occupiedScale(61888,.85f)>motion::occupiedScale(6060,.99f));

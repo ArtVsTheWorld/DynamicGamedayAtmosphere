@@ -5,12 +5,13 @@
 #include <cstdint>
 #include "ReactionShape.h"
 #include "VenueMotion.h"
+#include "ShakeProfiles.h"
 
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
 inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cannon impact";case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
-struct Settings {float ordinary=5,critical=10,touchdown=15,eruption=22.5f,live=10,catchImpact=8;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=15,cannon=15;};
-inline float hostileOpeningStrength(uint64_t positions,float maximum=15){
+struct Settings {float ordinary=4,critical=8,touchdown=16,eruption=22.5f,live=11,catchImpact=9;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=5;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=15;};
+inline float hostileOpeningStrength(uint64_t positions,float maximum=10){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
     return (std::clamp)(maximum,0.f,30.f)*venueScale(positions);
 }
@@ -18,7 +19,7 @@ inline float limit(float x){return std::isfinite(x)?(std::clamp)(x,0.0f,100.0f):
 inline float configured(const Settings& s,Kind k){switch(k){case Kind::Ordinary:return limit(s.ordinary);case Kind::Critical:return limit(s.critical);case Kind::Touchdown:case Kind::Safety:case Kind::BlockedKick:case Kind::Clincher:return limit(s.touchdown);case Kind::Eruption:return limit(s.eruption);case Kind::LivePlay:return limit(s.live);default:return 0;}}
 inline unsigned safetyDuration(const Settings& s){return (std::clamp)(s.touchdownMs,3000u,30000u)*7/10;}
 inline float lineupStrength(const Settings& s,bool critical,float choice){
-    float maximum=configured(s,critical?Kind::Critical:Kind::Ordinary),minimum=(std::min)(maximum,critical?5.0f:3.0f);
+    float maximum=configured(s,critical?Kind::Critical:Kind::Ordinary),minimum=maximum*(critical?.75f:.5f);
     float fraction=std::isfinite(choice)?(std::clamp)(choice,0.0f,1.0f):0;
     return minimum+(maximum-minimum)*fraction;
 }
@@ -36,6 +37,7 @@ struct Cue {
     float reactionScale=1;bool softAccent=false;
     bool forcedImpact=false;
     bool scoreBuildup=false;
+    Profile profile=Profile::Default;float leverage=0;float holdRatio=1,peakRatio=1;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
@@ -49,7 +51,7 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
     bool td=c.kind==Kind::Touchdown||c.kind==Kind::Safety||c.kind==Kind::BlockedKick||c.kind==Kind::Clincher;
     float peakEnd=td?1.0f/9:1.25f/16,settleEnd=td?1.5f/9:2.0f/16,holdEnd=td?5.0f/9:8.0f/16;
     float peak=(std::max)(limit(c.percent),limit(c.impact));
-    if(c.scoreBuildup&&progress<settleEnd)return limit(c.percent);
+    if(c.scoreBuildup&&progress<peakEnd)return peak; // The shared 300 ms handoff supplies the attack.
     if(progress<peakEnd)return peak*smooth(age/(td?80.0f:60.0f));
     if(progress<settleEnd)return peak+(limit(c.percent)-peak)*smooth((progress-peakEnd)/(settleEnd-peakEnd));
     if(progress<holdEnd)return limit(c.percent);
@@ -58,7 +60,12 @@ inline float envelopeStrength(const Cue& c,uint64_t now){
 inline float strength(const Cue& c,uint64_t now){
     float level=envelopeStrength(c,now);
     unsigned transition=c.forcedImpact?50u:c.scoreBuildup?300u:200u;
-    if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<transition)return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition);
+    if(c.transitionAt&&now>=c.transitionAt&&now-c.transitionAt<transition){
+        // A new attack must not pull an already moving camera toward zero
+        // before rising. Lower targets still ease down normally.
+        if((std::max)(c.percent,c.impact)>=c.transitionFrom)level=(std::max)(level,c.transitionFrom);
+        return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition);
+    }
     return level;
 }
 struct Input {
@@ -77,15 +84,28 @@ struct Input {
     bool forcedImpact=false;
     bool neutral=false;
     float venueScale=1;
+    Profile profile=Profile::Default;float leverage=0;bool homeCritical=false,gameSavingBlock=false;
+    Profile buildupProfile=Profile::Gain;
 };
+inline float liveStrength(const Settings& s,Profile p,float leverage,bool catchImpact=false){
+    if(p==Profile::Default)return catchImpact?limit(s.catchImpact):limit(s.live);
+    if(catchImpact)return limit(s.catchImpact)*profileStrength(Profile::Catch,leverage)/9.f;
+    if(p==Profile::Catch)p=Profile::Gain;
+    return limit(s.live)*profileStrength(p,leverage)/11.f;
+}
+inline unsigned impactDuration(const Settings& s,Profile p,unsigned overrideMs=0){
+    if(overrideMs)return (std::clamp)(overrideMs,1000u,10000u);
+    unsigned base=p==Profile::Default?(std::clamp)(s.reactionFadeMs,1000u,8000u)+400:profileDuration(p);
+    return static_cast<unsigned>((std::clamp)(static_cast<int>(base)+static_cast<int>((std::min)(s.impactExtraMs,5000u))-(p==Profile::Default?0:1000),1000,10000));
+}
 class Model {
     uintptr_t match_=0;unsigned epoch_=0;uint64_t last_=0,lineup_=0,seenTd_=0,seenEruption_=0,seenLive_=0,ramp_=0,seenSafety_=0,seenBlockedKick_=0,seenClincher_=0;int phase_=0;
-    Cue lineupCue_,pulse_,liveCue_,output_;
+    Cue lineupCue_,pulse_,liveCue_,impactOverlay_,output_;
 public:
     void reset(){*this=Model{};}
-    Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_={};output_={};output_.updated=now;return output_;}
+    Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_=impactOverlay_={};output_={};output_.updated=now;return output_;}
     Cue observe(const Settings& configuredSettings,const Input& x){
-        // Scale each crowd target once by the complete venue layout, and by
+        // Scale each crowd target once by occupied seats, and by
         // three quarters for either side of a neutral crowd, before envelopes.
         Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.1f):0;
         float crowdScale=(x.neutral?.75f:1.f)*size;
@@ -111,7 +131,8 @@ public:
         }};
         if(x.lineup&&x.venueEligible&&x.lineupId&&(x.phase==1||x.phase==5)){
             if(lineup_!=x.lineupId||lineupCue_.tail||lineupCue_.kind==Kind::None){lineupCue_={x.match,x.epoch,x.now,x.now,0,Kind::Ordinary,0,false};lineup_=x.lineupId;lineupCue_.oscillationBegan=x.now;join(lineupCue_);}
-            float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening)*crowdScale:x.lineupCheer&&!x.critical?limit(settings.lineupCheer):lineupStrength(configuredSettings,x.critical,x.lineupScale)*crowdScale;
+            float prior=strength(lineupCue_,x.now),target=x.hostileOpening>0?limit(x.hostileOpening)*(.8f+.2f*importance(x.lineupScale))*crowdScale:x.lineupCheer&&!x.critical?limit(settings.lineupCheer)*(.6f+.4f*importance(x.lineupScale)):lineupStrength(configuredSettings,x.critical,x.lineupScale)*crowdScale;
+            if(x.critical&&x.homeCritical)target*=.75f; // Home 4-6; defense 6-8 at stock settings.
             target*=std::isfinite(x.lineupStrengthScale)?(std::clamp)(x.lineupStrengthScale,0.f,1.f):0.f;
             if(std::fabs(target-lineupCue_.percent)>.01f){lineupCue_.transitionFrom=prior;lineupCue_.transitionAt=x.now;}
             lineupCue_.kind=x.critical?Kind::Critical:Kind::Ordinary;
@@ -125,12 +146,13 @@ public:
         // A presentation cut or play-selection inset is not a new play.
         // Retain the earned impact/tail until its original expiry; a fresh
         // snap, pause/replay suspension or world change cancels the old cue.
-        if(newSnap){liveCue_={};ramp_=0;}
+        if(newSnap){liveCue_=impactOverlay_={};ramp_=0;}
         bool pulseOwns=(pulse_.kind!=Kind::None&&x.now<pulse_.until&&!newSnap&&(pulse_.kind!=Kind::Eruption||x.eruptionAlive))||
             (x.phase!=3&&(td||eruption||safety||clincher||blocked));
         // Consume lower-priority event IDs without queuing a hidden shake
         // that could reappear after a short celebration has finished.
-        if(pulseOwns){liveCue_={};ramp_=0;}
+        if(pulseOwns){liveCue_=impactOverlay_={};ramp_=0;}
+        if(x.cancelLive)impactOverlay_={};
         if(x.cancelLive&&liveCue_.kind!=Kind::None&&!liveCue_.cancelled){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+500;liveCue_.percent=value;
             liveCue_.tail=liveCue_.cancelled=true;liveCue_.impactOnly=liveCue_.confirmedRun=false;ramp_=0;
@@ -139,32 +161,51 @@ public:
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade;liveCue_.percent=value;liveCue_.tail=true;liveCue_.confirmedRun=false;
         }
         bool ramp=!pulseOwns&&!x.cancelLive&&x.runBuildup&&x.duringAllowed&&x.phase==3&&std::isfinite(x.runProgress)&&x.runProgress>0;
+        if(ramp&&!liveCue_.runBuildup&&liveCue_.kind!=Kind::None&&x.now<liveCue_.until&&
+           liveStrength(settings,x.buildupProfile,x.leverage)<=liveCue_.percent)ramp=false;
         if(ramp&&(liveCue_.kind==Kind::None||ramp_!=x.runBuildup)){
-            float inherited=liveCue_.kind==Kind::LivePlay&&liveCue_.impactOnly?previousLevel:0;
+            float inherited=liveCue_.kind==Kind::LivePlay?previousLevel:0;
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+45000,Kind::LivePlay,0,false,0,x.now,false};
-            liveCue_.rampFloor=(std::min)(inherited,configured(settings,Kind::LivePlay));
+            liveCue_.profile=x.buildupProfile;liveCue_.leverage=importance(x.leverage);
+            liveCue_.rampFloor=(std::min)(inherited,liveStrength(settings,liveCue_.profile,liveCue_.leverage));
             liveCue_.runBuildup=true;ramp_=x.runBuildup;join(liveCue_);
         }
         // Crossing the configured gain confirms the cheer without restarting
         // the shake that builds over the preceding five yards.
-        bool covered=x.supplementalImpact&&liveCue_.kind!=Kind::None&&strength(liveCue_,x.now)>0;
-        if(live&&!pulseOwns&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
-            bool impact=x.phase!=3||x.duringImpact;unsigned duration=x.impactMilliseconds?(std::clamp)(x.impactMilliseconds,1000u,10000u):reactionFade+400+(std::min)(settings.impactExtraMs,5000u);
+        float candidate=liveStrength(settings,x.profile,x.leverage,x.duringCatch&&(x.phase!=3||x.duringImpact))*(std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1);
+        bool continuous=x.phase==3&&!x.duringImpact;
+        bool underImpact=continuous&&liveCue_.impactOnly&&liveCue_.kind!=Kind::None;
+        bool covered=liveCue_.kind!=Kind::None&&strength(liveCue_,x.now)>0&&(x.supplementalImpact||(!underImpact&&candidate<strength(liveCue_,x.now)));
+        if(live&&!pulseOwns&&!covered&&!x.cancelLive&&x.duringAllowed&&!(ramp&&liveCue_.kind==Kind::LivePlay&&!liveCue_.tail&&!x.duringImpact)&&(x.phase==3||x.phase==4||((x.phase==5||x.phase==1)&&x.duringImpact))){
+            bool impact=x.phase!=3||x.duringImpact;
+            unsigned duration=impactDuration(settings,x.profile,x.impactMilliseconds);
+            // A force can still be hitting when its defensive return begins.
+            // Retain that original impact above the continuous return, then
+            // select the greater envelope as it settles. Never sum them.
+            if(underImpact&&strength(liveCue_,x.now)>strength(impactOverlay_,x.now))impactOverlay_=liveCue_;
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?duration:45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};
             liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;
             liveCue_.softAccent=x.softAccent;
             liveCue_.forcedImpact=x.forcedImpact;
+            liveCue_.profile=x.profile;liveCue_.leverage=importance(x.leverage);ramp_=0;
             liveCue_.catchReaction=x.duringCatch;join(liveCue_);
         }
-        if(live&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay){liveCue_.confirmedRun=true;if(!covered)liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;}
+        if(live&&x.duringAllowed&&liveCue_.kind==Kind::LivePlay){liveCue_.confirmedRun=true;
+            if(!covered&&ramp&&!x.duringImpact){liveCue_.profile=x.profile==Profile::Default?Profile::Gain:x.profile;liveCue_.leverage=importance(x.leverage);}
+        }
         if(liveCue_.kind!=Kind::None){
             if(!liveCue_.tail&&!liveCue_.impactOnly)liveCue_.distanceExtraMs=(std::max)(liveCue_.distanceExtraMs,(std::min)(x.distanceExtraMs,8000u));
             if(liveCue_.catchReaction&&!liveCue_.impactOnly&&x.phase!=3&&x.now>=liveCue_.began&&x.now-liveCue_.began<=350){
-                liveCue_.impactOnly=true;liveCue_.percent=limit(settings.catchImpact);liveCue_.until=liveCue_.began+reactionFade+400+(std::min)(settings.impactExtraMs,5000u);join(liveCue_);
+                liveCue_.impactOnly=true;liveCue_.profile=Profile::Catch;liveCue_.percent=liveStrength(settings,liveCue_.profile,liveCue_.leverage,true);liveCue_.until=liveCue_.began+impactDuration(settings,Profile::Catch);join(liveCue_);
             }
             if(liveCue_.runBuildup&&!liveCue_.confirmedRun&&!ramp&&x.phase==3&&!liveCue_.tail){float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
             if(!liveCue_.impactOnly&&x.phase!=3&&!liveCue_.tail){float value=(std::max)(strength(liveCue_,x.now),liveCue_.percent*.7f);liveCue_.began=x.now;liveCue_.until=x.now+reactionFade+liveCue_.distanceExtraMs;liveCue_.percent=value;liveCue_.tail=true;}
-            liveCue_.updated=x.now;if(!liveCue_.tail)liveCue_.percent=liveCue_.impactOnly&&liveCue_.catchReaction?limit(settings.catchImpact)*liveCue_.reactionScale:ramp?(std::max)(liveCue_.rampFloor,(std::min)(configured(settings,Kind::LivePlay),crowdScale+(configured(settings,Kind::LivePlay)-crowdScale)*(std::clamp)((x.runProgress-.0001f)/.9999f,0.f,1.f)))*liveCue_.reactionScale:configured(settings,Kind::LivePlay)*liveCue_.reactionScale;
+            liveCue_.updated=x.now;
+            if(!liveCue_.tail){
+                float target=liveStrength(settings,liveCue_.profile,liveCue_.leverage,liveCue_.impactOnly&&liveCue_.catchReaction);
+                bool building=ramp&&liveCue_.runBuildup&&!liveCue_.impactOnly;
+                liveCue_.percent=(building?(std::max)(liveCue_.rampFloor,(std::min)(target,crowdScale+(target-crowdScale)*importance((x.runProgress-.0001f)/.9999f))):target)*liveCue_.reactionScale;
+            }
             if(x.now>=liveCue_.until)liveCue_={};
         }
         if(pulse_.kind!=Kind::None&&(x.now>=pulse_.until||newSnap||(pulse_.kind==Kind::Eruption&&!x.eruptionAlive)))pulse_={};
@@ -172,15 +213,19 @@ public:
             bool upgrade=(pulse_.kind==Kind::Touchdown||pulse_.kind==Kind::Safety)&&x.now>=pulse_.began&&x.now-pulse_.began<750;
             auto start=upgrade?pulse_.began:x.now;pulse_={x.match,x.epoch,x.now,start,start+(std::clamp)(settings.eruptionMs,5000u,60000u),Kind::Eruption,configured(settings,Kind::Eruption),false,limit(settings.eruptionImpact)};
             pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;
-            join(pulse_);liveCue_={};ramp_=0;
-        }else if(td&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.reactionScale=std::isfinite(x.touchdownScale)?(std::clamp)(x.touchdownScale,1.f,1.15f):1;pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
-        else if(clincher&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Clincher,configured(settings,Kind::Clincher),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
-        else if(blocked&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::BlockedKick,configured(settings,Kind::BlockedKick),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
-        else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};join(pulse_);liveCue_={};ramp_=0;}
-        if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=limit(configured(settings,pulse_.kind)*pulse_.reactionScale);pulse_.impact=pulse_.scoreBuildup?pulse_.percent:limit((pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact)*pulse_.reactionScale);output_=pulse_;}
+            join(pulse_);liveCue_=impactOverlay_={};ramp_=0;
+        }else if(td&&x.phase!=3&&pulse_.kind!=Kind::Eruption){pulse_={x.match,x.epoch,x.now,x.now,x.now+(std::clamp)(settings.touchdownMs,3000u,30000u),Kind::Touchdown,configured(settings,Kind::Touchdown),false,limit(settings.touchdownImpact)};pulse_.distanceExtraMs=(std::min)(x.distanceExtraMs,8000u);pulse_.until+=pulse_.distanceExtraMs;join(pulse_);liveCue_={};ramp_=0;}
+        else if(clincher&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Clincher,configured(settings,Kind::Clincher),false,limit(settings.touchdownImpact)};pulse_.holdRatio=.75f;pulse_.peakRatio=.8f;join(pulse_);liveCue_={};ramp_=0;}
+        else if(blocked&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::BlockedKick,configured(settings,Kind::BlockedKick),false,limit(settings.touchdownImpact)};pulse_.holdRatio=x.gameSavingBlock?1.f:.625f;pulse_.peakRatio=x.gameSavingBlock?1.f:.7f;join(pulse_);liveCue_={};ramp_=0;}
+        else if(safety&&x.phase!=3&&pulse_.kind!=Kind::Eruption&&pulse_.kind!=Kind::Touchdown){pulse_={x.match,x.epoch,x.now,x.now,x.now+safetyDuration(settings),Kind::Safety,configured(settings,Kind::Safety),false,limit(settings.touchdownImpact)};pulse_.holdRatio=.75f;pulse_.peakRatio=.8f;join(pulse_);liveCue_={};ramp_=0;}
+        if(pulse_.kind!=Kind::None){pulse_.updated=x.now;pulse_.percent=limit(configured(settings,pulse_.kind)*pulse_.holdRatio);pulse_.impact=limit((pulse_.kind==Kind::Eruption?settings.eruptionImpact:settings.touchdownImpact)*pulse_.peakRatio);output_=pulse_;}
         else if(liveCue_.kind!=Kind::None)output_=liveCue_;else{
             if(lineupCue_.kind!=Kind::None&&previous.kind!=Kind::None&&previous.kind!=Kind::Ordinary&&previous.kind!=Kind::Critical){lineupCue_.transitionFrom=previousLevel;lineupCue_.transitionAt=x.now;}
             output_=lineupCue_;
+        }
+        if(impactOverlay_.kind!=Kind::None){
+            if(x.now>=impactOverlay_.until||pulse_.kind!=Kind::None)impactOverlay_={};
+            else{impactOverlay_.updated=x.now;if(strength(impactOverlay_,x.now)>strength(output_,x.now))output_=impactOverlay_;}
         }
         return output_;
     }

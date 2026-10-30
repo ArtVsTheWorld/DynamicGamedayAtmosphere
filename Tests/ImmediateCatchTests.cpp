@@ -59,7 +59,7 @@ int main(){
     {Case c;c.begin();c.result.yards=25;assert(!c.tick(1216,4,3,1,0,NAN,false,true).id);} // Incomplete pass.
     {Case c;c.begin();c.config.enabled=false;assert(!c.tick(1216,4,1,4,48,NAN,false,true).id);}
     // Production requests an impact at phase 5 too, with the established fade.
-    motion::Settings settings;motion::Model camera;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=5;x.now=5000;x.duringPlay=1;x.duringImpact=true;
+    motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Model camera;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=5;x.now=5000;x.duringPlay=1;x.duringImpact=true;
     auto cue=camera.observe(settings,x);assert(cue.impactOnly&&cue.kind==motion::Kind::LivePlay);
     x.now=5200;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>9);
     x.now=8150;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)>0&&motion::strength(cue,x.now)<7);

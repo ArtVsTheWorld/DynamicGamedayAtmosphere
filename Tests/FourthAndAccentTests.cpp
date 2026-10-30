@@ -20,7 +20,7 @@ int main(){
         auto tick=[&](uint64_t now,int phase,float runner){p.game.phase=phase;return m.observe(c,p,123,1,now,true,456,0,9,0,runner,true,true);};
         tick(1000,1,-20);tick(1100,3,-20);assert(tick(1200,3,-18).event==live::Event::FourthConversion);
         live::Outcome run;for(int i=1;i<=20;++i){auto a=tick(1200+i*100,3,-18.f+i);if(a.id)run=a;}assert(run.event==live::Event::LongRun);}
-    motion::Settings settings;motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
+    motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
     m.observe(settings,x);x.now=1100;x.duringPlay=1;x.duringImpact=x.supplementalImpact=true;x.impactMilliseconds=2400;x.reactionScale=.7f;
     auto a=m.observe(settings,x);assert(a.kind==motion::Kind::LivePlay&&a.impactOnly&&a.percent==7&&a.until==3500);
     x.now=1300;a=m.observe(settings,x);assert(motion::strength(a,1300)>0);

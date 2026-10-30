@@ -12,7 +12,7 @@ int main(){
   auto event=live::completedImpact(result,p.game,true,0,59);assert((event.event==live::Event::DownsStop)==admitted);
   if(admitted){assert(live::cheerType(event)==59);motion::Input x;x.match=1;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.neutral=neutral;
    defense::motion(event,x);motion::Model camera;motion::Settings settings;auto cue=camera.observe(settings,x);
-   assert(cue.impactOnly&&cue.until==2800&&cue.percent==(neutral?3.75f:5.f));}
+   assert(cue.impactOnly&&cue.until==3700&&cue.percent==(neutral?7.5f:10.f));}
  }
  std::puts("PASS: confirmed fourth-down incompletion/possession flip gets a small paired impact, both neutral sides at75%, no third-down/punt/away-home-crowd false ownership.");
 }

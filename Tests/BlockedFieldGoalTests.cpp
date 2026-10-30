@@ -16,9 +16,9 @@ int main(){
         if(own){assert(hit.event==live::Event::BlockedFieldGoal&&live::cheerType(hit)==59);
             int defenseLead=result.side==0?lead:-lead;bool strong=defenseLead>=0&&defenseLead<=3;
             motion::Settings settings;motion::Model camera;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.now=1000;x.phase=phase;x.duringPlay=hit.id;x.duringImpact=true;
-            if(strong)x.blockedFieldGoal=result.sequence;auto cue=camera.observe(settings,x);
-            assert(cue.kind==(strong?motion::Kind::BlockedKick:motion::Kind::LivePlay));
-            x.now=1300;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)==(strong?20.f:10.f));
+            x.blockedFieldGoal=result.sequence;x.gameSavingBlock=strong;auto cue=camera.observe(settings,x);
+            assert(cue.kind==motion::Kind::BlockedKick);
+            x.now=1300;cue=camera.observe(settings,x);assert(motion::strength(cue,x.now)==(strong?20.f:14.f));
             if(strong){x.now=1500;x.touchdown=result.sequence;assert(camera.observe(settings,x).kind==motion::Kind::Touchdown);}
             assert(!live::completedImpact(result,p.game,true,result.sequence,59).id);
             assert(!live::completedImpact(result,p.game,false,0,83).id);

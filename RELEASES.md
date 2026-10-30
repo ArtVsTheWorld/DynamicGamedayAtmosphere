@@ -1,6 +1,6 @@
 # Releases
 
-Staged Update 3 test candidate: **2.0.2**. Rounded audio floors, stable special-game/breakout demand, small-venue arrival access, a15% departure capacity floor, recovery/conversion camera fallbacks and deferred logging. Not installed or published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
+Staged Update 3 test candidate: **2.0.3**. More noticeable small-crowd motion, explicit event-strength hierarchy, shorter routine impacts and smooth scoring handoffs. Includes the previous attendance/audio changes. Not installed or published. See [strengths and first tests](docs/reviews/Update3-2.0.3.md).
 
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 

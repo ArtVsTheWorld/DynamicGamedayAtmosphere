@@ -7,7 +7,7 @@
 using namespace attendance;
 sustained::Intent base(uint64_t now){sustained::Intent out;out.active=true;out.match=123;out.epoch=1;out.updated=now;return out;}
 int main(){
-    motion::Settings settings;
+    motion::Settings settings;settings.live=10;settings.catchImpact=8;
     // Every short impact has one matching roar/swell hold and release, even
     // when its one-shot cheer was native, deduplicated or voice-limited.
     for(float strength:{8.f,10.f})for(float fullness:{.5f,.7f,1.f}){

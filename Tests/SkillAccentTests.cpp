@@ -12,7 +12,7 @@ int main(){
     // refresh motion. A separately earned long run/TD keeps its own envelope.
     assert(!live::cameraReaction(live::Event::BrokenTackle));
     for(auto event:{live::Event::Truck,live::Event::StiffArm,live::Event::Hurdle})assert(live::cameraReaction(event));
-    {motion::Settings config;motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
+    {motion::Settings config;config.live=10;config.catchImpact=8;motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
         x.duringPlay=live::cameraReaction(live::Event::BrokenTackle)?1:0;
         assert(model.observe(config,x).kind==motion::Kind::None);
         x.now=1100;x.duringPlay=2;auto run=model.observe(config,x);assert(run.kind==motion::Kind::LivePlay);
@@ -31,7 +31,7 @@ int main(){
     // earned gain/score envelope, and do not open the gentle skill-swell route.
     for(auto event:{live::Event::Juke,live::Event::Spin}){
         assert(live::cheerOnlySkill(event)&&live::cheerType({event,1,0,0})==83&&!live::cameraReaction(event)&&!live::softSkill(event));
-        motion::Settings config;motion::Model model;motion::Input x;x.match=321;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
+        motion::Settings config;config.live=10;config.catchImpact=8;motion::Model model;motion::Input x;x.match=321;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;
         x.duringPlay=live::cameraReaction(event)?1:0;assert(model.observe(config,x).kind==motion::Kind::None);
         x.duringPlay=2;x.now=1100;auto gain=model.observe(config,x);
         x.now=1200;x.duringPlay=live::cameraReaction(event)?3:0;auto kept=model.observe(config,x);
@@ -41,7 +41,7 @@ int main(){
         sustained::Intent base;base.active=true;base.match=321;base.epoch=1;base.updated=1200;
         assert(!sound.merge(base,1200,1).supporting);
     }
-    motion::Settings settings;motion::Model camera;motion::Input in;in.match=123;in.epoch=1;in.phase=3;in.now=1000;
+    motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Model camera;motion::Input in;in.match=123;in.epoch=1;in.phase=3;in.now=1000;
     in.allowed=in.duringAllowed=in.duringImpact=in.softAccent=true;in.duringPlay=1;in.impactMilliseconds=2000;in.reactionScale=.5f;
     auto cue=camera.observe(settings,in);assert(cue.softAccent&&cue.impactOnly&&motion::strength(cue,1000)==0);
     in.duringPlay=0;float previous=0;

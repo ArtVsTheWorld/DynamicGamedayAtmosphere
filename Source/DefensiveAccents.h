@@ -26,10 +26,28 @@ inline bool stop(const energy::Play& snap,const energy::Play& p,const energy::Ou
         p.game.homeScore==snap.game.homeScore&&p.game.awayScore==snap.game.awayScore&&
         (p.offense!=snap.offense||(snap.down==3&&p.down==4));
 }
+inline motion::Profile shakeProfile(live::Event e){
+    using E=live::Event;using P=motion::Profile;
+    switch(e){
+    case E::Truck:case E::StiffArm:case E::Hurdle:return P::Skill;
+    case E::LongCatch:case E::CompletedPass:return P::Catch;
+    case E::LongRun:case E::RunAfterCatch:case E::KickReturn:case E::PuntReturn:return P::Gain;
+    case E::CatchKnockout:case E::PassBreakup:case E::HitStickStop:case E::ThirdGoalStop:return P::Stop;
+    case E::Sack:case E::TackleForLoss:return P::Loss;
+    case E::FourthConversion:return P::Conversion;
+    case E::DownsStop:return P::Downs;
+    case E::Interception:case E::FumbleRecovery:return P::Takeaway;
+    case E::ForcedFumble:return P::Force;
+    case E::GoalLineStop:return P::GoalStop;
+    case E::CriticalStop:return P::HighStop;
+    default:return P::Default;
+    }
+}
 inline void motion(const live::Outcome& event,motion::Input& out){
+    out.profile=shakeProfile(event.event);
     if(event.event==live::Event::ForcedFumble){out.duringImpact=true;out.forcedImpact=true;}
     if(event.event==live::Event::DownsStop||event.event==live::Event::CatchKnockout||event.event==live::Event::PassBreakup){
-        out.duringImpact=true;out.impactMilliseconds=1800;out.reactionScale*=.5f;
+        out.duringImpact=true;
     }
 }
 class Model {

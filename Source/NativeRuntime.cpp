@@ -1607,21 +1607,21 @@ void readSettings(){
     core->cameraShake=number(L"Atmosphere",L"CameraShake",1,0,1)!=0;
     nativeShakeMinimum=number(L"Dynamic Gameday Broadcast",L"NativeShakeMinimumFullnessPercent",50,0,100);
     auto motion=std::make_shared<attendance::motion::Settings>();
-    motion->ordinary=static_cast<float>(number(L"Atmosphere",L"OrdinaryShakeStrengthPercent",5,0,100));
-    motion->critical=static_cast<float>(number(L"Atmosphere",L"CriticalShakeStrengthPercent",10,0,100));
+    motion->ordinary=static_cast<float>(number(L"Atmosphere",L"OrdinaryShakeStrengthPercent",4,0,100));
+    motion->critical=static_cast<float>(number(L"Atmosphere",L"CriticalShakeStrengthPercent",8,0,100));
     motion->reactionFadeMs=static_cast<unsigned>(1000*percentage(L"Dynamic Gameday Broadcast",L"PlayReactionFadeSeconds",5.f,8,1));
     motion->impactExtraMs=static_cast<unsigned>(1000*percentage(L"Dynamic Gameday Broadcast",L"PlayImpactExtraSeconds",1,5));
-    motion->catchImpact=percentage(L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",8,30);
+    motion->catchImpact=percentage(L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",9,30);
     motion->lineupCheer=percentage(L"Dynamic Gameday Broadcast",L"LineupCheerShakeStrengthPercent",5,100);
-    motion->hostileOpeningMaximum=percentage(L"Dynamic Gameday Broadcast",L"HostileOpeningShakeMaximumPercent",15,30);
-    motion->touchdown=static_cast<float>(number(L"Atmosphere",L"TouchdownShakeStrengthPercent",15,0,100));
+    motion->hostileOpeningMaximum=percentage(L"Dynamic Gameday Broadcast",L"HostileOpeningShakeMaximumPercent",10,30);
+    motion->touchdown=static_cast<float>(number(L"Atmosphere",L"TouchdownShakeStrengthPercent",16,0,100));
     motion->eruption=percentage(L"Atmosphere",L"EruptionShakeStrengthPercent",22.5f,100);
     motion->touchdownImpact=static_cast<float>(number(L"Atmosphere",L"TouchdownShakeImpactPercent",20,0,100));
     motion->eruptionImpact=static_cast<float>(number(L"Atmosphere",L"EruptionShakeImpactPercent",30,0,100));
     motion->touchdownMs=1000u*number(L"Atmosphere",L"TouchdownShakeDurationSeconds",11,3,30);
     reactionDistanceMaximum=0; // Play length never extends the shared settling fade.
     motion->eruptionMs=1000u*number(L"Atmosphere",L"EruptionShakeDurationSeconds",16,5,60);
-    motion->live=percentage(L"Dynamic Gameday Broadcast",L"DuringPlayShakeStrengthPercent",10,30);
+    motion->live=percentage(L"Dynamic Gameday Broadcast",L"DuringPlayShakeStrengthPercent",11,30);
     motion->cannon=percentage(L"Dynamic Gameday Broadcast",L"CannonShakeStrengthPercent",15,30);
     auto liveSettings=std::make_shared<attendance::live::Settings>();
     liveSettings->enabled=number(L"Dynamic Gameday Soundscape",L"DuringPlayReactionsEnabled",1,0,1)!=0;
@@ -2193,31 +2193,38 @@ void atmosphereTick(){
     std::atomic_store(&nativeCameraAdmission,nativeAdmission);
     motion.lineup=(p.game.phase==1||p.game.phase==5)&&lineupAtmosphere.shakeTier>0&&(p.game.phase==5||lineupAtmosphere.layeredActive())&&cameraAdmission.allowed;
     motion.lineupId=lineupAtmosphere.cameraLineupId();motion.critical=cameraAdmission.critical;
-    motion.lineupStrengthScale=cameraAdmission.strengthScale;
+    motion.homeCritical=cameraAdmission.critical&&!p.game.neutral&&p.offense==0;
+    motion.lineupStrengthScale=motion.homeCritical?1.f:cameraAdmission.strengthScale;
     motion.lineupScale=lineupAtmosphere.cameraChoice();motion.lineupCheer=lineupAtmosphere.cheerMoment;
     motion.hostileOpening=hostile?std::atomic_load(&cameraSettings)->hostileOpeningMaximum:0;
     motion.openingKickoff=openingKickoff&&(selectedPlayType==23||selectedPlayType==24);
+    if(motion.openingKickoff)motion.hostileOpening=std::atomic_load(&cameraSettings)->hostileOpeningMaximum;
     motion.venueEligible=cameraAdmission.allowed;
     motion.duringAllowed=reactionEligible&&liveAllowed&&liveSettings->enabled;motion.duringPlay=reactionEligible?motionId:0;motion.duringImpact=stopMotion.id||(motionId&&(p.game.phase!=3||motionResult.event==attendance::live::Event::ForcedFumble));
     if(motionResult.id){
         bool accent=attendance::live::accent(motionResult.event);
         motion.duringImpact=motion.duringImpact||accent||motionResult.event==attendance::live::Event::FourthConversion;
         motion.supplementalImpact=accent;
-        motion.reactionScale=attendance::contextreaction::strength(playTracker.start,p.game,audio->contextReactions&&
-            attendance::contextreaction::premium(playTracker.start.game,remaining,fullnessReady?rendered->seats:0));
-        if(motionResult.event==attendance::live::Event::GoalLineStop)motion.reactionScale*=1.2f;
-        if(attendance::live::softSkill(motionResult.event)){motion.softAccent=true;motion.impactMilliseconds=2000;motion.reactionScale*=.5f;}
+        motion.profile=attendance::defense::shakeProfile(motionResult.event);
+        if(attendance::live::softSkill(motionResult.event))motion.softAccent=true;
         attendance::defense::motion(motionResult,motion);
     }
+    // Context chooses a point inside each event's range, never an additional
+    // multiplier on top of it. Latch that choice with the cue at admission.
+    motion.leverage=attendance::motion::importance((attendance::contextreaction::strength(playTracker.start,p.game,audio->contextReactions&&
+        attendance::contextreaction::premium(playTracker.start.game,remaining,fullnessReady?rendered->seats:0))-1.f)/.3f);
     motion.cancelLive=returnAtmosphere.lostPossession()&&!liveResult.id;
     motion.duringCatch=motionId&&(motionResult.event==attendance::live::Event::LongCatch||motionResult.event==attendance::live::Event::CompletedPass);
     motion.distanceExtraMs=(std::max)(scoreExtra,reactionDistance.extension());
     int blockLead=result.side==1?playTracker.start.game.awayScore-playTracker.start.game.homeScore:playTracker.start.game.homeScore-playTracker.start.game.awayScore;
-    if(reactionEligible&&result.accepted&&result.completed&&result.blockedFieldGoal&&(result.side==0||p.game.neutral)&&blockLead>=0&&blockLead<=3)motion.blockedFieldGoal=result.sequence;
+    if(reactionEligible&&result.accepted&&result.completed&&result.blockedFieldGoal&&(result.side==0||p.game.neutral)){
+        motion.blockedFieldGoal=result.sequence;
+        motion.gameSavingBlock=p.game.quarter>=4&&blockLead>=0&&blockLead<=3;
+    }
     auto runBuildup=gainBuildup;motion.runBuildup=reactionEligible?runBuildup.id:0;motion.runProgress=runBuildup.progress;
+    if(tauntBuildup.id&&!liveReactions.runBuildup().id&&!kickBuildup.id)motion.buildupProfile=attendance::motion::Profile::Showboat;
     int scored=result.side==1?result.awayPoints:result.homePoints;
     if(reactionEligible&&result.accepted&&result.completed&&(result.side==0||p.game.neutral)&&scored>=6&&scored<=8)motion.touchdown=result.sequence;
-    if(motion.touchdown&&coreAtmosphere.resultSequence==result.sequence&&coreAtmosphere.resultLongTouchdown)motion.touchdownScale=attendance::postplay::LongTouchdownScale;
     if(reactionEligible&&result.accepted&&result.completed&&result.safety&&(result.side==0||p.game.neutral))motion.safety=result.sequence;
     if(reactionEligible&&audio->contextReactions&&result.contextClincher)motion.clincher=result.sequence;
     motion.eruptionAlive=coreAtmosphere.erupting||coreAtmosphere.postgameHeld;
@@ -2888,18 +2895,18 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
     report.field("Native shake requires")<<"DGA crowd/context admission plus "<<nativeShakeMinimum<<"% minimum fullness (0 disables the native filter)\n";
     report.field("Camera shake enabled")<<(audio->cameraShake?"yes":"no")<<"\n";
-    report.field("Ordinary buildup strength")<<(std::min)(3.0f,motion->ordinary)<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
-    report.field("Critical-down strength")<<(std::min)(5.0f,motion->critical)<<"-"<<motion->critical<<"% before home-offense 0.85x scaling (third-and-10 or shorter; offensive fourth downs)\n";
+    report.field("Ordinary buildup strength")<<motion->ordinary*.5f<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
+    report.field("Critical-down strength")<<motion->critical*.75f<<"-"<<motion->critical<<"% before home-offense 0.75x scaling (third-and-10 or shorter; offensive fourth downs)\n";
     report.field("Punt buildup motion")<<"0.5x ordinary strength; return reactions use their own strength\n";
     report.field("Special lineup cheer strength")<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
     report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; each team's first offensive play, 75%-strength crowd motion":"; away must have the first offensive snap")<<"\n";
-    report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; small venues use one third of this strength\n";
+    report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; stable 80-100% opening range, then occupied-seat scaling\n";
     report.field("Cannon shake strength")<<motion->cannon<<"%; 0.9-second impact; all nine native cannon variants; no fullness requirement\n";
     report.field("Neutral-site crowd shake")<<"75% of configured strength for either team; native cannon strength independent\n";
     report.field("Live-play shake strength")<<motion->live<<"%; "<<motion->reactionFadeMs*.001f<<"-second post-play fade\n";
     report.field("Added reaction shape")<<"quick hit, short hold, smooth fade; existing strength/volume limits\n";
     report.field("Immediate long-catch impact")<<motion->catchImpact<<"%; separate from runs/returns and defensive impacts\n";
-    report.field("Short-impact duration")<<(motion->reactionFadeMs+400+motion->impactExtraMs)*.001f<<" seconds total; catches tackled immediately, sacks and similar impacts\n";
+    report.field("Short-impact duration")<<"2-3 seconds at stock settings; per-event profile plus the short-impact duration adjustment\n";
     report.field("Touchdown strength")<<motion->touchdown<<"%\n";
     report.field("Eruption strength")<<motion->eruption<<"%\n";
     report.field("TD / eruption opening impact")<<motion->touchdownImpact<<"% / "<<motion->eruptionImpact<<"%\n";

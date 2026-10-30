@@ -50,9 +50,9 @@ int main(){
         assert(bool(out.id)==(yards<=-5));
         auto id=defensivemotion::cameraId(sound,19,out);assert(id==out.id);
         motion::Model camera;motion::Settings cameraSettings;motion::Input x;
-        x.match=123;x.epoch=1;x.now=c.now;x.phase=4;x.allowed=x.duringAllowed=true;x.duringPlay=id;x.duringImpact=out.id!=0;
+        x.match=123;x.epoch=1;x.now=c.now;x.phase=4;x.allowed=x.duringAllowed=true;x.duringPlay=id;x.duringImpact=out.id!=0;x.profile=motion::Profile::Loss;
         auto cue=camera.observe(cameraSettings,x);assert((cue.kind==motion::Kind::LivePlay)==(yards<=-5));
-        if(out.id)assert(cue.impactOnly&&cue.percent==10&&cue.until==c.now+6400);
+        if(out.id)assert(cue.impactOnly&&cue.percent==8&&cue.until==c.now+2700);
     }
     // Knockout/contact can arrive before the whistle, but cannot shake until
     // the shared completed stop is verified. Routine third-down incompletions

@@ -17,7 +17,7 @@ int main(){
     constexpr Event events[]{Event::Lineup,Event::Critical,Event::Run,Event::Catch,Event::Skill,Event::Hit,Event::Touchdown,Event::Eruption,Event::Safety,Event::Block,Event::Clincher};
     // Every ordered pair: no amplitude or oscillator jump at the handoff,
     // no summed strengths, and higher scoring profiles cannot be downgraded.
-    for(auto first:events)for(auto second:events){motion::Model model;motion::Settings settings;motion::Cue old;
+    for(auto first:events)for(auto second:events){motion::Model model;motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Cue old;
         for(uint64_t now=1000;now<=1900;now+=100)old=model.observe(settings,request(first,now,1));
         float before=motion::strength(old,2000);auto out=model.observe(settings,request(second,2000,2,pulse(first)));
         if(std::fabs(motion::strength(out,2000)-before)>=.001f)std::fprintf(stderr,"Handoff %d -> %d: %.4f -> %.4f\n",static_cast<int>(first),static_cast<int>(second),before,motion::strength(out,2000));
@@ -29,13 +29,13 @@ int main(){
     }
     // A lower impact arriving under a short TD is consumed, not queued to
     // resurrect after the TD. The next actual snap rearms normally.
-    {motion::Model model;motion::Settings settings;settings.touchdownMs=3000;auto x=request(Event::Touchdown,1000,1);model.observe(settings,x);
+    {motion::Model model;motion::Settings settings;settings.live=10;settings.catchImpact=8;settings.touchdownMs=3000;auto x=request(Event::Touchdown,1000,1);model.observe(settings,x);
         for(uint64_t now=1100;now<=5000;now+=100){x=request(now<2000?Event::Touchdown:Event::Hit,now,now<2000?1:2,true);auto cue=model.observe(settings,x);if(now>=4000)assert(cue.kind==motion::Kind::None);}
         assert(model.observe(settings,request(Event::Run,5100,3)).kind==motion::Kind::LivePlay);
     }
     // A realistic multi-event chain: fourth-down impact -> gain buildup ->
     // skill accent -> forced fumble -> sound-only pickup -> TD -> eruption.
-    {motion::Model model;motion::Settings settings;auto x=request(Event::Hit,1000,1);auto cue=model.observe(settings,x);
+    {motion::Model model;motion::Settings settings;settings.live=10;settings.catchImpact=8;auto x=request(Event::Hit,1000,1);auto cue=model.observe(settings,x);
         x.now=1200;cue=model.observe(settings,x);auto anchor=cue.oscillationBegan?cue.oscillationBegan:cue.began;
         x=request(Event::Run,1300,0);x.runBuildup=77;x.runProgress=.1f;cue=model.observe(settings,x);assert(motion::strength(cue,x.now)==10);
         x.now=1500;x.runProgress=1;x.duringPlay=2;cue=model.observe(settings,x);assert(motion::strength(cue,x.now)==10);

@@ -43,7 +43,7 @@ int main(){
     snap.game.quarter=4;snap.offense=1;score.side=1;score.homePoints=0;score.awayPoints=6;assert(pass.scored(score,snap));
     core::Model away;end.quarter=4;assert(!away.react(c,score,10,end,true));end.neutral=true;assert(away.react(c,score,10,end,true));
     score.event=energy::Event::LastSecondLead;core::Model winner;assert(winner.react(c,score,10,end,true)&&winner.event==energy::Event::LastSecondLead); // Existing winning eruption wins priority.
-    motion::Model camera;motion::Settings motionSettings;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=10000;x.duringPlay=1;x.duringImpact=true;
+    motion::Model camera;motion::Settings motionSettings;motionSettings.live=10;motionSettings.catchImpact=8;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=10000;x.duringPlay=1;x.duringImpact=true;
     camera.observe(motionSettings,x);x.now+=200;auto cue=camera.observe(motionSettings,x);assert(motion::strength(cue,x.now)==10&&cue.impactOnly);
     std::puts("PASS: close big/packed halftime patience, ordinary peak/Q3 return timing, skipped-clock Sim, temporary pacing at the break, Q4-only one-score 120-second stops, layered defensive profile/impact, verified Hail Mary touchdowns and existing eruption priority.");
 }

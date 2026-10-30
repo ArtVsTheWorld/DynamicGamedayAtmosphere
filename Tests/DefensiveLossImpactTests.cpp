@@ -22,11 +22,11 @@ int main(){
             assert(live::completedImpact(result,p.game,true,result.sequence,95).id); // A prior letdown cannot swallow the defensive result.
             assert(!live::completedImpact(result,p.game,false,0,83).id); // Fullness/atmosphere/master switches still gate it.
             motion::Model motion;motion::Settings settings;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.duringImpact=true;
-            x.phase=phase;x.now=1000;x.duringPlay=hit.id;auto cue=motion.observe(settings,x);
-            assert(cue.impactOnly&&cue.kind==motion::Kind::LivePlay&&cue.percent==10&&cue.until==7400);
-            x.duringPlay=0;x.phase=2;x.now=1200;assert(motion::strength(motion.observe(settings,x),1200)==10);
-            x.phase=5;x.now=6500;assert(motion::strength(motion.observe(settings,x),6500)>0);
-            x.now=7400;assert(motion.observe(settings,x).kind==motion::Kind::None);
+            x.phase=phase;x.now=1000;x.duringPlay=hit.id;x.profile=motion::Profile::Loss;auto cue=motion.observe(settings,x);
+            assert(cue.impactOnly&&cue.kind==motion::Kind::LivePlay&&cue.percent==8&&cue.until==3700);
+            x.duringPlay=0;x.phase=2;x.now=1200;assert(motion::strength(motion.observe(settings,x),1200)==8);
+            x.phase=5;x.now=3500;assert(motion::strength(motion.observe(settings,x),3500)>0);
+            x.now=3700;assert(motion.observe(settings,x).kind==motion::Kind::None);
             auto profile=postplay::choose(result,p.game);assert(profile.strength>=.72f&&profile.size==3);
         }
         assert(!tracker.observe(rules,p).completed);

@@ -30,7 +30,7 @@ int main(){
     // changes. Both channels hold at the whistle and end on one deadline.
     for(auto event:{live::Event::LongCatch,live::Event::LongRun,live::Event::RunAfterCatch,live::Event::Interception,live::Event::FumbleRecovery,live::Event::KickReturn,live::Event::PuntReturn}){
         energy::Play p;p.game={1,14,7,3,406,720};p.offense=0;
-        live::ReturnAtmosphere sound;motion::Model motion;motion::Settings settings;settings.reactionFadeMs=4500; // Explicit custom timing exercises the envelope independently of defaults.
+        live::ReturnAtmosphere sound;motion::Model motion;motion::Settings settings;settings.live=10;settings.catchImpact=8;settings.reactionFadeMs=4500; // Explicit custom timing exercises the envelope independently of defaults.
         motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;x.distanceExtraMs=1265;
         auto cue=motion.observe(settings,x);
         sound.observe(p,123,1,1000,true,{event,1,0,44},true,false,4500,{},1265,true);

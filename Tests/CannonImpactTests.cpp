@@ -35,7 +35,7 @@ int main(){
     put(event+8,0x82b90c1cu);assert(cannon::started(image,entity,event,read,integer,playing)==-1);
     put(event+8,0x01ade220u);assert(cannon::started(image,entity,event,read,integer,playing)==10);
     cannon::Blast blast{123,1,1000,10};motion::Cue quiet;motion::Settings settings;
-    assert(settings.cannon==15&&settings.live==10);
+    assert(settings.cannon==15&&settings.live==11);
     for(int selector=10;selector<=18;++selector)for(float liveStrength:{0.f,10.f,30.f}){
         settings.live=liveStrength;blast.effect=selector;
         auto impact=cannon::merge(quiet,blast,1100,settings.cannon,true);

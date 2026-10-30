@@ -4,12 +4,12 @@
 #include <cstdio>
 using namespace attendance;
 int main(){
-    assert(std::abs(motion::venueScale(6060)-.35f)<.00001f);
+    assert(std::abs(motion::venueScale(6060)-.80f)<.00001f);
     assert(std::abs(motion::venueScale(61888)-1.10f)<.00001f);
-    assert(motion::venueScale(2039)==motion::venueScale(6060));
+    assert(motion::venueScale(2039)<motion::venueScale(6060));
     assert(motion::venueScale(100000)==motion::venueScale(61888));
     assert(motion::venueScale(0)==0&&motion::venueScale(UINT64_MAX)==0);
-    float previous=0;for(uint64_t n=512;n<200000;n+=31){auto scale=motion::venueScale(n);assert(scale>=previous&&scale>=.35f&&scale<=1.1f);previous=scale;}
+    float previous=0;for(uint64_t n=512;n<200000;n+=31){auto scale=motion::venueScale(n);assert(scale>=previous&&scale>=.67f&&scale<=1.1f);previous=scale;}
     for(int family=0;family<7;++family)for(bool neutral:{false,true})for(uint64_t seats:{6060ull,30000ull,51424ull,61888ull}){
         motion::Settings s;motion::Model base,scaled;motion::Input a;a.match=123;a.epoch=2;a.allowed=a.venueEligible=true;a.phase=4;a.now=1000;
         if(family==0){a.phase=1;a.lineup=true;a.lineupId=1;}
