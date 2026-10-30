@@ -4,7 +4,7 @@
 using namespace attendance::motion;
 namespace defense=attendance::defense;namespace live=attendance::live;
 int main(){
-    Settings s;assert(s.ordinary==4&&s.critical==8&&s.live==11&&s.catchImpact==9&&s.touchdown==16&&s.hostileOpeningMaximum==10);
+    Settings s;assert(s.ordinary==5&&s.critical==10&&s.live==11&&s.catchImpact==9&&s.touchdown==16&&s.hostileOpeningMaximum==10);
     const float counts[]{3030,6060,15000,30000,50000,61888};
     const float factors[]{.750f,.8f,.896f,.990f,1.067f,1.1f};
     for(int i=0;i<6;++i)assert(std::fabs(occupiedScale(static_cast<uint64_t>(counts[i]),1)-factors[i])<.001f);
@@ -28,10 +28,10 @@ int main(){
     }
     for(bool home:{false,true})for(float choice:{0.f,.5f,1.f}){
         Model m;Input x;x.match=1;x.allowed=x.lineup=x.venueEligible=true;x.lineupId=1;x.phase=1;x.now=1000;x.lineupScale=choice;
-        auto a=m.observe(s,x);assert(a.percent>=2&&a.percent<=4);
+        auto a=m.observe(s,x);assert(a.percent>=2.5f&&a.percent<=5);
         x.critical=true;x.homeCritical=home;x.now=2000;a=m.observe(s,x);
-        assert(a.percent>=(home?4.5f:6.f)&&a.percent<=(home?6.f:8.f));
-        x.critical=x.homeCritical=false;x.lineupStrengthScale=.5f;x.now=2100;a=m.observe(s,x);assert(a.percent>=1&&a.percent<=2);
+        assert(a.percent>=(home?5.625f:7.5f)&&a.percent<=(home?7.5f:10.f));
+        x.critical=x.homeCritical=false;x.lineupStrengthScale=.5f;x.now=2100;a=m.observe(s,x);assert(a.percent>=1.25f&&a.percent<=2.5f);
         x.lineupStrengthScale=1;x.hostileOpening=s.hostileOpeningMaximum;x.now=2200;a=m.observe(s,x);assert(a.percent>=8&&a.percent<=10);
         x.lineup=false;x.phase=3;x.now=2300;a=m.observe(s,x);assert(a.tail&&a.until==3200); // Snap still fades.
     }

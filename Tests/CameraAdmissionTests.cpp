@@ -41,7 +41,7 @@ int main(){
     for(bool critical:{false,true}){
         p.down=critical?3:1;p.toFirst=10;auto admit=lineup::cameraAdmission(c,p,.50f,true,61888,3);assert(admit.allowed&&admit.critical==critical);
         motion::Model model;motion::Input x;x.match=123;x.epoch=1;x.phase=1;x.now=1000;x.allowed=x.lineup=true;x.lineupId=1;x.lineupScale=.5f;x.venueEligible=admit.allowed;x.critical=admit.critical;x.homeCritical=admit.critical&&!p.game.neutral&&p.offense==0;x.lineupStrengthScale=x.homeCritical?1.f:admit.strengthScale;
-        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=(critical?(x.homeCritical?5.25f:7.f):3.f);
+        model.observe(settings,x);x.now=2000;auto cue=model.observe(settings,x);float level=(critical?(x.homeCritical?6.5625f:8.75f):3.75f);
         assert(std::fabs(motion::strength(cue,x.now)-level)<.001f);
         x.phase=3;x.lineup=false;x.now=2100;assert(model.observe(settings,x).tail);x.now=3000;assert(model.observe(settings,x).kind==motion::Kind::None);
     }

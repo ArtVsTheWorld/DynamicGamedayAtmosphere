@@ -36,12 +36,12 @@ int main(){
     assert(!sound.react(settings,score,10,final.game,false,false));sound.update(settings,final,10,.2f,.2f,0,false);assert(!sound.erupting&&sound.resultWeight==0);
     assert(sound.react(settings,score,11,final.game,true,true));sound.update(settings,final,12,.8f,.8f);assert(sound.erupting);
     sound.update(settings,final,13,.49f,.49f);assert(!sound.erupting&&sound.resultWeight==0&&sound.intensity==0);
-    // Every normal lineup has one stable random 2..4% choice; special cheers use 3..5%.
-    motion::Settings camera;assert(camera.ordinary==4&&camera.critical==8&&camera.lineupCheer==5&&camera.touchdownMs==11000);
+    // Every normal lineup has one stable random 2.5..5% choice; special cheers use 4..6%.
+    motion::Settings camera;assert(camera.ordinary==5&&camera.critical==10&&camera.lineupCheer==6&&camera.touchdownMs==11000);
     for(int n=0;n<4;++n){motion::Model m;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.lineup=x.venueEligible=true;x.lineupId=1;x.phase=1;x.now=1000;x.lineupScale=n/3.f;
-        m.observe(camera,x);x.now=2000;assert(std::fabs(motion::strength(m.observe(camera,x),2000)-(2+2*n/3.f))<.001f);
-        x.lineupCheer=true;x.now=2100;assert(std::fabs(motion::strength(m.observe(camera,x),2100)-(2+2*n/3.f))<.001f);
-        x.now=2300;assert(std::fabs(motion::strength(m.observe(camera,x),2300)-(3+2*n/3.f))<.001f); // Smooth transition to a cheer's stronger target.
+        m.observe(camera,x);x.now=2000;assert(std::fabs(motion::strength(m.observe(camera,x),2000)-(2.5f+2.5f*n/3.f))<.001f);
+        x.lineupCheer=true;x.now=2100;assert(std::fabs(motion::strength(m.observe(camera,x),2100)-(2.5f+2.5f*n/3.f))<.001f);
+        x.now=2300;assert(std::fabs(motion::strength(m.observe(camera,x),2300)-(4+2*n/3.f))<.001f); // Smooth transition to a cheer's stronger target.
     }
     // Defensive impacts can arrive at postplay, without sustained live shake.
     motion::Model impact;motion::Input x;x.match=123;x.epoch=1;x.allowed=true;x.phase=5;x.now=10000;x.duringPlay=1;x.duringImpact=true;

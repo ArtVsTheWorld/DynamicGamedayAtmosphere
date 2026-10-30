@@ -1752,12 +1752,12 @@ void readSettings(){
     nativeShakeMinimum=number(L"Dynamic Gameday Broadcast",L"NativeShakeMinimumFullnessPercent",50,0,100);
     auto motion=std::make_shared<attendance::motion::Settings>();
     motion->widePlayerCompensation=number(L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",0,0,1)!=0;
-    motion->ordinary=static_cast<float>(number(L"Atmosphere",L"OrdinaryShakeStrengthPercent",4,0,100));
-    motion->critical=static_cast<float>(number(L"Atmosphere",L"CriticalShakeStrengthPercent",8,0,100));
+    motion->ordinary=static_cast<float>(number(L"Atmosphere",L"OrdinaryShakeStrengthPercent",5,0,100));
+    motion->critical=static_cast<float>(number(L"Atmosphere",L"CriticalShakeStrengthPercent",10,0,100));
     motion->reactionFadeMs=static_cast<unsigned>(1000*percentage(L"Dynamic Gameday Broadcast",L"PlayReactionFadeSeconds",5.f,8,1));
     motion->impactExtraMs=static_cast<unsigned>(1000*percentage(L"Dynamic Gameday Broadcast",L"PlayImpactExtraSeconds",1,5));
     motion->catchImpact=percentage(L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",9,30);
-    motion->lineupCheer=percentage(L"Dynamic Gameday Broadcast",L"LineupCheerShakeStrengthPercent",5,100);
+    motion->lineupCheer=percentage(L"Dynamic Gameday Broadcast",L"LineupCheerShakeStrengthPercent",6,100);
     motion->hostileOpeningMaximum=percentage(L"Dynamic Gameday Broadcast",L"HostileOpeningShakeMaximumPercent",10,30);
     motion->touchdown=static_cast<float>(number(L"Atmosphere",L"TouchdownShakeStrengthPercent",16,0,100));
     motion->eruption=percentage(L"Atmosphere",L"EruptionShakeStrengthPercent",22.5f,100);
@@ -2396,6 +2396,7 @@ void atmosphereTick(){
         motion.gameSavingBlock=p.game.quarter>=4&&blockLead>=0&&blockLead<=3;
     }
     auto runBuildup=gainBuildup;motion.runBuildup=reactionEligible?runBuildup.id:0;motion.runProgress=runBuildup.progress;
+    motion.smoothRunBuildup=motion.runBuildup&&!kickBuildup.id&&liveReactions.runBuildup().id==motion.runBuildup;
     if(tauntBuildup.id&&!liveReactions.runBuildup().id&&!kickBuildup.id)motion.buildupProfile=attendance::motion::Profile::Showboat;
     int scored=result.side==1?result.awayPoints:result.homePoints;
     if(reactionEligible&&result.accepted&&result.completed&&(result.side==0||p.game.neutral)&&scored>=6&&scored<=8)motion.touchdown=result.sequence;
@@ -3018,7 +3019,10 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds 0.75x; native cannon impact is separate\n";}
     {auto venue=std::atomic_load(&renderedOccupancy);float full=venue->owns(audioMatch.load(),audioEpoch.load())?venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:0;
-        report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";}
+        report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";
+        auto dense=attendance::dense::layers(venue->seats,full);
+        report.field("Dense-crowd layer support")<<dense.full*100<<"% medium tier; "<<dense.veryLarge*100<<"% very-large tier; up to "<<dense.multiplier()<<"x added layer intensity within native cap; existing admission required, no extra bus gain\n";}
+    {auto cue=std::atomic_load(&cameraCue);if(cue->smoothRunBuildup)report.field("Run/YAC strength ramp")<<cue->buildupStrength<<"% reached before view/envelope; 800ms full-range rise; "<<(cue->tail?"fading from reached strength":"following 13-20 yard target")<<"\n";}
     report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"opt-in: up to 4x; intended for wide RTG/player cameras":"off: wide views capped at 1x; close-ups soften")<<"\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
@@ -3094,7 +3098,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Ordinary buildup strength")<<motion->ordinary*.5f<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
     report.field("Critical-down strength")<<motion->critical*.75f<<"-"<<motion->critical<<"% before home-offense 0.75x scaling (third-and-10 or shorter; offensive fourth downs)\n";
     report.field("Punt buildup motion")<<"0.5x ordinary strength; return reactions use their own strength\n";
-    report.field("Special lineup cheer strength")<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
+    report.field("Special lineup cheer strength")<<motion->lineupCheer*2.f/3.f<<"-"<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
     report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; each team's first offensive play, 75%-strength crowd motion":"; away must have the first offensive snap")<<"\n";
     report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; stable 80-100% opening range, then occupied-seat scaling\n";
     report.field("Cannon shake strength")<<motion->cannon<<"%; 0.9-second impact; all nine native cannon variants; no fullness requirement\n";

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.14 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.15 — not publicly released** · College Football 27 for Windows · MMC
 
 ## Attendance: the crowd for this game
 
@@ -176,7 +176,7 @@ In the final three minutes of Q4, a home offense tied or down by at most eight c
 
 ### Live plays, skills and defensive results
 
-- **Runs, scrambles and short catch-and-runs:** buildup starts at 13 yards, peaks at 20, and requests one cheer at 20. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
+- **Runs, scrambles and short catch-and-runs:** buildup starts at 13 yards, targets its peak at 20, and requests one cheer at 20. Strength rises toward the distance target over up to about 0.8 seconds, so a late first sample does not jump straight to the peak. A tackle fades from the movement actually reached. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
 - **Long catches:** 20 yards at the catch can earn an immediate response. An immediate tackle gets a short impact; a running receiver keeps the live-play reaction. A short official-result confirmation window covers delayed completion data.
 - **Pass anticipation:** either offense's qualifying airborne pass can get a fast swell. No pre-catch cheer, shake or separate volume bonus is added.
 - **Kick and punt returns:** buildup starts at 30 return yards, peaks and cheers at 40.
@@ -224,6 +224,10 @@ Outdoor ambience is lifted by 6 dB and the existing reverb return by 3 dB during
 
 The normal attendance plan and history continue underneath. Switching off restores the current normal target and retires the owned audio changes. It does not rewrite the game's scheduled attendance or save. Fullness displays zero while active, and crowd-driven shake is suppressed. The mode works independently of the normal Attendance/Soundscape switches in supported stadium contexts. Its quiet individual-detail balance still needs a final live check on this release build.
 
+### Fuller dense-crowd layers
+
+Already-qualified atmosphere gets stronger roar support around 80% fullness and 20,000 occupied mapped positions. A second tier around 85% and 45,000 strengthens very large crowds further. Both blend in gradually. The first tier adds up to 20% to DGA layer intensity; the second adds another 12 percentage points, within the native intensity limit. These are layer-intensity changes, not extra mixer volume above the +30% cap. Dense crowds can sustain a supporting swell at lower excitement levels, while ordinary plays keep restrained cheer sizes. Major moments can use the strongest tested variants once at least 24,000 positions are occupied at 80% fullness. No new play triggers or extra cheer requests are added.
+
 ## Broadcast: shake and replays
 
 ### Strength follows the fans in the seats
@@ -234,9 +238,10 @@ The same stadium strengthens as fans arrive and softens as they leave. Neutral-s
 
 | Effect | Default profile before crowd/view scaling |
 | --- | --- |
-| Ordinary play selection | 2–4% |
-| Before a punt | Half the ordinary range |
-| Close defensive third/fourth down | 6–8%; home-offense buildup 25% gentler |
+| Ordinary play selection | 2.5–5% |
+| Before a punt | 1.25–2.5% |
+| Special lineup cheer | 4–6% |
+| Close defensive third/fourth down | 7.5–10%; home offense 5.625–7.5% |
 | Long gain / return | 10–12% |
 | Five-yard loss / fourth-down conversion | 8–10% |
 | Qualified breakup / knockout / hit-stick stop | 6–8% |

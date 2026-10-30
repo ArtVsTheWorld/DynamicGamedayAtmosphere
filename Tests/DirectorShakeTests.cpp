@@ -22,9 +22,9 @@ int main(){
             assert(std::fabs(strength(normal,now)*.75f-strength(neutral,now))<.002f);
         }
     }
-    Settings s;assert(s.ordinary==4&&s.critical==8&&s.touchdownMs==11000&&s.lineupCheer==5);
-    assert(lineupStrength(s,false,0)==2&&lineupStrength(s,false,1)==4);
-    assert(lineupStrength(s,true,0)==6&&lineupStrength(s,true,1)==8);
+    Settings s;assert(s.ordinary==5&&s.critical==10&&s.touchdownMs==11000&&s.lineupCheer==6);
+    assert(lineupStrength(s,false,0)==2.5f&&lineupStrength(s,false,1)==5);
+    assert(lineupStrength(s,true,0)==7.5f&&lineupStrength(s,true,1)==10);
     {auto custom=s;custom.ordinary=custom.critical=0;assert(lineupStrength(custom,false,1)==0&&lineupStrength(custom,true,0)==0);
         custom.ordinary=1;custom.critical=3;assert(lineupStrength(custom,false,0)==.5f&&lineupStrength(custom,true,0)==2.25f);}
     s.ordinary=5;s.critical=10;s.touchdown=15;s.live=10;s.catchImpact=8;s.touchdownMs=9000; // Explicit legacy profile exercises the existing envelope math.

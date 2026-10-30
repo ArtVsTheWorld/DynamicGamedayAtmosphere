@@ -7,6 +7,7 @@
 #include "PackedHouse.h"
 #include "OpeningDrive.h"
 #include "UpsetAtmosphere.h"
+#include "DenseCrowd.h"
 namespace attendance::lineup {
 inline constexpr uint64_t SnapTailMs=10000;
 inline constexpr uint64_t LiveCarryMs=45000,PostPlayHoldMs=4000;
@@ -96,6 +97,7 @@ inline CameraAdmission cameraAdmission(const core::Settings& c,const energy::Pla
     return out;
 }
 struct Model {
+    uint64_t positionsForSound=0;
     uintptr_t match=0;unsigned epoch=0;int phase=-1;uint64_t serial=0,began=0,tailAt=0,continuousBegan=0;
     bool running=false,continuousMode=false;float weight=0,tailWeight=0,strength=0;int shakeTier=0;
     uint64_t variationSeed=0;variety::Profile profile;
@@ -112,7 +114,7 @@ struct Model {
     unsigned neutralOpeningSeen=0;int hostileCheerOffense=-1;
     void reset(){*this=Model{};}
     void handOffResult(){if(carrying&&!continuousMode){carrying=running=false;liveAt=postAt=tailAt=0;weight=0;reason=sustained::Reason::None;}}
-    void suspend(){upsetSound={};qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
+    void suspend(){positionsForSound=0;upsetSound={};qualifiedPlay=openingDriveQualified=hostileOpening=false;qualifiedMinimum=1.01f;cheerMoment=false;running=carrying=leverage=false;liveAt=postAt=0;tailAt=0;continuousMode=false;weight=0;shakeTier=0;reason=sustained::Reason::None;}
     uint64_t cameraLineupId()const{return phase==5?cheerSerial+1:cheerSerial;}
     float cameraChoice()const{return phase==5?static_cast<float>(variety::mix(variationSeed^(cheerSerial+1)^0x5348414b45ull)%1001)/1000.0f:shakeChoice;}
     float momentWeight()const{return leverage&&strength>0?(std::clamp)(weight/strength,0.0f,1.0f):0;}
@@ -137,6 +139,7 @@ struct Model {
     }
     bool observe(const core::Settings& c,const energy::Play& p,uintptr_t owner,unsigned generation,uint64_t now,bool allowed,float fraction=1,bool fullnessKnown=true,const energy::Outcome* result=nullptr,uint64_t positions=0){
         if(owner!=match||generation!=epoch){reset();match=owner;epoch=generation;}
+        positionsForSound=fullnessKnown?positions:0;
         bool start=false;const auto& s=p.game;
         bool firstDrive=openingDrive.observe(p,result);openingDriveQualified=false;
         hostileOpening=false;
@@ -300,7 +303,10 @@ struct Model {
         out.lineup=(serial<<32)|cycle;out.lineupBegan=continuousMode?continuousBegan+cycle*40000:began;out.lineupUntil=continuousMode?now+750:began+profile.roarMs;
         out.shake=shakeTier>0;out.shakeTier=shakeTier;out.reason=reason;out.priority=continuousMode?4:1;out.size=variation.size(strength);
         out.continuous=reason!=sustained::Reason::None;out.releaseMs=static_cast<int>(variation.releaseMs);out.attackMs=static_cast<int>(variation.attackMs);
-        out.supporting=strength>=.55f&&now>=began+variation.supportDelayMs&&reason!=sustained::Reason::None;
+        // Full ordinary crowds can keep a quiet supporting layer through a
+        // two-score margin. The larger tier adds presence, not another gain
+        // bonus. Existing admission, score fading and lifetime still own it.
+        out.supporting=strength>=dense::layers(positionsForSound,fraction).swellMinimum()&&now>=began+variation.supportDelayMs&&reason!=sustained::Reason::None;
         out.cheers=out.cheers&&reason!=sustained::Reason::None;return out;
     }
 };

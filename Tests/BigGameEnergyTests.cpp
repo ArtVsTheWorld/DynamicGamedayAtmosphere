@@ -22,7 +22,7 @@ int main(){
     assert(ordinary.model.playContextActive()&&big.model.playContextActive());
     assert(std::fabs(ordinary.model.strength-.45982024f)<.00001f); // Previous TAMU 90% ordinary strength remains exact.
     assert(big.model.strength>ordinary.model.strength+.19f&&big.sound.intensity>ordinary.sound.intensity+90);
-    assert(!ordinary.sound.supporting&&big.sound.supporting&&big.sound.size>=ordinary.sound.size);
+    assert(ordinary.sound.supporting&&big.sound.supporting&&big.sound.size>=ordinary.sound.size); // Dense ordinary crowds now keep the supporting swell too.
     auto sixty=sample(ordinaryState,.6f,56099);assert(!sixty.model.playContextActive()); // No new penalty or admission change.
     auto bigSixty=sample(bigState,.6f,56099);assert(bigSixty.model.playContextActive());
     assert(big.sound.intensity>bigSixty.sound.intensity);
