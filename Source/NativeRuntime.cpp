@@ -251,6 +251,8 @@ SetPeriod originalPeriod=nullptr;
 SetVisibility originalSet=nullptr;
 unsigned long long restoreAt=0;
 std::atomic<uint64_t> nativeAudioCallbacks{0};
+attendance::timing::Counts audioMixerTimings,intensityCallbackTimings,reactionCallbackTimings,cameraCallbackTimings,sparseCameraTimings,cannonCallbackTimings;
+std::atomic<uint64_t> audioContextSnapshots{0},audioWorldSnapshots{0};
 using NativeAudioUpdate=A(__fastcall*)(A,A,A,A);NativeAudioUpdate originalAudioUpdate=nullptr;
 std::atomic<bool> audioHookInstalled{false},audioSetting{true};
 std::atomic<int> nativeCrowdSlider{-1};std::atomic<bool> notedAudioState{false};
@@ -362,8 +364,8 @@ float audibleFullness(const attendance::audio::Wanted& wanted){
         return rendered->peak()*(100-(std::clamp)(historical,0,100))*.01f;
     return (std::min)(wanted.remaining,wanted.arrivalFraction);
 }
-attendance::sustained::Intent wantedSwell(){
-    auto intent=*std::atomic_load(&sustainedIntent);auto wanted=audioWanted();auto c=std::atomic_load(&coreSettings);
+attendance::sustained::Intent wantedSwell(const attendance::audio::Wanted& wanted){
+    auto intent=*std::atomic_load(&sustainedIntent);auto c=std::atomic_load(&coreSettings);
     auto now=GetTickCount64(),audibleAt=lastAudibleUpdate.load();
     auto preview=std::atomic_load(&diagnosticPreview);
     if(preview->sound&&preview->fresh(wanted.match,wanted.epoch,now)){
@@ -382,16 +384,19 @@ attendance::sustained::Intent wantedSwell(){
     if(phase!=1&&intent.reason==attendance::sustained::Reason::Lineup)intent.cheers=false;
     return intent;
 }
+attendance::sustained::Intent wantedSwell(){return wantedSwell(audioWanted());}
 void __fastcall intensityUpdate(A entity){
     originalIntensityUpdate(entity);
+    attendance::timing::Scope measured(intensityCallbackTimings);
     auto wanted=audioWanted();
     try {
-        crowdIntensity.tick(entity,wantedSwell(),wanted.match,wanted.epoch,GetTickCount64());
+        crowdIntensity.tick(entity,wantedSwell(wanted),wanted.match,wanted.epoch,GetTickCount64());
     }
     catch(...){crowdIntensity.fail();audioNote("intensity-fault: temporary excitement stopped; native output will be restored on its next update");}
 }
 void __fastcall reactionUpdate(A entity,A frame){
     originalReactionUpdate(entity,frame);
+    attendance::timing::Scope measured(reactionCallbackTimings);
     // Observation only, using this callback's borrowed live entity. Debug=0
     // adds no reads, scanning, allocation or locks to the normal path.
     try {if(debugLog&&attendance::sustained::at<A>(entity)==image+attendance::bindings::ReactionVtable){
@@ -416,6 +421,7 @@ void __fastcall nativeCameraSet(A camera,int code,bool flag){
     originalNativeCameraSet(camera,output,flag);
 }
 void sparseCameraTick(){
+    attendance::timing::Scope measured(sparseCameraTimings);
     if(!sparseCameraAvailable)return;
     auto now=GetTickCount64();auto wanted=audioWanted();auto density=std::atomic_load(&renderedOccupancy);
     attendance::sparsecamera::Lease lease;lease.epoch=wanted.epoch;lease.updated=now;
@@ -450,6 +456,10 @@ bool cannonPlaying(A instance){
     __except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
 void observeCannon(A entity,A event){
+    if(!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!cameraAvailable||!nativeMasterAudible)return;
+    // The receiver sees many parameter/stop events too. They cannot start a
+    // cannon, so do not sample the world or resolve sound assets for them.
+    unsigned eventHash=0;if(!cannonRead(event+8,&eventHash,sizeof(eventHash))||eventHash!=attendance::cannon::PlayEvent)return;
     auto config=std::atomic_load(&coreSettings);A match=audioMatch.load();unsigned epoch=audioEpoch.load();auto now=GetTickCount64();
     A configuration=attendance::sustained::at<A>(image+0xf6379e0);
     if(!cannonAvailable||!enabled||mode!=0||replayLoss.load()>=0||replaySuspendsAtmosphere||!audioSetting||!config->enabled||!config->cameraShake||!cameraAvailable||!match||!nativeUnpaused()||!configuration||attendance::sustained::at<unsigned char>(configuration+0x84)!=0||!nativeMasterAudible)return;
@@ -463,10 +473,12 @@ void observeCannon(A entity,A event){
 }
 void __fastcall legacySoundReceive(A entity,A event){
     originalLegacySoundReceive(entity,event);
+    attendance::timing::Scope measured(cannonCallbackTimings);
     try{observeCannon(entity,event);}catch(...){cannonAvailable=false;}
 }
 void __fastcall cameraView(A view,float* output){
     originalCameraView(view,output);
+    attendance::timing::Scope measured(cameraCallbackTimings);
     if(!enabled||mode!=0||!cameraAvailable||replayLoss.load()>=0)return; // Recorded clips, including play-selection insets, stay steady.
     auto published=std::atomic_load(&cameraCue);auto cue=*published;auto preview=std::atomic_load(&diagnosticPreview);
     if(preview->fresh(audioMatch.load(),audioEpoch.load(),GetTickCount64())&&(preview->active||preview->cooling)){
@@ -484,9 +496,12 @@ void __fastcall cameraView(A view,float* output){
     if(cue.kind==attendance::motion::Kind::None)return;
     try{
         auto now=GetTickCount64();
-        if(!presentationCamera.prepare(view,cue,audioMatch.load(),audioEpoch.load(),now))return;
         bool diagnostic=preview->fresh(audioMatch.load(),audioEpoch.load(),now)&&(preview->active||preview->cooling);
-        if(!diagnostic&&!cannonSound&&!attendance::pairing::soundReady(*std::atomic_load(&motionSound),cue,now))return;
+        if(!diagnostic&&!cannonSound&&!attendance::pairing::soundReady(*std::atomic_load(&motionSound),cue,now)){
+            // Register a valid camera request while its matching sound starts.
+            // Ready outputs validate once inside tick(), immediately before use.
+            presentationCamera.prepare(view,cue,audioMatch.load(),audioEpoch.load(),now);return;
+        }
         presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),now);
     }
     catch(...){presentationCamera.fail();}
@@ -499,6 +514,7 @@ A __fastcall crowdSend(A manager,A result,A event){
 void logAudioState(int volume);
 A __fastcall audioUpdate(A owner,A a,A b,A c){
     A result=originalAudioUpdate(owner,a,b,c);++nativeAudioCallbacks;
+    attendance::timing::Scope measured(audioMixerTimings);
     int volume=0;SIZE_T count=0;
     bool audible=owner>=0x10040&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(owner-0x40+attendance::bindings::CrowdSlider),&volume,4,&count)&&count==4&&volume>0&&volume<=100;
     nativeCrowdSlider=count==4&&volume>=0&&volume<=100?volume:-1;
@@ -890,18 +906,22 @@ A __fastcall museComparisonValue(A node,A output){
     return result;
 }
 attendance::audio::Wanted audioWanted(){
+    ++audioContextSnapshots;
     attendance::audio::Wanted wanted;wanted.epoch=audioEpoch.load();wanted.match=audioMatch.load();
     // Replay may use different clocks. Ownership and match identity gate audio;
     // its target comes from the attendance checkpoint, not the replay's score.
-    A wrapper=at<A>(image+attendance::bindings::MatchWrapper),actual=at<A>(wrapper+16),configuration=at<A>(image+0xf6379e0);
-    wanted.active=enabled&&audioSetting&&mode!=2&&std::atomic_load(&settings)->enabled&&wanted.match&&
-        wanted.match==actual&&configuration&&at<unsigned char>(configuration+0x84)!=1&&at<A>(actual)==image+0xb4781e8&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3;
+    if(enabled&&audioSetting&&mode!=2&&std::atomic_load(&settings)->enabled&&wanted.match){
+        ++audioWorldSnapshots;
+        A wrapper=at<A>(image+attendance::bindings::MatchWrapper),actual=at<A>(wrapper+16),configuration=at<A>(image+0xf6379e0);
+        wanted.active=wanted.match==actual&&configuration&&at<unsigned char>(configuration+0x84)!=1&&at<A>(actual)==image+0xb4781e8&&at<int>(image+0xd9e3818)==14&&at<int>(image+0xf3f5d48)==3;
+    }
     wanted.remaining=(100-(std::clamp)(activeLoss.load(),0,100))*0.01f;
     wanted.arrivalFraction=(100-(std::clamp)(arrivalMissing.load(),0,100))*0.01f;
     auto rendered=std::atomic_load(&renderedOccupancy);
-    wanted.active=wanted.active&&rendered->owns(wanted.match,wanted.epoch);
-    wanted.remaining=rendered->owns(wanted.match,wanted.epoch)?wanted.remaining*rendered->peak():.75f;
-    wanted.arrivalFraction=rendered->owns(wanted.match,wanted.epoch)?wanted.arrivalFraction*rendered->peak():.75f;
+    bool owned=rendered->owns(wanted.match,wanted.epoch);float peak=owned?rendered->peak():.75f;
+    wanted.active=wanted.active&&owned;
+    wanted.remaining=owned?wanted.remaining*peak:.75f;
+    wanted.arrivalFraction=owned?wanted.arrivalFraction*peak:.75f;
     return wanted;
 }
 
@@ -2805,6 +2825,9 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("DGA replay crowd check")<<replayCrowdTimings.calls.load()<<" calls; max "<<replayCrowdTimings.maximumUs.load()<<" us; >=4ms "<<replayCrowdTimings.over4ms.load()<<"; >=16ms "<<replayCrowdTimings.over16ms.load()<<"\n";
     report.field("Forced native crowd passes")<<forcedCrowdPasses.load()<<"; max "<<nativeCrowdTimings.maximumUs.load()<<" us (native + DGA visibility work); unchanged replay refreshes skipped "<<unchangedReplaySkips.load()<<"\n";
     report.field("Natural crowd update")<<naturalCrowdTimings.calls.load()<<" calls; max "<<naturalCrowdTimings.maximumUs.load()<<" us; >=4ms "<<naturalCrowdTimings.over4ms.load()<<"; >=16ms "<<naturalCrowdTimings.over16ms.load()<<" (native + DGA observer; not isolated DGA time)\n";
+    report.field("DGA sound callback work")<<"mixer "<<audioMixerTimings.maximumUs.load()<<" us; intensity "<<intensityCallbackTimings.maximumUs.load()<<" us; cheers "<<reactionCallbackTimings.maximumUs.load()<<" us; >=4ms "<<audioMixerTimings.over4ms.load()<<"/"<<intensityCallbackTimings.over4ms.load()<<"/"<<reactionCallbackTimings.over4ms.load()<<" (maxima; forwarded native updates excluded)\n";
+    report.field("DGA camera callback work")<<"view "<<cameraCallbackTimings.maximumUs.load()<<" us; native HFA "<<sparseCameraTimings.maximumUs.load()<<" us; cannon observer "<<cannonCallbackTimings.maximumUs.load()<<" us; >=4ms "<<cameraCallbackTimings.over4ms.load()<<"/"<<sparseCameraTimings.over4ms.load()<<"/"<<cannonCallbackTimings.over4ms.load()<<" (maxima; forwarded native updates excluded)\n";
+    report.field("Audio context samples")<<audioContextSnapshots.load()<<"; native world checks "<<audioWorldSnapshots.load()<<" (disabled contexts avoid native reads)\n";
     report.field("DGA replay selector work")<<replaySelectorTimings.calls.load()<<" calls; max "<<replaySelectorTimings.maximumUs.load()<<" us; relevant major refreshes "<<replayMajorSelectorSamples.load()<<" (forwarded native Eval excluded)\n";
     report.field("Replay selector work intervals")<<replaySelectorIntervals.calls.load()<<" intervals; max "<<replaySelectorIntervals.maximumUs.load()<<" us; >=4ms "<<replaySelectorIntervals.over4ms.load()<<"; >=16ms "<<replaySelectorIntervals.over16ms.load()<<" (accumulated DGA work between presentation/replay callbacks; not FPS)\n";
     report.field("Native replay selector Eval")<<replayOriginalTimings.calls.load()<<" roots; max "<<replayOriginalTimings.maximumUs.load()<<" us; >=4ms "<<replayOriginalTimings.over4ms.load()<<"; >=16ms "<<replayOriginalTimings.over16ms.load()<<" (native Eval including nested DGA hooks)\n";

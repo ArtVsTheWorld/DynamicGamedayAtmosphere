@@ -164,6 +164,44 @@ void testReplaySelectors(TestWorld& world){
     testGlobal(attendance::bindings::ReplayManager,A(0));
     originalMuseLogic=nullptr;originalMuseComparison=nullptr;originalReplayEventNode=nullptr;
 }
+unsigned testIntensityUpdates=0;
+void __fastcall testIntensityUpdate(A){++testIntensityUpdates;}
+const std::array<float,16> callbackMatrix{1,0,0,0,0,1,0,0,0,0,1,0,4,12,20,1};
+void __fastcall testCameraCopy(A,float* output){std::memcpy(output,callbackMatrix.data(),sizeof(callbackMatrix));}
+void testAudioCameraCallbacks(TestWorld& world){
+    A savedMatch=audioMatch.load();unsigned savedEpoch=audioEpoch.load();bool savedAudio=audioSetting,savedCamera=cameraAvailable;
+    auto savedDensity=std::atomic_load(&renderedOccupancy);auto savedCue=std::atomic_load(&cameraCue);auto savedSound=std::atomic_load(&motionSound);
+    int savedLoss=activeLoss,savedMissing=arrivalMissing;auto savedIntensity=originalIntensityUpdate;auto savedView=originalCameraView;
+    audioMatch=world.wrapper[2];audioEpoch=99;audioSetting=true;activeLoss=10;arrivalMissing=20;
+    std::shared_ptr<const attendance::occupancy::Rendered> density=std::make_shared<attendance::occupancy::Rendered>(attendance::occupancy::Rendered{audioMatch,99,1,1000,600});std::atomic_store(&renderedOccupancy,density);
+    auto wanted=audioWanted();assert(wanted.active&&std::fabs(wanted.remaining-.54f)<.0001f&&std::fabs(wanted.arrivalFraction-.48f)<.0001f);
+    auto samples=audioContextSnapshots.load(),worldSamples=audioWorldSnapshots.load();originalIntensityUpdate=testIntensityUpdate;
+    intensityUpdate(0);assert(testIntensityUpdates==1&&audioContextSnapshots==samples+1&&audioWorldSnapshots==worldSamples+1);
+    audioSetting=false;worldSamples=audioWorldSnapshots;wanted=audioWanted();assert(!wanted.active&&audioWorldSnapshots==worldSamples&&wanted.match==audioMatch&&wanted.epoch==99);
+    assert(std::fabs(wanted.remaining-.54f)<.0001f&&std::fabs(wanted.arrivalFraction-.48f)<.0001f);
+    audioSetting=true;audioEpoch=100;wanted=audioWanted();assert(!wanted.active&&wanted.remaining==.75f&&wanted.arrivalFraction==.75f);audioEpoch=99;
+    audioMatch=123;assert(!audioWanted().active);audioMatch=world.wrapper[2];
+    std::vector<A> replay(0x80/8),cameraSettingsData(0x500/8),owner(2),cameraData(0x300/8),views(4*0x68/8),view(0x800/8);
+    replay[0]=image+attendance::bindings::ReplayVtable;testGlobal(attendance::bindings::ReplayManager,reinterpret_cast<A>(replay.data()));
+    cameraSettingsData[0]=image+attendance::bindings::CameraSettingsVtable;
+    testPut(reinterpret_cast<A>(cameraSettingsData.data())+0x3e6,static_cast<unsigned short>(1));testPut(reinterpret_cast<A>(cameraSettingsData.data())+0x41a,static_cast<unsigned short>(1));testGlobal(attendance::bindings::CameraSettings,reinterpret_cast<A>(cameraSettingsData.data()));
+    owner[0]=reinterpret_cast<A>(cameraData.data());testPut(owner[0]+0x1f0,reinterpret_cast<A>(views.data()));views[0x68/8]=reinterpret_cast<A>(view.data());testGlobal(attendance::bindings::CameraOwner,reinterpret_cast<A>(owner.data()));view[0]=image+attendance::bindings::CameraVtable;
+    std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;std::memcpy(reinterpret_cast<void*>(reinterpret_cast<A>(view.data())+0x2b4),projection.data(),sizeof(projection));
+    auto originalView=view;auto now=GetTickCount64();attendance::motion::Cue cue;cue.match=audioMatch;cue.epoch=99;cue.began=now-100;cue.updated=now;cue.until=now+5000;cue.kind=attendance::motion::Kind::LivePlay;cue.percent=5;
+    std::shared_ptr<const attendance::motion::Cue> published=std::make_shared<attendance::motion::Cue>(cue);std::atomic_store(&cameraCue,published);
+    std::shared_ptr<const attendance::pairing::SoundLease> quiet=std::make_shared<attendance::pairing::SoundLease>();std::atomic_store(&motionSound,quiet);
+    cameraAvailable=true;originalCameraView=testCameraCopy;presentationCamera.configure(image);world.phase(3);auto before=presentationCamera.changed();std::array<float,16> output{};
+    // A valid request must still prime the sound bridge without moving the
+    // output before its sound lease. Ready motion validates inside tick once.
+    cameraView(reinterpret_cast<A>(view.data()),output.data());assert(output==callbackMatrix&&presentationCamera.changed()==before&&presentationCamera.requested(cue,GetTickCount64()));
+    std::shared_ptr<const attendance::pairing::SoundLease> audible=std::make_shared<attendance::pairing::SoundLease>(attendance::pairing::SoundLease{audioMatch,99,GetTickCount64(),true});std::atomic_store(&motionSound,audible);
+    cameraView(reinterpret_cast<A>(view.data()),output.data());assert(output!=callbackMatrix&&presentationCamera.changed()==before+1&&view==originalView);
+    world.paused=1;cameraView(reinterpret_cast<A>(view.data()),output.data());assert(output==callbackMatrix&&presentationCamera.changed()==before+1);world.paused=0;
+    testPut(reinterpret_cast<A>(cameraSettingsData.data())+0x3e6,static_cast<unsigned short>(0));cameraView(reinterpret_cast<A>(view.data()),output.data());assert(output==callbackMatrix&&presentationCamera.changed()==before+1);
+    world.phase(6);cameraAvailable=savedCamera;audioSetting=savedAudio;audioMatch=savedMatch;audioEpoch=savedEpoch;activeLoss=savedLoss;arrivalMissing=savedMissing;
+    originalIntensityUpdate=savedIntensity;originalCameraView=savedView;std::atomic_store(&renderedOccupancy,savedDensity);std::atomic_store(&cameraCue,savedCue);std::atomic_store(&motionSound,savedSound);
+    testGlobal(attendance::bindings::ReplayManager,A(0));testGlobal(attendance::bindings::CameraSettings,A(0));testGlobal(attendance::bindings::CameraOwner,A(0));
+}
 }
 int main(){
     image=0x10000000;enabled=true;originalSet=testSet;originalAttendanceUpdate=testUpdate;audioMatch=123;audioEpoch=7;
@@ -269,6 +307,7 @@ int main(){
     // without a quarter transition, play selection or a first snap.
     resetMatch();mode=0;entities.clear();testScenes.clear();TestWorld world;originalPeriod=testPeriod;lastDecision=0;
     testReplaySelectors(world);
+    testAudioCameraCallbacks(world);
     assert(guardedDecision());int opening=arrivalMissing.load();assert(opening>0&&visibilityRetry&&arrivalModel.active);
     assert(!crowdChangeWindow.pending); // No new ordinary crowd-change window.
     TestScene intro(1536);testScenes={&intro};testUpdate(0);assert(seatPatternPending);originalPresentationUpdate=testPresentation;

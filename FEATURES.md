@@ -1,12 +1,12 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 2.0.5 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 2.0.6 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
 The crowd fills in, reacts to the matchup and thins as the game gets out of reach. Play calls bring a buildup of crowd noise and pre-snap camera shake. Stadium fullness and occupied seats control the native crowd-bus mix. Big games, packed ordinary stadiums, close critical downs, scoring threats, overtime and late scoring drives can get layered buildup. Winning moments receive longer celebrations. More plays also get the game's own replay presentation.
 
-Candidate 2.0.5 limits synchronous play sampling to recognized major replay selectors, reduces same-process expression-read overhead, and directly forwards disabled replay additions. Native presentation rules are retained. Selector self-work, accumulated intervals and native-call counters support the whistle-hitch retest. The earlier equal-target crowd optimization remains; timing includes native work where labeled and is not FPS.
+Candidate 2.0.5 limits synchronous play sampling to recognized major replay selectors, reduces same-process expression-read overhead, and directly forwards disabled replay additions. Native presentation rules are retained. Candidate 2.0.6 additionally removes duplicate audio-context/camera checks, filters unrelated sound events before cannon inspection and adds callback timing. The earlier equal-target crowd optimization remains; timing includes native work where labeled and is not FPS.
 
 ## Dynamic Gameday Attendance
 

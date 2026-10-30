@@ -2,9 +2,11 @@
 
 By Ace. A College Football 27 plugin for MMC.
 
-This branch contains the Update 3 test candidate (2.0.5). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
+This branch contains the Update 3 test candidate (2.0.6). It adds an occupied-seat native crowd-bus mix and removes the old excitement limiter and graph-volume cuts. It adds stable special-game demand, record/AP breakout attendance, easier small-venue arrivals, a 15% departure capacity floor, confirmed recovery/conversion camera fallbacks and deferred log I/O. The support weights, section patterns and native HFA admission are retained. Update 2 remains the latest public release; this candidate is staged for testing, not published.
 
-Candidate 2.0.5 reduces repeated play sampling and same-process expression-read overhead in Additional Replays. The user's restarted OFF/ON comparison isolated that feature as the whistle-hitch trigger; live clearance of this candidate is pending. It retains the prior equal-target crowd-update optimization and adds selector/routing timing. See the [performance investigation](docs/reviews/Update3-2.0.5.md).
+Candidate 2.0.6 removes duplicate intensity-context and camera checks, rejects unrelated cannon events earlier, and adds sound/camera callback timing. It retains the live-verified 2.0.5 whistle-hitch fix. See the [remaining-path performance audit](docs/reviews/Update3-2.0.6-performance.md); the candidate still needs a short audio/camera smoke test.
+
+Candidate 2.0.5 reduces repeated play sampling and same-process expression-read overhead in Additional Replays. After the user's restarted OFF/ON comparison isolated that feature, the candidate passed the focused whistle-hitch test through arrivals completion and a touchdown's full-screen/inset sequence. It retains the prior equal-target crowd-update optimization and adds selector/routing timing. See the [performance investigation](docs/reviews/Update3-2.0.5.md).
 
 Fans arrive late, take halftime breaks and leave as games get out of reach. Crowds react to big plays, full stadiums get more involved sound, and winning moments get bigger celebrations.
 
