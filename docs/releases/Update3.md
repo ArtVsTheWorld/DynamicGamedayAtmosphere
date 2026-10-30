@@ -1,13 +1,18 @@
 # Update 3
 
-Build **2.0.13** · [Full feature list](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/blob/v2.0.13/FEATURES.md)
+Build **2.0.14** · [Full feature list](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/blob/v2.0.14/FEATURES.md)
 
 Changes since Update 2 (1.54.0).
+
+### Settings addition in 2.0.14
+
+**Wide Player Camera Compensation** is now available under Settings → Gameday Atmosphere → Broadcast, directly below Added Camera Shake. It defaults Off and saves to the existing INI option. Broadcast now has 14 controls; the other sections are unchanged. No shake-strength or gameplay behavior is retuned in this build.
+
 
 ### Camera correction in 2.0.13
 
 - Standard views cap shake compensation at 1×. The reported 7.2% critical-down envelope no longer becomes 22.2% just because that camera is wide. Close-ups retain their gentler movement.
-- The former RTG/player-camera allowance is a separate advanced opt-in: `WidePlayerCameraCompensation=1` under Dynamic Gameday Broadcast in the INI. It defaults off because a wide field of view does not identify a game mode.
+- The former RTG/player-camera allowance is a separate opt-in: the **Wide Player Camera Compensation** Broadcast toggle, also available as `WidePlayerCameraCompensation=1` in the INI. It defaults off because a wide field of view does not identify a game mode.
 - Native HFA camera shake yields while a fresh DGA crowd-shake output is actually rendered, then restores its latest native tier. Gameplay HFA, composure and the meter stay unchanged. The advanced native-filter zero opt-out remains respected.
 - Corrected the stale technical-status reference to a two-voice cheer limit; native cheer overlap remains allowed.
 - Occupied-seat scaling, reaction strengths, attendance and audio tuning are unchanged.
@@ -63,13 +68,13 @@ Changes since Update 2 (1.54.0).
 
 - Manual major-play replay handling waits for full-screen playback before requesting a separate inset. Slow Sim uses full-screen presentation without an inset request. Injuries, penalties and native recordings can still affect playback.
 - Better saved-crowd restoration, Q1 arrival continuity and recorded attendance in replays.
-- New Gameday Atmosphere tab: 36 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
+- New Gameday Atmosphere tab: 37 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
 - Optional 2020 Mode: empty stands, collective crowd/bands/drums/PA muted, quiet individual detail and a more open stadium sound.
 - Dynasty and RTG have been tested, including adjustments for RTG's wider player camera. The revised peak formula is Dynasty-only.
 - Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.
 
 **Close the game and MMC before updating. Old settings reset once with a backup; no INI deletion needed.**
-Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.13
+Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.14
 
 ## Remaining limits
 

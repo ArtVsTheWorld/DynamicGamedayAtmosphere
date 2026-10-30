@@ -41,7 +41,7 @@
 
 **Rebalanced shake**
 
-- Strength follows occupied seats; neutral sites use 75%. Wide normal cameras no longer amplify it; RTG/player-camera amplification is a separate advanced opt-in. Native HFA camera motion yields during DGA shake.
+- Strength follows occupied seats; neutral sites use 75%. Wide normal cameras no longer amplify it; RTG/player-camera amplification has its own Broadcast toggle, off by default. Native HFA camera motion yields during DGA shake.
 - Runs, scrambles and catch-and-runs build from 13 to 20 yards; kick/punt returns build from 30 to 40. Shake fades at the snap and blends into touchdowns instead of restarting abruptly.
 - Confirmed five-yard losses no longer need a sack label to react. Improved fourth-down conversions, defensive fumble returns and turnover-on-downs reactions; own fumble pickups do not get takeaway shake.
 - Overtime adds confirmed stop, field-goal and two-point coverage, steadier tension and a small shake boost. Earned final-play effects can finish into postgame.
@@ -50,10 +50,10 @@
 
 - Manual major-play replay handling waits for full-screen playback before requesting a separate inset. Slow Sim uses full-screen presentation without an inset request. Injuries, penalties and native recordings can still affect playback.
 - Better saved-crowd restoration, Q1 arrival continuity and recorded attendance in replays.
-- New Gameday Atmosphere tab: 36 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
+- New Gameday Atmosphere tab: 37 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
 - Optional 2020 Mode: empty stands, collective crowd/bands/drums/PA muted, quiet individual detail and a more open stadium sound.
 - Dynasty and RTG have been tested, including adjustments for RTG's wider player camera. The revised peak formula is Dynasty-only.
 - Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.
 
 **Close the game and MMC before updating. Old settings reset once with a backup; no INI deletion needed.**
-Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.13
+Download: https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.14

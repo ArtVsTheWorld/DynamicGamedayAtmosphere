@@ -39,7 +39,7 @@ struct Fixture {
 }
 int main(){
     using namespace attendance::settingsmenu::native;
-    assert(Count==36);std::set<std::wstring> unique;
+    assert(Count==37);std::set<std::wstring> unique;
     Output catalog;ArrayWriter writer{catalog.address()};attendance::settingsmenu::list(writer);assert(writer.okay);
     size_t controls=0,headers=0;
     for(const auto& row:catalog.fields){const auto& fields=row.second;
@@ -59,7 +59,7 @@ int main(){
     assert(controls==Count&&headers==3);
     std::map<std::string,size_t> sizes;std::map<std::string,bool> numericSeen;
     for(const auto& o:Options){++sizes[o.group];if(o.kind!=Kind::Toggle)numericSeen[o.group]=true;else assert(!numericSeen[o.group]);}
-    assert(sizes.size()==3&&sizes["Attendance"]==11&&sizes["Soundscape"]==12&&sizes["Broadcast"]==13);
+    assert(sizes.size()==3&&sizes["Attendance"]==11&&sizes["Soundscape"]==12&&sizes["Broadcast"]==14);
     for(const auto& group:sizes)assert(group.second<=15);
     // Execute the new bytecode fallback's branch semantics: only DGA can pass
     // through the finite native tab switch; every other unknown key returns zero.
@@ -87,6 +87,17 @@ int main(){
     wchar_t hidden[32]{};GetPrivateProfileStringW(L"Dynamic Gameday Soundscape",L"MaximumBoostPercent",L"",hidden,32,path.c_str());assert(std::wcscmp(hidden,L"23.25")==0);
     // Reopening reads saved values. A newer config schema never gets overwritten.
     menu.initialize(p,category.address());for(size_t i=0;i<Count;++i)assert(Fixture::current(menu,i)==Options[i].low);
+    // The new visible toggle changes the existing backend key and survives
+    // closing/reopening, in both directions, without editing another option.
+    size_t wideIndex=0;while(wideIndex<Count&&std::wcscmp(Options[wideIndex].key,L"WidePlayerCameraCompensation"))++wideIndex;
+    assert(wideIndex<Count&&Options[wideIndex].kind==Kind::Toggle&&Options[wideIndex].factory==0);
+    Reader wideKey(FirstKey+static_cast<int>(wideIndex)),wideOn(1),wideOff(0);
+    menu.setToggle(p,0,category.address(),wideKey.address(),wideOn.address(),0);
+    assert(Fixture::current(menu,wideIndex)==1);menu.finish(p,0);
+    assert(GetPrivateProfileIntW(L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",-1,path.c_str())==1);
+    menu.initialize(p,category.address());assert(Fixture::current(menu,wideIndex)==1);
+    menu.setToggle(p,0,category.address(),wideKey.address(),wideOff.address(),0);menu.finish(p,0);
+    menu.initialize(p,category.address());assert(Fixture::current(menu,wideIndex)==0);
     WritePrivateProfileStringW(L"General",L"ConfigVersion",L"3",path.c_str());
     size_t sliderIndex=0;while(Options[sliderIndex].kind!=Kind::Slider)++sliderIndex;Reader key(FirstKey+static_cast<int>(sliderIndex));
     menu.setSlider(p,0,category.address(),key.address(),static_cast<int>(Options[sliderIndex].high),0);assert(Fixture::current(menu,sliderIndex)==Options[sliderIndex].low);

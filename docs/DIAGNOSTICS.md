@@ -1,6 +1,6 @@
 # Troubleshooting Update 3
 
-Current release: **2.0.13**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
+Current release: **2.0.14**. See the [README](../README.md), [full feature list](../FEATURES.md) and [release notes](releases/Update3.md). Earlier development observations remain in `docs/reviews`; their build-specific pending checks are historical, not a description of current release behavior.
 
 ## Check the installed build
 
@@ -24,7 +24,7 @@ For attendance, use a fresh regular-season Dynasty launch for peak-formula check
 
 For sound, compare the same stadium and similar plays at different fullness. DGA may overlap native cheers; that is intended. The occupied-seat mix has no separate chant cut and no native excitement limiter. To disable DGA's audio hooks completely, turn off Crowd Sound Effects and restart the game/MMC.
 
-For camera movement, check the game's Dynamic Camera Effects setting and DGA's Added Camera Shake switch. Enough seats and a qualifying play/situation are still required. Cannons have a separate setting. Gameplay HFA remains native. In 2.0.13, standard view compensation is capped at 1×; wide RTG/player-camera compensation is an explicit advanced INI opt-in. Native HFA camera shake yields while DGA output is rendered, then restores its latest tier. The native-filter minimum of zero retains its opt-out.
+For camera movement, check the game's Dynamic Camera Effects setting and DGA's Added Camera Shake switch. Enough seats and a qualifying play/situation are still required. Cannons have a separate setting. Gameplay HFA remains native. In 2.0.13, standard view compensation is capped at 1×; wide RTG/player-camera compensation is an explicit Broadcast toggle, off by default. Native HFA camera shake yields while DGA output is rendered, then restores its latest tier. The native-filter minimum of zero retains its opt-out.
 
 For replays, note manual versus Slow Sim, any injury/penalty scene and whether playback was skipped. Manual major-play routing waits for full-screen playback before requesting an inset; Slow Sim has no inset destination. Native recordings and presentation still decide the visible sequence.
 
