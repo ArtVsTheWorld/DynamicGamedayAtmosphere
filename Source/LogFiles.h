@@ -5,7 +5,25 @@
 #include <algorithm>
 #include <map>
 #include <cstdint>
+#include <deque>
+#include <vector>
 namespace attendance {
+// Caller synchronizes producers/drain. No filesystem access on the producer.
+class LogQueue {
+    std::deque<std::string> entries_;size_t bytes_=0;uint64_t dropped_=0;
+public:
+    void push(std::string entry){
+        if(entry.size()>16384)entry.resize(16384);
+        while(!entries_.empty()&&(entries_.size()>=512||bytes_+entry.size()>1024*1024)){bytes_-=entries_.front().size();entries_.pop_front();++dropped_;}
+        bytes_+=entry.size();entries_.push_back(std::move(entry));
+    }
+    std::vector<std::string> take(size_t maximum=64){
+        std::vector<std::string> out;out.reserve((std::min)(maximum,entries_.size()));
+        while(!entries_.empty()&&out.size()<maximum){bytes_-=entries_.front().size();out.push_back(std::move(entries_.front()));entries_.pop_front();}
+        return out;
+    }
+    size_t size()const{return entries_.size();}uint64_t dropped()const{return dropped_;}
+};
 class DuplicateLogFilter {
     std::map<std::string,uint64_t> times_;
 public:

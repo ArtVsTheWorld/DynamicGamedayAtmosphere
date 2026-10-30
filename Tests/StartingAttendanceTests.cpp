@@ -7,7 +7,7 @@ bool near(float a,float b){return std::fabs(a-b)<.001f;}
 Seed sample(){Seed s;s.home={1153,50,70,6,3,3,3,6,6,6,6,.5f};s.away={1193,60,80,5,3,3,3,6,6,6,6,.4f};s.stadium=s.homeStadium=553;s.capacity=60000;s.schools=138;s.week=8;s.year=2026;s.ea=45000;s.regular=true;return s;}
 Launch launch(const Seed& s){return {s.home.id,s.away.id,s.stadium,s.capacity,s.ea,720,0,false,false};}
 int main(){
-    Seed s=sample();Launch l=launch(s);auto base=calculate(s,l);assert(base.applied&&near(base.demand,87.86f)&&base.kickoff==55&&base.fillPercent==50);
+    Seed s=sample();Launch l=launch(s);auto base=calculate(s,l);assert(base.applied&&near(base.demand,87.86f)&&base.kickoff==static_cast<int>(std::lround(55+accessBonus(s.capacity)))&&base.fillPercent==50);
     assert(near(support(s.home,138),.35f*.5f+.25f*.6f+.20f*.5f+.10f*.5f+.05f*.5f));
     for(int member=0;member<4;++member){auto t=s.home;int* fields[]={&t.atmosphere,&t.tradition,&t.brand,&t.conference};*fields[member]=0;assert(support(t,138)>support(s.home,138));*fields[member]=12;assert(support(t,138)<support(s.home,138));}
     auto ranked=s.home;ranked.apRank=1;assert(support(ranked,138)>support(s.home,138));ranked.rank=1;assert(near(support(ranked,138),support(s.home,138)+.05f));
@@ -21,9 +21,9 @@ int main(){
     invalid=cohort;invalid[0].prestige=11;assert(!assignStandings(invalid));invalid=cohort;invalid[0].apRank=-1;assert(!assignStandings(invalid));
     auto unranked=cohort;for(auto& t:unranked)t.apRank=0;assert(assignStandings(unranked));
     float last=0;for(int i=0;i<=1000;++i){float d=demandCurve(i/1000.f);assert(d>=last&&d>=25&&d<109);last=d;}assert(demandCurve(.8f)==100);
-    l.minutes=1139;assert(!calculate(s,l).night);l.minutes=1140;auto night=calculate(s,l);assert(night.night&&near(night.percent-base.percent,4)&&night.kickoff==60);l.minutes=720;
+    l.minutes=1139;assert(!calculate(s,l).night);l.minutes=1140;auto night=calculate(s,l);assert(night.night&&night.nightBoost>=.05f&&night.nightBoost<=.15f&&night.percent>=base.percent&&night.kickoff==base.kickoff+5);l.minutes=720;
     for(int rain=1;rain<=3;++rain){l.precipitation=rain;auto wet=calculate(s,l);assert(near(base.percent-wet.percent,rain==1?5.f:rain==2?9.f:14.f));assert(wet.kickoff>=35&&wet.kickoff<base.kickoff);}
-    s.roof=1;assert(near(calculate(s,l).percent,base.percent)&&calculate(s,l).kickoff==55);s.roof=0;l.precipitation=0;
+    s.roof=1;assert(near(calculate(s,l).percent,base.percent)&&calculate(s,l).kickoff==base.kickoff);s.roof=0;l.precipitation=0;
     l.rivalry=true;assert(near(calculate(s,l).percent-base.percent,6));l.rivalry=false;
     auto winning=s;winning.home.wins=6;winning.home.losses=0;assert(calculate(winning,l).momentum==6);
     auto losing=s;losing.home.wins=0;losing.home.losses=6;assert(calculate(losing,l).momentum==-6);losing.home.losses=1;assert(calculate(losing,l).momentum==-1);
@@ -32,8 +32,8 @@ int main(){
     for(int rank:{1,25,50,138})for(float standing:{0.f,.05f,.5f,.95f,1.f})for(int record:{0,3,6})for(int rain:{0,1,2,3})for(int time:{720,1140})for(int home:{1153,1218}){
         s=sample();s.home.rank=rank;s.home.standing=standing;s.home.id=home;s.home.wins=record;s.home.losses=6-record;l=launch(s);l.precipitation=rain;l.minutes=time;
         auto a=calculate(s,l),b=calculate(s,l);assert(a.applied&&a.percent>=(rain?20:25)&&a.percent<=100&&a.attendance<=l.capacity&&a.attendance==b.attendance&&a.variation>=-3&&a.variation<=3);
-        assert(a.kickoff>=(rain?35:40)&&a.kickoff<=80);if(time==720&&home==1218&&rain==0)assert(a.kickoff==45);
-        if(rank>25&&time==720&&rain==0)assert(a.kickoff<=60);
+        assert(a.kickoff>=(rain?35:40)&&a.kickoff<=80);if(time==720&&home==1218&&rain==0)assert(a.kickoff==static_cast<int>(std::lround(45+accessBonus(s.capacity))));
+        if(rank>25&&time==720&&rain==0)assert(a.kickoff<=70);
     }
     assert(openingPercent(1,1153,1,2,false,true,true,true,0,false)==70);
     assert(openingPercent(0,1218,135,137,false,false,false,false,3,false)==37);

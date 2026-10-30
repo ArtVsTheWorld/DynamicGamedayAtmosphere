@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace | Update 3 candidate | Working build 2.0.1 | Offline CFB 27
+By Ace | Update 3 candidate | Working build 2.0.2 | Offline CFB 27
 
 One plugin, organized into Attendance, Soundscape and Broadcast settings.
 
@@ -32,20 +32,23 @@ School demand uses **35% Stadium Atmosphere, 25% Team Prestige, 20% Program Trad
 
 The playable-launch observation reads the cohort once, excluding stock FCS and placeholders. Schools receive a demand percentile relative to that cohort; equal scores get equal demand, independently of team IDs or array order. The curve follows aggregate capacity-ratio quantiles from the user-supplied **2025 FBS Attendance Trends** table: low end 25.76%, bottom tenth 47.12%, bottom quarter 66.15%, median 87.86%, upper quarter 97.99%, upper fifth 100% or greater. Reported annual attendance is a calibration proxy, not a measurement of kickoff crowd or timed peak occupancy. Excess demand above 100% supplies headroom; rendered attendance never exceeds capacity.
 
-| Input | Peak-turnout adjustment (capacity percentage points) |
+| Input | Peak-turnout adjustment |
 | --- | --- |
-| Season performance | -6 to +6, reduced through the first six games |
-| Top25 visitor | About +2 to +6 |
-| Visitor ranked below 100 / stock FCS | -6 / -10 |
-| Rivalry / home opener | +6 / +3 |
-| Night kickoff | +4 at or after **19:00 stadium-local time** |
-| Combined season/matchup/night adjustment | -15 to +12 maximum |
-| Light / medium / heavy precipitation | -5 / -9 / -14; fully roofed venues exempt |
-| Fixture variation | -3 to +3, fixed by teams, stadium, week and season |
+| Ordinary season performance | -6 to +6 capacity points, reduced early in the season |
+| Opponent / rivalry appeal | Existing bounded appeal; season plus appeal remains -15 to +12 points |
+| Sustained winning season / AP Top25 | Separate confidence-weighted breakout-demand lift; no permanent support-weight change |
+| Home opener | Stable +10-25% relative peak demand |
+| Stadium-local night kickoff (19:00+) | Stable +5-15% relative peak demand |
+| EA senior-day launch flag | +10% relative peak demand, non-neutral regular season only |
+| Same-state schools | Stable +5-10% relative peak demand; half incremental local bonus when already a rivalry |
+| Two service academies | Stable +5-15% relative peak demand |
+| Combined special events | Compounded, capped at +40%; no reload reroll |
+| Light / medium / heavy precipitation | -5 / -9 / -14 capacity points; fully roofed venues exempt |
+| Fixture variation | -3 to +3 capacity points, fixed by teams, stadium, week and season |
 
 Expected peak is bounded to **25-100% of capacity in fair weather**, with a **20% minimum when outdoor precipitation reduces turnout**. Regular neutral games average both programs' support standing, form and opponent appeal, with no home-opener bonus. Swapping designated sides gives the same result.
 
-The turnout callback runs at the shared pre-finalization launch point for ordinary games and rivalries. It no longer depends on optional rivalry publication, which could bypass the override on 1.83. Missing final options produce an explicit fallback entry naming the failed check. A recently verified Dynasty setup can bridge the game's brief unknown-mode loading transition. The input capture and count write must still match the actual teams, stadium and native count; expired or different-mode inputs are rejected. Capacity comes from the already captured stadium record for that exact launch; startup does not query the gameplay broadcast capacity service. Missing or invalid captured capacity leaves EA turnout unchanged. MMC handles online availability, so starting turnout has no duplicate online/configuration checks. Attendance tuning is unchanged from 1.83.
+The turnout callback runs at the shared pre-finalization launch point for ordinary games and rivalries. It no longer depends on optional rivalry publication, which could bypass the override on 1.83. Missing final options produce an explicit fallback entry naming the failed check. A recently verified Dynasty setup can bridge the game's brief unknown-mode loading transition. The input capture and count write must still match the actual teams, stadium and native count; expired or different-mode inputs are rejected. Capacity comes from the already captured stadium record for that exact launch; startup does not query the gameplay broadcast capacity service. Missing or invalid captured capacity leaves EA turnout unchanged. MMC handles online availability, so starting turnout has no duplicate online/configuration checks. The baseline support distribution is retained; 2.0.2 adds special-event demand, breakout seasons and access-sensitive arrivals.
 
 The normal `[starting-attendance]` log gives EA/DGA counts, FBS cohort size, actual grades, support percentile, adjustments, local kickoff, the fraction seated at kickoff and the Q1 fill deadline. `InitialAttendanceEnabled=0` restores EA peak turnout for future fresh launches; approved arrival behavior remains available. The 35-control menu is unchanged. An already loaded stadium is not rebuilt.
 
@@ -89,8 +92,8 @@ Opening fractions are percentages of **expected peak crowd**, not stadium capaci
 
 | Opening route | Initial fraction of peak | Finish point, 12-minute Q1 |
 | --- | --- | --- |
-| Ordinary regular season | 50-60% by support; night adds 5, giving 55-65% | 6:00 remaining |
-| Severe-late home | 45% day / 50% night before matchup/weather adjustments | 3:00 remaining |
+| Ordinary regular season | 50-60% baseline; access adds0-8, same-state adds2, night adds5; usual70% ceiling | 6:00 remaining |
+| Severe-late home | 45% baseline; access/same-state/night apply without changing the group or its later deadline | 3:00 remaining |
 | Marquee regular season | +3 points; opener +1, night +5, both Top10 +1; usual ceiling 70%, exceptional 75-80% | 8:24 remaining, or severe-late deadline |
 | Bowl / non-championship CFP | 70-80% | 9:36 remaining |
 | Conference / national championship | 80-90% | 9:36 remaining |
@@ -212,7 +215,7 @@ The native Crowd bus and its seven children now use one synchronized preset. Ful
 
 The vanilla crossover varies from about70% fullness in the smallest mapped stadium to30% in the largest. Above it, fuller crowds rise toward a30% signal-gain cap. Below it, continuous Beds and matching Chants thin, collective Reactions stay more present, and individual fan detail retains its own presence. Native event dynamics remain variable. The individual-detail gain control remains acoustically inconclusive after a high-gain listening test; no18dB test gain is included.
 
-The6060-position mix uses native levels at70%, about+1dB at90%, and revised Beds/Chants-3.25dB at50% and-3.5dB at30%. The sparse negative-anchor signal reductions are half the previous cuts, subject to quarter-dB rounding. Reactions at30% use-3dB; individual detail retains+0.75dB. Those are gain offsets, not perceived-loudness percentages. Higher-capacity venues use the same density profile around their earlier crossover and reach a larger packed-crowd lift.
+The6060-position mix has a40% nonzero background/chant floor, exactly50% background at25% fullness, and vanilla balance at70%. Collective reactions never request less than55% native signal; individual detail never less than95%. The lower curve is monotone and smooth, with no steep tail toward silence. Zero attendance is the explicit mute exception. Higher-capacity venues cross into fuller-than-native audio earlier, with the largest packed venue reaching exactly+30%. See [current audio ranges](docs/AUDIO-MIX-RANGES.md).
 
 Zero occupied seats explicitly mute Crowd. Ordinary pauses, interactive replay, disabled soundscape and ownership loss retire the preset; intros/postgame and automatic replays use the appropriate current/recorded crowd. Native excitement is never reduced by a sparse-crowd ceiling. Earned upward excitement and native reaction events retain their existing eligibility, timing and shake gates. No graph-volume reduction, independent chant cut or extra eruption bus-volume multiplier is stacked.
 
@@ -312,15 +315,15 @@ A close made field goal gets a positive home-crowd cheer, or a cheer for either 
 
 In a one-score game during the final two minutes of Q4, a confirmed third/fourth-down defensive stop gets the larger layered cheer profile and a 10% settling impact. The qualifying atmosphere and fullness rules still apply. An earlier disappointed response to a deep catch cannot cancel the later defensive-stop celebration.
 
-Earned roar/swell responses recover promptly if a native presentation stop interrupts their shared channel during a timeout or penalty scene. Recovery uses the existing play timer, even when a matching native cheer meant no extra cheer was needed. It does not replay the cheer or extend the response. Repeated stops remain rate-limited, and normal pause, replay, scene-retirement and new-snap cleanup still apply. This protects the shared looping layers; it cannot create a specific native cheer that the game never requested.
+Earned roar/swell responses recover promptly if a native presentation stop interrupts their shared channel during a timeout or penalty scene. Recovery uses the existing play timer, independently of one-shot cheer dispatch. It does not replay the cheer or extend the response. Repeated stops remain rate-limited, and normal pause, replay, scene-retirement and new-snap cleanup still apply. This protects the shared looping layers; it cannot create a specific native cheer that the game never requested.
 
-Cheer requests now distinguish native queue dispatch from a newly registered native voice. A request discarded by the native queue can get one recovery within 600 ms, only on the same active play and owner and within the existing two-voice budget. Retiring native voices do not count as active duplicates. A registered voice still does not prove audible output.
+Cheer requests now distinguish native queue dispatch from a newly registered native voice. A request discarded by the native queue can get one recovery within 600 ms, only on the same active play and owner without suppressing it because other native voices are active. Receipt tracking distinguishes old handles from a newly registered one. A registered voice still does not prove audible output.
 
 Confirmed turnover-on-downs stops get a small paired shake and cheer: half the Live-play setting for 1.8 seconds, with neutral scaling and the normal atmosphere gates. A scoring play, kick, interception or fumble is not reclassified as a turnover-on-downs stop.
 
 A verified released forward pass cannot be classified as a sack merely because a native presentation sack flag persists from an earlier play.
 
-The game keeps its own reactions. The mod never lowers the game's native crowd intensity to make room for an added sound, skips matching cheers already playing, and limits competing native reaction families to two at once. Extra reactions favor the home team, or either team at a neutral venue. Repeated checks of the same play cannot repeat its cheer. Separate reactions are at least four seconds apart, and a new live snap ends the previous result's extra excitement. Eruptions take priority.
+The game keeps its own reactions. DGA does not lower native crowd intensity to make room, and it now requests every intended added cheer even if matching or multiple native voices are already active. Repeated callbacks cannot repeat the same event/layer. Extra positive reactions favor the home team, or either team at a neutral venue. Freshness, ownership, pause/replay and native-layout guards remain; a new live snap ends the previous result's extra excitement. Eruptions take priority. EA still controls actual voice allocation and audibility.
 
 When a fresh play result and updated down, possession or measured first-down information are available at the whistle, the reaction starts there. Otherwise it waits for the result to be confirmed; it does not guess from an unfinished play. Additional native disappointment is requested for failed home third/fourth-down conversions, deep home incompletions, home turnovers and visitor catches of at least 15 air yards. Home defensive deep incompletions/breakups and tackles for loss receive a defensive cheer. Deep incompletions require a verified pass that traveled at least 15 yards in the air; an overthrown pass can qualify too. These sounds use the same qualifying atmosphere, fullness and duplicate checks, add no volume bonus or extra shake, and can be disabled separately. The disappointment sound can be subtle depending on the native mix. At neutral sites, either defense can receive the positive response; the mod avoids a stadium-wide home-team letdown for one side's success.
 
@@ -352,7 +355,7 @@ Eruptions can follow these home-team moments. At neutral venues, either team can
 
 A **60+ yard rushing or passing touchdown** with the score within eight points before the snap receives a modest touchdown accent when its play qualifies for atmosphere: 15% stronger touchdown shake and bounded extra crowd excitement, using normal touchdown timing and volume limits. Long distance alone does not trigger an eruption. A separate decisive-score rule can still take priority.
 
-The celebration opens with a large native positive cheer, an excited roar and a supporting swell. The roar and swell use a fast half-second attack, including when they take over an existing buildup. With StaggeredMajorCheers enabled, a major play or eruption can add one extra cheer about 0.9 seconds later. The initial cheer can use an already-playing matching native reaction; the later accent may overlap it. Both native and added cheers count toward a two-reaction limit. The second accent has one brief opportunity and is never retried after a full voice budget, a new play, pause or replay. Crowd volume can rise toward a **50% maximum boost**, with the amount also responding to the remaining crowd. Chants keep their separate fullness-based boost of up to 15%.
+The celebration opens with a large native positive cheer, an excited roar and a supporting swell. The roar and swell use a fast half-second attack, including when they take over an existing buildup. With StaggeredMajorCheers enabled, a major play or eruption can add one extra cheer about 0.9 seconds later. Each intended DGA cheer now requests playback even if matching or multiple native cheers are already active. The old matching-family suppression, two-voice budget and shared lineup cooldown are removed. Event IDs prevent repeated callback dispatch. The second accent has one bounded opportunity; a new play, pause or replay cancels it. EA still controls actual voice allocation and audibility. The unified native-bus mix caps volume at+30% in the largest packed venue. Reactions/eruptions do not stack another volume bonus, and Chants follow Beds without an independent cut or boost.
 
 Ordinary eruptions last about 45 seconds. The volume lift reaches its peak quickly, holds briefly, then settles over roughly 25 seconds; the roar and swell fade over the final 20 seconds. Overtime winners and takeaways get a longer, roughly 60-second eruption with the same slow settling shape. If an eruption carries into a victory, the roar and swell continue through postgame presentation until the stats/highlights menu opens. A home celebration can end if the opponent scores or takes the ball away. A winning confirmation for the same play does not start another cheer or restart the roar.
 
@@ -390,7 +393,7 @@ Long gains, interceptions and returns use the separate 10% reaction strength. Ve
 
 Confirmed runs and returns keep their full settling time after the whistle, including when the game changes views during a tackle. The official post-play crowd response takes priority over the shorter during-play fade. A touchdown, safety or eruption replaces the previous play shake; the older shake stays retired when that celebration ends, even with custom shorter durations.
 
-Automatic movement has a matching crowd layer. Short impacts retain their roar/swell through the impact's own hold and fade, even when a matching native cheer made another cheer unnecessary. A verified live defensive fumble return blends from any existing forced-fumble impact into the same continuous shake as an interception return. Own-team pickups leave an existing impact on its original timer and add no new motion. Losing possession ends the old return's extra celebration. Camera-only previews in the diagnostic tool are an intentional exception.
+Automatic movement has a matching crowd layer. Short impacts retain their roar/swell through the impact's own hold and fade, independently of native one-shot voices. A verified live defensive fumble return blends from any existing forced-fumble impact into the same continuous shake as an interception return. Own-team pickups leave an existing impact on its original timer and add no new motion. Losing possession ends the old return's extra celebration. Camera-only previews in the diagnostic tool are an intentional exception.
 
 Camera controls are under Dynamic Gameday Broadcast in the INI. OrdinaryShakeStrengthPercent and CriticalShakeStrengthPercent set the random range ceilings. LineupCheerShakeStrengthPercent controls special cheer calls; DuringPlayShakeStrengthPercent controls live gains and defensive impacts; CatchImpactShakeStrengthPercent controls immediately tackled long catches. PlayReactionFadeSeconds controls their total settling time after the whistle, including the brief hold; PlayImpactExtraSeconds adds time to the short impact reactions. Touchdown and eruption settings control their sustained strengths, opening impacts and total durations. CameraShake=0 disables all added movement.
 
@@ -459,7 +462,7 @@ Important combinations:
 
 - Attendance `Enabled=0` leaves native attendance and disables the attendance-dependent soundscape. Extra replay settings remain separate. `ArrivalsEnabled=0` only skips arrivals; it does not force a sellout.
 - Soundscape `Enabled=0` at launch skips its audio hooks. Turning it back on needs an MMC/game restart. `LayeredAtmosphereEnabled=0` disables added boost/layer effects while independently configured sparse-crowd quieting can remain.
-- `MaximumBoostPercent=0` also disables added layers and added reaction motion. Use individual switches/strengths when only one feature should stop. Chants, ordinary crowd, high-leverage and eruption limits are separate totals, not percentages to add together.
+- `MaximumBoostPercent=0` also disables added layers and added reaction motion. Use individual switches/strengths when only one feature should stop. The live native-bus mix has one total gain cap; legacy high-leverage/eruption/chant settings do not stack separate bus-volume bonuses.
 - `FormulaStrength=0` disables formula pressure, not every independently configured event. Late-score exits, costly-turnover exits and halftime conversions have separate zero-disable settings. Temporary seat breaks are separate too.
 - `CameraShake=0` stops the mod's added motion. The visual-only sparse native-Stadium-Pulse filter has its own threshold; zero disables that filter. Gameplay HFA stays unchanged.
 - The post-whistle fade is shared by sound and camera. Short-impact extra time and touchdown/eruption durations remain separately adjustable. Play distance adds no extra time, and camera cuts cannot restart a reaction already earned.
@@ -478,7 +481,7 @@ All added camera motion respects the game's Dynamic Camera Effects switch. Ordin
 
 Eligible deep passes by either offense use an airborne supporting swell with a 0.5-second rise. This is the attack time, not a half-second duration limit: the swell follows the verified flight and settles after it ends. It adds no pre-catch cheer, shake or separate volume bonus.
 
-Crowd reactions carry their earned level through live gain, result, touchdown and eruption handoffs. Full-size continuous voices do not restart their attack, and lower-priority effects cannot reappear after the celebration. The existing voice budget, fullness gates and volume caps remain.
+Crowd reactions carry their earned level through live gain, result, touchdown and eruption handoffs. Full-size continuous voices do not restart their attack, and lower-priority effects cannot reappear after the celebration. Fullness gates, once-per-event protection and the unified native-bus gain cap remain.
 
 Successful skills use a gentle 0.45-second rise at half the configured live-play strength. Hurdles request a positive cheer; trucks request the native big-hit crowd family. Confirmed home-defense third/fourth-down pass breakups and catch knockouts use a small 1.8-second impact with sound. A normal incomplete pass is not deflection proof. Hit sticks keep their immediate sound, but only a completed third/fourth-down stop gets their shake.
 
@@ -495,3 +498,10 @@ See the [current release checklist](docs/DIAGNOSTICS.md) for confirmed observati
 ### Late rainy home wins (1.78 candidate)
 
 In an ordinary home game, a lead above 21 in rain or snow gradually reduces winning-fan protection during the last half of Q4, reaching full severity at 35+. This strengthens the existing time-based departure target; a score does not directly remove a fixed number of fans. A narrow quarter-cap allowance of up to 10 extra points (less for low custom caps) is shared rather than stacked with home-loss allowances. Shared crowd floors, safe update windows, dry/close/early games, neutral venues and postseason rules retain their existing behavior. Live tuning verification is pending.
+
+
+### 2.0.2 reliability and performance
+
+Official fourth-down conversions can supply one missed camera impact, regardless of score margin, when the existing ownership and layered-atmosphere gates allow it. An official defensive fumble recovery can similarly supply one missed impact; own recoveries remain excluded, and already-admitted live force/return reactions are not duplicated. These fallbacks do not assert that the original hit was recognized as a force.
+
+Permanent departures now respect a15% actual-capacity floor when the owned mapped baseline is known (or the validated launch peak is available). Existing opening arrivals can remain sparser; no existing empty seats are refilled. Reaction logging queues bounded text for worker-side file writes. Status exposes atmosphere/attendance callback wall-time maxima and4/16ms counts plus log-queue overflow. These are not FPS or whole-plugin CPU measurements. Vanilla-cheer overlap suppression is removed; DGA layers keep once-per-event and freshness/ownership protections. No shake was added to every successful hit stick.

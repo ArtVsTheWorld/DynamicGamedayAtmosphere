@@ -26,6 +26,7 @@ int main(){
     assert(attendance::config::integer(L" 2 # comment",5,0,10).value==2);
     NumericOption profile{L"Dynamic Gameday Attendance",L"Profile",0,0,0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->profile);}};
     for(const auto& name:{L"Auto",L"Default",L"Reduced",L"BadWeather",L"BadProfile"}){write(profile,name);int expected=!std::wcscmp(name,L"Default")?1:!std::wcscmp(name,L"Reduced")?2:!std::wcscmp(name,L"BadWeather")?3:0;assert(profile.get()==expected);}
+    while(queuedLogs.size())drainLogs();
     std::ifstream log(logsFolder/L"DynamicGamedayAtmosphere.log");std::string text((std::istreambuf_iterator<char>(log)),{});assert(text.find("configuration")!=std::string::npos&&text.find("using")!=std::string::npos);
     std::cout<<"PASS: "<<cases<<" real native-reader configuration cases (every numeric public option), defaults/min/max/disabled/out-of-range/invalid, strict parsing, comments and meaningful configuration diagnostics.\n";
 }

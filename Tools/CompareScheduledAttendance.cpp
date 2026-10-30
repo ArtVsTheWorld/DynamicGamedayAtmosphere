@@ -23,7 +23,7 @@ int main(int argc,char** argv){
             Seed seed;seed.home=teams[home];seed.away=teams[away];seed.home.homeGames=ordinal;seed.capacity=100000;seed.ea=100000;seed.stadium=seed.homeStadium=0;seed.schools=static_cast<int>(cohort.size());seed.week=week;seed.year=year;seed.regular=true;
             Launch launch{home,away,0,100000,100000,condition==1?1200:720,condition==2?precip:0,rival!=0,neutral!=0};
             auto r=calculate(seed,launch);if(!r.applied)return 6;
-            float raw=r.demand+r.momentum+r.appeal+r.nightBonus+r.adjustmentLimit+r.weather;
+            float raw=(r.demand+r.momentum+r.appeal+r.adjustmentLimit+r.breakout)*r.eventMultiplier+r.weather;
             float floor=r.weather<0?20.f:25.f,central=(std::clamp)(raw,floor,100.f),low=(std::clamp)(raw-3,floor,100.f),high=(std::clamp)(raw+3,floor,100.f);
             int kickoff=openingPercent(r.standing,home,seed.home.rank,seed.away.rank,neutral!=0,r.night,rival!=0,ordinal==0,launch.precipitation,false,55,45,3,central);
             out<<row<<','<<home<<','<<away<<','<<week<<','<<rival<<','<<neutral<<','<<(condition==0?"clear_day":condition==1?"clear_night":"saved_weather_day")<<','<<central<<','<<low<<','<<high<<','<<kickoff<<','<<central*kickoff*.01f<<'\n';++cases;

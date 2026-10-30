@@ -6,7 +6,7 @@
 using namespace attendance;
 int main(){
     for(int direction:{-1,1}){
-        live::Model model;live::Settings c;energy::Play p;p.game={4,21,24,1,60,720};p.down=4;p.toFirst=2;p.offense=0;p.fieldSpot=-30.f*direction;p.attackDirection=direction;
+        live::Model model;live::Settings c;energy::Play p;p.game={4,26,17,1,60,720};p.down=4;p.toFirst=2;p.offense=0;p.fieldSpot=-30.f*direction;p.attackDirection=direction;
         auto tick=[&](uint64_t now,int phase,int kind,int ball,float catchSpot,float runner,bool held){p.game.phase=phase;return model.observe(c,p,123,1,now,true,456,kind,ball,catchSpot*direction,runner*direction,held,true);};
         tick(1000,1,0,2,0,-30,true);tick(1100,3,0,2,0,-30,true);tick(1200,3,1,1,0,NAN,false);
         auto fourth=tick(1300,3,1,3,-27,-27,true);assert(fourth.event==live::Event::FourthConversion&&fourth.yards==3);

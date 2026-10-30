@@ -1,6 +1,6 @@
 # Releases
 
-Staged Update 3 test candidate: **2.0.1**, with the occupied-seat native audio mix and retired excitement limiter. Sparse-crowd cuts are reduced in 2.0.1: the smallest venue at 30% now gets about two-thirds of native bed signal. Not published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
+Staged Update 3 test candidate: **2.0.2**. Rounded audio floors, stable special-game/breakout demand, small-venue arrival access, a15% departure capacity floor, recovery/conversion camera fallbacks and deferred logging. Not installed or published. See [test plan](docs/UPDATE3-TEST-PLAN.md) and [audio ranges](docs/AUDIO-MIX-RANGES.md).
 
 Public names identify downloads. Numbered builds identify source, DLL metadata, runtime folders and bug reports.
 
@@ -14,4 +14,4 @@ Downloads are under [GitHub Releases](https://github.com/ArtVsTheWorld/DynamicGa
 
 Older tags were imported from preserved source snapshots. Initial commits record that import; they do not recreate every historical working build. `main` includes current source and portable build tools. No game binaries, MMC assemblies, saves, private diagnostics or development backlog are included.
 
-Update 3 is a **working candidate**, currently 1.99.0, and has not been published. Public Update 3 is planned as **2.0.0** after test-game fixes. See its [candidate notes](docs/releases/Update3.md) and [remaining test checklist](docs/DIAGNOSTICS.md).
+Update 3 is a **working candidate** and has not been published; 1.99.0 was the earlier testing baseline. Public Update 3 is planned as **2.0.0** after test-game fixes. See its [candidate notes](docs/releases/Update3.md) and [remaining test checklist](docs/DIAGNOSTICS.md).

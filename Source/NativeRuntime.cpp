@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include "CallbackTiming.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -126,7 +127,7 @@ InitialFormula originalInitialFormula=nullptr;InitialOptionSet originalInitialOp
 void* initialLaunchGate=nullptr;void* initialLaunchOriginal=nullptr;
 struct SessionCrowdPlan {A match=0;attendance::State state;};
 std::shared_ptr<const SessionCrowdPlan> sessionCrowdPlan=std::make_shared<SessionCrowdPlan>();
-void applySessionPlan(attendance::State& s,A match){auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==match&&s.team0==plan->state.team0&&s.team1==plan->state.team1){attendance::inheritCrowdPlan(plan->state,s);if(s.plannedStadium<0){s.plannedStadium=plan->state.plannedStadium;s.night=plan->state.night;}}}
+void applySessionPlan(attendance::State& s,A match);
 void publishSessionPlan(A match,const attendance::State& state){std::shared_ptr<const SessionCrowdPlan> next=std::make_shared<SessionCrowdPlan>(SessionCrowdPlan{match,state});std::atomic_store(&sessionCrowdPlan,next);}
 std::mutex initialMutex;attendance::turnout::Seeds initialSeeds;
 attendance::turnout::ModeWitness initialModeWitness;
@@ -259,6 +260,7 @@ attendance::mix::Continuity audioContinuity;
 std::atomic<bool> chantAvailable{false};
 std::atomic<A> audioMatch{0};
 std::atomic<unsigned> audioEpoch{1};
+void applySessionPlan(attendance::State& s,A match){auto density=std::atomic_load(&renderedOccupancy);s.mappedPeak=density->owns(match,audioEpoch.load())?density->peak():-1;auto plan=std::atomic_load(&sessionCrowdPlan);if(plan->match==match&&s.team0==plan->state.team0&&s.team1==plan->state.team1){attendance::inheritCrowdPlan(plan->state,s);if(s.plannedStadium<0){s.plannedStadium=plan->state.plannedStadium;s.night=plan->state.night;}}}
 attendance::sustained::Runtime sustainedAudio,supportingSwell;
 attendance::cheer::Runtime positiveCheer;
 attendance::nativevoices::Trace nativeVoiceTrace;std::mutex nativeVoiceTraceMutex;
@@ -591,6 +593,14 @@ bool commitPatches(){
     for(HANDLE t:frozen){ResumeThread(t);CloseHandle(t);}return okay;
 }
 
+attendance::LogQueue queuedLogs;
+attendance::timing::Counts atmosphereTimings,decisionTimings;
+void drainLogs(){
+    std::vector<std::string> lines;
+    {std::lock_guard<std::mutex> guard(logMutex);lines=queuedLogs.take();}
+    auto path=logsFolder/L"DynamicGamedayAtmosphere.log";
+    for(const auto& line:lines)attendance::appendLog(path,line,static_cast<uintmax_t>(logLimitMB.load())*1024*1024);
+}
 void log(const char* event,const std::string& message) {
     std::lock_guard<std::mutex> guard(logMutex);
     const std::string kind=event;
@@ -603,10 +613,9 @@ void log(const char* event,const std::string& message) {
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
-    auto path=logsFolder/L"DynamicGamedayAtmosphere.log";
     SYSTEMTIME local{};GetLocalTime(&local);char timestamp[40]{};
     sprintf_s(timestamp,"%04u-%02u-%02u %02u:%02u:%02u",local.wYear,local.wMonth,local.wDay,local.wHour,local.wMinute,local.wSecond);
-    attendance::appendLog(path,std::string(timestamp)+" | ["+kind+"] "+message+"\n",static_cast<uintmax_t>(logLimitMB.load())*1024*1024);
+    queuedLogs.push(std::string(timestamp)+" | ["+kind+"] "+message+"\n");
 }
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
@@ -661,7 +670,7 @@ void initialLaunch(){
     launch.neutral=launch.stadium!=seed.homeStadium&&launch.stadium!=seed.homeAlternate;
     Result result=calculate(seed,launch);
     if(!result.applied){log("starting-attendance","EA attendance preserved: postseason, non-regular-season, resumed game, or incomplete inputs.");return;}
-    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus,result.percent);
+    result.kickoff=openingPercent(result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,launch.precipitation,seed.roof>=1&&seed.roof<=3,arrivalStart,arrivalLateStart,arrivalBigBonus,result.percent,launch.capacity,sameState(seed));
     result.exceptional=exceptional(result.percent,result.standing,seed.home.id,seed.home.rank,seed.away.rank,launch.neutral,result.night,launch.rivalry,seed.home.homeGames==0,arrivalBigBonus);
     result.fillPercent=!launch.neutral&&lateArrivalSchool(seed.home.id)?arrivalLateFinish.load():big(seed.home.rank,seed.away.rank,launch.rivalry)?30:arrivalFinish.load();
     std::shared_ptr<const Applied> publish=std::make_shared<Applied>(Applied{seed,launch,result});
@@ -671,7 +680,7 @@ void initialLaunch(){
         log("starting-attendance-inactive","Launch count could not be verified; requested native attendance restoration.");return;
     }
     std::atomic_store(&initialApplied,publish);
-    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
+    std::ostringstream message;message<<std::fixed<<std::setprecision(1)<<"Regular-season turnout: EA "<<launch.ea<<" ("<<100.f*launch.ea/launch.capacity<<"%); DGA "<<result.attendance<<" ("<<result.percent<<"% of "<<launch.capacity<<"). Support standing "<<100*result.standing<<"%, weighted score "<<100*result.score<<" across "<<seed.schools<<" FBS schools; home grades atmosphere/tradition/brand/conference "<<seed.home.atmosphere<<"/"<<seed.home.tradition<<"/"<<seed.home.brand<<"/"<<seed.home.conference<<" (A+=0, F=12), prestige "<<seed.home.prestige<<"/10, AP/media rank "<<seed.home.apRank<<", general rank "<<seed.home.rank<<"; native school states "<<seed.home.state<<"/"<<seed.away.state<<". Demand "<<result.demand<<", season "<<result.momentum<<", matchup "<<result.appeal<<", night "<<result.nightBonus<<", modifier limit "<<result.adjustmentLimit<<", weather "<<result.weather<<", variation "<<result.variation<<", breakout "<<result.breakout<<", event multiplier "<<result.eventMultiplier<<", opener/night/senior/local/academy bonuses "<<100*result.openerBoost<<"/"<<100*result.nightBoost<<"/"<<100*result.seniorBoost<<"/"<<100*result.stateBoost<<"/"<<100*result.academyBoost<<"%; schedule "<<(launch.seniorKnown?"native senior-day flag verified":"senior-day flag unavailable")<<"; access +"<<result.accessBonus<<" kickoff points; floor/cap "<<result.limits<<" points; local kickoff "<<launch.minutes/60<<":"<<std::setfill('0')<<std::setw(2)<<launch.minutes%60<<"; "<<(result.night?"night":"day")<<"; "<<result.kickoff<<"% of expected fans seated at kickoff ("<<(result.exceptional?"exceptional opening":"ordinary/marquee opening")<<"); arrivals finish "<<result.fillPercent<<"% through Q1. Saved/simulated attendance unchanged.";
     log("starting-attendance",message.str());
 }
 bool __fastcall initialOptionSet(A service,unsigned key,A reference){
@@ -883,8 +892,7 @@ void settingsMenuNote(const char* message){log("settings-menu",message);}
 void reactionNote(attendance::cheer::Source source,uint64_t id,attendance::cheer::Delivery delivery){
     using namespace attendance::cheer;
     const char* family=source==Source::Followup?"Staggered second cheer":source==Source::Live?"Live reaction":source==Source::Lineup?"Lineup cheer":source==Source::Result?"Play-result cheer":"Eruption cheer";
-    const char* outcome=delivery==Delivery::Registered?"native cheer voice registered (audibility still depends on the native mix)":delivery==Delivery::Recovery?"native queue dropped the cheer; one same-play recovery event sent":delivery==Delivery::Unregistered?"no native cheer voice registered within the short recovery window":delivery==Delivery::Sent?"native cheer event queued; playback not yet confirmed":delivery==Delivery::NativePlaying?"matching native cheer already playing; duplicate skipped":
-        delivery==Delivery::VoiceLimit?"native reaction layers already full; extra cheer skipped without delaying it":delivery==Delivery::Cooldown?"recent cheer still covers this lineup; extra cheer skipped":
+    const char* outcome=delivery==Delivery::Registered?"native cheer voice registered (audibility still depends on the native mix)":delivery==Delivery::Recovery?"native queue dropped the cheer; one same-play recovery event sent":delivery==Delivery::Unregistered?"no native cheer voice registered within the short recovery window":delivery==Delivery::Sent?"native cheer event queued; playback not yet confirmed":
         delivery==Delivery::Expired?"scene/callback arrived after the cheer window; stale cheer skipped":"native cheer dispatch failed; sound control stopped";
     log("reaction-audio",std::string(family)+" #"+std::to_string(id)+": "+outcome+".");
 }
@@ -1895,6 +1903,7 @@ void updateDiagnostic(uint64_t now){
     }
 }
 void atmosphereTick(){
+    attendance::timing::Scope measured(atmosphereTimings);
     auto now=GetTickCount64();uint64_t interval=lastAtmospherePhase==3||lastAtmospherePhase==4?16:50;
     if(now-lastAtmosphereTick<interval)return;lastAtmosphereTick=now;
     flushReplaySelection();
@@ -2472,6 +2481,7 @@ bool carryPreparedOpening(A match,const attendance::State& s){
     return true;
 }
 void decision(){
+    attendance::timing::Scope measured(decisionTimings);
     const auto now=GetTickCount64();const int pending=request.load();
     attendance::State s;A match=0;if(!gameState(s,match)){
         crowdChangeWindow.reset();
@@ -2713,6 +2723,7 @@ void saveAttendanceHistory(){
     if(MoveFileExW(pending.c_str(),file.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))written=snapshot.revision;
 }
 void writeStatus(std::ostream& state,unsigned long long now){
+
     auto audio=std::atomic_load(&coreSettings);auto config=std::atomic_load(&settings);
     auto population=std::atomic_load(&stadiumOccupancy);auto density=std::atomic_load(&renderedOccupancy);
     auto liveAudio=audioWanted();bool known=population->owns(liveAudio.match,liveAudio.epoch),mapped=density->owns(liveAudio.match,liveAudio.epoch);
@@ -2724,6 +2735,9 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("GAME & MATCHUP");
     report.field("Game")<<"Q"<<shownQuarter<<" | "<<shownSeconds<<" seconds remaining | Home "<<shownScore0<<" - Away "<<shownScore1<<"\n";
     report.field("Game process ID")<<GetCurrentProcessId()<<"\n";
+    report.field("DGA atmosphere callback")<<atmosphereTimings.calls.load()<<" calls; max "<<atmosphereTimings.maximumUs.load()<<" us; >=4ms "<<atmosphereTimings.over4ms.load()<<"; >=16ms "<<atmosphereTimings.over16ms.load()<<" (wall time; not FPS)\n";
+    report.field("DGA attendance decision")<<decisionTimings.calls.load()<<" calls; max "<<decisionTimings.maximumUs.load()<<" us; >=4ms "<<decisionTimings.over4ms.load()<<"; >=16ms "<<decisionTimings.over16ms.load()<<"\n";
+    {size_t pending=0;uint64_t dropped=0;{std::lock_guard<std::mutex> guard(logMutex);pending=queuedLogs.size();dropped=queuedLogs.dropped();}report.field("Deferred log queue")<<pending<<" pending; "<<dropped<<" dropped by bounded overflow\n";}
     report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
     report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";
     report.field("Pause-menu fullness")<<(!pauseMenuAvailable?"unavailable on this game layout":!pauseMenuSetting?"disabled":"enabled; updates when opening the pause menu")<<"\n";
@@ -2823,11 +2837,12 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.section("DYNAMIC GAMEDAY ATTENDANCE - SETTINGS");
     report.field("Attendance enabled")<<(config->enabled?"yes":"no")<<"\n";
     report.field("First-quarter arrivals")<<(arrivalEnabled?"enabled":"disabled")<<"\n";
-    report.field("Opening attendance policy")<<"regular 50-65% of peak ordinarily; severe-late starts 45%; weather-only floor 35%; usual marquee ceiling70%, exceptional cap80%. Postseason 70-80%; championships 80-90%.\n";
+    report.field("Opening attendance policy")<<"regular 50-65% of peak ordinarily; severe-late starts 45%; weather-only floor 35%; usual marquee ceiling70%, exceptional cap80%; small-venue access adds up to8 kickoff points; same-state adds2. Postseason 70-80%; championships 80-90%.\n";
     report.field("Fallback opening baselines")<<"normal "<<arrivalStart<<"% / severe "<<arrivalLateStart<<"% of planned crowd\n";
     report.field("Arrival finish points")<<"normal 50% / marquee 30% / severe 75% / postseason 20% through Q1 when revised inputs qualify; fallback normal "<<arrivalFinish<<"%, severe "<<arrivalLateFinish<<"%\n";
     report.field("Departure strength")<<config->formulaStrength<<"% of normal formula\n";
     report.field("Quarter departure cap")<<config->quarterCap<<" percentage points (ordinary games)\n";
+    report.field("Departure capacity floor")<<"15% of owned mapped seating; kickoff arrivals unchanged; no refill of existing empty seats\n";
     report.field("Rainy home-win departures")<<"last half of Q4; 22+ lead, full severity at 35+; up to 10 extra quarter points; shared floors preserved\n";
     report.field("Late blowout extra quarter allowance")<<config->lateTrafficQuarterExtra<<" points maximum; 28+ home deficit; gentle last-half start / stronger last third of Q4; floors/postseason limits preserved\n";
     attendance::State trafficState;int trafficCap=0,trafficLimit=0,trafficLoss=0;
@@ -2923,6 +2938,7 @@ void readDiagnosticRequest(uint64_t now){
     log("diagnostics",std::string("Requested ")+attendance::diagnostic::name(command.preset)+" preview; maximum "+std::to_string(command.seconds)+" seconds, current sound limits retained.");
 }
 DWORD WINAPI worker(void*) {
+    struct FlushOnExit {~FlushOnExit(){for(unsigned i=0;i<8;++i)drainLogs();}} flushOnExit;
     std::vector<wchar_t> path(32768);DWORD pathLength=GetModuleFileNameW(self,path.data(),static_cast<DWORD>(path.size()));if(!pathLength||pathLength>=path.size())return 1;folder=std::filesystem::path(std::wstring(path.data(),pathLength)).parent_path();dataFolder=folder.parent_path();pluginsFolder=dataFolder.parent_path();logsFolder=dataFolder/L"Logs";image=reinterpret_cast<A>(GetModuleHandleW(nullptr));
     lastApplied=0;shownCurrent=shownTarget=0;
     readSettings();log("starting","Dynamic Gameday Atmosphere " GAMEDAY_VERSION "; attendance, retention and crowd audio.");
@@ -2988,6 +3004,7 @@ DWORD WINAPI worker(void*) {
             bool needs=refreshEntities.exchange(false);{std::lock_guard<std::mutex> guard(entityMutex);if(entities.empty())needs=true;for(A e:entities)if(!entityValid(e))needs=true;}
             attendance::State s;A match=0;if(needs&&gameState(s,match))findEntities();lastScan=now;
         }
+        drainLogs();
         Sleep(100);
     }
     return 0;

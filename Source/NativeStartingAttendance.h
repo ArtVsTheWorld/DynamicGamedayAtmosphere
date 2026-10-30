@@ -111,6 +111,11 @@ inline bool capture(A image,A manager,A gameRef,int ea,Seed& s,const Api* custom
     s.schools=static_cast<int>(cohort.size());bool haveHome=false,haveAway=fcs(s.away.id);
     for(const auto& member:cohort){if(member.id==s.home.id){s.home=member;haveHome=true;}if(member.id==s.away.id){s.away=member;haveAway=true;}}
     if(!haveHome||!haveAway)return false;
+    // Optional school-location identity; missing city data disables only the
+    // local-match bonus. City.State is the native StateName enum (field24).
+    auto state=[&](A teamRecord){Record city(r);int value=-1;
+        return r.related(teamRecord,0x17,city.p)&&city.p&&r.integer(city.p,0x18,value,false,true)&&value>=0&&value<=50?value:-1;};
+    s.home.state=state(home.p);s.away.state=state(away.p);
     int championshipWeek=-1;
     if(!r.value(manager+0x228,season)||!season||!r.integer(season,0x2c,championshipWeek))return false;
     if(s.week==championshipWeek){
@@ -174,6 +179,9 @@ inline bool launch(A image,Launch& l,const Seed& seed,const char** failure=nullp
     l.home=static_cast<int>(h);l.away=static_cast<int>(a);l.stadium=static_cast<int>(stadium);l.ea=static_cast<int>(ea);
     l.minutes=static_cast<int>(time);l.precipitation=static_cast<int>(precip);l.rivalry=rivalry!=1023;
     if(stadium>=1023)return fail("gameStadiumId range");
+    unsigned senior=0;
+    l.seniorKnown=option(r,service,0x9e6ce400,"gameFlagIsSeniorDay",1,senior)&&senior<=1;
+    l.senior=l.seniorKnown&&senior==1;
     if(!capturedCapacity(seed,l))return fail("captured stadium capacity/launch identity mismatch");
     return true;
 }

@@ -14,7 +14,10 @@ int main(){
         tracker.observe(rules,p);p.game.phase=3;tracker.observe(rules,p);
         p.game.phase=phase;p.offense=1-offense;p.down=1;p.resultStamp=11;p.fumble=true;p.game.seconds=295;
         auto result=tracker.observe(rules,p);assert(result.accepted&&result.completed&&result.takeaway&&!result.forcedFumble);
-        assert(!live::completedImpact(result,p.game,true,0,83).id);
+        auto fallback=live::completedImpact(result,p.game,true,0,83);
+        assert(bool(fallback.id)==(offense==1||neutral));
+        if(fallback.id){assert(fallback.event==live::Event::FumbleRecovery);assert(!live::completedImpact(result,p.game,true,result.sequence,59).id);}
+        auto own=result;own.takeaway=false;assert(!live::completedImpact(own,p.game,true,0,83).id);
         assert(live::cameraReaction(live::Event::FumbleRecovery));
         if(offense==1||neutral){
             core::Model sound;core::Settings settings;sound.react(settings,result,1,p.game,true);
@@ -82,5 +85,5 @@ int main(){
         if(admitted&&gate)assert(actual.tail);
         x.now=2400;x.allowed=false;assert(fumbleCamera.observe(config,x).kind==motion::Kind::None);
     }
-    std::puts("PASS: verified defensive fumble returns match interception motion, ownership/neutral/layer gates and forced-impact handoff; result-only recovery has no fallback impact; own pickups cannot revive prior gain motion.");
+    std::puts("PASS: verified defensive fumble returns match interception motion, ownership/neutral/layer gates and forced-impact handoff; confirmed result-only defensive recovery has a once-only fallback impact; own pickups cannot revive prior gain motion.");
 }

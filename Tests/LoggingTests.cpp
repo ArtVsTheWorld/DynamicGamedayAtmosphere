@@ -1,4 +1,5 @@
 #include "../Source/LogFiles.h"
+#include "../Source/CallbackTiming.h"
 #include <cassert>
 #include <chrono>
 #include <iostream>
@@ -19,6 +20,10 @@ int main(){
  assert(!attendance::appendLog(blocker/"invalid.log","ignored",16)&&contents(blocker)=="keep");
  std::filesystem::remove(blocker);
  std::filesystem::remove(path);std::filesystem::remove(folder/"Logs");std::filesystem::remove(folder);
+ attendance::LogQueue queue;queue.push("first");queue.push("second");auto batch=queue.take(1);assert(batch.size()==1&&batch[0]=="first"&&queue.size()==1);
+ for(int i=0;i<1000;++i)queue.push(std::to_string(i));assert(queue.size()==512&&queue.dropped()==489);assert(queue.take(512).back()=="999"&&queue.size()==0);
+ queue.push(std::string(100000,'X'));assert(queue.take()[0].size()==16384);
+ attendance::timing::Counts counts;counts.record(20);counts.record(4000);counts.record(20000);counts.record(10);assert(counts.calls==4&&counts.maximumUs==20000&&counts.over4ms==2&&counts.over16ms==1);
  attendance::DuplicateLogFilter filter;assert(filter.accept("history/fault",1000));assert(filter.accept("audio/fault",1100));assert(!filter.accept("history/fault",1200));assert(filter.accept("history/fault",6000));
  for(int i=0;i<1000;++i)filter.accept(std::to_string(i),7000+i);assert(filter.size()==128);assert(filter.accept("rollback",1));
  std::cout<<"PASS: nested log folder, bounded append, clear-before-overflow, oversized entries, no archives and bounded per-message duplicate suppression across interleaved faults.\n";

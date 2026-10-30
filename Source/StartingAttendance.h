@@ -16,22 +16,24 @@ struct Team {
     int atmosphere=-1,tradition=-1,brand=-1,conference=-1;
     float standing=-1;
     int apRank=0; // MediaPoll_CurrentRank; separate from the game's general TeamRank.
+    int state=-1;
 };
 struct Seed {
     Team home,away;
     int stadium=-1,homeStadium=-1,homeAlternate=-1,capacity=0,schools=0,week=-1,year=0,ea=0,roof=0;
-    bool regular=false,resumed=false;
+    bool regular=false,resumed=false,lastHome=false,scheduleKnown=false;
     uint64_t serial=0,observed=0,dynastyVerifiedAt=0,dynastyGeneration=0;
 };
 struct Launch {
     int home=-1,away=-1,stadium=-1,capacity=0,ea=0,minutes=-1,precipitation=-1;
-    bool rivalry=false,neutral=false;
+    bool rivalry=false,neutral=false,senior=false,seniorKnown=false;
 };
 struct Result {
     bool applied=false,night=false,exceptional=false;
     int attendance=0,kickoff=55,fillPercent=50;
     float standing=0,score=0,adjustmentLimit=0;
     float demand=0,momentum=0,appeal=0,nightBonus=0,weather=0,variation=0,limits=0,percent=0;
+    float breakout=0,eventMultiplier=1,openerBoost=0,nightBoost=0,seniorBoost=0,stateBoost=0,academyBoost=0,accessBonus=0;
 };
 inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156||team==1218;}
 inline bool fcs(int id){return id>=1500&&id<=1504;}
@@ -69,9 +71,15 @@ inline bool exceptional(float peak,float standing,int home,int rank0,int rank1,b
         (neutral||!lateArrivalSchool(home))&&(night||(!neutral&&opener))&&
         ((top(rank0,10)&&top(rank1,10))||(rivalry&&top(rank0,25)&&top(rank1,25)));
 }
-inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=55,int severeBase=45,int bigBonus=3,float peak=0){
+inline float accessBonus(int capacity){
+    if(capacity<1000||capacity>200000)return 0;
+    float t=(std::clamp)(std::log((std::max)(15000,capacity)/15000.f)/std::log(100000.f/15000.f),0.f,1.f);
+    return 8*(1-t*t*(3-2*t));
+}
+inline int openingPercent(float standing,int home,int rank0,int rank1,bool neutral,bool night,bool rivalry,bool opener,int rain,bool indoor,int normalBase=55,int severeBase=45,int bigBonus=3,float peak=0,int capacity=0,bool sameState=false){
     float start=!neutral&&lateArrivalSchool(home)?static_cast<float>((std::clamp)(severeBase,40,50)):
         (std::clamp)(normalBase+10.f*((std::clamp)(standing,0.f,1.f)-.5f),50.f,60.f);
+    start+=(!neutral?accessBonus(capacity)+(sameState?2.f:0.f):0.f);
     start+=(night?5.f:0.f)+(opener&&!neutral?1.f:0.f)+(big(rank0,rank1,rivalry)?static_cast<float>((std::clamp)(bigBonus,0,3)):0.f)+(top(rank0,10)&&top(rank1,10)?1.f:0.f);
     start=(std::clamp)(start,40.f,70.f);
     if(exceptional(peak,standing,home,rank0,rank1,neutral,night,rivalry,opener,bigBonus))
@@ -95,6 +103,16 @@ inline float opponent(const Team& t){
     if(t.rank>100)return -6;
     return 0;
 }
+inline bool sameState(const Seed& s){return !fcs(s.home.id)&&!fcs(s.away.id)&&s.home.state>=0&&s.home.state<=100&&s.home.state==s.away.state;}
+inline bool academy(int id){return id==1100||id==1108||id==1166;}
+inline float breakoutLift(const Team& t,float base){
+    int games=t.wins+t.losses;if(games<4)return 0;
+    float confidence=(std::clamp)((games-3)/6.f,0.f,1.f);
+    float win=(std::clamp)((t.wins/static_cast<float>(games)-.5f)/.4f,0.f,1.f);win=win*win*(3-2*win);
+    float poll=top(t.apRank,25)?(26-t.apRank)/25.f:0.f;
+    float target=68+17*poll;
+    return (std::max)(0.f,target-base)*confidence*win;
+}
 inline uint32_t fixtureHash(const Seed& s,bool neutral=false){
     uint32_t h=2166136261u;
     int a=s.home.id,b=s.away.id;if(neutral&&a>b)std::swap(a,b);
@@ -110,23 +128,36 @@ inline Result calculate(const Seed& s,const Launch& l){
        (l.neutral&&(!grades(s.away)||!std::isfinite(s.away.standing)||s.away.standing<0||s.away.standing>1)))return r;
     r.night=l.minutes>=1140; // Verified FUNCTIONKEY_ISNIGHTGAME: stadium-local kickoff >=19:00.
     r.standing=s.home.standing;r.score=support(s.home,s.schools);r.momentum=momentum(s.home);
-    r.appeal=opponent(s.away)+(l.rivalry?6.f:0.f)+(s.home.homeGames==0?3.f:0.f);
+    r.appeal=opponent(s.away)+(l.rivalry?6.f:0.f);
     if(l.neutral){
         r.standing=.5f*(r.standing+s.away.standing);r.score=.5f*(r.score+support(s.away,s.schools));
         r.momentum=.5f*(r.momentum+momentum(s.away));
         r.appeal=.5f*(opponent(s.home)+opponent(s.away))+(l.rivalry?6.f:0.f);
     }
     r.demand=demandCurve(r.standing);
-    r.nightBonus=r.night?4.f:0.f;
-    float changes=r.momentum+r.appeal+r.nightBonus;
+    float changes=r.momentum+r.appeal;
     r.adjustmentLimit=(std::clamp)(changes,-15.f,12.f)-changes;
+    float ordinary=r.demand+changes+r.adjustmentLimit;
+    r.breakout=breakoutLift(s.home,ordinary);
+    if(l.neutral)r.breakout=.5f*(breakoutLift(s.home,ordinary)+breakoutLift(s.away,ordinary));
+    uint32_t hash=fixtureHash(s,l.neutral);
+    auto varying=[&](unsigned salt,float low,float high){uint32_t n=hash^(salt*0x9e3779b9u);n^=n>>16;n*=0x7feb352du;n^=n>>15;return low+(high-low)*(n%10001)/10000.f;};
+    if(!l.neutral&&s.home.homeGames==0)r.openerBoost=varying(1,.10f,.25f);
+    if(r.night)r.nightBoost=varying(2,.05f,.15f);
+    if(!l.neutral&&((l.seniorKnown&&l.senior)||(!l.seniorKnown&&s.scheduleKnown&&s.lastHome)))r.seniorBoost=.10f;
+    if(sameState(s))r.stateBoost=varying(3,.05f,.10f);
+    if(academy(s.home.id)&&academy(s.away.id))r.academyBoost=varying(4,.05f,.15f);
+    float local=r.stateBoost*(l.rivalry?.5f:1.f);
+    r.eventMultiplier=(std::min)(1.40f,(1+r.openerBoost)*(1+r.nightBoost)*(1+r.seniorBoost)*(1+local)*(1+r.academyBoost));
+    r.nightBonus=(ordinary+r.breakout)*r.nightBoost;
     const float weather[]={0.f,5.f,9.f,14.f};r.weather=s.roof>=1&&s.roof<=3?0.f:-weather[l.precipitation];
-    r.variation=static_cast<float>(static_cast<int>(fixtureHash(s,l.neutral)%7)-3);
-    float raw=r.demand+changes+r.adjustmentLimit+r.weather+r.variation;
+    r.variation=static_cast<float>(static_cast<int>(hash%7)-3);
+    float raw=(ordinary+r.breakout)*r.eventMultiplier+r.weather+r.variation;
     r.percent=(std::clamp)(raw,r.weather<0?20.f:25.f,100.f);r.limits=r.percent-raw;
     r.attendance=(std::clamp)(static_cast<int>(std::lround(l.capacity*r.percent*.01f)),1,l.capacity);
     r.exceptional=exceptional(r.percent,r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0);
-    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3,55,45,3,r.percent);
+    r.kickoff=openingPercent(r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0,l.precipitation,s.roof>=1&&s.roof<=3,55,45,3,r.percent,l.capacity,sameState(s));
+    r.accessBonus=!l.neutral?accessBonus(l.capacity):0;
     r.fillPercent=!l.neutral&&lateArrivalSchool(s.home.id)?75:big(s.home.rank,s.away.rank,l.rivalry)?30:50;
     r.applied=true;return r;
 }

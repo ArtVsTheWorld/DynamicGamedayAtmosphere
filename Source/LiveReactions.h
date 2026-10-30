@@ -27,12 +27,13 @@ inline int cheerType(const Outcome& event){
 inline Outcome completedImpact(const energy::Outcome& result,const State& state,bool allowed,uint64_t previousSequence,int previousType){
     bool phase=state.phase==4||state.phase==5||state.phase==1;
     bool loss=result.fiveYardLoss&&std::isfinite(result.yards)&&result.yards>=-100&&result.yards<=-4.99f;
-    // A result-only recovery is sound-only. Only separate forced-fumble or other
-    // defensive-impact proof can request motion; picking up a loose ball cannot.
+    // Official defensive takeaways can supply one missed recovery impact. Own
+    // pickups lack takeaway proof; verified force and live return retain priority.
+    bool recovery=result.takeaway&&result.event==energy::Event::FumbleRecovery;
+    bool fourth=result.firstDown&&result.event==energy::Event::FourthDown;
     if(!allowed||!result.accepted||!result.completed||!result.sequence||!phase||result.side<0||result.side>1||(!state.neutral&&result.side!=0)||
-       (result.sequence==previousSequence&&previousType!=95)||!(result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns)||
-       (result.event==energy::Event::FumbleRecovery&&!result.forcedFumble))return {};
-    Event selected=result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
+       (result.sequence==previousSequence&&previousType!=95)||!(fourth||recovery||result.sack||loss||result.forcedFumble||result.goalLineStop||result.thirdGoalStop||result.highLeverageStop||result.blockedFieldGoal||result.turnoverOnDowns))return {};
+    Event selected=fourth?Event::FourthConversion:result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:recovery?Event::FumbleRecovery:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
 struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=20;bool passFlight=true;};
@@ -171,7 +172,7 @@ public:
         if(!allowed||!c.enabled||!match||!valid(p.game)||p.simulated||now<last_){last_=now;suspend();return out;}last_=now;
         bool normal=energy::normalDown(p);
         if(p.game.phase==1){ready_=normal;side_=p.offense;spot_=p.fieldSpot;direction_=p.attackDirection;snapped_=false;whistle_=0;buildup_={};observedRun_=afterCatchRun_=homePossessionLost_=false;catchAirYards_=-1;catchGain_=0;
-            fourth_=p.down==4&&goingForIt&&std::abs(p.game.homeScore-p.game.awayScore)<=8&&std::isfinite(p.toFirst)&&p.toFirst>=0&&p.toFirst<=100;line_=p.toFirst;}
+            fourth_=p.down==4&&goingForIt&&std::isfinite(p.toFirst)&&p.toFirst>=0&&p.toFirst<=100;line_=p.toFirst;}
         if(p.game.phase==3&&phase_==1&&ready_&&normal&&p.offense==side_){
             snapped_=true;began_=now;record_=record;reset_=flight_=used_=caught_=fourthUsed_=gainCancelled_=false;whistle_=0;runnerLast_=spot_;runnerAt_=now;measuredGain_=0;
         }

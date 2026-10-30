@@ -1,4 +1,4 @@
-# Update3 / 2.0.1 test candidate: Week1 and Week2
+# Update3 / 2.0.2 test candidate: Week1 and Week2
 
 These fixtures are verified in the supplied DYNASTY-DGA183 schedule,2026. The save remains unchanged. Use fresh launches for the starting-attendance formula; use a Midgame Save separately for restore validation. Fullness means the logged **Audio stadium fullness / mapped seating**, not Crowd target (% of the original peak) or listed real-world capacity.
 
@@ -11,14 +11,23 @@ These fixtures are verified in the supplied DYNASTY-DGA183 schedule,2026. The sa
 
 ## First checks
 
-1. Close game and MMC before swapping the staged adapter DLL. Keep your normal settings for the comparison. Confirm runtime2.0.1 in status, Crowd mix = eight native buses, Old excitement limiter = removed, and Legacy crowd parameter writes = disabled. Do not load private research helpers.
+1. Close game and MMC before swapping the staged adapter DLL. Keep your normal settings for the comparison. Confirm runtime2.0.2 in status, Crowd mix = eight native buses, Old excitement limiter = removed, and Legacy crowd parameter writes = disabled. Do not load private research helpers.
 2. Start with Buffalo. At kickoff and lateQ1 note mapped fullness, occupied seats, crossover and Beds/Reactions/detail dB. Arrivals should increase the crowd without an abrupt snap-time silence. A normal first down or defensive stop should still have dynamic native reactions. Commentary, field sounds, referee and music should stay clean. Below layered admission, added reactions remain sound-only: audio alone does not unlock shake.
 3. Let halftime and an automatic replay play without skipping. Compare current/recorded crowd behavior. Ordinary pause and interactive replay retire owned mixer overrides, then return to the current mix afterward. Check manual play and one Slow Sim segment; mode-aware replay behavior remains unchanged. Native dispatch alone is not proof of an audible reaction or a visible replay.
 4. For Michigan/LSU, stay through arrivals if possible. A genuinely packed large crowd can reach+30% signal gain. A small venue at100% is intentionally a smaller boost (about+15.5%). Check a TD, turnover, big gain and a late critical down for continuous handoffs and unchanged ownership/shake admission. Keep volume sliders unchanged between comparisons.
 5. At Akron, use a large fourth-quarter deficit or an ordinary low-scoring night comparison if readily available. Fans should leave through safe windows; the sound should thin with occupied seats, not jump to silence. Midgame Save should restore the same crowd plan, arrivals and audio level rather than a fresh kickoff.
 
-The revised30% small-venue bed is-3.5dB (about66.8% native signal), with matching chants; the old signal reduction is halved, subject to quarter-dB rounding. Other negative subgroup gains at the sparse anchor are softened the same way, and the50% anchor is also softened to keep the bed/reaction curves monotonic. The70/90% anchors and largest packed+30% maximum stay unchanged. Individual detail routing/effective gain remains unresolved after the high-gain test; do not expect a newly discovered sparse-voice track.
+The current nonzero audio floors are40% background/chant,55% collective reactions and95% individual detail. The smallest venue at25% fullness requests50% background. Larger venues still cross vanilla earlier and the largest packed venue reaches+30%. The old steep lower tail is gone; see [audio ranges](AUDIO-MIX-RANGES.md). Individual-detail routing/effective audibility remains unresolved.
 
 ## Record when something looks or sounds wrong
 
 Game/quarter/clock, side/down/play result, mapped fullness/occupied count, what you heard or saw, and whether you skipped, paused, opened replay or returned from Sim. Keep the normal DGA logs/status. The agent did not install the candidate or modify the save.
+
+
+## 2.0.2 focused checks
+
+Start with a fresh small-venue regular-season game. The starting-attendance entry should show access points (up to8), event multiplier, breakout points, native school state IDs and senior-day flag availability. Same-state schools get a local bonus; unknown/FCS location data does not invent one. A home opener/night game can draw more fans but need not sell out. Repeated launches of the same fixture should not reroll bonuses. Compare an available final true-home regular-season game: expect a10% senior bonus only when EA sets its senior-day flag. Postseason/resumed games keep their existing peak policy.
+
+For reactions, use a short fourth-down conversion with a lead larger than8 and qualifying layers; it should now have one impact. A confirmed defensive fumble recovery should get a fallback impact if the live detector missed it. Own recoveries must not gain recovery motion. Live verified returns keep their interception-style continuation, and existing force/return impacts should not duplicate. Not every hit stick gets shake; DGA cheers should now request over matching/multiple native voices; repeated callbacks must not resend the same event. Listen for clean output on major plays.
+
+If an end-of-play hitch recurs, note the play/clock and preserve status before exiting. New fields show DGA atmosphere/attendance callback maximum wall time and counts >=4ms/16ms, plus deferred log overflow. Logging is now drained by the worker. Those counters do not measure FPS, GPU/driver stalls or all plugin/native work. The new15% departure capacity floor must never refill existing empty seats or raise an intentionally sparse kickoff.

@@ -24,6 +24,7 @@ struct State {
     int plannedKickoff=-1,plannedFill=-1;
     int plannedPeak=0,plannedCapacity=0,plannedStadium=-1,plannedWeek=-1,plannedYear=0;
     bool exceptionalOpening=false;
+    float mappedPeak=-1; // Refreshed only from the owned whole-layout baseline.
 };
 inline bool arrivalPlan(const State& s){return s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=80&&s.plannedFill>=10&&s.plannedFill<=100;}
 inline bool crowdPlan(const State& s){return arrivalPlan(s)&&s.plannedCapacity>=1000&&s.plannedCapacity<=200000&&s.plannedPeak>=1&&s.plannedPeak<=s.plannedCapacity&&s.plannedStadium>=0&&s.plannedStadium<1023&&s.plannedWeek>=0&&s.plannedWeek<=31&&s.plannedYear>=0&&s.plannedYear<=4095;}
@@ -54,6 +55,11 @@ inline int lossCeiling(const State& s){
     // A ranked home winner keeps at least 35% of its original crowd. This
     // departure limit survives mismatches/weather; existing exits never refill.
     if(!s.neutral&&s.rank0>=1&&s.rank0<=25&&s.homeScore>s.awayScore)ceiling=(std::min)(ceiling,65);
+    // Departure-only capacity floor. Arrival and temporary opening gaps retain
+    // their policy; this cannot refill existing empty seats or invent turnout.
+    float peak=std::isfinite(s.mappedPeak)&&s.mappedPeak>=0&&s.mappedPeak<=1?s.mappedPeak:expectedPeak(s);
+    if(std::isfinite(peak)&&peak>0&&peak<=1)
+        ceiling=(std::min)(ceiling,(std::max)(0,static_cast<int>(std::floor(100*(1-.15f/peak)+.00001f))));
     return ceiling;
 }
 // The native rank reader accepts 1..255. Unknown FBS ranks remain unknown;

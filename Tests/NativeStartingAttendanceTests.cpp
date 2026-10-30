@@ -51,6 +51,7 @@ int main(){
     gt.ints={{0x3e,1},{0x33,0},{0x3d,8},{0x3f,2026},{36,0},{12,0}};
     gt.related={{0x2a,&home},{0x12,&away},{0x40,&stadium},{0x15,nullptr}};ht.related={{0x118,&stadium},{0xb,nullptr}};lt.related={{0xd,&array}};seasont.ints={{0x2c,15}};
     unsigned char manager[0x240]{};put(address(manager),image+StatManagerVtable);put(address(manager)+0x230,address(&league));put(address(manager)+0x228,address(&season));A reference=address(&game);
+    Table hct,act;Row hc,ac;init(hct,hc);init(act,ac);hct.ints[24]=act.ints[24]=43;ht.related[0x17]=&hc;at.related[0x17]=&ac;
     Api api{count,same,set};Seed seed;
     std::vector<Table> memberTables(137),schoolTables(138);std::vector<Row> memberRows(137),schoolRows(138);
     for(int i=0;i<138;++i){
@@ -62,6 +63,8 @@ int main(){
     init(memberTables[136],memberRows[136]);initTeam(memberTables[136],1500);memberTables[136].ints[0x182]=256;arrt.related[138]=&memberRows[136];
     assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.regular&&!seed.resumed&&seed.schools==138&&seed.home.id==1153&&seed.home.homeGames==3&&seed.home.wins==3&&seed.home.losses==3&&enums>0&&seed.home.atmosphere==0&&seed.home.standing>=0);
     auto noLeaks=[&](){for(Row* r:{&game,&home,&away,&stadium,&league,&season,&array})assert(r->refs==0);for(auto& r:memberRows)assert(r.refs==0);for(auto& r:schoolRows)assert(r.refs==0);};noLeaks();
+    assert(seed.home.state==43&&seed.away.state==43&&hc.refs==0&&ac.refs==0);
+    ht.related[0x17]=nullptr;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.home.state==-1);ht.related[0x17]=&hc;
     assert(seed.home.apRank==17&&seed.home.rank==50&&seed.home.prestige==6);
     ht.ints[0x9e]=0;assert(capture(image,address(manager),address(&reference),45000,seed,&api)&&seed.home.apRank==0);noLeaks();ht.ints[0x9e]=17;
     ht.ints[0x9e]=-1;assert(!capture(image,address(manager),address(&reference),45000,seed,&api));noLeaks();ht.ints[0x9e]=17;
@@ -76,13 +79,15 @@ int main(){
     for(A p:{image+OptionService,image+OptionType,image+OptionVtable,image+0xd9e3818,image+0xf6379e0})page(p);
     unsigned char options[0x200]{},config[0x100]{};put(image+OptionService,address(options));put(address(options),image+OptionVtable);put(image+OptionVtable+0x80,image+0x909b700);
     put<int>(image+0xd9e3818,14);put(image+0xf6379e0,address(config));
-    const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId"};
-    unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900};
-    unsigned short offsets[]={0x30,0x20,0x46,0x14,0x3c,0x49,0x32,0x22};Member members[8]{};
-    for(unsigned i=0;i<8;++i){members[i].name=reinterpret_cast<A>(names[i]);members[i].flags=keys[i];members[i].offset=offsets[i];}
-    put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,8);
+    const char* names[]={"gameHomeTeamId","gameAwayTeamId","gameStadiumId","gameAttendance","gameTimeOfDay","gameWeatherPrecipitation","gameRivalryId","gameBowlId","gameFlagIsSeniorDay"};
+    unsigned keys[]={0x9e8d2700,0x9e1d2700,0xce7a6400,0x9e1d2500,0x9f4be400,0x9f7c2700,0x9f2e6900,0x9e2b2900,0x9e6ce400};
+    unsigned short offsets[]={0x30,0x20,0x46,0x14,0x3c,0x49,0x32,0x22,0x25};Member members[9]{};
+    for(unsigned i=0;i<9;++i){members[i].name=reinterpret_cast<A>(names[i]);members[i].flags=keys[i];members[i].offset=offsets[i];}
+    put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,9);
     put<unsigned short>(address(options)+0x30,1153);put<unsigned short>(address(options)+0x20,1193);put<unsigned short>(address(options)+0x46,553);put<int>(address(options)+0x14,45000);put<unsigned short>(address(options)+0x3c,1140);put<unsigned char>(address(options)+0x49,0);put<unsigned short>(address(options)+0x32,1023);put<unsigned char>(address(options)+0x22,127);
     Launch launchInput;assert(launch(image,launchInput,seed)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
+    put<unsigned char>(address(options)+0x25,1);assert(launch(image,launchInput,seed)&&launchInput.seniorKnown&&launchInput.senior);
+    members[8].name=reinterpret_cast<A>("unavailableSeniorFlag");assert(launch(image,launchInput,seed)&&!launchInput.seniorKnown&&!launchInput.senior);members[8].name=reinterpret_cast<A>("gameFlagIsSeniorDay");put<unsigned char>(address(options)+0x25,0);
     // Correct captured capacity binds without executing a native capacity RPC.
     auto captured=seed;
     for(int cap:{1000,75005,200000}){captured.capacity=cap;assert(launch(image,launchInput,captured)&&launchInput.capacity==cap);}
