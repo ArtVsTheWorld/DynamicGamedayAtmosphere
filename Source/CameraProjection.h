@@ -6,13 +6,23 @@
 
 namespace attendance::motion::projection {
 // The 35-degree/16:9 lens is a geometry reference, not a preset identifier.
-// Standard and Zoom were live-accepted at 75% of the 2.0.31 reference.
-// Fold that calibration into the common gain so factory sliders stay at100.
+// Later feedback was on 2.0.31 at factory settings. Use that reference with
+// the framing curve below rather than stacking the uninstalled 2.0.32 cut.
 inline constexpr float ReferenceY=3.1715948f,ReferenceX=ReferenceY*9.f/16.f;
-inline constexpr float ReferenceStrength=1.10f*.75f;
+inline constexpr float ReferenceStrength=1.10f;
 inline constexpr uint64_t FallbackMs=250;
+// A bounded framing preference, separate from optical compensation. These
+// focal lengths come from the accepted wide/tight live views, not preset IDs.
+// Smoothstep gives broad views 15% less motion and tight views a modest 5%
+// lift, including custom cameras. Evaluate in focal space to avoid an atan
+// in the camera callback; the slope reaches zero at both endpoints.
+inline constexpr float BroadFocalY=1.9437481f,TightFocalY=2.9128082f;
+inline float framingGain(float focalY){
+    const float t=std::clamp((focalY-BroadFocalY)/(TightFocalY-BroadFocalY),0.f,1.f);
+    return .85f+.20f*t*t*(3.f-2.f*t);
+}
 struct Scale {
-    float pitch=1,yaw=1,fx=ReferenceX,fy=ReferenceY;
+    float pitch=1,yaw=1,fx=ReferenceX,fy=ReferenceY,framing=1;
     bool valid=false,cached=false,clipped=false;
 };
 inline bool valid(const std::array<float,16>& p){
@@ -22,7 +32,7 @@ inline bool valid(const std::array<float,16>& p){
 }
 inline Scale scale(const std::array<float,16>& p,bool extended=false){
     Scale s;if(!valid(p))return s;
-    s.fx=p[0];s.fy=p[5];s.valid=true;
+    s.fx=p[0];s.fy=p[5];s.framing=framingGain(p[5]);s.valid=true;
     float maximum=extended?6.f:4.f;
     s.pitch=(std::min)(ReferenceY/p[5],maximum);
     s.yaw=(std::min)(ReferenceX/p[0],maximum);

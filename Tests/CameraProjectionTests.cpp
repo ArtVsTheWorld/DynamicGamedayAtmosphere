@@ -15,7 +15,7 @@ std::array<float,2> project(const std::array<float,16>& v,const std::array<float
 int main(){
     Cue cue{99,1,2000,1000,10000,Kind::LivePlay,10,false};
     const std::array<float,16> identity{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
-    unsigned checked=0;float maximumRelativeError=0;
+    unsigned checked=0,framed=0;float maximumRelativeError=0,maximumFramedError=0;
     for(float level:{2.f,10.f,30.f})for(float setting:{.5f,1.f,2.f})for(uint64_t tick:{2000u,2017u,2031u,2046u}){
         cue.percent=level;cue.updated=tick;auto reference=lens(35,16.f/9),referenceView=identity;
         assert(apply(referenceView,cue,tick,1,1,ReferenceStrength*setting));auto target=project(referenceView,reference);
@@ -30,17 +30,43 @@ int main(){
             float relative=std::sqrt((dx*dx+dy*dy)/(target[0]*target[0]+target[1]*target[1]));
             maximumRelativeError=(std::max)(maximumRelativeError,relative);assert(relative<.05f);
             assert(validMatrix(view));++checked;
+            // Optical normalization still works with the intentional framing
+            // preference. Compare against the same biased reference, not an
+            // equal-strength view, so a double-applied bias fails this check.
+            referenceView=identity;view=identity;
+            assert(apply(referenceView,cue,tick,1,1,ReferenceStrength*setting*s.framing));
+            assert(apply(view,cue,tick,s.pitch,s.yaw,ReferenceStrength*setting*s.framing));
+            target=project(referenceView,reference);actual=project(view,p);
+            dx=actual[0]-target[0];dy=actual[1]-target[1];
+            relative=std::sqrt((dx*dx+dy*dy)/(target[0]*target[0]+target[1]*target[1]));
+            maximumFramedError=(std::max)(maximumFramedError,relative);assert(relative<.05f);++framed;
+            referenceView=identity;assert(apply(referenceView,cue,tick,1,1,ReferenceStrength*setting));target=project(referenceView,reference);
         }
     }
-    // Factory100 in the new build must reproduce the accepted live test:
-    // 2.0.31 reference1.10 with a personal75% multiplier, for every effect.
-    assert(std::fabs(ReferenceStrength-.825f)<.000001f);
+    // Feedback was from 2.0.31, not the uninstalled 2.0.32 candidate. The
+    // requested -15% broad / +5% tight rebalance must not stack its 25% cut.
+    assert(std::fabs(ReferenceStrength-1.10f)<.000001f);
+    assert(std::fabs(framingGain(1.9437481f)-.85f)<.000001f);
+    assert(std::fabs(framingGain(2.9128082f)-1.05f)<.000001f);
+    assert(std::fabs(framingGain((1.9437481f+2.9128082f)*.5f)-.95f)<.000001f);
+    unsigned curveChecks=0;float previous=1.05f;
+    for(unsigned step=500;step<=16000;++step){
+        const float fov=step*.01f;auto p=lens(fov,16.f/9);auto s=scale(p);if(!s.valid)continue;
+        assert(s.framing>=.85f&&s.framing<=1.050001f&&s.framing<=previous+.000001f);
+        assert(previous-s.framing<.001f);previous=s.framing;
+        for(float aspect:{4.f/3,21.f/9}){auto other=scale(lens(fov,aspect));if(other.valid)assert(other.framing==s.framing);}
+        ++curveChecks;
+    }
+    // The flat endpoints meet the transition without a slope jump.
+    for(float focal:{1.9437481f,2.9128082f})assert(std::fabs(framingGain(focal+.0001f)-framingGain(focal-.0001f))<.000001f);
     for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon}){
         Cue tested{99,1,2000,1000,17000,kind,20,false,30};
         for(float fov:{35.f,54.449f,37.896f,88.5f}){
             auto p=lens(fov,16.f/9);auto optical=scale(p);auto accepted=identity,current=identity;
-            assert(apply(accepted,tested,2000,optical.pitch,optical.yaw,1.10f*.75f));
-            assert(apply(current,tested,2000,optical.pitch,optical.yaw,ReferenceStrength));
+            const float requested=fov==35.f||fov==37.896f?1.05f:.85f;
+            assert(std::fabs(optical.framing-requested)<.000001f);
+            assert(apply(accepted,tested,2000,optical.pitch,optical.yaw,1.10f*requested));
+            assert(apply(current,tested,2000,optical.pitch,optical.yaw,ReferenceStrength*optical.framing));
             for(size_t i=0;i<current.size();++i)assert(std::fabs(current[i]-accepted[i])<.000001f);
         }
     }
@@ -51,6 +77,7 @@ int main(){
     assert(!history.observe(1,2,3,4,100,missing).valid);
     assert(history.observe(1,2,3,4,100,normal).valid);
     assert(history.observe(1,2,3,4,350,missing).cached);
+    assert(history.observe(1,2,3,4,350,missing).framing==scale(normal).framing);
     assert(!history.observe(1,2,3,4,351,missing).valid);
     assert(!history.observe(1,2,3,4,99,missing).valid);
     assert(!history.observe(2,2,3,4,110,missing).valid);
@@ -62,5 +89,5 @@ int main(){
     for(uintptr_t view=10;view<30;++view)history.observe(1,view,3,4,120,normal);
     assert(!history.observe(1,2,3,4,121,missing).valid); // Fixed-size eviction.
     cue.updated=cue.began=2000;cue.percent=0;auto output=identity;assert(!apply(output,cue,2000)&&output==identity);
-    std::cout<<"PASS: "<<checked<<" projected camera comparisons; maximum center-point displacement error "<<maximumRelativeError*100<<"%; FOV/aspect/strength/preferences/phase, extreme bounds, projection leases, cache eviction and zero output.\n";
+    std::cout<<"PASS: "<<checked<<" optical and "<<framed<<" framed camera comparisons; maximum center-point displacement error "<<maximumRelativeError*100<<"% / "<<maximumFramedError*100<<"%; "<<curveChecks<<" bounded monotonic framing samples; effect/preferences/phase, extreme bounds, projection leases, cache eviction and zero output.\n";
 }

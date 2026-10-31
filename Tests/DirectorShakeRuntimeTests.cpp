@@ -42,7 +42,7 @@ int main(){
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x274),source.data(),sizeof(source));auto original=view;
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
-    r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&closeEnough(r.percent(),4.125f));
+    r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&closeEnough(r.percent(),5.775f)&&closeEnough(r.framingScale(),1.05f));
     // The selection prelude is already building, but only its gameplay view
     // receives motion. All three presentation slots stay still for both
     // ordinary and critical buildup, including the new hostile opener.
@@ -87,7 +87,7 @@ int main(){
     skipped(addr(foreign[0]),cue.match,2,2000);wrapper[2]=0;skipped(addr(view[0]),cue.match,2,2000);wrapper[2]=cue.match;
     auto count=r.changed();r.tick(addr(view[0]),reinterpret_cast<float*>(addr(view[0])+0x274),cue,cue.match,2,2000);assert(view==original&&count==r.changed());
     output=source;output[0]=2;r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(count==r.changed());
-    // The projection is read only; close-up celebration motion is reduced.
+    // The projection is read only; optical correction bounds close-up motion.
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
     for(auto kind:{Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(unsigned slot:{0u,2u,3u}){
         views[slot*0x68/8]=addr(foreign[0]);Cue earned=cue;earned.kind=kind;earned.until=17000;
@@ -96,11 +96,11 @@ int main(){
     }
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     Cue celebration=cue;celebration.kind=Kind::Eruption;celebration.percent=22.5f;celebration.impact=30;celebration.until=17000;
-    Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),24.75f)&&view==unchanged);
+    Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),34.65f)&&view==unchanged);
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));unchanged=view;
     for(auto kind:{Kind::Ordinary,Kind::Critical}){Cue buildup=cue;buildup.kind=kind;
-        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&closeEnough(r.percent(),5*.825f*3.1715948f/12)&&view==unchanged);}
-    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),30*.825f*3.1715948f/12)&&view==unchanged);
+        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&closeEnough(r.percent(),5*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/12)&&view==unchanged);}
+    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),30*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/12)&&view==unchanged);
     Cue defensive=cue;defensive.kind=Kind::LivePlay;defensive.impactOnly=true;defensive.percent=10;defensive.began=1000;defensive.until=3400;
     output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<4.3f&&view==unchanged);
     // A camera cut swaps the owned render-view pointer; no borrowed camera
@@ -108,11 +108,11 @@ int main(){
     views[0]=addr(foreign[0]);projection[5]=3.1715948f;
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
     auto nextOriginal=foreign;output=source;zoom.tick(addr(foreign[0]),output.data(),celebration,cue.match,2,2000);
-    assert(output!=source&&closeEnough(zoom.percent(),24.75f)&&foreign==nextOriginal);
+    assert(output!=source&&closeEnough(zoom.percent(),34.65f)&&foreign==nextOriginal);
     // Live gain reactions also compensate for a suddenly zoomed-in camera.
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));nextOriginal=foreign;
     Cue running=cue;running.kind=Kind::LivePlay;running.percent=10;
-    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(closeEnough(zoom.percent(),10*.825f*3.1715948f/12)&&foreign==nextOriginal);
+    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(closeEnough(zoom.percent(),10*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/12)&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
     for(bool widePlayer:{false,true})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
@@ -123,8 +123,8 @@ int main(){
         assert(output!=source&&view==saved&&zoom.playing(tested,2000));
         const float ratio=3.1715948f/focal,expected=(std::min)(ratio,widePlayer?6.f:4.f);
         assert(std::fabs(zoom.unscaled()-5)<.001f&&std::fabs(zoom.zoomScale()-expected)<.001f);
-        assert(std::fabs(zoom.percent()-5*.825f*zoom.zoomScale())<.001f);
-        if(focal>=1&&focal<=3.1715948f&&widePlayer)assert(std::fabs(zoom.percent()*focal-5*.825f*3.1715948f)<.001f);
+        assert(std::fabs(zoom.percent()-5*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*zoom.zoomScale())<.001f);
+        if(focal>=1&&focal<=3.1715948f&&widePlayer)assert(std::fabs(zoom.percent()*focal-5*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f)<.001f);
         auto other=tested;++other.began;assert(!zoom.playing(other,2000));
         assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
     }
@@ -132,31 +132,49 @@ int main(){
     // regular reaction, including the original impact-to-hold progression.
     projection[5]=1.0264003277f;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     unchanged=view;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000,true);
-    assert(zoom.unscaled()==30&&closeEnough(zoom.percent(),30*.825f*3.1715948f/1.0264003277f)&&view==unchanged);
+    assert(zoom.unscaled()==30&&closeEnough(zoom.percent(),30*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/1.0264003277f)&&view==unchanged);
     celebration.updated=3000;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,3000,true);
-    assert(zoom.unscaled()==22.5f&&closeEnough(zoom.percent(),22.5f*.825f*3.1715948f/1.0264003277f)&&view==unchanged);
+    assert(zoom.unscaled()==22.5f&&closeEnough(zoom.percent(),22.5f*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/1.0264003277f)&&view==unchanged);
     // The captured wide view now normalizes automatically. The extended
     // setting only changes the bound for more extreme projections.
     auto miami=cue;miami.kind=Kind::Critical;miami.percent=7.2f;
     output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000);
-    assert(std::fabs(zoom.unscaled()-7.2f)<.001f&&closeEnough(zoom.zoomScale(),3.1715948f/1.0264003277f)&&closeEnough(zoom.percent(),7.2f*.825f*3.1715948f/1.0264003277f));
+    assert(std::fabs(zoom.unscaled()-7.2f)<.001f&&closeEnough(zoom.zoomScale(),3.1715948f/1.0264003277f)&&closeEnough(zoom.percent(),7.2f*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/1.0264003277f));
     output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000,true);
-    assert(closeEnough(zoom.percent(),7.2f*.825f*3.1715948f/1.0264003277f));
+    assert(closeEnough(zoom.percent(),7.2f*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*3.1715948f/1.0264003277f));
     // Earned effects follow a verified cutaway outside all four cached views.
     views[0]=views[2*0x68/8]=views[3*0x68/8]=0;
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(output!=source);
     views[0]=addr(view[0]);
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),reinterpret_cast<const unsigned char*>(original.data())+0x2b4,sizeof(projection));
-    // Preset settings multiply the output once, independently of optical zoom.
+    // Personal settings multiply once, independently of optics and framing.
     Runtime scaled;scaled.configure(image);projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     Cue fixed{cue.match,2,2000,1000,10000,Kind::LivePlay,10,false};
     for(float factor:{.5f,1.f,1.25f,2.f}){
         output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,factor);
-        assert(output!=source&&scaled.zoomScale()==1&&scaled.presetScale()==factor&&std::fabs(scaled.percent()-strength(fixed,2000)*.825f*factor)<.001f);
+        assert(output!=source&&scaled.zoomScale()==1&&scaled.presetScale()==factor&&std::fabs(scaled.percent()-strength(fixed,2000)*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*factor)<.001f);
     }
     auto unchangedCount=scaled.changed();output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,0);assert(output==source&&scaled.changed()==unchangedCount);
     output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,3);assert(output==source&&scaled.changed()==unchangedCount);
+    // Actual output follows the captured broad/tight lenses and a custom
+    // intermediate lens without a preset lookup. All axes get the bias once,
+    // across effect categories and independent user preferences.
+    Runtime framed;framed.configure(image);
+    for(auto sample:{std::array<float,2>{1.9437481f,.85f},std::array<float,2>{2.9128082f,1.05f},std::array<float,2>{2.42827815f,.95f}}){
+        projection[5]=sample[0];projection[0]=sample[0]*9.f/16;
+        std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
+        for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float preference:{.5f,1.f,1.25f,2.f}){
+            auto tested=fixed;tested.kind=kind;auto expected=source;output=source;
+            assert(apply(expected,tested,2000,3.1715948f/sample[0],3.1715948f/sample[0],1.10f*sample[1]*preference));
+            framed.tick(addr(view[0]),output.data(),tested,cue.match,2,2000,false,preference);
+            for(size_t i=0;i<output.size();++i)assert(std::fabs(output[i]-expected[i])<.00001f);
+            assert(view==saved&&closeEnough(framed.framingScale(),sample[1])&&framed.presetScale()==preference);
+            assert(closeEnough(framed.percent(),strength(tested,2000)*1.10f*sample[1]*preference*3.1715948f/sample[0]));
+        }
+    }
+    projection[0]=2;projection[5]=3.1715948f;
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     // Invalid projections may briefly reuse only this runtime/view/world's
     // last good lens. Expiry and epoch changes must leave the output untouched.
     Runtime lensLease;lensLease.configure(image);auto leased=fixed;
@@ -175,9 +193,9 @@ int main(){
     Runtime visitor;visitor.configure(image);auto away=fixed;away.visitor=true;away.percent=3;away.playSequence=19;
     assert(visitor.prepare(addr(view[0]),away,cue.match,2,2000)&&visitor.visitorChanged()==0);
     output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000,false,1.1f);
-    assert(output!=source&&visitor.visitorChanged()==1&&closeEnough(visitor.visitorPercent(),3*.825f*1.1f)&&visitor.visitorPeak()==visitor.visitorPercent());
+    assert(output!=source&&visitor.visitorChanged()==1&&closeEnough(visitor.visitorPercent(),3*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*1.1f)&&visitor.visitorPeak()==visitor.visitorPercent());
     away.percent=2;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
-    assert(visitor.visitorChanged()==2&&closeEnough(visitor.visitorPercent(),1.65f)&&closeEnough(visitor.visitorPeak(),3*.825f*1.1f));
+    assert(visitor.visitorChanged()==2&&closeEnough(visitor.visitorPercent(),2.31f)&&closeEnough(visitor.visitorPeak(),3*motion::projection::ReferenceStrength*motion::projection::framingGain(projection[5])*1.1f));
     paused=1;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
     assert(output==source&&visitor.visitorChanged()==2);paused=0;
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());

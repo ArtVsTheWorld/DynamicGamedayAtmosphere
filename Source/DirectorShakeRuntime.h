@@ -27,7 +27,7 @@ class Runtime {
     std::atomic<uint64_t> appliedBegan_{0};std::atomic<float> zoomScale_{1},unscaled_{0},presetScale_{1};
     std::atomic<uint64_t> requestedBegan_{0},requestedAt_{0};std::atomic<Kind> requestedKind_{Kind::None};
     std::atomic<uint64_t> visitorChanged_{0};std::atomic<float> visitorPercent_{0},visitorPeak_{0};
-    std::atomic<float> yawScale_{1},focalY_{0},screenPitch_{0},screenYaw_{0};
+    std::atomic<float> yawScale_{1},focalY_{0},framingScale_{1},screenPitch_{0},screenYaw_{0};
     std::atomic<uint64_t> cached_{0},invalid_{0},clipped_{0};std::atomic<uintptr_t> view_{0};
     static bool read(uintptr_t p,void* out,size_t size){SIZE_T n=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,size,&n)&&n==size;}
     template<class T>static T at(uintptr_t p){return attendance::nativeValue<T>(p,read);}
@@ -72,11 +72,11 @@ public:
         static thread_local projection::History history;
         auto optical=history.observe(cacheId_,view,match,epoch,now,p,widePlayerCompensation);
         if(!optical.valid){++invalid_;return;}
-        float level=strength(cue,now),preference=presetScale*projection::ReferenceStrength;
+        float level=strength(cue,now),preference=presetScale*projection::ReferenceStrength*optical.framing;
         if(!read(address,output.data(),sizeof(output))||!apply(output,cue,now,optical.pitch,optical.yaw,preference))return;
         SIZE_T n=0;if(!WriteProcessMemory(GetCurrentProcess(),destination,output.data(),sizeof(output),&n)||n!=sizeof(output))return;
         ++changed_;appliedBegan_=cue.began;unscaled_=level;zoomScale_=optical.pitch;presetScale_=presetScale;percent_=level*preference*optical.pitch;kind_=cue.kind;last_=now;
-        yawScale_=optical.yaw;focalY_=optical.fy;view_=view;
+        yawScale_=optical.yaw;focalY_=optical.fy;framingScale_=optical.framing;view_=view;
         // Peak small-angle displacement estimates in percent of frame height /
         // width. They describe this output, not proof it was finally rendered.
         screenPitch_=.5f*optical.fy*.65f*.01745329252f*level*preference*optical.pitch;
@@ -93,6 +93,7 @@ public:
     bool requested(const Cue& cue,uint64_t now)const{auto at=requestedAt_.load();return at&&now>=at&&now-at<150&&requestedBegan_==cue.began&&requestedKind_==cue.kind;}
     float zoomScale()const{return zoomScale_;}float unscaled()const{return unscaled_;}
     float presetScale()const{return presetScale_;}
+    float framingScale()const{return framingScale_;}
     float yawScale()const{return yawScale_;}float fov()const{float f=focalY_;return f>0?2.f*std::atan(1.f/f)*57.295779513f:0;}
     float screenPitch()const{return screenPitch_;}float screenYaw()const{return screenYaw_;}
     uintptr_t view()const{return view_;}uint64_t cached()const{return cached_;}uint64_t invalid()const{return invalid_;}uint64_t clipped()const{return clipped_;}
