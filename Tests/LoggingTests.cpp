@@ -1,4 +1,5 @@
 #include "../Source/LogFiles.h"
+#include "../Source/LogPolicy.h"
 #include "../Source/CallbackTiming.h"
 #include "../Source/HumanDiagnostics.h"
 #include <cassert>
@@ -40,6 +41,9 @@ int main(){
  assert(!attendance::appendLog(blocker/"invalid.log","ignored",16)&&contents(blocker)=="keep");
  std::filesystem::remove(blocker);
  std::filesystem::remove(path);std::filesystem::remove(folder/"Logs");std::filesystem::remove(folder);
+ for(const char* tag:{"fault","audio-inactive","skill-reactions-unavailable","native-camera-unavailable","2020-mode","defensive-motion","showboat"})assert(attendance::importantLogTag(tag,"test"));
+ assert(attendance::importantLogTag("audio","mixer-fault")&&!attendance::importantLogTag("audio","routine callback"));
+ assert(!attendance::importantLogTag("entity","routine discovery")&&attendance::importantLogTag("away-motion","applied"));
  attendance::LogQueue queue;queue.push("first");queue.push("second");auto batch=queue.take(1);assert(batch.size()==1&&batch[0]=="first"&&queue.size()==1);
  for(int i=0;i<1000;++i)queue.push(std::to_string(i));assert(queue.size()==512&&queue.dropped()==489);assert(queue.take(512).back()=="999"&&queue.size()==0);
  queue.push(std::string(100000,'X'));assert(queue.take()[0].size()==16384);

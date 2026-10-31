@@ -7,6 +7,7 @@
 #include <iostream>
 using namespace attendance;using namespace attendance::motion;
 using A=uintptr_t;
+bool closeEnough(float a,float b){return std::fabs(a-b)<.001f;}
 template<class T>void put(A address,T value){std::memcpy(reinterpret_cast<void*>(address),&value,sizeof(value));}
 template<class T>A addr(T& object){return reinterpret_cast<A>(&object);}
 bool memoryRead(A p,void* out,size_t n){SIZE_T read=0;return ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&read)&&read==n;}
@@ -40,7 +41,8 @@ int main(){
     std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x274),source.data(),sizeof(source));auto original=view;
-    r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&r.percent()==5);
+    std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
+    r.tick(addr(view[0]),output.data(),cue,cue.match,2,2000);assert(output!=source&&view==original&&r.changed()==1&&r.playing(2000)&&closeEnough(r.percent(),5.5f));
     // The selection prelude is already building, but only its gameplay view
     // receives motion. All three presentation slots stay still for both
     // ordinary and critical buildup, including the new hostile opener.
@@ -94,11 +96,11 @@ int main(){
     }
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     Cue celebration=cue;celebration.kind=Kind::Eruption;celebration.percent=22.5f;celebration.impact=30;celebration.until=17000;
-    Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()==30&&view==unchanged);
+    Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),33.f)&&view==unchanged);
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));unchanged=view;
     for(auto kind:{Kind::Ordinary,Kind::Critical}){Cue buildup=cue;buildup.kind=kind;
-        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&r.percent()>2.1f&&r.percent()<2.2f&&view==unchanged);}
-    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()>12.6f&&zoom.percent()<12.7f&&view==unchanged);
+        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&closeEnough(r.percent(),5*1.1f*3.1715948f/12)&&view==unchanged);}
+    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(closeEnough(zoom.percent(),30*1.1f*3.1715948f/12)&&view==unchanged);
     Cue defensive=cue;defensive.kind=Kind::LivePlay;defensive.impactOnly=true;defensive.percent=10;defensive.began=1000;defensive.until=3400;
     output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<4.3f&&view==unchanged);
     // A camera cut swaps the owned render-view pointer; no borrowed camera
@@ -106,11 +108,11 @@ int main(){
     views[0]=addr(foreign[0]);projection[5]=3.1715948f;
     std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));
     auto nextOriginal=foreign;output=source;zoom.tick(addr(foreign[0]),output.data(),celebration,cue.match,2,2000);
-    assert(output!=source&&zoom.percent()==30&&foreign==nextOriginal);
+    assert(output!=source&&closeEnough(zoom.percent(),33.f)&&foreign==nextOriginal);
     // Live gain reactions also compensate for a suddenly zoomed-in camera.
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));nextOriginal=foreign;
     Cue running=cue;running.kind=Kind::LivePlay;running.percent=10;
-    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>4.2f&&zoom.percent()<4.3f&&foreign==nextOriginal);
+    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(closeEnough(zoom.percent(),10*1.1f*3.1715948f/12)&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
     for(bool widePlayer:{false,true})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
@@ -119,10 +121,10 @@ int main(){
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
         output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000,widePlayer);
         assert(output!=source&&view==saved&&zoom.playing(tested,2000));
-        const float ratio=3.1715948f/focal,expected=ratio<1?std::pow(ratio,.65f):(std::min)(ratio,widePlayer?4.f:1.f);
+        const float ratio=3.1715948f/focal,expected=(std::min)(ratio,widePlayer?6.f:4.f);
         assert(std::fabs(zoom.unscaled()-5)<.001f&&std::fabs(zoom.zoomScale()-expected)<.001f);
-        assert(std::fabs(zoom.percent()-5*zoom.zoomScale())<.001f);
-        if(focal>=1&&focal<=3.1715948f&&widePlayer)assert(std::fabs(zoom.percent()*focal-5*3.1715948f)<.001f);
+        assert(std::fabs(zoom.percent()-5*1.1f*zoom.zoomScale())<.001f);
+        if(focal>=1&&focal<=3.1715948f&&widePlayer)assert(std::fabs(zoom.percent()*focal-5*1.1f*3.1715948f)<.001f);
         auto other=tested;++other.began;assert(!zoom.playing(other,2000));
         assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
     }
@@ -130,16 +132,16 @@ int main(){
     // regular reaction, including the original impact-to-hold progression.
     projection[5]=1.0264003277f;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     unchanged=view;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000,true);
-    assert(zoom.unscaled()==30&&zoom.percent()>92&&zoom.percent()<93&&view==unchanged);
+    assert(zoom.unscaled()==30&&closeEnough(zoom.percent(),30*1.1f*3.1715948f/1.0264003277f)&&view==unchanged);
     celebration.updated=3000;output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,3000,true);
-    assert(zoom.unscaled()==22.5f&&zoom.percent()>69&&zoom.percent()<70&&view==unchanged);
-    // Captured Miami critical buildup: default policy must not turn 7.2 into
-    // 22.2. The explicit wide-player policy remains independently available.
+    assert(zoom.unscaled()==22.5f&&closeEnough(zoom.percent(),22.5f*1.1f*3.1715948f/1.0264003277f)&&view==unchanged);
+    // The captured wide view now normalizes automatically. The extended
+    // setting only changes the bound for more extreme projections.
     auto miami=cue;miami.kind=Kind::Critical;miami.percent=7.2f;
     output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000);
-    assert(std::fabs(zoom.unscaled()-7.2f)<.001f&&zoom.zoomScale()==1&&std::fabs(zoom.percent()-7.2f)<.001f);
+    assert(std::fabs(zoom.unscaled()-7.2f)<.001f&&closeEnough(zoom.zoomScale(),3.1715948f/1.0264003277f)&&closeEnough(zoom.percent(),7.2f*1.1f*3.1715948f/1.0264003277f));
     output=source;zoom.tick(addr(view[0]),output.data(),miami,cue.match,2,2000,true);
-    assert(zoom.percent()>22&&zoom.percent()<22.3f);
+    assert(closeEnough(zoom.percent(),7.2f*1.1f*3.1715948f/1.0264003277f));
     // Earned effects follow a verified cutaway outside all four cached views.
     views[0]=views[2*0x68/8]=views[3*0x68/8]=0;
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(output!=source);
@@ -149,19 +151,33 @@ int main(){
     Runtime scaled;scaled.configure(image);projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     Cue fixed{cue.match,2,2000,1000,10000,Kind::LivePlay,10,false};
-    for(float factor:{.5f,1.f,1.25f,2.f,2.6f}){
+    for(float factor:{.5f,1.f,1.25f,2.f}){
         output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,factor);
-        assert(output!=source&&scaled.zoomScale()==1&&scaled.presetScale()==factor&&std::fabs(scaled.percent()-strength(fixed,2000)*factor)<.001f);
+        assert(output!=source&&scaled.zoomScale()==1&&scaled.presetScale()==factor&&std::fabs(scaled.percent()-strength(fixed,2000)*1.1f*factor)<.001f);
     }
     auto unchangedCount=scaled.changed();output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,0);assert(output==source&&scaled.changed()==unchangedCount);
     output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,3);assert(output==source&&scaled.changed()==unchangedCount);
+    // Invalid projections may briefly reuse only this runtime/view/world's
+    // last good lens. Expiry and epoch changes must leave the output untouched.
+    Runtime lensLease;lensLease.configure(image);auto leased=fixed;
+    output=source;lensLease.tick(addr(view[0]),output.data(),leased,cue.match,2,2000);
+    std::array<float,16> missing{};std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),missing.data(),sizeof(missing));
+    leased.updated=2100;output=source;lensLease.tick(addr(view[0]),output.data(),leased,cue.match,2,2100);
+    assert(output!=source&&lensLease.cached()==1);
+    leased.updated=2300;output=source;auto validOutputs=lensLease.changed();lensLease.tick(addr(view[0]),output.data(),leased,cue.match,2,2300);
+    assert(output==source&&lensLease.changed()==validOutputs&&lensLease.invalid()==1);
+    leased.epoch=3;leased.updated=2200;output=source;lensLease.tick(addr(view[0]),output.data(),leased,cue.match,3,2200);
+    assert(output==source&&lensLease.invalid()==2);
+    lensLease.configure(image);leased.epoch=2;leased.updated=2100;output=source;lensLease.tick(addr(view[0]),output.data(),leased,cue.match,2,2100);
+    assert(output==source&&lensLease.invalid()==3);
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
     // Distinguish a prepared visitor request from an actual matrix change.
     Runtime visitor;visitor.configure(image);auto away=fixed;away.visitor=true;away.percent=3;away.playSequence=19;
     assert(visitor.prepare(addr(view[0]),away,cue.match,2,2000)&&visitor.visitorChanged()==0);
     output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000,false,1.1f);
-    assert(output!=source&&visitor.visitorChanged()==1&&std::fabs(visitor.visitorPercent()-3.3f)<.001f&&visitor.visitorPeak()==visitor.visitorPercent());
+    assert(output!=source&&visitor.visitorChanged()==1&&closeEnough(visitor.visitorPercent(),3*1.1f*1.1f)&&visitor.visitorPeak()==visitor.visitorPercent());
     away.percent=2;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
-    assert(visitor.visitorChanged()==2&&visitor.visitorPercent()==2&&std::fabs(visitor.visitorPeak()-3.3f)<.001f);
+    assert(visitor.visitorChanged()==2&&closeEnough(visitor.visitorPercent(),2.2f)&&closeEnough(visitor.visitorPeak(),3*1.1f*1.1f));
     paused=1;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
     assert(output==source&&visitor.visitorChanged()==2);paused=0;
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 Hotfix — 2.0.30** · College Football 27 for Windows · MMC
+By Ace · **Update 3 Hotfix — 2.0.31** · College Football 27 for Windows · MMC
 
 Crowds arrive, take halftime breaks and leave early. Crowd sound follows the fans in the seats, while big plays bring extra reactions, camera shake and replay opportunities.
 
@@ -37,7 +37,7 @@ Open **Gameday Atmosphere** from either:
 - **Dynasty/RTG Central → User Settings**
 - **Pause → Options → Settings**, at the far right after Auto-Subs
 
-Most people can keep the defaults. Turn on the game's **Dynamic Camera Effects** if you want added shake. Broadcast includes separate shake sliders for Standard, Zoom, All-22, Wide and Broadcast cameras.
+Most people can keep the defaults. Turn on the game's **Dynamic Camera Effects** if you want added shake. Broadcast includes separate shake sliders for Standard, Zoom, All-22, Wide and Broadcast cameras. Zoom is balanced automatically; 100 uses the shared baseline, 50 halves it and 0 turns it off for that camera. Existing slider choices are kept.
 
 **Away Team Reaction Shake (%)** starts at 0 (off); 50 is half the matching home reaction and 100 is the same strength. **Neutral-Site Crowd Shake (%)** controls both teams at neutral stadiums and starts at the usual 75. Existing On settings become 35% when updated; existing Off settings stay at 0%.
 

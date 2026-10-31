@@ -112,15 +112,15 @@ int main(){
     // displacement per small angular movement should match the reference view.
     projection[0]=.5773501992f;projection[5]=1.0264003277f;
     for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher}){
-        assert(projectionScale(projection,kind)==1);
+        assert(projectionScale(projection,kind)>3.08f&&projectionScale(projection,kind)<3.10f);
         const auto scale=projectionScale(projection,kind,true);
         assert(scale>3.08f&&scale<3.10f);
         assert(std::fabs(projection[5]*scale-3.1715948f)<.00001f);
-        projection[5]=.11f;assert(projectionScale(projection,kind)==1);assert(projectionScale(projection,kind,true)==4);
+        projection[5]=.11f;assert(projectionScale(projection,kind)==4);assert(projectionScale(projection,kind,true)==6);
         projection[5]=1.0264003277f;
     }
     assert(projectionScale(projection,Kind::None)==1);
-    projection[5]=NAN;assert(projectionScale(projection,Kind::Eruption)==.35f);
+    projection[5]=NAN;assert(projectionScale(projection,Kind::Eruption)==0);
     std::array<float,16> source{1,0,0,0,0,1,0,0,0,0,1,0,12,-30,90,1};
     c={123,1,1000,0,5000,Kind::Eruption,30,false};auto output=source;
     assert(apply(output,c,1000)&&output!=source&&validMatrix(output));

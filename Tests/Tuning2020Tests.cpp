@@ -66,7 +66,7 @@ int main(){
     pairing::SoundLease lease{1,0,3200,false,3150};assert(pairing::soundWeight(lease,tail,3600,true)==1);
     lease.updated=2000;assert(pairing::soundWeight(lease,tail,3600,true)==0);
     std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f*2;projection[11]=1;
-    assert(std::abs(motion::projectionScale(projection,motion::Kind::Touchdown)-std::pow(.5f,.65f))<.0001f);
+    assert(std::abs(motion::projectionScale(projection,motion::Kind::Touchdown)-.5f)<.0001f);
     energy::Play play;play.game=game;play.down=1;
     assert(palette::liveType({live::Event::Truck,1,0,0},play,game,1,1)==11);
     for(auto skill:{live::Event::Hurdle,live::Event::StiffArm,live::Event::Juke,live::Event::Spin})assert(palette::liveType({skill,1,0,0},play,game,1,1)==3);

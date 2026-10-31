@@ -6,6 +6,7 @@
 #include "ReactionShape.h"
 #include "VenueMotion.h"
 #include "ShakeProfiles.h"
+#include "CameraProjection.h"
 
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
@@ -300,29 +301,18 @@ inline void rotate(std::array<float,16>& m,int a,int b,float radians){
 }
 inline float projectionScale(const std::array<float,16>& p,Kind kind,bool widePlayerCompensation=false){
     if(kind==Kind::None)return 1;
-    // The native projection getter exposes this separate perspective matrix.
-    // Focal length magnifies angular motion; compensate without changing zoom.
-    bool valid=true;for(float v:p)valid=valid&&std::isfinite(v);
-    valid=valid&&p[0]>.1f&&p[0]<10000&&p[5]>.1f&&p[5]<10000&&std::fabs(p[15])<.001f&&std::fabs(std::fabs(p[11])-1)<.01f;
-    if(!valid)return .35f;
-    constexpr float reference=3.1715948f; // 35-degree vertical field of view.
-    // Preserve perceived movement on wide views as well as reducing closeups.
-    // Wide broadcast and RTG projections overlap: FOV is not mode proof.
-    // Ordinary views never amplify the configured envelope. The previously
-    // captured RTG compensation is a separate explicit opt-in; close-ups
-    // keep the same attenuation in either policy.
-    float ratio=reference/p[5];
-    return ratio<1?std::pow(ratio,.65f):(std::min)(ratio,widePlayerCompensation?4.0f:1.0f);
+    auto s=projection::scale(p,widePlayerCompensation);return s.valid?s.pitch:0;
 }
-inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
-    float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;
+inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now,float pitchScale=1,float yawScale=1,float preference=1){
+    float amount=strength(c,now)*.01f*preference;
+    if(!std::isfinite(amount)||amount<=0||!std::isfinite(pitchScale)||pitchScale<=0||pitchScale>6||!std::isfinite(yawScale)||yawScale<=0||yawScale>6||!validMatrix(output))return false;
     constexpr float pi=3.14159265358979323846f;
     float t=static_cast<float>((now-(c.oscillationBegan?c.oscillationBegan:c.began))%1000000)*.001f;auto result=output;
     // Quadrature keeps the two main axes moving continuously. Independent
     // 7/9 Hz oscillators periodically nearly cancelled, making a steady
     // touchdown envelope feel like repeated short bursts on close-up views.
-    rotate(result,1,2,.65f*(pi/180)*std::sin(2*pi*8*t)*amount);
-    rotate(result,0,2,.45f*(pi/180)*std::cos(2*pi*8*t)*amount);
+    rotate(result,1,2,.65f*(pi/180)*std::sin(2*pi*8*t)*amount*pitchScale);
+    rotate(result,0,2,.45f*(pi/180)*std::cos(2*pi*8*t)*amount*yawScale);
     rotate(result,0,1,.12f*(pi/180)*std::sin(2*pi*11.3f*t)*amount);
     if(!validMatrix(result))return false;output=result;return true;
 }

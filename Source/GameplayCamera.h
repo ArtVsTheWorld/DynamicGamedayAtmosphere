@@ -11,7 +11,9 @@ namespace attendance::gamecamera {
 enum class Preset:int {Unknown=-1,Zoom=0,Standard=1,Wide=2,All22=3,Broadcast=4};
 inline bool known(int p){return p>=0&&p<=4;}
 inline const char* name(int p){switch(static_cast<Preset>(p)){case Preset::Zoom:return "Zoom";case Preset::Standard:return "Standard";case Preset::Wide:return "Wide";case Preset::All22:return "All-22";case Preset::Broadcast:return "Broadcast";default:return "unavailable";}}
-inline constexpr std::array<float,5> Baseline{{1.30f,1.10f,1.f,.75f,.75f}};
+// Optical normalization supplies the common baseline. These are preferences,
+// so 100% has the same meaning for every named camera.
+inline constexpr std::array<float,5> Baseline{{1.f,1.f,1.f,1.f,1.f}};
 inline float scale(const std::array<float,5>& percent,int p){return known(p)&&std::isfinite(percent[p])?Baseline[p]*(std::clamp)(percent[p],0.f,200.f)*.01f:1.f;}
 inline bool custom(const std::array<float,5>& percent){for(float p:percent)if(std::isfinite(p)&&p!=100.f)return true;return false;}
 struct Selection {int offense=-1,defense=-1,active=-1;};
@@ -41,5 +43,8 @@ template<class Read>inline Selection sample(uintptr_t image,uintptr_t match,Read
     if(users!=1)return result;
     int possession=-1;if(!load(match+0x1c8,possession)||possession<0||possession>1)return result;
     result.active=possession==side?result.offense:result.defense;return result;
+}
+template<class Read>inline float preference(const std::array<float,5>& percent,uintptr_t image,uintptr_t match,Read read){
+    return custom(percent)?scale(percent,sample(image,match,read).active):1.f;
 }
 }

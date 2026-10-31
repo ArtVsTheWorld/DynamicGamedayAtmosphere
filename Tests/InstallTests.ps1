@@ -1,5 +1,6 @@
 param([string]$PackageRoot)
 $ErrorActionPreference='Stop'
+$packagePlugins=if(Test-Path -LiteralPath (Join-Path $PackageRoot 'DynamicGamedayAtmosphere.dll')){$PackageRoot}else{Join-Path $PackageRoot 'Plugins'}
 $build=Join-Path (Split-Path -Parent $PSScriptRoot) 'Build'
 $testRoot=Join-Path $build ('InstallerTest-'+[Guid]::NewGuid().ToString('N'))
 $plugins=Join-Path $testRoot 'Plugins'
@@ -12,7 +13,7 @@ Set-Content -LiteralPath $current -Value 'previous test payload'
 $installer=Join-Path (Split-Path -Parent $PSScriptRoot) 'Source\Install.ps1'
 & $installer -MmcRoot $testRoot -PackageRoot $PackageRoot
 if(Test-Path -LiteralPath $legacy){throw 'Legacy adapter still active'}
-if((Get-FileHash -LiteralPath $current).Hash -ne (Get-FileHash -LiteralPath (Join-Path $PackageRoot 'Plugins\DynamicGamedayAtmosphere.dll')).Hash){throw 'Installed plugin mismatch'}
+if((Get-FileHash -LiteralPath $current).Hash -ne (Get-FileHash -LiteralPath (Join-Path $packagePlugins 'DynamicGamedayAtmosphere.dll')).Hash){throw 'Installed plugin mismatch'}
 $backup=Join-Path $plugins 'DynamicGamedayAtmosphere\Backups'
 if(@(Get-ChildItem -LiteralPath $backup -File).Count -ne 2){throw 'Missing old DLL backups'}
 # A failure after moving the old adapter must put it back.

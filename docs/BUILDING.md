@@ -8,7 +8,7 @@ From the repository folder:
 .\Source\Build.ps1 -Automatic
 ```
 
-This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release2012` for build 2.0.12. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
+This builds the native runtime and loader and runs all native, settings and diagnostic-tool checks. Output goes to `Build/Release2031` for build 2.0.31. The folder suffix is generated from `Source/Product.json`; use that version for later builds. There are no sibling-project or MinHook dependencies; the old build step compiled unused objects and has been removed.
 
 To compile the MMC adapter and make a download:
 
@@ -18,7 +18,7 @@ To compile the MMC adapter and make a download:
 
 Set the working version in `Source/Product.json` and build it first. Use the actual public update name; the command above packages the current public release. `MmcRoot` must contain `FrostyCore.dll` and `FrostySdk.dll`. Those files belong to MMC and are not included here. Packaging does not install anything unless you add `-Install`.
 
-The ZIP contains only the adapter DLL, README and feature list. The native runtime, loader and default INI are embedded in the adapter. Do not upload game files, MMC assemblies, dumps, saves or local runtime history.
+The ZIP opens directly to the adapter DLL, its same-named folder, README and feature list. The folder contains the separately packaged loader under `Runtime-<version>`. The native runtime and default INI are embedded in the adapter. Copy the DLL and its entire folder together; the Markdown files are optional reading. Do not upload game files, MMC assemblies, dumps, saves or local runtime history.
 
 ## Extra checks
 
@@ -29,7 +29,7 @@ python -m unittest discover -s Tests -p 'test_*.py'
 
 `Tests/HostChecks.cs` checks an adapter against an installed MMC SDK. `Tests/InstallTests.ps1` exercises installation/rollback in a disposable folder under Build. Neither replaces a live game test. The GitHub Windows workflow builds native code and runs tests without a game or MMC installation; it does not create or publish releases.
 
-For the working diagnostics build, `Tools/CheckMmcHost.ps1 -MmcRoot 'C:\Your\MMC'` compiles/tests the adapter in an isolated Build fixture, including extraction of its settings and diagnostics window. It does not install into MMC or create a release archive.
+For the shipped separate-loader layout, `Tools/CheckMmcHost.ps1 -MmcRoot 'C:\Your\MMC' -ExternalLoader` compiles/tests the adapter in an isolated Build fixture, including extraction of its settings and diagnostics window. It does not install into MMC or create a release archive.
 
 ## Historical tags
 

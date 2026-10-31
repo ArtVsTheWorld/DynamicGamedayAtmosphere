@@ -27,7 +27,7 @@ class Runtime {
     std::atomic<float> db_{0};std::atomic<unsigned long long> creations_{0},releases_{0};
     template<class T>bool read(Address p,T& value){return copy(p,&value,sizeof(value));}
     static bool copy(Address p,void* value,size_t bytes){SIZE_T count=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),value,bytes,&count)&&count==bytes;}
-    template<class T>T at(Address p){T value{};read(p,value);return value;}
+    template<class T>T at(Address p){T value{};return read(p,value)?value:T{};}
     Address ref(Address p){return at<Address>(p)&~Address(4);}
     bool named(Address p,const char* name){char text[128]{};size_t n=std::strlen(name)+1;return n<=sizeof(text)&&copy(p,text,n)&&!std::memcmp(text,name,n);}
     bool borrowedOwner(Address owner){

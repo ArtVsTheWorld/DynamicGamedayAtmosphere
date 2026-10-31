@@ -1,11 +1,12 @@
 #pragma once
 #include "GameBindings.h"
+#include "NativeRead.h"
 #include <cstddef>
 namespace attendance::playcall {
 using Address=uintptr_t;using Read=bool(*)(Address,void*,size_t);
 class View {
     Address image_;Read read_;
-    template<class T>T at(Address p)const{T value{};read_(p,&value,sizeof(value));return value;}
+    template<class T>T at(Address p)const{return attendance::nativeValue<T>(p,read_);}
 public:
     View(Address image,Read read):image_(image),read_(read){}
     int type(Address match,int side)const{

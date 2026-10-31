@@ -15,7 +15,7 @@ struct Sample {bool timesValid=false,eventsValid=false;std::array<double,6> time
 class View {
     Address image_;Read read_;
     template<class T>bool field(Address p,T& out)const{return p>=0x10000&&p<UINTPTR_MAX-sizeof(T)&&read_(p,&out,sizeof(T));}
-    template<class T>T at(Address p)const{T out{};field(p,out);return out;}
+    template<class T>T at(Address p)const{T out{};return field(p,out)?out:T{};}
     Address component()const{
         unsigned count=at<unsigned>(image_+TypeCount);Address buckets=at<Address>(image_+TypeBuckets);
         if(!count||count>100000||!buckets)return 0;

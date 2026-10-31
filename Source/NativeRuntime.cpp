@@ -31,6 +31,7 @@
 #include "ProductVersion.h"
 #include "GameBindings.h"
 #include "LogFiles.h"
+#include "LogPolicy.h"
 #include "SettingsPoll.h"
 #include "StatusReport.h"
 #include "HumanDiagnostics.h"
@@ -64,6 +65,7 @@
 #include "BackgroundRoar.h"
 #include "PlayReactionTiming.h"
 #include "ConfigValue.h"
+#include "NativeRead.h"
 #include "HalftimeExitConversion.h"
 #include "SparseHfaCamera.h"
 #include "NativeCameraAdmission.h"
@@ -107,6 +109,7 @@ namespace {
 A image=0; HMODULE self=nullptr; std::filesystem::path folder,pluginsFolder,dataFolder,logsFolder;
 std::mutex logMutex;
 std::atomic<int> logLimitMB{2};
+std::atomic<uint64_t> logWriteFailures{0};
 std::atomic<bool> debugLog{false};
 std::mutex historyMutex;attendance::History gameHistory;attendance::MatchLifecycle matchLifecycle;
 std::atomic<bool> shownComeback{false},shownUpset{false},contextReady{false};
@@ -538,8 +541,10 @@ void __fastcall cameraView(A view,float* output){
         bool diagnostic=preview->fresh(audioMatch.load(),audioEpoch.load(),now)&&(preview->active||preview->cooling);
         int phase=audioPresentationPhase();bool presentationCarry=phase==2||phase==4||phase==5;
         auto cameraConfig=std::atomic_load(&cameraSettings);float presetScale=1;
+        // At the common 100% preferences no named-preset lookup is needed.
+        // Projection normalization already follows the actual output view.
         if(!shownSuperSim&&replayMode!=attendance::replaymode::Mode::RealtimeSim)
-            presetScale=attendance::gamecamera::scale(cameraConfig->cameraPercent,attendance::gamecamera::sample(image,audioMatch.load(),read).active);
+            presetScale=attendance::gamecamera::preference(cameraConfig->cameraPercent,image,audioMatch.load(),read);
         if(presetScale==0)return;
         auto sound=cue.visitor?attendance::pairing::SoundLease{cue.match,cue.epoch,lastAudibleUpdate.load(),false,audioAudible?cue.soundAt:0,std::atomic_load(&sustainedIntent)->playSequence}:*std::atomic_load(&motionSound);
         float soundWeight=diagnostic||cannonSound?1.f:attendance::pairing::soundWeight(sound,cue,now,presentationCarry||cue.visitor);
@@ -677,20 +682,15 @@ void drainLogs(){
     {std::lock_guard<std::mutex> guard(logMutex);lines=queuedLogs.take();}
     if(lines.empty())return;
     auto limit=static_cast<uintmax_t>(logLimitMB.load())*1024*1024;
-    attendance::appendLogBatch(logsFolder/L"technical.log",lines,limit);
+    if(!attendance::appendLogBatch(logsFolder/L"technical.log",lines,limit))++logWriteFailures;
     std::vector<std::string> readable;readable.reserve(lines.size());
     for(const auto& line:lines){auto summary=attendance::readable::event(line);if(!summary.empty())readable.push_back(std::move(summary));}
-    attendance::appendLogBatch(logsFolder/L"DynamicGamedayAtmosphere.log",readable,limit);
+    if(!attendance::appendLogBatch(logsFolder/L"DynamicGamedayAtmosphere.log",readable,limit))++logWriteFailures;
 }
 void log(const char* event,const std::string& message) {
     std::lock_guard<std::mutex> guard(logMutex);
     const std::string kind=event;
-    if(!debugLog&&kind!="defensive-proof"&&kind!="major-replay"&&kind!="replay-select"&&kind!="starting"&&kind!="ready"&&kind!="inactive"&&kind!="fault"&&kind!="quarter-break"&&
-       kind!="two-minute"&&kind!="departures"&&kind!="arrivals"&&kind!="halftime"&&kind!="opening"&&kind!="eruption"&&
-       kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
-       kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
-       kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="starting-attendance"&&kind!="cannon"&&kind!="away-motion"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+    if(!debugLog&&!attendance::importantLogTag(kind,message))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -700,7 +700,7 @@ void log(const char* event,const std::string& message) {
 }
 std::string hex(A a){char s[32]{};sprintf_s(s,"0x%llx",static_cast<unsigned long long>(a));return s;}
 bool read(A p,void* out,size_t n){SIZE_T done=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,n,&done)&&done==n;}
-template<class T>T at(A p){T v{};read(p,&v,sizeof(v));return v;}
+template<class T>T at(A p){return attendance::nativeValue<T>(p,read);}
 attendance::turnout::ModeWitness initialModeProof(){
     int observedMode=-2;bool readable=attendance::turnout::native::setupMode(image,observedMode);
     std::lock_guard<std::mutex> guard(initialMutex);
@@ -851,7 +851,7 @@ bool readReplayObject(A p,void* out,size_t n){
     __try{std::memcpy(out,reinterpret_cast<const void*>(p),n);return true;}
     __except(EXCEPTION_EXECUTE_HANDLER){return false;}
 }
-template<class T>T replayValue(A p){T value{};readReplayObject(p,&value,sizeof(value));return value;}
+template<class T>T replayValue(A p){return attendance::nativeValue<T>(p,readReplayObject);}
 attendance::replaypresentation::View replayPresentationView(){
     using namespace attendance::bindings;
     return {readReplayObject,{image+MuseLogicVtable,image+MuseComparisonVtable,image+MuseConstantVtable,image+MuseFunctionVtable,image+MuseActorFunctionVtable}};
@@ -3040,6 +3040,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Major-play replay observer")<<majorReplayTimings.calls.load()<<" calls; max "<<majorReplayTimings.maximumUs.load()<<" us; >=4ms "<<majorReplayTimings.over4ms.load()<<"; >=16ms "<<majorReplayTimings.over16ms.load()<<" (includes native play/mode queries)\n";
     report.field("Native replay event / node")<<replayEventNativeTimings.calls.load()<<" / "<<replayNodeNativeTimings.calls.load()<<" calls; max "<<replayEventNativeTimings.maximumUs.load()<<" / "<<replayNodeNativeTimings.maximumUs.load()<<" us (native calls including any nested DGA hooks)\n";
     {size_t pending=0;uint64_t dropped=0;{std::lock_guard<std::mutex> guard(logMutex);pending=queuedLogs.size();dropped=queuedLogs.dropped();}report.field("Deferred log queue")<<pending<<" pending; "<<dropped<<" dropped by bounded overflow\n";}
+    report.field("Log write failures")<<logWriteFailures.load()<<" failed batches; inspect folder permissions/free space if nonzero\n";
     report.field("Settings file")<<dataFolder.u8string()<<"/DynamicGamedayAtmosphere.ini\n";
     report.field("Diagnostic preview")<<*std::atomic_load(&diagnosticStatus)<<"\n";
     report.field("Pause-menu fullness")<<(!pauseMenuAvailable?"unavailable on this game layout":!pauseMenuSetting?"disabled":"enabled; updates when opening the pause menu")<<"\n";
@@ -3132,11 +3133,15 @@ void writeStatus(std::ostream& state,unsigned long long now){
         auto dense=attendance::dense::layers(venue->seats,full);
         report.field("Dense-crowd layer support")<<dense.full*100<<"% medium tier; "<<dense.veryLarge*100<<"% very-large tier; up to "<<dense.multiplier()<<"x added layer intensity within native cap; existing admission required, no extra bus gain\n";}
     {auto cue=std::atomic_load(&cameraCue);if(cue->smoothRunBuildup)report.field("Run/YAC strength ramp")<<cue->buildupStrength<<"% reached before view/envelope; 800ms full-range rise; "<<(cue->tail?"fading from reached strength":"following 11-15 yard target")<<"\n";}
-    report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"opt-in: up to 4x; intended for wide RTG/player cameras":"off: wide views capped at 1x; close-ups soften")<<"\n";
-    report.field("Crowd shake scaling")<<"linear occupied seats: 0.80x at6060 to1.25x at61888; close-up ratio^0.65; distinct overlaps capped15% above strongest\n";
+    report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"extended wide-angle allowance up to 6x":"automatic view normalization up to 4x")<<"; close-ups normalized; neither setting changes FOV\n";
+    report.field("Crowd shake scaling")<<"linear occupied seats: 0.80x at6060 to1.25x at61888; per-axis projection normalization; common Standard reference 1.10x; distinct overlaps capped15% above strongest\n";
     {auto selected=attendance::gamecamera::sample(image,audioMatch.load(),read);auto cameraConfig=std::atomic_load(&cameraSettings);
         report.field("Gameplay camera preset")<<attendance::gamecamera::name(selected.active)<<"; offense "<<attendance::gamecamera::name(selected.offense)<<" / defense "<<attendance::gamecamera::name(selected.defense)<<"; configured scale "<<attendance::gamecamera::scale(cameraConfig->cameraPercent,selected.active)<<"x\n";}
-    if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; camera setting "<<presentationCamera.presetScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
+    if(presentationCamera.playing(now)){
+        report.field("Current camera strength")<<std::setprecision(3)<<presentationCamera.unscaled()<<"% envelope; pitch/yaw compensation "<<presentationCamera.zoomScale()<<"/"<<presentationCamera.yawScale()<<"x; camera setting "<<presentationCamera.presetScale()<<"x; vertical angular output "<<presentationCamera.percent()<<"%\n"<<std::setprecision(1);
+        report.field("Camera screen movement estimate")<<std::setprecision(3)<<presentationCamera.screenPitch()<<"% frame height / "<<presentationCamera.screenYaw()<<"% frame width peak; vertical FOV "<<presentationCamera.fov()<<" degrees; output view 0x"<<std::hex<<presentationCamera.view()<<std::dec<<"; latest written output, not rendered-motion proof\n"<<std::setprecision(1);
+    }
+    report.field("Camera projection health")<<presentationCamera.cached()<<" brief cached outputs; "<<presentationCamera.invalid()<<" untrusted outputs skipped; "<<presentationCamera.clipped()<<" extreme wide outputs bounded (runtime totals)\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
     report.field("Steady background roar")<<(presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Background?"requested; shares native sustained channel with reactions":"inactive or higher-priority reaction owns the channel")<<"; above60% fullness /10000 occupied mapped seats\n";
     report.field("Presentation atmosphere")<<(presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Opening?"pregame buildup":presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Postgame?"postgame stadium atmosphere":"inactive")<<"\n";

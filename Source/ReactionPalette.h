@@ -10,7 +10,7 @@ inline int tier(const energy::Play& snap,const State& s,bool major=false){
 }
 inline int generic(uint64_t key,int level=3){return catalog::choose(std::array<int,2>{22,26},key,level);}
 inline int liveType(const live::Outcome& o,const energy::Play& snap,const State& s,uint64_t sequence,unsigned epoch,bool negative=false){
- using E=live::Event;uint64_t key=catalog::hash(sequence,static_cast<uint64_t>(o.event)+1,epoch);int level=key%4?tier(snap,s,true):tier(snap,s,o.yards>=40);
+ using E=live::Event;uint64_t key=catalog::hash(sequence,static_cast<uint64_t>(o.event)+1,epoch);int level=(key%4!=0)?tier(snap,s,true):tier(snap,s,o.yards>=40);
  switch(o.event){
  case E::Truck:case E::HitStick:case E::HitStickStop:return catalog::type(negative?23:2,3);
  case E::StiffArm:case E::Hurdle:case E::Juke:case E::Spin:return catalog::type(negative?1:0,3);
