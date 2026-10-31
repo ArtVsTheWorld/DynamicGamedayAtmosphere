@@ -27,6 +27,14 @@ class LauncherDiagnosticsTests {
         string file=LaunchDiagnostics.Failure(123,"start runtime loader executable",@"C:\Mods\DGA\loader.exe",new Win32Exception(5));
         Check(file.Contains("loader.exe")&&file.Contains("start runtime loader executable"),"denied loader path");
         Check(LaunchDiagnostics.Failure(123,"extract settings",null,new UnauthorizedAccessException("denied")).Contains("Windows error 5"),"managed access HRESULT");
+        var storageError=new DirectoryNotFoundException("Could not find a part of the path.");
+        storageError.Data["DgaSettingsOperation"]="replace settings with Update 3 defaults";
+        storageError.Data["DgaSettingsSource"]=@"X:\MMC\reset.tmp";
+        storageError.Data["DgaSettingsDestination"]=@"X:\MMC\settings.ini";
+        storageError.Data["DgaSettingsBackup"]=@"X:\MMC\Backups\settings.bak";
+        storageError.Data["DgaSettingsCleanup"]="Temporary cleanup also failed";
+        string storage=LaunchDiagnostics.Failure(123,"prepare or reset DGA settings",null,new IOException("outer context",storageError));
+        Check(storage.Contains("Windows error 3")&&storage.Contains("replace settings with Update 3 defaults")&&storage.Contains("Settings Source:")&&storage.Contains("Settings Destination:")&&storage.Contains("Settings Backup:")&&storage.Contains("characters)")&&storage.Contains("Temporary cleanup also failed"),"storage sub-operation, all paths/lengths, root error and cleanup retained");
         Check(!LaunchDiagnostics.OneLine("a\r\nb").Contains("\n"),"one-line bounded log");
         var backoff=new LaunchBackoff();int checks=0,reports=0;string summary="";
         for(long ms=0;ms<=300000;ms+=1000){if(!backoff.Due(123,ms))continue;++checks;

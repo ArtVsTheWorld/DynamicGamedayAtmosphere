@@ -2,7 +2,13 @@
 struct NumericOption {const wchar_t* section;const wchar_t* key;double factory,low,high,scale;double (*get)();};
 inline NumericOption options[]={
 {L"Dynamic Gameday Attendance",L"AttendanceProfile",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(attendanceProfile);}},
+{L"Dynamic Gameday Broadcast",L"AwayTeamReactionShake",0.0,0.0,1.0,1,[]()->double{return std::atomic_load(&cameraSettings)->awayReactions;}},
 {L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",0.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->widePlayerCompensation);}},
+{L"Dynamic Gameday Broadcast",L"ZoomCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[0];}},
+{L"Dynamic Gameday Broadcast",L"StandardCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[1];}},
+{L"Dynamic Gameday Broadcast",L"WideCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[2];}},
+{L"Dynamic Gameday Broadcast",L"All22CameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[3];}},
+{L"Dynamic Gameday Broadcast",L"BroadcastCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[4];}},
 {L"Dynamic Gameday Attendance",L"Enabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&settings)->enabled);}},
 {L"Dynamic Gameday Attendance",L"2020ModeEnabled",0.0,0.0,1.0,1,[]()->double{return static_cast<double>(emptyMode2020.load());}},
 {L"Dynamic Gameday Attendance",L"InitialAttendanceEnabled",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(initialSetting);}},
@@ -49,7 +55,7 @@ inline NumericOption options[]={
 {L"Dynamic Gameday Broadcast",L"CriticalShakeStrengthPercent",10.0,0.0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->critical);}},
 {L"Dynamic Gameday Broadcast",L"PlayReactionFadeSeconds",5.0,1.0,8.0,1000,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->reactionFadeMs);}},
 {L"Dynamic Gameday Broadcast",L"PlayImpactExtraSeconds",1.0,0,5.0,1000,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->impactExtraMs);}},
-{L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",9.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->catchImpact);}},
+{L"Dynamic Gameday Broadcast",L"CatchImpactShakeStrengthPercent",12.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->catchImpact);}},
 {L"Dynamic Gameday Broadcast",L"LineupCheerShakeStrengthPercent",6.0,0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->lineupCheer);}},
 {L"Dynamic Gameday Broadcast",L"HostileOpeningShakeMaximumPercent",10.0,0,30.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->hostileOpeningMaximum);}},
 {L"Dynamic Gameday Broadcast",L"TouchdownShakeStrengthPercent",16.0,0.0,100.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->touchdown);}},

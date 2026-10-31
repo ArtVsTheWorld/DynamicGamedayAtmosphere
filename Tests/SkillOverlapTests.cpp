@@ -29,7 +29,7 @@ int main(){
     for(int cancel=0;cancel<5;++cancel){
         motion::Model m;motion::Settings s;motion::Input x;x.match=1;x.allowed=x.duringAllowed=true;x.phase=3;x.now=1000;x.duringPlay=1;
         x.duringImpact=x.supplementalImpact=true;x.profile=motion::Profile::Truck;m.observe(s,x);
-        x.now=1100;x.duringPlay=0;assert(motion::strength(m.observe(s,x),1100)==5);
+        x.now=1100;x.duringPlay=0;assert(motion::strength(m.observe(s,x),1100)==7.5f);
         if(cancel==0)x.allowed=false;if(cancel==1)x.duringAllowed=false;if(cancel==2)x.cancelLive=true;
         if(cancel==3){x.phase=4;x.touchdown=1;}if(cancel==4){x.match=2;x.duringPlay=0;}
         x.now=1200;auto cue=m.observe(s,x);assert(cue.kind==motion::Kind::None||cue.kind==motion::Kind::Touchdown);

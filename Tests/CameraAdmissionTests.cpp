@@ -27,7 +27,7 @@ int main(){
         p.down=4;assert(check(special,21).allowed&&!check(special,21).critical); // OT field goal remains gentle.
         p.down=1;p.game.quarter=4;p.game.seconds=90;p.toGoal=30;p.offense=0;
         auto late=check(special);assert(late.allowed&&!late.critical);assert(!check(special-.0001f).allowed);
-        p.offense=1;assert(!check(special).allowed);p.game.neutral=true;assert(check(special).allowed);p.game.neutral=false;p.offense=0;
+        p.offense=1;assert(check(special).allowed);p.game.neutral=true;assert(check(special).allowed);p.game.neutral=false;p.offense=0;
         p.down=3;p.toFirst=10;assert(check(special).critical);p.toFirst=11;assert(check(special).allowed&&!check(special).critical);
         p.down=1;p.game.seconds=181;assert(!check(special).allowed);
         p=fixture();p.game.rank0=6;p.game.rank1=11;assert(check(standard).allowed&&!check(standard).critical);

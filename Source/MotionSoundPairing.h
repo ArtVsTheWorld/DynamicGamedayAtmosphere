@@ -6,6 +6,12 @@ namespace attendance::pairing {
 struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;uint64_t audibleAt=0;};
 inline float soundWeight(const SoundLease& sound,const motion::Cue& cue,uint64_t now,bool presentationCarry=false){
     if(!sound.match||sound.match!=cue.match||sound.epoch!=cue.epoch||now<sound.updated)return 0;
+    bool scoring=cue.kind==motion::Kind::Touchdown||cue.kind==motion::Kind::Eruption;
+    // An admitted score retains its own original envelope through all live
+    // presentation phases. Fresh owned audio context and proof heard since
+    // this score began are still required; mute/context loss clears that proof.
+    if(scoring&&(now<cue.updated||now-cue.updated>750||now<cue.began||
+       cue.until<=cue.began||now>=cue.until))return 0;
     bool earned=cue.kind!=motion::Kind::None&&cue.kind!=motion::Kind::Ordinary&&cue.kind!=motion::Kind::Critical;
     uint64_t heard=sound.audible?sound.updated:sound.audibleAt;
     if(!heard||now<heard)return 0;
@@ -13,7 +19,7 @@ inline float soundWeight(const SoundLease& sound,const motion::Cue& cue,uint64_t
     // A timeout/penalty may stop the native voice while an earned camera
     // envelope is still finishing. Preserve only a previously heard cue in a
     // fresh owned sound context; this does not create or extend its lifetime.
-    if(presentationCarry&&earned&&heard>=cue.began&&now-sound.updated<=750)return 1;
+    if(((presentationCarry&&earned)||scoring)&&heard>=cue.began&&now-sound.updated<=750)return 1;
     if(age<=150)return 1;
     // Brief native voice/camera handoffs fade rather than hard-gating an
     // already earned impact on/off. No new sound lease is manufactured.

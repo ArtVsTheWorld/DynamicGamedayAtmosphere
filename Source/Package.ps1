@@ -4,32 +4,48 @@ $product=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Product.json') -Raw 
 $crowdRoot=Split-Path -Parent $PSScriptRoot
 if(-not $BuildName){$BuildName='Release'+$product.version.Replace('.','')}
 if($BuildName -notmatch '^[A-Za-z0-9-]+$'){throw 'Invalid build folder name.'}
-if($ReleaseName -and $ReleaseName -notmatch '^[A-Za-z0-9][A-Za-z0-9 .-]*$'){throw 'Use a simple release name such as Update 3.'}
+if($ReleaseName -and $ReleaseName -notmatch '^[A-Za-z0-9][A-Za-z0-9 .-]*$'){throw 'Use a simple release name such as Update 3 Hotfix.'}
 $crowdBuild=Join-Path $crowdRoot ('Build\'+$BuildName)
 $crowdSuffix=if($ReleaseName){$ReleaseName.Replace(' ','')}else{$product.version}
-$crowdPackage=Join-Path $crowdRoot ('Release\'+$product.name+'-'+$crowdSuffix)
-foreach($crowdRequired in @('FrostyCore.dll','FrostySdk.dll')){if(-not(Test-Path -LiteralPath (Join-Path $MmcRoot $crowdRequired))){throw 'MmcRoot must point to your MMC installation containing FrostyCore.dll and FrostySdk.dll.'}}
-if(-not(Test-Path -LiteralPath (Join-Path $crowdBuild 'BuildInfo.cs'))){throw 'Build the project first with Source\Build.ps1 -Automatic.'}
-$crowdPlugins=Join-Path $crowdPackage 'Plugins'
-New-Item -ItemType Directory -Path $crowdPlugins -Force | Out-Null
-$crowdPlugin=Join-Path $crowdPlugins ($product.name+'.dll')
-$native=$product.name+'Native-'+$product.version+'.dll'
-$csc=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-& $csc /nologo /target:library /platform:x64 "/out:$crowdPlugin" "/reference:$(Join-Path $MmcRoot 'FrostyCore.dll')" "/reference:$(Join-Path $MmcRoot 'FrostySdk.dll')" "/resource:$(Join-Path $crowdBuild $native),Attendance.$native" "/resource:$(Join-Path $crowdBuild 'LoadDynamicGamedayAtmosphere.exe'),Attendance.LoadDynamicGamedayAtmosphere.exe" "/resource:$(Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini'),Attendance.DynamicGamedayAtmosphere.ini" "/resource:$(Join-Path $crowdBuild 'DgaDiagnostics.exe'),Attendance.DgaDiagnostics.exe" (Join-Path $PSScriptRoot 'MmcPlugin.cs') (Join-Path $PSScriptRoot 'LaunchDiagnostics.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs') (Join-Path $crowdBuild 'BuildInfo.cs')
-if($LASTEXITCODE -ne 0){throw 'MMC adapter compilation failed'}
-Copy-Item -LiteralPath (Join-Path $crowdRoot 'README.md') -Destination $crowdPackage
-Copy-Item -LiteralPath (Join-Path $crowdRoot 'FEATURES.md') -Destination $crowdPackage
-if($Install){
-    & (Join-Path $PSScriptRoot 'Install.ps1') -MmcRoot $MmcRoot -PackageRoot $crowdPackage
-    $crowdInstalled=Join-Path $MmcRoot ('Plugins\'+$product.name+'\Runtime-'+$product.version)
-    New-Item -ItemType Directory -Path $crowdInstalled -Force | Out-Null
-    foreach($name in @($native,'LoadDynamicGamedayAtmosphere.exe')){Copy-Item -LiteralPath (Join-Path $crowdBuild $name) -Destination (Join-Path $crowdInstalled $name) -Force}
-    if(-not $DeferSettings){
-    & $csc /nologo ('/out:'+(Join-Path $crowdBuild 'MigrateSettings.exe')) (Join-Path $PSScriptRoot 'MigrateSettings.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs')
-    if($LASTEXITCODE -ne 0){throw 'Settings migration build failed'}
-    & (Join-Path $crowdBuild 'MigrateSettings.exe') (Join-Path $MmcRoot 'Plugins') (Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini')
-    if($LASTEXITCODE -ne 0){throw 'Settings migration failed'}
+$crowdPackage=[IO.Path]::GetFullPath((Join-Path $crowdRoot ('Release\'+$product.name+'-'+$crowdSuffix)))
+$loaderRelative='DynamicGamedayAtmosphere\Runtime-'+$product.version+'\LoadDynamicGamedayAtmosphere.exe'
+$wanted=@('README.md','FEATURES.md','DynamicGamedayAtmosphere.dll',$loaderRelative)
+if(Test-Path -LiteralPath $crowdPackage){
+    foreach($file in Get-ChildItem -LiteralPath $crowdPackage -Recurse -File){
+        if($wanted -notcontains $file.FullName.Substring($crowdPackage.Length+1)){throw 'Package output contains other files. Use a fresh release name.'}
     }
 }
-Compress-Archive -Path $crowdPlugins,(Join-Path $crowdPackage 'README.md'),(Join-Path $crowdPackage 'FEATURES.md') -DestinationPath (Join-Path $crowdRoot ('Release\'+$product.name+'-'+$crowdSuffix+'.zip')) -Force
-Write-Output ('Packaged '+$crowdPackage)
+# Ship the exact adapter that passed isolated checks, with its separate loader.
+$hostOutput=@(& (Join-Path $crowdRoot 'Tools\CheckMmcHost.ps1') -MmcRoot $MmcRoot -BuildName $BuildName -ExternalLoader)
+$hostOutput | ForEach-Object {Write-Output $_}
+$verified=[regex]::Match(($hostOutput -join [Environment]::NewLine),'PASS: isolated adapter verified at (.*?Plugins)\. No installed files')
+if(-not $verified.Success){throw 'Isolated MMC verification did not return a verified adapter.'}
+$adapter=Join-Path $verified.Groups[1].Value 'DynamicGamedayAtmosphere.dll'
+$loader=Join-Path $crowdBuild 'LoadDynamicGamedayAtmosphere.exe'
+New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $crowdPackage $loaderRelative)) -Force | Out-Null
+Copy-Item -LiteralPath $adapter -Destination (Join-Path $crowdPackage 'DynamicGamedayAtmosphere.dll') -Force
+Copy-Item -LiteralPath $loader -Destination (Join-Path $crowdPackage $loaderRelative) -Force
+foreach($doc in @('README.md','FEATURES.md')){Copy-Item -LiteralPath (Join-Path $crowdRoot $doc) -Destination (Join-Path $crowdPackage $doc) -Force}
+foreach($pair in @(@($adapter,'DynamicGamedayAtmosphere.dll'),@($loader,$loaderRelative))){
+    if((Get-FileHash -LiteralPath $pair[0]).Hash -ne (Get-FileHash -LiteralPath (Join-Path $crowdPackage $pair[1])).Hash){throw 'A packaged runtime file failed hash verification.'}
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive=Join-Path $crowdRoot ('Release\'+$product.name+'-'+$crowdSuffix+'.zip')
+$stream=[IO.File]::Open($archive,[IO.FileMode]::Create,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+try{
+    $zip=New-Object IO.Compression.ZipArchive($stream,[IO.Compression.ZipArchiveMode]::Create,$true)
+    try{foreach($name in $wanted){[IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,(Join-Path $crowdPackage $name),$name.Replace('\','/'),[IO.Compression.CompressionLevel]::Optimal) | Out-Null}}
+    finally{$zip.Dispose()}
+}finally{$stream.Dispose()}
+& (Join-Path $crowdRoot 'Tools\VerifyRelease.ps1') -Archive $archive
+if($Install){
+    & (Join-Path $PSScriptRoot 'Install.ps1') -MmcRoot $MmcRoot -PackageRoot $crowdPackage
+    if(-not $DeferSettings){
+        $csc=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        & $csc /nologo ('/out:'+(Join-Path $crowdBuild 'MigrateSettings.exe')) (Join-Path $PSScriptRoot 'MigrateSettings.cs') (Join-Path $PSScriptRoot 'PluginSettings.cs') (Join-Path $PSScriptRoot 'PluginStorage.cs')
+        if($LASTEXITCODE -ne 0){throw 'Settings migration build failed'}
+        & (Join-Path $crowdBuild 'MigrateSettings.exe') (Join-Path $MmcRoot 'Plugins') (Join-Path $PSScriptRoot 'DynamicGamedayAtmosphere.ini')
+        if($LASTEXITCODE -ne 0){throw 'Settings migration failed'}
+    }
+}
+Write-Output ('Packaged '+$crowdPackage+' with a separate loader. No publishing performed.')

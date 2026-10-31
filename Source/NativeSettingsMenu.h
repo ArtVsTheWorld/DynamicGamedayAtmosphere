@@ -9,7 +9,9 @@
 namespace attendance::settingsmenu::native {
 using A=uintptr_t;
 inline constexpr A ListSite=0x7f34030,ProviderGlobal=0xfb46b98,ProviderVtable=0xbcfbcf8,FileManagerGlobal=0xfa62218;
+inline constexpr A PauseListSite=0x7f341f0,PauseProviderGlobal=0xfb46ba0,PauseProviderVtable=0xbcfc400;
 inline constexpr std::array<unsigned char,16> ListPrefix={0x40,0x56,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x30,0x49,0x8b,0,0x48,0x8b,0xf1};
+inline constexpr std::array<unsigned char,16> PauseListPrefix={0x41,0x55,0x41,0x56,0x48,0x83,0xec,0x48,0x48,0x83,0x79,0x08,0x00,0x4c,0x8b,0xea};
 template<class T>inline T peek(A p){T v{};__try{std::memcpy(&v,reinterpret_cast<const void*>(p),sizeof(v));}__except(EXCEPTION_EXECUTE_HANDLER){return T{};}return v;}
 inline bool copy(A p,void* out,size_t size){__try{std::memcpy(out,reinterpret_cast<const void*>(p),size);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
 template<class R,class... Args>inline bool obtain(R& out,A fn,Args... args){__try{out=reinterpret_cast<R(__fastcall*)(Args...)>(fn)(args...);return true;}__except(EXCEPTION_EXECUTE_HANDLER){return false;}}
@@ -30,13 +32,14 @@ struct ObjectWriter {
 struct Row {int type,pad;const char* title;const char* description;int key,pad2;uint64_t disabled,unselectable,hidden;};
 struct CategoryRow {int key,pad;A rows;int count,pad2;};
 static_assert(sizeof(Row)==56&&sizeof(CategoryRow)==24);
-class Menu {
+template<bool Pause> class BasicMenu {
     friend struct Fixture;
     A image_=0,original_=0,owner_=0,initNotify_=0,shutdownNotify_=0;std::array<A,42> stock_{};std::array<A,43> shadow_{};
     std::filesystem::path path_;using Note=void(*)(const char*);Note note_=nullptr;
     bool active_=false,layoutNoted_=false;std::atomic<bool> scriptReady_{false},failed_{false};std::atomic<unsigned> displays_{0};
     std::array<double,Count> current_{};std::array<std::vector<double>,Count> choices_{};
-    inline static Menu* instance_=nullptr;
+    inline static BasicMenu* instance_=nullptr;
+    static constexpr A ConcreteVtable=Pause?PauseProviderVtable:ProviderVtable;
     static void __fastcall list(A p,A out,A in){instance_->getList(p,out,in);}
     static void __fastcall init(A p,A in){instance_->initialize(p,in);}
     static void __fastcall shutdown(A p,A in){instance_->finish(p,in);}
@@ -45,6 +48,10 @@ class Menu {
     static void __fastcall saveToggle(A p,A out,A category,A key,A value,A reason){instance_->setToggle(p,out,category,key,value,reason);}
     static void __fastcall saveSlider(A p,A out,A category,A key,int value,A reason){instance_->setSlider(p,out,category,key,value,reason);}
     void fault(const char* what){if(!failed_&&note_)note_(what);failed_=true;}
+    bool knownProvider(A p)const{
+        A table=peek<A>(p);
+        return p&&(table==image_+ConcreteVtable||(p==owner_&&table==reinterpret_cast<A>(shadow_.data()+1)));
+    }
     // Called on the native menu thread. The cache lock pins the exact named APT
     // file; no heap scans, disk edits or changes to another movie are necessary.
     bool routeCategory(){
@@ -79,35 +86,38 @@ class Menu {
     }
     bool attach(A provider){
         if(owner_==provider&&peek<A>(provider)==reinterpret_cast<A>(shadow_.data()+1))return true;
-        if(peek<A>(provider)!=image_+ProviderVtable||!copy(image_+ProviderVtable,stock_.data(),sizeof(stock_)))return false;
-        shadow_[0]=peek<A>(image_+ProviderVtable-8);std::copy(stock_.begin(),stock_.end(),shadow_.begin()+1);
+        if(peek<A>(provider)!=image_+ConcreteVtable||!copy(image_+ConcreteVtable,stock_.data(),sizeof(stock_)))return false;
+        shadow_[0]=peek<A>(image_+ConcreteVtable-8);std::copy(stock_.begin(),stock_.end(),shadow_.begin()+1);
         auto table=shadow_.data()+1;table[1]=reinterpret_cast<A>(init);table[2]=reinterpret_cast<A>(shutdown);table[4]=reinterpret_cast<A>(list);
         table[5]=reinterpret_cast<A>(toggleDetails);table[6]=reinterpret_cast<A>(saveToggle);table[7]=reinterpret_cast<A>(sliderDetails);table[8]=reinterpret_cast<A>(saveSlider);
-        if(InterlockedCompareExchangePointer(reinterpret_cast<void* volatile*>(provider),table,reinterpret_cast<void*>(image_+ProviderVtable))!=reinterpret_cast<void*>(image_+ProviderVtable))return false;
+        if(InterlockedCompareExchangePointer(reinterpret_cast<void* volatile*>(provider),table,reinterpret_cast<void*>(image_+ConcreteVtable))!=reinterpret_cast<void*>(image_+ConcreteVtable))return false;
         owner_=provider;active_=false;return true;
     }
     bool root(A p,A output){
-        std::array<CategoryRow,17> categories{};if(!copy(peek<A>(p+8),categories.data(),sizeof(categories)))return false;
+        if constexpr(Pause)if(peek<int>(p+0x10)!=13)return false;
+        std::array<CategoryRow,Pause?13:17> categories{};if(!copy(peek<A>(p+8),categories.data(),sizeof(categories)))return false;
         const CategoryRow* root=nullptr;for(const auto& c:categories)if(c.key==3)root=&c;
-        if(!root||root->count!=12)return false;
-        std::array<Row,12> rows{};if(!copy(root->rows,rows.data(),sizeof(rows)))return false;
-        constexpr int keys[]={0,0,9,17,10,1,2,3,5,7,16,19};
+        if(!root||root->count!=(Pause?7:12))return false;
+        std::array<Row,Pause?7:12> rows{};if(!copy(root->rows,rows.data(),sizeof(rows)))return false;
+        constexpr std::array<int,12> frontendKeys={0,0,9,17,10,1,2,3,5,7,16,19};
+        constexpr std::array<int,7> pauseKeys={0,9,10,1,5,7,16};
+        const auto& keys=[&]()->const auto&{if constexpr(Pause)return pauseKeys;else return frontendKeys;}();
         for(size_t i=0;i<rows.size();++i)if(rows[i].type!=4||rows[i].key!=keys[i]||!rows[i].title)return false;
         if(!routeCategory()||!attach(p)){
             if(!layoutNoted_&&note_)note_("Settings tab not added: the active frontend routing or provider did not match. Native tabs and INI editing remain available.");
             layoutNoted_=true;return false;
         }
-        uint64_t mask=0;if(!obtain(mask,image_+0x7f2d3a0,p))return false;
+        uint64_t mask=0;if(!obtain(mask,image_+(Pause?0x7f2d890:0x7f2d3a0),p))return false;
         ArrayWriter out{output};int i=0;
         for(const auto& row:rows){
             if(row.hidden&mask)continue;
             out.integer(i,"type",row.type);out.text(i,"display",row.title);if(row.description)out.text(i,"description",row.description);out.integer(i,"key",row.key);
-            bool enabled=(row.disabled&mask)==0,selectable=(row.unselectable&mask)==0;
-            out.boolean(i,"isEnabled",enabled);out.boolean(i,"isInteractive",enabled);out.boolean(i,"isSelectable",selectable);out.boolean(i,"isFocusable",selectable);++i;
+            bool rowEnabled=(row.disabled&mask)==0,selectable=(row.unselectable&mask)==0;
+            out.boolean(i,"isEnabled",rowEnabled);out.boolean(i,"isInteractive",rowEnabled);out.boolean(i,"isSelectable",selectable);out.boolean(i,"isFocusable",selectable);++i;
         }
         out.integer(i,"type",4);out.text(i,"display","Gameday Atmosphere");out.text(i,"description","Dynamic Gameday Atmosphere settings");out.integer(i,"key",Category);
         out.boolean(i,"isEnabled",true);out.boolean(i,"isInteractive",true);out.boolean(i,"isSelectable",true);out.boolean(i,"isFocusable",true);
-        if(out.okay){++displays_;if(displays_==1&&note_)note_("Gameday Atmosphere tab appended after the native settings tabs.");}
+        if(out.okay){++displays_;if(displays_==1&&note_)note_(Pause?"Gameday Atmosphere tab appended at the right of pause-menu settings.":"Gameday Atmosphere tab appended after the native settings tabs.");}
         else fault("Native settings field serialization failed; additional DGA menu writes disabled for this session.");
         return true;
     }
@@ -129,17 +139,18 @@ class Menu {
 public:
     bool bindings()const{
         constexpr A entries[]={0x7f27c90,0x7f31cd0,0x7f32010,0x7f33cc0,0x7f34030,0x7f34fe0,0x7f305d0,0x7f34a40,0x7f2f830,0x7f339e0,0x7f2f7b0,0x7f440a0,0x7f34670,0x7f34650,0x7f345f0,0x7f34610,0x7f34630,0x7f2d360,0x7f40dc0,0x7f47b80,0x7f471c0,0x7f471b0,0x7f471d0,0x7f47b90,0x7f47710,0x7f471e0,0x7f32cf0,0x7f43680,0x7f42c80,0x7f27f40,0x78cd63a,0x78cd63a,0x7f27ee0,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a,0x78cd63a};
-        for(size_t i=0;i<stock_.size();++i)if(peek<A>(image_+ProviderVtable+8*i)!=image_+entries[i])return false;
+        constexpr A pauseEntries[]={0x7f27d90,0x7f31f50,0x7f321b0,0x7f33cd0,0x7f341f0,0x7f35240,0x7f30e10,0x7f34c10,0x7f2fda0,0x7f33a30,0x7f2f820,0x7f440b0,0x7f34680,0x7f34660,0x7f34600,0x7f34620,0x7f34640,0x7f42fe0,0x7f27f10};
+        for(size_t i=0;i<stock_.size();++i){A expected=Pause?(i<std::size(pauseEntries)?pauseEntries[i]:0x78cd63a):entries[i];if(peek<A>(image_+ConcreteVtable+8*i)!=image_+expected)return false;}
         return true;
     }
-    void configure(A image,const std::filesystem::path& path,Note note){image_=image;path_=path;note_=note;instance_=this;initNotify_=image+0x7a6b950;shutdownNotify_=image+0x7a6bb90;}
+    void configure(A moduleBase,const std::filesystem::path& path,Note note){image_=moduleBase;path_=path;note_=note;instance_=this;initNotify_=moduleBase+0x7a6b950;shutdownNotify_=moduleBase+0x7a6bb90;}
     void original(A p){original_=p;}
     static A callback(){return reinterpret_cast<A>(list);}
     bool ready()const{return scriptReady_&&!failed_;}
     unsigned displays()const{return displays_;}
     void getList(A p,A out,A in){
         int category=number(in);
-        if(!failed_&&p==peek<A>(image_+ProviderGlobal)){
+        if(!failed_&&knownProvider(p)){
             if(category==Category&&scriptReady_){ArrayWriter writer{out};settingsmenu::list(writer);if(!writer.okay)fault("Could not render DGA settings controls; menu writes disabled for this session.");return;}
             if(category==3&&GetPrivateProfileIntW(L"General",L"ConfigVersion",2,path_.c_str())<=2&&root(p,out))return;
         }
@@ -149,12 +160,13 @@ public:
         if(field(in,"key")!=Category){active_=false;invoke(stock_[1],p,in);return;}
         owner_=p;active_=true;
         for(size_t i=0;i<Count;++i){current_[i]=readOption(i);choices_[i]=Choices(Options[i],current_[i]).values;}
-        *reinterpret_cast<unsigned char*>(p+0x62)=1;
+        if constexpr(Pause)*reinterpret_cast<unsigned char*>(p+0x34)=1;
+        else *reinterpret_cast<unsigned char*>(p+0x62)=1;
         invoke(initNotify_,image_+0xdab8be0);
     }
     void finish(A p,A in){
         if(!active_){invoke(stock_[2],p,in);return;}
-        active_=false;*reinterpret_cast<unsigned char*>(p+0x62)=0;*reinterpret_cast<unsigned char*>(p+0x34)=0;
+        active_=false;if constexpr(!Pause)*reinterpret_cast<unsigned char*>(p+0x62)=0;*reinterpret_cast<unsigned char*>(p+0x34)=0;
         invoke(shutdownNotify_,image_+0xdab8be0,Category,true,"");
     }
     void getToggle(A p,A out,A category,A key){
@@ -181,4 +193,6 @@ public:
         int id=number(key);if(owned(id)&&find(id)->kind==Kind::Slider)save(id,value);
     }
 };
+using Menu=BasicMenu<false>;
+using PauseMenu=BasicMenu<true>;
 }

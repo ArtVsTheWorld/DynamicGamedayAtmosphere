@@ -36,10 +36,11 @@ struct Result {
     int attendance=0,kickoff=55,fillPercent=50;
     float standing=0,score=0,adjustmentLimit=0;
     float demand=0,momentum=0,appeal=0,nightBonus=0,weather=0,variation=0,limits=0,percent=0;
+    float hardToFillPenalty=0;
     float breakout=0,eventMultiplier=1,openerBoost=0,nightBoost=0,seniorBoost=0,stateBoost=0,academyBoost=0,accessBonus=0,profileBoost=0;
     int showcaseEvent=-1;
 };
-inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156||team==1218;}
+inline bool lateArrivalSchool(int team){return team==1212||team==1158||team==1137||team==1156||team==1218||team==1216||team==1223;}
 inline bool fcs(int id){return id>=1500&&id<=1504;}
 inline bool grade(int value){return value>=0&&value<=12;}
 inline bool grades(const Team& t){return grade(t.atmosphere)&&grade(t.tradition)&&grade(t.brand)&&grade(t.conference);}
@@ -163,7 +164,11 @@ inline Result calculate(const Seed& s,const Launch& l,bool fuller=false){
     const float weather[]={0.f,5.f,9.f,14.f};r.weather=s.roof>=1&&s.roof<=3?0.f:-weather[l.precipitation];
     r.variation=static_cast<float>(static_cast<int>(hash%7)-3);
     r.fuller=fuller;r.profileBoost=fuller?8.f:0.f;
-    float raw=(ordinary+r.breakout)*r.eventMultiplier+r.weather+r.variation+r.profileBoost;
+    // Soft demand discount before the capacity clamp, never a school-specific cap.
+    // Special event boosts retain their headroom; protected rivalry policy follows below.
+    float hardToFill=!l.neutral?(s.home.id==1212?.14f:s.home.id==1216?.10f:0.f):0.f;
+    r.hardToFillPenalty=(ordinary+r.breakout)*r.eventMultiplier*hardToFill;
+    float raw=(ordinary+r.breakout)*r.eventMultiplier-r.hardToFillPenalty+r.weather+r.variation+r.profileBoost;
     r.percent=(std::clamp)(raw,r.weather<0?20.f:25.f,100.f);r.limits=r.percent-raw;
     r.attendance=(std::clamp)(static_cast<int>(std::lround(l.capacity*r.percent*.01f)),1,l.capacity);
     r.exceptional=exceptional(r.percent,r.standing,s.home.id,s.home.rank,s.away.rank,l.neutral,r.night,l.rivalry,s.home.homeGames==0);

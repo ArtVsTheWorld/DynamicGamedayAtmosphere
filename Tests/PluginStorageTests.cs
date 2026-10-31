@@ -69,7 +69,27 @@ class PluginStorageTests {
    Check(PluginStorage.Ensure(blocked,defaults)!=null&&!PluginStorage.NeedsReset(blocked,defaults));
    string noBackup=Path.Combine(root,"BlockedBackup");Directory.CreateDirectory(PluginStorage.DataFolder(noBackup));string noBackupIni=PluginStorage.SettingsFile(noBackup);File.WriteAllText(noBackupIni,stale);File.WriteAllText(Path.Combine(PluginStorage.DataFolder(noBackup),"Backups"),"blocked");
    failed=false;try{PluginStorage.Ensure(noBackup,defaults);}catch(IOException){failed=true;}Check(failed&&File.ReadAllText(noBackupIni)==stale);
-   Console.WriteLine("PASS: one-time Update 3 reset for loose/legacy/nested/malformed INIs, exact backups, preserved later edits, fresh installs, future schemas/markers, stale-copy precedence, locked-file retry, blocked-backup preservation and unrelated-file isolation.");return 0;
+   foreach(int length in new[]{181,190}){
+    string prefix=Path.Combine(root,"Long"+length);int padding=length-PluginStorage.SettingsFile(prefix).Length-1;
+    Check(padding>0);string longPlugins=Path.Combine(prefix,new string('p',padding));Directory.CreateDirectory(longPlugins);
+    string longIni=PluginStorage.SettingsFile(longPlugins);Check(longIni.Length==length);
+    File.WriteAllText(Path.Combine(longPlugins,"DynamicGamedayAtmosphere.ini"),stale);
+    byte[] before=File.ReadAllBytes(Path.Combine(longPlugins,"DynamicGamedayAtmosphere.ini"));
+    foreach(string helper in owned)File.WriteAllText(Path.Combine(longPlugins,helper),helper);
+    string oldBackup=Path.Combine(PluginStorage.DataFolder(longPlugins),"Backups","existing-user-backup.bak");Directory.CreateDirectory(Path.GetDirectoryName(oldBackup));File.WriteAllText(oldBackup,"keep backup");
+    string saved=PluginStorage.Ensure(longPlugins,defaults);Check(saved!=null&&saved.Length<260&&File.ReadAllBytes(saved).SequenceEqual(before));
+    Check(File.ReadAllText(oldBackup)=="keep backup"&&!PluginStorage.NeedsRelocation(longPlugins));
+    Check(Directory.GetFiles(PluginStorage.DataFolder(longPlugins),"*.tmp").Length==0);
+    string active=File.ReadAllText(longIni);Check(PluginStorage.Ensure(longPlugins,defaults)==null&&File.ReadAllText(longIni)==active);
+   }
+   string tooLong=new string('x',260);failed=false;
+   try{SettingsIo.Run("test long-path validation",null,tooLong,null,()=>{throw new Exception("Must validate before mutation");});}
+   catch(PathTooLongException error){failed=true;Check((string)error.Data["DgaSettingsOperation"]=="test long-path validation"&&(string)error.Data["DgaSettingsDestination"]==tooLong&&error.Data.Contains("DgaSettingsHint"));}Check(failed);
+   // A failed cleanup must not hide the operation that originally failed.
+   string cleanupFile=Path.Combine(root,"cleanup.tmp");File.WriteAllText(cleanupFile,"temporary");var primary=new IOException("original replacement failed");
+   using(var held=new FileStream(cleanupFile,FileMode.Open,FileAccess.Read,FileShare.Read)){SettingsIo.Cleanup(cleanupFile,primary);Check(primary.Message=="original replacement failed"&&primary.Data.Contains("DgaSettingsCleanup"));}
+   SettingsIo.Cleanup(cleanupFile,null);Check(!File.Exists(cleanupFile));
+   Console.WriteLine("PASS: settings reset/migration and exact backups; 181/190-character INI paths, helper retirement, existing-backup preservation, idempotence, path diagnostics, cleanup-error preservation and unrelated-file isolation.");return 0;
   }catch(Exception e){Console.Error.WriteLine(e);return 1;}
  }
 }

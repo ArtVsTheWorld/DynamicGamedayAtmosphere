@@ -57,8 +57,10 @@ public:
         // runner's loss qualify only through the same verified 5+ yard result.
         bool loss=result_.fiveYardLoss&&std::isfinite(result_.yards)&&result_.yards>=-100&&result_.yards<=-4.99f;
         bool stop=defense::stop(snap_,p,result_,sequence);
+        bool hitLoss=flavor_==live::Event::HitStickStop&&std::isfinite(result_.yards)&&result_.yards>=-100&&result_.yards<0;
         auto event=live::Event::None;
         if(stop&&snap_.down==4&&result_.goalLineStop)event=live::Event::GoalLineStop;
+        else if(hitLoss)event=live::Event::HitStickStop;
         else if(loss)event=live::Event::TackleForLoss;
         else if(stop){
             if(result_.highLeverageStop&&snap_.game.quarter==4)event=live::Event::CriticalStop;

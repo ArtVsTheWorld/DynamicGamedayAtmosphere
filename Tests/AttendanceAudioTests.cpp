@@ -28,5 +28,14 @@ int main(){
  }
  assert(std::fabs(balance::mix(1,61888).net(1)-4.f)<.0001f);
  assert(std::fabs(balance::mix(1,61888).net(3)-volume::boostDb(30))<.0001f);
+ for(float strength:{0.f,50.f,100.f,125.f,150.f,200.f})for(float fullness:{.0001f,.25f,.7f,1.f})for(uint64_t seats:{6060,61888}){
+  auto normal=balance::mix(fullness,seats,30,strength),hostile=balance::mix(fullness,seats,30,strength,true);
+  for(unsigned i=0;i<7;++i){assert(normal.net(i)<=8.001f&&hostile.net(i)<=8.001f);assert(std::pow(10.f,normal.net(i)/20)>=balance::SignalFloors[i]-.0001f);}
+  if(strength==0)assert(!normal.needed()&&!hostile.needed());
+ }
+ assert(balance::mix(1,61888,30,200).key==balance::mix(1,61888,30,100).key);
+ assert(balance::mix(1,61888,30,200).net(3)==balance::mix(1,61888,30,100).net(3));
+ assert(balance::mix(1,61888,30,100,true).net(1)>5.99f);
+ assert(balance::mix(.25f,6060,30,200).net(1)==balance::mix(.25f,6060).net(1));
  std::puts("PASS: rounded signal floors and smooth 25%-full half-volume anchor, occupied-size crossover, chant parity, native dynamics gain bounds, zero mute and invalid-context fallback.");
 }

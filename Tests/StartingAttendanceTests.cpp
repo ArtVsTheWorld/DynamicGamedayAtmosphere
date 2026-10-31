@@ -7,6 +7,17 @@ bool near(float a,float b){return std::fabs(a-b)<.001f;}
 Seed sample(){Seed s;s.home={1153,50,70,6,3,3,3,6,6,6,6,.5f};s.away={1193,60,80,5,3,3,3,6,6,6,6,.4f};s.stadium=s.homeStadium=553;s.capacity=60000;s.schools=138;s.week=8;s.year=2026;s.ea=45000;s.regular=true;return s;}
 Launch launch(const Seed& s){return {s.home.id,s.away.id,s.stadium,s.capacity,s.ea,720,0,false,false};}
 int main(){
+    assert(lateArrivalSchool(1223));
+    for(int id:{1212,1216}){
+      auto school=sample();school.home.id=id;auto launchOptions=launch(school);auto ordinary=calculate(school,launchOptions);
+      assert(ordinary.applied&&ordinary.hardToFillPenalty>8&&ordinary.percent<85&&lateArrivalSchool(id)&&ordinary.fillPercent==75);
+      school.home.standing=1;school.home.rank=school.home.apRank=1;school.home.wins=10;school.home.losses=0;school.home.homeGames=0;
+      school.away.rank=school.away.apRank=1;launchOptions.minutes=1200;launchOptions.seniorKnown=launchOptions.senior=true;launchOptions.rivalry=true;
+      auto exceptional=calculate(school,launchOptions);assert(exceptional.percent==100); // Soft discount, not a cap.
+      launchOptions.rivalryEvent=139;auto showcase=calculate(school,launchOptions);assert(showcase.percent==100&&showcase.kickoff>=70);
+      launchOptions.neutral=true;assert(calculate(school,launchOptions).hardToFillPenalty==0);
+      school.regular=false;assert(!calculate(school,launchOptions).applied);
+    }
     Seed s=sample();Launch l=launch(s);auto base=calculate(s,l);assert(base.applied&&near(base.demand,87.86f)&&base.kickoff==static_cast<int>(std::lround(55+accessBonus(s.capacity)))&&base.fillPercent==50);
     assert(near(support(s.home,138),.35f*.5f+.25f*.6f+.20f*.5f+.10f*.5f+.05f*.5f));
     for(int member=0;member<4;++member){auto t=s.home;int* fields[]={&t.atmosphere,&t.tradition,&t.brand,&t.conference};*fields[member]=0;assert(support(t,138)>support(s.home,138));*fields[member]=12;assert(support(t,138)<support(s.home,138));}

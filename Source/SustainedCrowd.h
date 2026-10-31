@@ -17,6 +17,7 @@ struct Intent {
     int shakeTier=0,attackMs=4000;bool supporting=false,cheers=true,cameraPrime=false;
     uint64_t lineupCheer=0,lineupCheerBegan=0,lineupCheerUntil=0;
     uint64_t liveCheer=0,liveCheerUntil=0;int liveType=83;
+    uint64_t extraCheer=0,extraCheerUntil=0;int extraType=83;
     bool deepCheers=false;uint64_t resultCheer=0,resultCheerUntil=0;int resultType=91;
     bool scoringReaction=false;uint64_t diagnosticToken=0;
     // Reaction lifetime, independent of the short one-shot cheer request.

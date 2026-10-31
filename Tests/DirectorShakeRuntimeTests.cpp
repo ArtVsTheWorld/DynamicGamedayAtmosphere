@@ -145,6 +145,16 @@ int main(){
     output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(output!=source);
     views[0]=addr(view[0]);
     std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),reinterpret_cast<const unsigned char*>(original.data())+0x2b4,sizeof(projection));
+    // Preset settings multiply the output once, independently of optical zoom.
+    Runtime scaled;scaled.configure(image);projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
+    std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));
+    Cue fixed{cue.match,2,2000,1000,10000,Kind::LivePlay,10,false};
+    for(float factor:{.5f,1.f,1.25f,2.f,2.6f}){
+        output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,factor);
+        assert(output!=source&&scaled.zoomScale()==1&&scaled.presetScale()==factor&&std::fabs(scaled.percent()-strength(fixed,2000)*factor)<.001f);
+    }
+    auto unchangedCount=scaled.changed();output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,0);assert(output==source&&scaled.changed()==unchangedCount);
+    output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,3);assert(output==source&&scaled.changed()==unchangedCount);
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());
     // Vtable-pointer ownership: restore only the pointer we installed.
     auto page=VirtualAlloc(nullptr,4096,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(page);auto slot=reinterpret_cast<A*>(page);*slot=123;

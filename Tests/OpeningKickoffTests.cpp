@@ -21,6 +21,7 @@ int main(){
         assert(admitted.allowed&&!admitted.critical&&sound.layeredActive());
         motion::Input input;input.match=123;input.epoch=1;input.now=2200;input.phase=1;
         input.allowed=input.lineup=input.venueEligible=input.openingKickoff=true;input.lineupId=sound.serial;
+        input.hostileOpening=movement.hostileOpeningMaximum;
         camera.observe(movement,input);input.now=3200;assert(motion::strength(camera.observe(movement,input),3200)>0);
         p.game.phase=3;tracker.observe(events,p);assert(tracker.openingKickUsed&&tracker.openingKick&&tracker.serial==1);
         input.phase=3;input.lineup=false;input.now=3300;auto carry=camera.observe(movement,input);assert(carry.carryPlay&&!carry.tail);
@@ -29,6 +30,20 @@ int main(){
         p.game.phase=1;assert(!lineup::cameraAdmission(settings,p,.49f,true,51498,formation,true).allowed);
         assert(!lineup::cameraAdmission(settings,p,.60f,true,51498,formation,false).allowed);
         p.game.rank0=p.game.rank1=0;assert(!lineup::cameraAdmission(settings,p,.60f,true,51498,formation,true).allowed);
+    }
+    // Actual output at each end and midpoint of the kickoff range, including
+    // neutral and occupied-seat scaling. The separate hostile call stays 8-10.
+    for(float choice:{0.f,.5f,1.f})for(float crowd:{.8f,1.25f})for(bool neutral:{false,true}){
+        motion::Settings movement;motion::Input input;input.match=321;input.epoch=1;
+        input.allowed=input.lineup=input.venueEligible=true;input.lineupId=1;input.phase=1;
+        input.hostileOpening=movement.hostileOpeningMaximum;input.lineupScale=choice;
+        input.venueScale=crowd;input.neutral=neutral;
+        for(bool kickoff:{false,true}){
+            motion::Model camera;input.openingKickoff=kickoff;input.now=1000;camera.observe(movement,input);
+            input.now=3000;auto cue=camera.observe(movement,input);
+            float expected=((kickoff?6.f:8.f)+2.f*choice)*crowd*(neutral?.75f:1.f);
+            assert(std::abs(motion::strength(cue,input.now)-expected)<.001f);
+        }
     }
     for(bool resumed:{false,true}){
         energy::Tracker tracker;energy::Play p;p.game={1,0,0,6,720,720};p.resumed=resumed;p.simulated=!resumed;
@@ -40,5 +55,5 @@ int main(){
     {energy::Tracker tracker;energy::Play p;p.game={1,0,0,5,720,720};tracker.observe(events,p);
         p.game.phase=1;tracker.observe(events,p);assert(!tracker.openingReliable); // Late attach cannot invent an observed intro.
         tracker.reset();p.game.phase=6;tracker.primeOpeningIntro(p);assert(tracker.openingReliable);}
-    std::puts("PASS: verified intro-to-selection kickoff proof, Georgia 60% non-packed big-game opening, kicking/receiving sides, carried shake/whistle fade, sparse/resume/Sim/late-attach guards and new-match reset.");
+    std::puts("PASS: verified intro-to-selection kickoff proof, gentler 6-8 kickoff versus 8-10 hostile-call output, occupied/neutral scaling, kicking/receiving sides, carried shake/whistle fade, sparse/resume/Sim/late-attach guards and new-match reset.");
 }

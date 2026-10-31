@@ -49,7 +49,9 @@ class Runtime {
     std::atomic<bool> healthy_{true};std::atomic<unsigned> sent_{0};
     uint64_t liveConsumed_=0;std::atomic<uint64_t> liveDelivered_{0},liveResolved_{0};Note note_=nullptr;
     struct Followup {bool active=false;Source source=Source::Result;uint64_t id=0,sequence=0,due=0,until=0;int type=75;};
-    Followup followup_;
+    Followup followup_;std::array<Followup,8> waiting_{};
+    void clearFollowups(){followup_={};waiting_={};}
+    void advanceFollowup(){followup_=waiting_[0];for(unsigned i=1;i<waiting_.size();++i)waiting_[i-1]=waiting_[i];waiting_.back()={};}
     struct Receipt {bool active=false,retried=false;Address owner=0;Source source=Source::Live;uint64_t id=0,sequence=0,began=0,until=0;int type=0;unsigned observations=0;std::array<int,256> priorHandles{};unsigned priorCount=0;};
     Receipt receipt_;
     void receipt(Source source,uint64_t id,int type,Address entity,const sustained::Intent& wanted,uint64_t now){
@@ -95,21 +97,22 @@ class Runtime {
         }
     }
     void arm(Source source,uint64_t id,int type,const sustained::Intent& wanted,uint64_t now){
-        followup_={};
         if(!wanted.staggered||!wanted.playSequence||population::negative(type))return;
-        followup_={true,source,id,wanted.playSequence,now+900,now+1800,wanted.deepCheers?population::reactionType(75,wanted.populationSize):type};
+        Followup next{true,source,id,wanted.playSequence,now+900,now+1800,wanted.deepCheers?population::reactionType(75,wanted.populationSize):type};
+        if(!followup_.active){followup_=next;return;}
+        for(auto& waiting:waiting_)if(!waiting.active){waiting=next;return;}
+        report(Source::Followup,id,Delivery::Expired);
     }
     bool follow(Address entity,const sustained::Intent& wanted,uint64_t now){
         if(!followup_.active)return false;
         bool same=followup_.sequence==wanted.playSequence&&wanted.staggered&&
-            (followup_.source==Source::Eruption?wanted.celebration==followup_.id:
-                !wanted.celebration&&wanted.reason==sustained::Reason::Result&&wanted.reactionId==followup_.sequence);
-        if(!same||now>=followup_.until||now+900<followup_.due){followup_={};return false;}
+            (followup_.source!=Source::Eruption||wanted.celebration==followup_.id);
+        if(!same||now>=followup_.until||now+900<followup_.due){advanceFollowup();return follow(entity,wanted,now);}
         if(now<followup_.due)return false;
         if(sustained::at<Address>(entity)!=image_+bindings::ReactionVtable)return false;
         Address asset=sustained::at<Address>(entity+0x38);
         if(sustained::at<int>(asset+0x40)!=3||sustained::at<float>(asset+0x44)!=25)return false;
-        Followup next=followup_;followup_={}; // One bounded attempt, consumed before native dispatch.
+        Followup next=followup_;advanceFollowup(); // One bounded attempt, consumed before native dispatch.
         Address begin=sustained::at<Address>(entity+0x120),end=sustained::at<Address>(entity+0x128);
         if(end<begin||end-begin>256*16||(end-begin)%16){healthy_=false;report(Source::Followup,next.id,Delivery::Failed);return true;}
         // Every intended layer gets one dispatch even while native voices play.
@@ -135,13 +138,12 @@ public:
         static thread_local bool executing=false;if(executing)return;
         struct Guard {bool& value;explicit Guard(bool& v):value(v){value=true;}~Guard(){value=false;}} guard(executing);
         std::lock_guard<std::mutex> lock(mutex_);
-        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now)){followup_={};receipt_={};return;}
-        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=liveConsumed_=0;liveDelivered_=liveResolved_=0;followup_={};receipt_={};}
+        if(!healthy_||!fresh(wanted,wanted.match,wanted.epoch,now)){clearFollowups();receipt_={};return;}
+        if(match_!=wanted.match||epoch_!=wanted.epoch){match_=wanted.match;epoch_=wanted.epoch;consumed_=result_=lineup_=liveConsumed_=0;liveDelivered_=liveResolved_=0;clearFollowups();receipt_={};}
         checkReceipt(entity,wanted,now);if(!healthy_)return;
         bool victory=wanted.celebration&&now<wanted.celebrationUntil&&consumed_!=wanted.celebration;
-        bool during=!wanted.celebration&&wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
+        bool during=wanted.liveCheer&&now<wanted.liveCheerUntil&&liveConsumed_!=wanted.liveCheer;
         if(during){
-            followup_={};
             if(!population::reactionFamily(wanted.liveType))return;
             if(at<Address>(entity)!=image_+bindings::ReactionVtable)return;
             Address asset=at<Address>(entity+0x38);if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
@@ -151,7 +153,7 @@ public:
             receipt(Source::Live,wanted.liveCheer,wanted.liveType,entity,wanted,now);
             if(emit(api_,receiver_,image_,entity,wanted.liveType)){++sent_;liveDelivered_=wanted.liveCheer;report(Source::Live,wanted.liveCheer,Delivery::Sent);if(wanted.majorLive)arm(Source::Live,wanted.liveCheer,wanted.liveType,wanted,now);}
             else{receipt_={};healthy_=false;report(Source::Live,wanted.liveCheer,Delivery::Failed);}
-            return;
+            if(!healthy_)return;
         }
         bool result=!wanted.celebration&&wanted.resultCheer&&now<wanted.resultCheerUntil&&result_!=wanted.resultCheer;
         bool lineup=false;
@@ -169,7 +171,6 @@ public:
         if(at<int>(asset+0x40)!=3||at<float>(asset+0x44)!=25)return;
         // Consume before dispatch, including uncertain native failures. A score
         // may cross several entity updates/scenes but receives one bounded burst.
-        followup_={};
         if(victory)consumed_=wanted.celebration;
         else if(result){result_=wanted.resultCheer;}
         else{lineup_=wanted.lineupCheer;}

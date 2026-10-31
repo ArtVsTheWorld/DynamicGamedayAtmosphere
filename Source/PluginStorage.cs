@@ -11,9 +11,9 @@ namespace DynamicGamedayAtmosphere {
         public static string SettingsFile(string plugins){return Path.Combine(DataFolder(plugins),"DynamicGamedayAtmosphere.ini");}
         static void Retire(string path,string folder){
             if(!File.Exists(path))return;
-            Directory.CreateDirectory(folder);
-            string saved=Path.Combine(folder,Path.GetFileName(path)+"-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff")+"-"+Guid.NewGuid().ToString("N")+".bak");
-            File.Move(path,saved);
+            SettingsIo.Run("create retired-file backup folder",null,folder,null,()=>Directory.CreateDirectory(folder));
+            string saved=Path.Combine(folder,Path.GetFileName(path)+"-"+Guid.NewGuid().ToString("N")+".bak");
+            SettingsIo.Run("archive previous DGA file",path,saved,null,()=>File.Move(path,saved));
         }
         static string ExistingSettings(string plugins){
             foreach(string path in new[]{SettingsFile(plugins),Path.Combine(plugins,"DynamicGamedayAtmosphere.ini"),Path.Combine(plugins,"DynamicAttendance.ini")})
@@ -33,7 +33,7 @@ namespace DynamicGamedayAtmosphere {
         public static bool NeedsRelocation(string plugins){foreach(string file in LooseHelpers(plugins)){if(File.Exists(file))return true;}return false;}
         public static bool NeedsReset(string plugins,string defaults){
             string path=ExistingSettings(plugins);if(path==null)return false;
-            string existing=File.ReadAllText(path);
+            string existing=SettingsIo.ReadText(path);
             // A future schema belongs to a newer plugin. Preserve its refusal path.
             if(SettingsMigration.Number(existing,"General","ConfigVersion",1)>SettingsMigration.Number(defaults,"General","ConfigVersion",1))return false;
             int required=SettingsMigration.Number(defaults,"General","SettingsResetVersion",0);
@@ -41,25 +41,27 @@ namespace DynamicGamedayAtmosphere {
         }
         public static string Ensure(string plugins,string defaults){
             string data=DataFolder(plugins),destination=SettingsFile(plugins);
-            Directory.CreateDirectory(data);
+            SettingsIo.Run("create DGA settings folder",null,data,null,()=>Directory.CreateDirectory(data));
             string modern=Path.Combine(plugins,"DynamicGamedayAtmosphere.ini"),legacy=Path.Combine(plugins,"DynamicAttendance.ini");
             if(!File.Exists(destination)){
                 string source=File.Exists(modern)?modern:File.Exists(legacy)?legacy:null;
                 // Copy before upgrading so even a future-schema file reaches
                 // its new location unchanged and can refuse activation safely.
-                if(source!=null)File.Copy(source,destination,false);
+                if(source!=null)SettingsIo.Run("copy previous settings into DGA folder",source,destination,null,()=>File.Copy(source,destination,false));
             }
             string backup=Path.Combine(data,"Backups"),resetBackup=null;
             if(NeedsReset(plugins,defaults)){
-                Directory.CreateDirectory(backup);
-                resetBackup=Path.Combine(backup,"DynamicGamedayAtmosphere.ini-before-Update3-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff")+"-"+Guid.NewGuid().ToString("N")+".bak");
-                string temp=destination+".reset-"+Guid.NewGuid().ToString("N")+".tmp";
+                SettingsIo.Run("create settings-reset backup folder",null,backup,null,()=>Directory.CreateDirectory(backup));
+                // Short, unique names keep migration within legacy MMC path limits.
+                resetBackup=Path.Combine(backup,"settings-before-update3-"+Guid.NewGuid().ToString("N")+".bak");
+                string temp=Path.Combine(data,"reset-"+Guid.NewGuid().ToString("N")+".tmp");Exception failure=null;
                 try{
                     // Replace atomically and keep the exact old bytes. Failure leaves
                     // the original active and stops startup instead of losing settings.
-                    File.WriteAllText(temp,defaults,Encoding.Unicode);
-                    File.Replace(temp,destination,resetBackup,true);
-                }finally{if(File.Exists(temp))File.Delete(temp);}
+                    SettingsIo.Run("write temporary Update 3 settings",null,temp,null,()=>File.WriteAllText(temp,defaults,Encoding.Unicode));
+                    SettingsIo.Run("replace settings with Update 3 defaults",temp,destination,resetBackup,()=>File.Replace(temp,destination,resetBackup,true));
+                }catch(Exception error){failure=error;throw;}
+                finally{SettingsIo.Cleanup(temp,failure);}
             }
             SettingsMigration.Ensure(destination,legacy,defaults);
             if(!File.Exists(destination))throw new IOException("DGA settings were not created; old settings have been left in place.");

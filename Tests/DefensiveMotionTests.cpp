@@ -78,6 +78,16 @@ int main(){
     }
     for(int down:{3,4}){Case c(down);c.finish(-7);c.result.goalLineStop=down==4;c.result.thirdGoalStop=down==3;
         assert(c.tick(4).event==(down==4?live::Event::GoalLineStop:live::Event::TackleForLoss));} // Preserve goal-line profile over overlapping loss.
+    // A current-play landed big hit may shake on a short loss on any down.
+    for(int down:{1,2,3,4})for(float yards:{-8.f,-2.f,-.5f,0.f,2.f})for(int side:{0,1})for(bool neutral:{false,true}){
+        Case c(down,side,neutral);assert(!c.tick(3,{live::Event::HitStick,1,1-side,0}).id);c.finish(yards);
+        auto out=c.tick(4);bool eligible=side==1||neutral;
+        assert(bool(out.id)==(eligible&&(yards<0||down>=3)));
+        if(out.id)assert(out.event==live::Event::HitStickStop);
+        assert(!c.tick(4).id);
+    }
+    assert(defense::shakeProfile(live::Event::HitStickStop)==motion::Profile::Truck);
+    assert(motion::profileStrength(motion::Profile::Truck,0)==7.5f&&motion::profileStrength(motion::Profile::Truck,1)==9);
     // Ownership, accepted penalties, score correction, clock plays, gate loss,
     // replay/pause/gaps and resume cannot manufacture or queue defensive motion.
     for(int bad=0;bad<20;++bad){Case c(3);c.finish(-6);

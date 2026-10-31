@@ -1,5 +1,6 @@
 #include "../Source/CrowdPopulation.h"
 #include "../Source/DefensiveMotion.h"
+#include "../Source/ReactionPalette.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance;
@@ -47,6 +48,12 @@ int main(){
         result.goalLineStop=result.thirdGoalStop=result.turnoverOnDowns=false;result.highLeverageStop=true;
         p.game.phase=4;p.down=4;if(down==4){p.offense=0;p.down=1;}
         out=router.observe(snap,p,result,{},123,1,1,1200,true);assert(bool(out.id)==(quarter==4));
+    }
+    for(bool eruption:{false,true}){sustained::Intent strong;strong.active=true;strong.reason=eruption?sustained::Reason::Eruption:sustained::Reason::PassFlight;strong.intensity=600;if(eruption)strong.celebration=1;else strong.passFlight=1;
+      auto selected=population::layers(strong,6060,.6f);assert(selected.size==3&&selected.populationSize==3&&selected.intensity<=1000);}
+    for(int code=1;code<=static_cast<int>(live::Event::OvertimeMissedFieldGoal);++code){
+      energy::Play snap;snap.down=3;State s;auto type=palette::liveType({static_cast<live::Event>(code),1,1,30},snap,s,1,1,true);
+      assert(catalog::usable(type)&&catalog::negative(type));
     }
     std::puts("PASS: occupied-seat curve and equal-count density invariance; continuous bounded added-layer population targets; untouched IDs/native routes; fourth-down-only goal-line and Q4-only high-leverage motion.");
 }

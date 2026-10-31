@@ -63,6 +63,8 @@ inline constexpr uintptr_t BallControl=0xf85f648,BallStateGetter=0x5d23920,Catch
 inline constexpr uintptr_t CameraOwner=0xfcdaf00,CameraGet=0xa181320,CameraFind=0x809e0f0,CameraSet=0x80aa670,CameraVtable=0xbd10e50;
 inline constexpr uintptr_t CameraEffectsGetter=0x6201ae0,CameraSettingGetter=0x5cf9c50;
 inline constexpr uintptr_t CameraSettings=0xe2cf3f0,CameraSettingsVtable=0xb7d98e0;
+// Read-only controller/team ownership used to select offense vs defense camera.
+inline constexpr uintptr_t TeamInputManager=0xf85f120,TeamInputManagerVtable=0xb32a410;
 inline constexpr uintptr_t MatchVisualManager=0xe37dd90,MatchVisualGetter=0x29f1820,MatchVisualVtable=0xb26bc28;
 inline constexpr uintptr_t HfaSelection=0xf3cfaf8,HfaMeter=0xf3cffd8,HfaMeterVtable=0xb300ba8,HfaDisabledGetter=0x2576cc0;
 inline constexpr uintptr_t HfaSelectionVtable=0xb3003f0;

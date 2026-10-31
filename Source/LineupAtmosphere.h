@@ -57,7 +57,10 @@ inline float opening(const State& s){
 inline float competitive(const State& s){return core::competition(s);}
 inline bool reactionEligible(const State& s,float fullness,bool known,bool context,float minimum=core::ReactionMinimumFullness){return known&&context&&std::isfinite(fullness)&&std::isfinite(minimum)&&minimum>=core::ReactionMinimumFullness&&minimum<=1&&fullness>=minimum&&competitive(s)>0;}
 inline float lateDrive(const energy::Play& p){
+    if(p.simulated||energy::clockManagement(p))return 0;
     const auto& s=p.game;
+    if(energy::normalDown(p)&&!p.specialTeams&&s.quarter==4&&s.phase!=7&&s.seconds>=0&&s.seconds<=120&&
+       p.offense>=0&&p.offense<=1&&std::abs(s.homeScore-s.awayScore)<=8)return .85f+.15f*(1-s.seconds/120.f);
     if(!energy::normalDown(p)||s.quarter!=4||s.seconds>180||s.phase==7||p.toGoal<0||p.toGoal>40||p.offense<0||p.offense>1||(!s.neutral&&p.offense!=0))return 0;
     int margin=p.offense==0?s.homeScore-s.awayScore:s.awayScore-s.homeScore;
     if(margin>0||margin< -8)return 0;
@@ -307,6 +310,7 @@ struct Model {
         // two-score margin. The larger tier adds presence, not another gain
         // bonus. Existing admission, score fading and lifetime still own it.
         out.supporting=strength>=dense::layers(positionsForSound,fraction).swellMinimum()&&now>=began+variation.supportDelayMs&&reason!=sustained::Reason::None;
+        if(hostileOpening&&!p.game.neutral&&p.offense==1){out.size=3;out.attackMs=800;out.supporting=reason!=sustained::Reason::None;}
         out.cheers=out.cheers&&reason!=sustained::Reason::None;return out;
     }
 };

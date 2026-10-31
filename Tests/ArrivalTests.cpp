@@ -7,8 +7,8 @@
 using namespace attendance;
 int main(){
     arrivals::Settings c;arrivals::Model m;State s{1,0,0,6,720,720};
-    const int severe[]={1212,1158,1137,1156,1218};
-    const int formerModerate[]={1216,1189,1113,1117,1197,1182,1154,1132};
+    const int severe[]={1212,1158,1137,1156,1218,1216,1223};
+    const int formerModerate[]={1189,1113,1117,1197,1182,1154,1132};
     for(int team:severe){s.team0=team;assert(arrivals::schoolGroup(s)==arrivals::Group::Severe&&arrivals::openingPercent(c,s)==45&&arrivals::finishFraction(c,s)==.75f);}
     for(int team:formerModerate){s.team0=team;assert(arrivals::schoolGroup(s)==arrivals::Group::Standard&&arrivals::openingPercent(c,s)==55&&arrivals::finishFraction(c,s)==.5f);}
     s.team0=1218;s.neutral=true;assert(arrivals::openingPercent(c,s)==55&&arrivals::finishFraction(c,s)==.5f);s.neutral=false;

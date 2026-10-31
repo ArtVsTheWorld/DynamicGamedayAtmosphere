@@ -1,50 +1,50 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 — 2.0.21** · College Football 27 for Windows · MMC plugin
+By Ace · **Update 3 Hotfix — 2.0.28** · College Football 27 for Windows · MMC
 
-Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
+Crowds arrive, take halftime breaks and leave early. Crowd sound follows the fans in the seats, while big plays bring extra reactions, camera shake and replay opportunities.
 
-[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.21). Read the [release notes](docs/releases/Update3.md) or the [full feature list](FEATURES.md) for the details.
+[Download](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest) · [Full feature list](FEATURES.md)
 
 ## Install or update
 
-1. Close College Football 27 and MMC.
-2. Download and unzip the Update 3 package from GitHub Releases.
-3. Copy `DynamicGamedayAtmosphere.dll` from the ZIP's `Plugins` folder into your MMC `Plugins` folder. Replace the old copy. Keep only one DGA DLL installed.
-4. Open MMC and launch the game through it.
+1. Close the game and MMC.
+2. Unzip the download and open the extracted folder.
+3. Copy **both** of these into your MMC **Plugins** folder:
 
-This build supports the Windows game update checked on October 30, 2026. **Offline Dynasty and Road to Glory have been tested.** The revised peak-attendance formula is for fresh regular-season Dynasty games. Other modes are not guaranteed to support every feature.
+   - `DynamicGamedayAtmosphere.dll`
+   - The `DynamicGamedayAtmosphere` folder beside it
 
-**Update 3 resets old DGA settings once, including earlier Update 3 test builds.** Your old INI is backed up automatically. You do not need to delete it. Reapply any settings you want afterward. Your new settings are kept on later launches. Game saves and the game's own settings are not reset.
+4. If Windows asks, merge the folders and replace matching files. Then open MMC and launch the game normally.
 
-## What's new since Update 2
+Your MMC folder should look like this:
 
-- **Rebuilt attendance:** expected crowds use school support, season performance and matchup demand. Openers, night games, local opponents, senior day and service-academy matchups can draw more fans.
-- **Showcase rivalries:** eight major rivalry events receive sellout peak demand and fuller kickoffs, with dedicated starting bands for Army–Navy, Michigan–Ohio State and Oklahoma–Texas. Recognition follows the native rivalry event, including replacements that retain it.
-- **More natural seating:** fans favor desirable seats, with smaller group gaps and less uniform thinning.
-- **Attendance Profile:** keep Default, or choose Fuller Crowds for higher regular-season Dynasty peaks and fuller kickoffs. Select it before loading a fresh game.
-- **A new crowd mix:** sparse crowds are quieter but still alive. Full stadiums can be louder than the base game, with dense background sound reaching +3.5 dB and the largest packed venues reaching +4 dB. Collective reactions keep their separate +30% signal ceiling. Chants follow the same background mix.
-- **More reaction variety:** 80 listening-tested crowd sounds for existing plays and situations, including disappointment and visitor responses. Trucks favor the big-hit “ooh,” other successful skills get stronger cheers, and fuller crowds can keep a steady background roar between reactions.
-- **Better shake and overtime:** strength follows a linear occupied-seat curve up to 1.25×. Independent effects can reinforce each other gently, close-up shake is less reduced, and earned effects finish through timeout/penalty scenes. Runs build from 11–15 yards; kickoff returns build from 25–35. Overtime covers more important results.
-- **Camera correction:** ordinary views no longer multiply shake for a wide field of view. Native HFA camera shake yields while DGA movement is active; the larger RTG/player-camera allowance has a separate in-game toggle, off by default.
-- **More control in game:** open Settings → Gameday Atmosphere. Attendance, Soundscape and Broadcast each have a short list of plainly explained options.
-- **2020 Mode:** empty stands, no collective crowd or bands, quieter individual detail and a more open stadium sound.
-- **Performance and reliability fixes:** fixes for the repeated post-whistle hitch, carried-over sack flags, duplicate reactions, saved crowds and replay cleanup.
+```text
+MMC/
+  Plugins/
+    DynamicGamedayAtmosphere.dll
+    DynamicGamedayAtmosphere/
+```
+
+The matching folder contains files the plugin needs to run. **Copy it along with the DLL every time you update.** Keep your existing folder and merge the new files into it so your settings and crowd history stay in place.
+
+You do not need to copy the `.md` files into MMC. They are just instructions and the feature list.
 
 ## Settings
 
-Open **Settings → Gameday Atmosphere** in game. Most people can keep the defaults. **Wide Player Camera Compensation** is in Broadcast, directly below Added Camera Shake. Leave it off for normal cameras. Turn on the game's **Dynamic Camera Effects** if you want added shake.
+Open **Gameday Atmosphere** from either:
 
-The advanced settings file is `Plugins/DynamicGamedayAtmosphere/DynamicGamedayAtmosphere.ini`. Each option includes an explanation. Restart the game and MMC after replacing the DLL or changing the main Crowd Sound Effects switch.
+- **Dynasty/RTG Central → User Settings**
+- **Pause → Options → Settings**, at the far right after Auto-Subs
 
-**2020 Mode is off by default.** It empties the stadium and mutes collective crowd, bands, drums and the PA announcer. Turn it off to restore normal attendance and sound.
+Most people can keep the defaults. Turn on the game's **Dynamic Camera Effects** if you want added shake. Broadcast includes separate shake sliders for Standard, Zoom, All-22, Wide and Broadcast cameras.
 
-Fullness means the share of seats currently filled. Kickoff settings use a share of the crowd expected for that game. For example, if the expected crowd fills half the stadium and half those fans start seated, kickoff fullness is about 25%.
+**Existing Update 3 settings are kept.** Updating from Update 2 resets the old settings once and saves a backup automatically. You do not need to delete any INIs.
 
-## Problems
+## If something is wrong
 
-Check `Plugins/DynamicGamedayAtmosphere/Logs/status.txt` for the loaded version and activation status. If something is wrong, send the **whole Logs folder**, plus the teams, quarter/clock and what you saw or heard. The readable files are `status.txt` and `DynamicGamedayAtmosphere.log`; the technical files keep the detail needed for troubleshooting.
+Send the whole **`Plugins/DynamicGamedayAtmosphere/Logs`** folder and briefly describe what happened. For a problem during a game, include the teams and quarter/clock.
 
-Replays use the game's own recordings and presentation system. Injuries, penalties, skipped scenes and missing recordings can interrupt them. Slow Sim uses full-screen replays without a play-selection inset. DGA does not fix the base game's repeated kneel-down postgame highlights.
+If MMC reports a missing runtime loader, copy the matching `DynamicGamedayAtmosphere` folder from the ZIP again.
 
-The DLL belongs directly in MMC's `Plugins` folder. Settings, logs, backups, history and extracted tools stay inside `Plugins/DynamicGamedayAtmosphere/`. Keep that folder when updating so crowd history and backups remain available.
+Offline Dynasty and Road to Glory have been tested on the game update checked October 30, 2026. The revised peak-attendance formula applies to fresh regular-season Dynasty games. See the full feature list for mode differences and replay limitations.

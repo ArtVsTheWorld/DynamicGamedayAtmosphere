@@ -67,6 +67,20 @@ int main(){
     check(1,[&]{stagger.tick(addr(entity),wanted,1000);});wanted.updated=1899;check(0,[&]{stagger.tick(addr(entity),wanted,1899);});wanted.updated=1900;check(1,[&]{stagger.tick(addr(entity),wanted,1900);});check(0,[&]{stagger.tick(addr(entity),wanted,1900);});
     wanted.liveCheer=2;wanted.liveCheerUntil=3500;wanted.updated=3000;check(1,[&]{stagger.tick(addr(entity),wanted,3000);});wanted.active=false;check(0,[&]{stagger.tick(addr(entity),wanted,3100);});wanted.active=true;wanted.updated=3900;check(0,[&]{stagger.tick(addr(entity),wanted,3900);});
     wanted.liveCheer=3;wanted.liveCheerUntil=5500;wanted.updated=5000;check(1,[&]{stagger.tick(addr(entity),wanted,5000);});++wanted.playSequence;wanted.updated=5900;check(0,[&]{stagger.tick(addr(entity),wanted,5900);});
+    // A valid independent live accent and an eruption both dispatch in one callback.
+    voices(4);attendance::cheer::Runtime simultaneous;simultaneous.configure(image,&api,receive);
+    wanted=intent();wanted.liveCheer=9;wanted.liveCheerUntil=1500;wanted.liveType=11;wanted.celebration=1;wanted.celebrationUntil=3000;
+    check(2,[&]{simultaneous.tick(addr(entity),wanted,1000);});
+    check(0,[&]{simultaneous.tick(addr(entity),wanted,1100);});
+    // A later result must not cancel the earlier valid major-play followup.
+    voices(4);attendance::cheer::Runtime pending;pending.configure(image,&api,receive);wanted=intent();
+    wanted.playSequence=wanted.reactionId=90;wanted.reason=Reason::Result;wanted.staggered=wanted.majorLive=true;
+    wanted.liveCheer=1;wanted.liveCheerUntil=1500;wanted.liveType=83;check(1,[&]{pending.tick(addr(entity),wanted,1000);});
+    wanted.updated=1100;wanted.resultCheer=1;wanted.resultCheerUntil=1600;wanted.deepCheers=true;
+    check(1,[&]{pending.tick(addr(entity),wanted,1100);});
+    wanted.updated=1900;check(1,[&]{pending.tick(addr(entity),wanted,1900);});
+    wanted.updated=2000;check(1,[&]{pending.tick(addr(entity),wanted,2000);});
+    check(0,[&]{pending.tick(addr(entity),wanted,2000);});
     // Preserve fresh leases, early lineup windows, native shape and fault guards.
     voices(0);attendance::cheer::Runtime guards;guards.configure(image,&api,receive);wanted=intent();wanted.lineupCheer=1;wanted.lineupCheerBegan=2000;wanted.lineupCheerUntil=5000;
     check(0,[&]{guards.tick(addr(entity),wanted,1000);});wanted.updated=3500;check(0,[&]{guards.tick(addr(entity),wanted,3500);});

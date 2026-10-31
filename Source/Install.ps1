@@ -2,8 +2,18 @@ param([Parameter(Mandatory=$true)][string]$MmcRoot,[string]$PackageRoot=$PSScrip
 $ErrorActionPreference='Stop'
 $pluginRoot=[IO.Path]::GetFullPath((Join-Path $MmcRoot 'Plugins'))
 if(-not(Test-Path -LiteralPath (Join-Path $MmcRoot 'FrostyCore.dll'))){throw 'Choose the MMC Mod Manager folder containing FrostyCore.dll.'}
-$source=Join-Path $PackageRoot 'Plugins\DynamicGamedayAtmosphere.dll'
+$packagePlugins=if(Test-Path -LiteralPath (Join-Path $PackageRoot 'DynamicGamedayAtmosphere.dll')){$PackageRoot}else{Join-Path $PackageRoot 'Plugins'}
+$source=Join-Path $packagePlugins 'DynamicGamedayAtmosphere.dll'
 if(-not(Test-Path -LiteralPath $source)){throw 'The package DLL is missing.'}
+$version=[Reflection.AssemblyName]::GetAssemblyName($source).Version.ToString(3)
+$helperRelative='DynamicGamedayAtmosphere\Runtime-'+$version+'\LoadDynamicGamedayAtmosphere.exe'
+$sourceHelper=Join-Path $packagePlugins $helperRelative
+if(-not(Test-Path -LiteralPath $sourceHelper -PathType Leaf)){throw 'The matching runtime folder is missing. Copy both the DLL and its matching folder from the complete ZIP.'}
+$helperTarget=[IO.Path]::GetFullPath((Join-Path $pluginRoot $helperRelative))
+if(-not $helperTarget.StartsWith($pluginRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid runtime destination.'}
+New-Item -ItemType Directory -Path (Split-Path -Parent $helperTarget) -Force | Out-Null
+Copy-Item -LiteralPath $sourceHelper -Destination $helperTarget -Force
+if((Get-FileHash -LiteralPath $sourceHelper).Hash -ne (Get-FileHash -LiteralPath $helperTarget).Hash){throw 'The copied runtime loader did not verify.'}
 $backup=Join-Path $pluginRoot 'DynamicGamedayAtmosphere\Backups'
 New-Item -ItemType Directory -Path $backup -Force | Out-Null
 $staged=Join-Path $pluginRoot 'DynamicGamedayAtmosphere.dll.pending'

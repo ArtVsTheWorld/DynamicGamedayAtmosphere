@@ -43,7 +43,7 @@ struct Mix {
 };
 // Fullness and mapped occupied positions determine density and the crossover.
 // Sparse anchors are listening choices, not measured acoustic statistics.
-inline Mix mix(float fullness,uint64_t seats,float maximumPercent=30,float strengthPercent=100){
+inline Mix mix(float fullness,uint64_t seats,float maximumPercent=30,float strengthPercent=100,bool hostileOpening=false){
  Mix out;if(!std::isfinite(fullness)||fullness<0||seats<512||seats>12800000||!std::isfinite(maximumPercent)||!std::isfinite(strengthPercent))return out;
  out.valid=true;fullness=(std::min)(fullness,1.f);maximumPercent=(std::clamp)(maximumPercent,0.f,30.f);
  if(fullness==0){out.mute=true;out.gain[0]=-60;}
@@ -64,9 +64,15 @@ inline Mix mix(float fullness,uint64_t seats,float maximumPercent=30,float stren
   // A .001 signal-gain lattice bounds preset churn while native .25s fades
   // smooth transitions. Floors and the 50% signal anchor stay exact.
   float strength=(std::clamp)(strengthPercent,0.f,100.f)*.01f;
+  // A hostile first offensive call gets a fuller bed/chant and immediate swell.
+  // Admission remains with the opening-drive model; 0 still means native mix.
+  if(hostileOpening){for(unsigned i:{1u,2u,4u,6u}){
+   float hostileDb=(i==6?3.5f:6.f)*maximumPercent/30.f;net[i]=(std::max)(net[i],hostileDb);
+   ceiling[i]=(std::max)(ceiling[i],std::pow(10.f,hostileDb/20));
+  }}
   for(unsigned i=0;i<7;++i){
    float gain=std::pow(10.f,net[i]*strength/20);
-   gain=(std::clamp)(std::round(gain*1000)/1000,std::pow(SignalFloors[i],strength),ceiling[i]);
+   gain=(std::clamp)(std::round(gain*1000)/1000,std::pow(SignalFloors[i],(std::min)(strength,1.f)),(std::min)(std::pow(10.f,8.f/20),std::pow(ceiling[i],strength)));
    net[i]=20*std::log10(gain);out.gain[0]=(std::max)(out.gain[0],net[i]);
   }
   for(unsigned i=0;i<7;++i)out.gain[i+1]=net[i]-out.gain[0];

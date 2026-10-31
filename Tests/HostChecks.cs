@@ -34,12 +34,31 @@ class HostChecks {
                 if(!found)throw new Exception("Metadata mismatch: "+item[0]);
             }
             var extract=action.GetMethod("Extract",BindingFlags.Static|BindingFlags.NonPublic);
+            bool direct=(bool)action.GetField("DirectRuntimeLoading",BindingFlags.Static|BindingFlags.NonPublic).GetRawConstantValue();
+            bool external=(bool)action.GetField("ExternalRuntimeLoading",BindingFlags.Static|BindingFlags.NonPublic).GetRawConstantValue();
+            if((direct||external)&&plugin.GetManifestResourceStream("Attendance.LoadDynamicGamedayAtmosphere.exe")!=null)throw new Exception("Private variant still embeds the loader EXE");
             Directory.CreateDirectory((string)action.GetProperty("RuntimeFolder").GetValue(null,null));
             foreach(string name in new[]{"DynamicGamedayAtmosphereNative-"+release+".dll","LoadDynamicGamedayAtmosphere.exe","DynamicGamedayAtmosphere.ini","DgaDiagnostics.exe"}){
+                if((direct||external)&&name=="LoadDynamicGamedayAtmosphere.exe")continue;
                 if(plugin.GetManifestResourceStream("Attendance."+name)==null)throw new Exception("Missing resource "+name);
                 extract.Invoke(null,new object[]{name,name.EndsWith(".ini")});
                 if(name=="DgaDiagnostics.exe"){if(!File.Exists(Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Tools",name)))throw new Exception("Diagnostics window missing");continue;}
                 if(!File.Exists(name.EndsWith(".ini")?Path.Combine(pluginFolder,"DynamicGamedayAtmosphere",name):Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Runtime-"+release,name)))throw new Exception("Missing extracted file "+name);
+            }
+            if(direct&&Directory.GetFiles(pluginFolder,"LoadDynamicGamedayAtmosphere.exe",SearchOption.AllDirectories).Length!=0)throw new Exception("Direct variant extracted a loader EXE");
+            if(external){
+                string loader=Path.Combine((string)action.GetProperty("RuntimeFolder").GetValue(null,null),"LoadDynamicGamedayAtmosphere.exe");
+                var verify=action.GetMethod("VerifyExternalLoader",BindingFlags.Static|BindingFlags.NonPublic);
+                verify.Invoke(null,new object[]{loader});byte[] original=File.ReadAllBytes(loader);
+                try{
+                    File.WriteAllBytes(loader,new byte[]{1,2,3});bool refused=false;
+                    try{verify.Invoke(null,new object[]{loader});}catch(TargetInvocationException e){refused=e.InnerException is InvalidDataException;}
+                    if(!refused)throw new Exception("External loader accepted a different hash");
+                    File.Delete(loader);refused=false;
+                    try{verify.Invoke(null,new object[]{loader});}catch(TargetInvocationException e){refused=e.InnerException is FileNotFoundException;}
+                    if(!refused)throw new Exception("External loader accepted a missing file");
+                }finally{File.WriteAllBytes(loader,original);}
+                verify.Invoke(null,new object[]{loader});Console.WriteLine("PASS: separate loader hash, missing-file refusal and restoration; helper never executed");
             }
             action.GetMethod("Note",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{null,"Package check passed"});
             if(!File.Exists(Path.Combine(pluginFolder,"DynamicGamedayAtmosphere","Logs","launcher.log")))throw new Exception("Launcher log is outside the plugin Logs folder");

@@ -59,8 +59,18 @@ namespace DynamicGamedayAtmosphere {
             if(code!=0)text+=" | Windows error "+code;
             text+=" | HRESULT 0x"+unchecked((uint)hr).ToString("X8")+" | "+OneLine(root.Message);
             if(!String.IsNullOrEmpty(path))text+=" | File: "+OneLine(path);
+            foreach(Exception detail in Chain(error)){
+                foreach(string key in new[]{"DgaSettingsOperation","DgaSettingsSource","DgaSettingsDestination","DgaSettingsBackup","DgaSettingsHint","DgaSettingsCleanup"}){
+                    if(!detail.Data.Contains(key))continue;
+                    string value=Convert.ToString(detail.Data[key]);
+                    string label=key.Substring("DgaSettings".Length);
+                    text+=" | Settings "+label+": "+OneLine(value);
+                    if(label=="Source"||label=="Destination"||label=="Backup")text+=" ("+value.Length+" characters)";
+                }
+            }
             return text;
         }
+        static IEnumerable<Exception> Chain(Exception error){for(;error!=null;error=error.InnerException)yield return error;}
         internal static string Signature(string operation,Exception error){
             var wrapped=error as LaunchOperationException;if(wrapped!=null)operation=wrapped.Operation;
             Exception root=Root(error);var win32=root as Win32Exception;

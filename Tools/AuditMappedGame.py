@@ -67,6 +67,7 @@ def specifications(root=ROOT):
               ('NativeStartingAttendance.h', 'SetterPrefix', values['OptionSet']),
               ('StartingAttendanceLaunchHook.h', 'Prefix', values['StartingAttendanceBoundary']),
               ('NativeSettingsMenu.h', 'ListPrefix', values['ListSite']),
+              ('NativeSettingsMenu.h', 'PauseListPrefix', values['PauseListSite']),
               ('PauseMenu.h', 'Prefix', values['PauseMenuText']))
     for file, name, rva in arrays:
         match = re.search(r'\b' + name + r'=\{([^}]+)\}',
@@ -86,6 +87,15 @@ def specifications(root=ROOT):
     for index, target in enumerate(entries[1].split(',')):
         checks.append(dict(kind='pointer', source='NativeSettingsMenu.h/slot' + str(index),
                            rva=values['ProviderVtable'] + index * 8,
+                           target=address(target, values)))
+    pause_entries = re.search(r'constexpr A pauseEntries\[\]=\{([^}]+)\}', menu)
+    if not pause_entries:
+        raise ValueError('Pause settings dispatch table missing')
+    pause_targets = pause_entries[1].split(',')
+    for index in range(42):
+        target = pause_targets[index] if index < len(pause_targets) else '0x78cd63a'
+        checks.append(dict(kind='pointer', source='NativeSettingsMenu.h/pause-slot' + str(index),
+                           rva=values['PauseProviderVtable'] + index * 8,
                            target=address(target, values)))
     return checks
 

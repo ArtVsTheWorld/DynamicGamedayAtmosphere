@@ -4,6 +4,31 @@ using System.IO;
 using System.Text;
 using System.Globalization;
 namespace DynamicGamedayAtmosphere {
+    internal static class SettingsIo {
+        internal static void Run(string operation,string source,string destination,string backup,Action action){
+            try {
+                foreach(string path in new[]{source,destination,backup})
+                    if(path!=null&&Path.GetFullPath(path).Length>=260)
+                        throw new PathTooLongException("DGA settings need paths shorter than 260 characters for this MMC host.");
+                action();
+            }catch(Exception error){
+                error.Data["DgaSettingsOperation"]=operation;
+                if(source!=null)error.Data["DgaSettingsSource"]=source;
+                if(destination!=null)error.Data["DgaSettingsDestination"]=destination;
+                if(backup!=null)error.Data["DgaSettingsBackup"]=backup;
+                if(error is PathTooLongException)error.Data["DgaSettingsHint"]="Use a shorter MMC installation path; existing settings are preserved.";
+                throw;
+            }
+        }
+        internal static string ReadText(string path){
+            string text=null;Run("read existing settings",path,null,null,()=>text=File.ReadAllText(path));return text;
+        }
+        internal static void Cleanup(string temp,Exception primary){
+            if(!File.Exists(temp))return;
+            try{Run("remove temporary settings file",temp,null,null,()=>File.Delete(temp));}
+            catch(Exception cleanup){if(primary==null)throw;primary.Data["DgaSettingsCleanup"]="Temporary file: "+temp+" | "+cleanup.GetType().Name+": "+cleanup.Message;}
+        }
+    }
     public static class SettingsMigration {
         sealed class LayoutKey {public string OldSection,OldKey,Section,Key;public LayoutKey(string os,string ok,string ns,string nk){OldSection=os;OldKey=ok;Section=ns;Key=nk;}}
         static readonly LayoutKey[] Layout={
@@ -876,12 +901,36 @@ namespace DynamicGamedayAtmosphere {
             return String.Join("\n",lines.ToArray());
         }
 
+        private static string RetuneHotfix2026(string text,string defaults,string existing) {
+            if(Number(existing,"General","AudioBalanceVersion",0)>=56||Number(defaults,"General","AudioBalanceVersion",0)<56)return text;
+            const string section="Dynamic Gameday Broadcast";
+            string[] cameras={"StandardCameraShakePercent","ZoomCameraShakePercent","All22CameraShakePercent","WideCameraShakePercent","BroadcastCameraShakePercent"};
+            double[] calibration={110,130,75,100,75};bool normalize=true;
+            for(int i=0;i<cameras.Length;i++)if(Math.Abs(RealNumber(existing,section,cameras[i],-1)-calibration[i])>0.00001)normalize=false;
+            var lines=new List<string>();string current="";
+            foreach(string raw in text.Replace("\r","").Split('\n')) {
+                string header=Section(raw);if(header!=null)current=header;
+                string key=Key(raw),line=raw;
+                if(current==section&&key=="CatchImpactShakeStrengthPercent"&&Math.Abs(RealNumber(text,section,key,-1)-9)<0.00001)line=key+"=12";
+                if(current==section&&normalize&&Array.IndexOf(cameras,key)>=0)line=key+"=100";
+                lines.Add(line);
+            }return String.Join(Environment.NewLine,lines);
+        }
+
+        private static string RetuneHotfix2028(string text,string defaults,string original) {
+            if(Number(original,"General","AudioBalanceVersion",0)>=57||Number(defaults,"General","AudioBalanceVersion",0)<57)return text;
+            var lines=new List<string>();string section="";
+            foreach(string raw in text.Replace("\r","").Split('\n')){string h=Section(raw);if(h!=null)section=h;
+                lines.Add(section=="Dynamic Gameday Soundscape"&&Key(raw)=="CrowdMixStrengthPercent"&&RealNumber(text,section,"CrowdMixStrengthPercent",100)>100?"CrowdMixStrengthPercent=100":raw);
+            }return String.Join(Environment.NewLine,lines);
+        }
         public static void Ensure(string destination,string legacy,string defaults){
-            string existing=File.Exists(destination)?File.ReadAllText(destination):File.Exists(legacy)?File.ReadAllText(legacy):defaults;
+            SettingsIo.Run("validate settings migration paths",legacy,destination,null,()=>{});
+            string existing=File.Exists(destination)?SettingsIo.ReadText(destination):File.Exists(legacy)?SettingsIo.ReadText(legacy):defaults;
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<55&&Number(defaults,"General","AudioBalanceVersion",0)>=55)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<57&&Number(defaults,"General","AudioBalanceVersion",0)>=57)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -956,6 +1005,10 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,54);
             upgraded=Retune2020(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,55);
+            upgraded=RetuneHotfix2026(upgraded,defaults,existing);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,56);
+            upgraded=RetuneHotfix2028(upgraded,defaults,existing);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,57);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");
@@ -972,11 +1025,15 @@ namespace DynamicGamedayAtmosphere {
                 for(int i=0;i<lines.Count;i++){string next=Section(lines[i]);if(next!=null){currentSection=next;continue;}if(currentSection=="General"&&Key(lines[i])=="ConfigVersion")lines[i]="ConfigVersion=2";}
                 result=Organize(String.Join(Environment.NewLine,lines),true);
             }
-            if(File.Exists(destination)&&File.ReadAllText(destination)==result)return;
+            if(File.Exists(destination)&&SettingsIo.ReadText(destination)==result)return;
             // Win32 profile APIs reliably support UTF-16 BOM settings files.
-            string temp=destination+".tmp";File.WriteAllText(temp,result,Encoding.Unicode);
-            if(File.Exists(destination))File.Replace(temp,destination,destination+".previous",true);
-            else File.Move(temp,destination);
+            string temp=destination+".tmp";Exception failure=null;
+            try{
+                SettingsIo.Run("write migrated temporary settings",null,temp,null,()=>File.WriteAllText(temp,result,Encoding.Unicode));
+                if(File.Exists(destination))SettingsIo.Run("replace migrated settings",temp,destination,destination+".previous",()=>File.Replace(temp,destination,destination+".previous",true));
+                else SettingsIo.Run("activate new settings",temp,destination,null,()=>File.Move(temp,destination));
+            }catch(Exception error){failure=error;throw;}
+            finally{SettingsIo.Cleanup(temp,failure);}
         }
     }
 }

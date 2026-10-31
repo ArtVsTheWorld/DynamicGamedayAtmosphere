@@ -65,7 +65,7 @@ public:
         used_=true; // Rejected animation events are consumed, never queued for later admission.
         if(!live)return {};
         Event out{++serial_,s.side};carrier_=s.carrier;
-        if(s.side==0){began_=now;id_=(uint64_t{1}<<62)|out.id;}
+        if(s.side==0||p.game.neutral){began_=now;id_=(uint64_t{1}<<62)|out.id;}
         return out;
     }
     live::RunBuildup buildup(uint64_t now)const{

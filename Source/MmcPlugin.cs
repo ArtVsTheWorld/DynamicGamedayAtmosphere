@@ -23,8 +23,28 @@ using FrostySdk.Interfaces;
 
 namespace DynamicGamedayAtmosphere
 {
+#if DIRECT_RUNTIME_LOADING && EXTERNAL_RUNTIME_LOADER
+#error Select only one private loader variant
+#endif
     public sealed class AttendanceAction : ExecutionAction
     {
+#if DIRECT_RUNTIME_LOADING
+        internal const bool DirectRuntimeLoading=true;
+#else
+        internal const bool DirectRuntimeLoading=false;
+#endif
+#if EXTERNAL_RUNTIME_LOADER
+        internal const bool ExternalRuntimeLoading=true;
+        private static void VerifyExternalLoader(string file)
+        {
+            if(!File.Exists(file))throw new FileNotFoundException("The separately packaged runtime loader is missing. Extract the complete private test ZIP into MMC.",file);
+            using(var input=File.OpenRead(file))using(var hash=SHA256.Create())
+                if(!String.Equals(BitConverter.ToString(hash.ComputeHash(input)).Replace("-",""),ExternalLoaderInfo.Sha256,StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The separately packaged runtime loader does not match this plugin build. Restore the matching file from the private test ZIP.");
+        }
+#else
+        internal const bool ExternalRuntimeLoading=false;
+#endif
         private static int watching;
         private static Mutex watcherMutex;
         private static ILogger hostLogger;
@@ -91,7 +111,11 @@ namespace DynamicGamedayAtmosphere
                 {
                     Directory.CreateDirectory(RuntimeFolder);
                     watcherStep="extract native runtime";watcherFile=Path.Combine(RuntimeFolder,BuildInfo.NativeFile);Extract(BuildInfo.NativeFile,false);
+#if EXTERNAL_RUNTIME_LOADER
+                    watcherStep="verify separately packaged runtime loader";watcherFile=Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe");VerifyExternalLoader(watcherFile);
+#elif !DIRECT_RUNTIME_LOADING
                     watcherStep="extract runtime loader";watcherFile=Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe");Extract("LoadDynamicGamedayAtmosphere.exe",false);
+#endif
                     watcherStep="read embedded default settings";watcherFile=null;
                     string defaults;using(var input=typeof(AttendanceAction).Assembly.GetManifestResourceStream("Attendance.DynamicGamedayAtmosphere.ini"))
                     using(var reader=new StreamReader(input))defaults=reader.ReadToEnd();
@@ -111,6 +135,11 @@ namespace DynamicGamedayAtmosphere
                     Note(logger,"Settings: "+PluginStorage.SettingsFile(PluginsFolder)+". Former loose DGA files, if present, are preserved in its Backups folder.");
                     watcherStep="extract diagnostics tool";watcherFile=Path.Combine(DataFolder,"Tools","DgaDiagnostics.exe");Extract("DgaDiagnostics.exe",false);
                     Note(logger,"DGA "+BuildInfo.Version+" launch watcher started | MMC PID "+Process.GetCurrentProcess().Id+" | MMC permissions: "+mmcElevation+". Automatic crowd departures are restricted to the verified offline Dynasty game layout.");
+#if DIRECT_RUNTIME_LOADING
+                    Note(logger,"Private direct-loader test: native runtime loading is handled inside the MMC plugin DLL. No loader EXE is embedded, extracted or launched.");
+#elif EXTERNAL_RUNTIME_LOADER
+                    Note(logger,"Private separate-loader test: loader EXE is packaged beside the native runtime, outside the plugin DLL; its SHA256 was verified.");
+#endif
                     while(true)
                     {
                         watcherStep="enumerate game processes";watcherFile=null;var present=new HashSet<int>();
@@ -123,7 +152,17 @@ namespace DynamicGamedayAtmosphere
                                 long started;if(!LaunchReadiness.Read(new LaunchProcess(game),DateTime.UtcNow,out started))continue;
                                 string recovered=errors.Recovered(pid);if(recovered!=null)Note(logger,recovered);
                                 if(!attempted.Take(pid,started))continue;loadAttempted=true;
+#if DIRECT_RUNTIME_LOADING
+                                file=Path.Combine(RuntimeFolder,BuildInfo.NativeFile);
+                                operation="load native runtime directly from MMC plugin";
+                                Note(logger,"Starting direct runtime load | PID "+pid+" | MMC permissions: "+mmcElevation+" | Game permissions: "+LaunchDiagnostics.Elevation(pid)+" | Runtime: "+file);
+                                ManagedRuntimeLoader.Load(pid,file,text=>Note(logger,text));
+                                Note(logger,"Runtime loaded directly for PID "+pid+". Activation status is in "+Path.Combine(LogsFolder,"DynamicGamedayAtmosphere.log")+".");
+#else
                                 file=Path.Combine(RuntimeFolder,"LoadDynamicGamedayAtmosphere.exe");
+#if EXTERNAL_RUNTIME_LOADER
+                                operation="verify separately packaged runtime loader before launch";VerifyExternalLoader(file);
+#endif
                                 string arguments=pid+" \""+Path.Combine(RuntimeFolder,BuildInfo.NativeFile)+"\"";
                                 Note(logger,"Starting runtime loader | PID "+pid+" | MMC permissions: "+mmcElevation+" | Game permissions: "+LaunchDiagnostics.Elevation(pid)+" | Loader: "+file+" | Runtime: "+Path.Combine(RuntimeFolder,BuildInfo.NativeFile));
                                 operation="start runtime loader executable";
@@ -141,6 +180,7 @@ namespace DynamicGamedayAtmosphere
                                     Note(logger,"Runtime loaded for PID "+pid+". Activation status is in "+Path.Combine(LogsFolder,"DynamicGamedayAtmosphere.log")+".");
                                     if(!String.IsNullOrWhiteSpace(stderr.Text))Note(logger,"Loader diagnostic | PID "+pid+" | "+LaunchDiagnostics.OneLine(stderr.Text));
                                 }
+#endif
                             }
                             catch(Exception error){
                                 if(loadAttempted)Note(logger,LaunchDiagnostics.Failure(pid,operation,file,error)+" | No further runtime load will be attempted in this game process. Restart both MMC and the game after resolving the reported restriction.");

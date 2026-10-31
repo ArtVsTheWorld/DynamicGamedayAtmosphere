@@ -204,7 +204,7 @@ int main(){
         auto inAir=current(600216);assert(inAir.supporting&&inAir.passFlight&&!inAir.liveCheer&&!inAir.shake);
         primary.tick(address(owner)+0x40,inAir,600216);flightSupport.tick(address(owner)+0x40,supportingIntent(inAir),600216);
         assert(primary.starts()==1&&primary.refreshes()==0&&flightSupport.starts()==1&&flightSupport.refreshes()==(warmSupport?1u:0u));
-        assert(messages.back().start&&messages.back().attack==500&&messages.back().size==2);
+        assert(messages.back().start&&messages.back().attack==500&&messages.back().size==3);
         oldStarts=starts;
         for(uint64_t now=600250;now<=601100;now+=50){auto holding=current(now);primary.tick(address(owner)+0x40,holding,now);flightSupport.tick(address(owner)+0x40,supportingIntent(holding),now);assert(starts==oldStarts);}
         // Catch/incompletion proof releases flight ownership without guessing a

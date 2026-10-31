@@ -46,7 +46,7 @@ int main(){
     auto late=p;late.game.quarter=4;late.game.seconds=90;
     auto finish=upsetsound::evaluate(late.game,Seats,Fullness,true);
     assert(finish.qualified&&finish.stage==3&&finish.climax&&finish.minimum<route.minimum&&finish.importance>route.importance);
-    for(bool enabled:{false,true}){auto config=c;config.upsetWatch=enabled;lineup::Model packedFinish;tick(packedFinish,config,late,1000,.9f);assert(packedFinish.packedHouse);}
+    for(bool enabled:{false,true}){auto config=c;config.upsetWatch=enabled;lineup::Model packedFinish;tick(packedFinish,config,late,1000,.9f);assert(packedFinish.continuousMode&&packedFinish.reason==sustained::Reason::LateDrive);}
     auto longQuarter=late.game;longQuarter.quarterSeconds=1200;longQuarter.seconds=150;
     auto shortQuarter=late.game;shortQuarter.quarterSeconds=240;shortQuarter.seconds=30;
     assert(upsetsound::evaluate(longQuarter,Seats,Fullness,true).minimum==finish.minimum&&upsetsound::evaluate(shortQuarter,Seats,Fullness,true).minimum==finish.minimum);

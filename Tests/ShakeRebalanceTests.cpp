@@ -4,7 +4,7 @@
 using namespace attendance::motion;
 namespace defense=attendance::defense;namespace live=attendance::live;
 int main(){
-    Settings s;assert(s.ordinary==5&&s.critical==10&&s.live==11&&s.catchImpact==9&&s.touchdown==16&&s.hostileOpeningMaximum==10);
+    Settings s;assert(s.ordinary==5&&s.critical==10&&s.live==11&&s.catchImpact==12&&s.touchdown==16&&s.hostileOpeningMaximum==10);
     const float counts[]{3030,6060,15000,30000,50000,61888};
     const float factors[]{.7756f,.8f,.8721f,.9930f,1.1542f,1.25f};
     for(int i=0;i<6;++i)assert(std::fabs(occupiedScale(static_cast<uint64_t>(counts[i]),1)-factors[i])<.001f);
@@ -15,7 +15,7 @@ int main(){
             Model m;Input x;x.match=1;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
             x.profile=p;x.leverage=leverage;x.venueScale=population;x.neutral=neutral;x.duringCatch=p==Profile::Catch;
             x.forcedImpact=p==Profile::Force;x.softAccent=p==Profile::Skill;
-            auto a=m.observe(s,x);float expected=profileStrength(p,leverage)*population*(neutral?.75f:1.f);
+            auto a=m.observe(s,x);float expected=profileStrength(p,leverage)*(p==Profile::Catch?s.catchImpact/9.f:1.f)*population*(neutral?.75f:1.f);
             assert(std::fabs(a.percent-expected)<.001f&&a.until==1000+profileDuration(p));
             // Actual production receives no outcome on later ticks. Profile,
             // leverage and sharp force attack must survive that one-shot input.

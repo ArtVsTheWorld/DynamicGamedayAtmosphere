@@ -4,6 +4,11 @@
 using namespace attendance;
 energy::Play play(){energy::Play p;p.game={1,0,0,5,720,720};p.game.rank0=6;p.game.rank1=11;p.down=1;p.offense=0;p.toGoal=70;return p;}
 int main(){
+    for(int side:{0,1})for(int margin:{-9,-8,0,8,9})for(float seconds:{0.f,120.f,121.f}){
+      auto late=play();late.offense=side;late.game.quarter=4;late.game.seconds=seconds;late.game.homeScore=20+margin;late.game.awayScore=20;late.toGoal=80;
+      assert((lineup::lateDrive(late)>0)==(seconds<=120&&std::abs(margin)<=8));
+      late.simulated=true;assert(lineup::lateDrive(late)==0);
+    }
     core::Settings c;auto p=play();lineup::Model m;
     auto tick=[&](uint64_t now,float fraction=1){m.observe(c,p,123,1,now,true,fraction,true,nullptr,53913);sustained::Intent b;b.active=true;b.match=123;b.epoch=1;b.updated=now;return m.merge(b,c,p,now,fraction);};
     auto prepared=tick(1000);assert(prepared.cameraPrime&&prepared.shakeTier==1&&prepared.intensity==0&&!prepared.lineup&&prepared.reason==sustained::Reason::None);p.game.phase=1;tick(2000);auto full=tick(6000);assert(full.reason==sustained::Reason::Lineup&&full.size==3&&full.supporting&&full.shakeTier==1&&full.intensity==1000);
@@ -39,7 +44,7 @@ int main(){
     ot.observe(c,q,888,1,27000,true,.549f,true,nullptr,53913);auto below=ot.merge(b,c,q,27000,.549f);assert(below.reason==sustained::Reason::None&&!below.shake&&!below.cheers); // Graceful release, no new event below the floor.
     q=play();q.game={4,20,23,1,80,720};q.game.rivalry=false;q.toGoal=15;assert(lineup::lateDrive(q)>.7f);
     lineup::Model late;assert(late.observe(c,q,999,1,1000,true,.55f,true,nullptr,53913));b.match=999;b.updated=5000;late.observe(c,q,999,1,5000,true,.55f,true,nullptr,53913);auto l=late.merge(b,c,q,5000,.55f);assert(l.reason==sustained::Reason::LateDrive&&l.shakeTier==3);
-    q.offense=1;assert(lineup::lateDrive(q)==0);q.game.neutral=true;q.game=attendance::reversed(q.game);assert(lineup::lateDrive(q)>.7f);
+    q.offense=1;assert(lineup::lateDrive(q)>.7f);q.game.neutral=true;q.game=attendance::reversed(q.game);assert(lineup::lateDrive(q)>.7f);
     b.reason=sustained::Reason::Eruption;b.celebration=1;assert(late.merge(b,c,q,5000,.55f).reason==sustained::Reason::Eruption);
     for(float minutes:{60.f,300.f,720.f,1200.f}){q.game={1,0,0,1,minutes,minutes};assert(lineup::opening(q.game)==1);q.game.seconds=minutes*.25f;assert(lineup::opening(q.game)==0);}
     // Holding at the line sustains excitement, then a long decay. The remaining

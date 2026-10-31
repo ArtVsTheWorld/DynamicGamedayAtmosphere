@@ -24,6 +24,8 @@ inline sustained::Intent layers(sustained::Intent out,uint64_t positions,float f
     if((out.celebration||out.scoringReaction||out.majorLive)&&dense::majorSize(positions,fullness))out.populationSize=3;
     if(density.veryLarge>.5f&&out.reason==sustained::Reason::Lineup&&out.continuous)out.size=(std::max)(out.size,2);
     out.size=(std::min)(out.size,out.populationSize);
+    // Admission and occupied-seat mix still apply; these use the largest native variant.
+    if(out.celebration||out.reason==sustained::Reason::Eruption||out.passFlight){out.populationSize=3;out.size=3;}
     if(out.reason==sustained::Reason::None)return out;
     if(!std::isfinite(fullness)||fullness<=0||!std::isfinite(out.intensity)){out.intensity=0;return out;}
     float previous=std::sqrt((std::clamp)(fullness,0.f,1.f));
