@@ -307,7 +307,7 @@ inline float projectionScale(const std::array<float,16>& p,Kind kind,bool widePl
     // captured RTG compensation is a separate explicit opt-in; close-ups
     // keep the same attenuation in either policy.
     float ratio=reference/p[5];
-    return ratio<1?std::pow(ratio,.75f):(std::min)(ratio,widePlayerCompensation?4.0f:1.0f);
+    return ratio<1?std::pow(ratio,.65f):(std::min)(ratio,widePlayerCompensation?4.0f:1.0f);
 }
 inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;

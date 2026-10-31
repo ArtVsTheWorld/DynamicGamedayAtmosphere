@@ -84,7 +84,7 @@ int main(){
     std::array<float,16> projection{};projection[0]=2;projection[11]=1;
     for(auto kind:{motion::Kind::Ordinary,motion::Kind::Critical,motion::Kind::LivePlay,motion::Kind::Touchdown,motion::Kind::Eruption,motion::Kind::Safety,motion::Kind::BlockedKick}){
         projection[5]=3.1715948f;assert(motion::projectionScale(projection,kind)==1);
-        projection[5]=12;assert(motion::projectionScale(projection,kind)>.36f&&motion::projectionScale(projection,kind)<.37f);
+        projection[5]=12;assert(motion::projectionScale(projection,kind)>.42f&&motion::projectionScale(projection,kind)<.43f);
         projection[5]=1.5857974f;assert(motion::projectionScale(projection,kind)==1);assert(motion::projectionScale(projection,kind,true)==2);
         projection[5]=.11f;assert(motion::projectionScale(projection,kind)==1);assert(motion::projectionScale(projection,kind,true)==4);
         projection[5]=NAN;assert(motion::projectionScale(projection,kind)==.35f);

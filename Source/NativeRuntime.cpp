@@ -3056,7 +3056,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
         report.field("Dense-crowd layer support")<<dense.full*100<<"% medium tier; "<<dense.veryLarge*100<<"% very-large tier; up to "<<dense.multiplier()<<"x added layer intensity within native cap; existing admission required, no extra bus gain\n";}
     {auto cue=std::atomic_load(&cameraCue);if(cue->smoothRunBuildup)report.field("Run/YAC strength ramp")<<cue->buildupStrength<<"% reached before view/envelope; 800ms full-range rise; "<<(cue->tail?"fading from reached strength":"following 11-15 yard target")<<"\n";}
     report.field("Wide player-camera compensation")<<(std::atomic_load(&cameraSettings)->widePlayerCompensation?"opt-in: up to 4x; intended for wide RTG/player cameras":"off: wide views capped at 1x; close-ups soften")<<"\n";
-    report.field("Crowd shake scaling")<<"linear occupied seats: 0.80x at6060 to1.25x at61888; close-up ratio^0.75; distinct overlaps capped15% above strongest\n";
+    report.field("Crowd shake scaling")<<"linear occupied seats: 0.80x at6060 to1.25x at61888; close-up ratio^0.65; distinct overlaps capped15% above strongest\n";
     if(presentationCamera.playing(now))report.field("Current camera strength")<<presentationCamera.unscaled()<<"% envelope; view compensation "<<presentationCamera.zoomScale()<<"x; output "<<presentationCamera.percent()<<"%\n";
     auto presentationIntent=std::atomic_load(&sustainedIntent);
     report.field("Steady background roar")<<(presentationIntent->active&&presentationIntent->reason==attendance::sustained::Reason::Background?"requested; shares native sustained channel with reactions":"inactive or higher-priority reaction owns the channel")<<"; above60% fullness /10000 occupied mapped seats\n";

@@ -1,15 +1,15 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 working build — 2.0.20** · College Football 27 for Windows · MMC plugin
+By Ace · **Update 3 — 2.0.21** · College Football 27 for Windows · MMC plugin
 
 Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
 
-**Update 3 is still being finalized and is not publicly released.** [Update 2 remains the latest public release](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest). The [feature list](FEATURES.md) describes the current Update 3 working build.
+[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.21). Read the [release notes](docs/releases/Update3.md) or the [full feature list](FEATURES.md) for the details.
 
-## Install or update a provided build
+## Install or update
 
 1. Close College Football 27 and MMC.
-2. Unzip the build package provided for testing. The public Releases page currently contains Update 2; Update 3 will be published after final approval.
+2. Download and unzip the Update 3 package from GitHub Releases.
 3. Copy `DynamicGamedayAtmosphere.dll` from the ZIP's `Plugins` folder into your MMC `Plugins` folder. Replace the old copy. Keep only one DGA DLL installed.
 4. Open MMC and launch the game through it.
 

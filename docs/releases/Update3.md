@@ -1,116 +1,111 @@
-# Update 3 — working release notes
+# Update 3
 
-Working build **2.0.19**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
+Build **2.0.21** · Source tag **v2.0.21** · Changes since **Update 2 / 1.54.0**
 
-Changes since Update 2 (1.54.0).
+[Download Update 3](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.0.21/DynamicGamedayAtmosphere-Update3.zip) · [Full feature list](../../FEATURES.md) · [Code comparison and measured values](Update3-Code-Audit.md)
 
-### Test-fix candidate 2.0.19
+**DYNAMIC GAMEDAY ATMOSPHERE — UPDATE 3**
+**1/7 — A rebuilt attendance system**
 
-- Prevent contradictory incompletion reactions on completed gains, and reject a stale first-down flag on measured losses.
-- Expire late routine reaction starts after presentation delays; keep legitimate delayed scores.
-- Recover dropped event-specific cheer requests with one same-size generic equivalent, preserving native overlap.
-- Smooth brief earned-shake audio handoffs and keep the main shake axes moving continuously.
-- Return a held native inset request when full-screen selection never starts; accept completed one-clip takeaway routes at a verified play-call destination.
-- Cache crowd renderer lookups within each forced visibility pass, retaining the lock, buffer checks and renderer-change invalidation.
+- Fresh regular-season Dynasty games now get a DGA peak-attendance calculation instead of simply keeping EA's number
+- The overall spread is calibrated against real 2025 FBS attendance-to-capacity data, giving struggling programs sparse crowds while strong programs can regularly reach capacity
+- School support uses Stadium Atmosphere 35%, Team Prestige 25%, Program Tradition 20%, Brand Exposure 10%, Conference Prestige 5% and AP rank 5% — using the ratings in your current Dynasty, so programs can grow or decline
+- Season results, opponent quality and rivalry interest affect demand, with extra help for convincing breakout seasons so a smaller school can earn a big crowd
+- Home openers get a variable 10–25% demand boost, night games 5–15%, senior day 10%, same-state matchups 5–10% and service-academy matchups 5–15%
+- These are relative demand boosts, not percentage points or automatic sellouts, and their combined increase is capped at 40% before the ordinary weather and capacity limits
+- A new Attendance Profile lets you choose Default or Fuller Crowds, which adds 8 peak-capacity points and 7 points to the kickoff share within the applicable limits
+- Choose the profile before loading a fresh game — it does not refill an existing game or rewrite a Midgame Save
 
-### Final review candidate 2.0.18
+**UPDATE 3 — 2/7**
+**A completely rebuilt crowd mix**
 
-- Attendance Profile offers Fuller Crowds above Default. Fuller adds 8 peak-capacity points and 7 kickoff-share points, within existing caps. Default preserves the current balance. Fresh regular-season Dynasty launches get the peak change; postseason and recorded crowd plans remain protected.
-- A short skill swell cannot restore positive home energy after possession is lost.
-- Mixer faults stop new adjustments while keeping owned-preset cleanup available on later callbacks.
-- Settings writes are restricted to the active menu owner. The full feature list includes the profile, current shake strengths, sound mix and every visible setting in plain language.
+- Crowd sound now uses the native audio mixer and follows both actual fullness and occupied seat count, so a small full stadium and a huge full stadium no longer sound the same
+- Continuous background noise, collective cheers/boos and individual fan detail have separate balances — sparse crowds lose more of the wall of noise while keeping scattered voices and reactions
+- The vanilla-volume crossover ranges from roughly 70% fullness in the smallest venue to 30% in the largest, with fuller crowds growing beyond vanilla
+- Dense backgrounds can reach +3.5 dB, rising toward +4 dB in the largest packed crowds, while collective reaction gain stays capped at +30% signal
+- At 25% fullness in the smallest venue, background sound is 50% of vanilla; nonempty floors are 40% background/chants, 55% collective reactions and 95% individual detail
+- Chants follow the background mix, with no separate chant cut; the old excitement limiter is gone, so native big-play excitement is preserved
+- Native reaction support expands from 5 choices to 80 listening-tested choices across 27 usable families, including catches, hits, takeaways, touchdowns, kicks, cheers, boos, disappointment and anticipation
+- Stronger variants suit bigger moments and occupied crowds, and DGA cheers can overlap vanilla cheers without repeated callbacks firing the same event again
+- A sustained background roar can fill the gaps above 60% fullness and 10,000 occupied seats, sharing its channel with stronger play reactions rather than repeatedly firing cheer samples
+- Commentary and field sounds keep their normal direct volume; gain percentages describe signal level, not literal perceived loudness
 
-### Tuning candidate 2.0.17 — skill handoffs and dense background
+**UPDATE 3 — 3/7**
+**New in-game controls, fullness display and 2020 Mode**
 
-- Trucks use a quick 5–6% impact before crowd/view scaling. Hurdles and stiff arms keep their gentler accents.
-- Skill accents can lift a weak run buildup without replacing it or adding shake strengths. Scoring and larger reactions keep priority.
-- Short skill swells preserve an ongoing run response’s sound identity and fade.
-- Listening-tested native Beds/Chants reach +3.5 dB in dense crowds; very large packed crowds ease toward +4 dB. Sparse and medium mixes stay unchanged, and reaction buses retain their +30% ceiling. No extra loop or play trigger.
+- New Gameday Atmosphere tab in the game's settings, with 38 plainly explained controls: Attendance 12, Soundscape 12 and Broadcast 14
+- Change arrival/departure balance, attendance profile, crowd effects, shake and replay options in game, with the advanced INI still available
+- Stadium Fullness now appears beside Resume in the pause menu and updates when you open it
+- Fullness means the share of seats actually occupied right now, not the share of the expected crowd — a 60% peak with 55% of those fans seated means about 33% stadium fullness at kickoff
+- Sound and shake follow that measured crowd, and a dash means the seating measurement is not ready yet
+- New optional 2020 Mode empties the stands and mutes collective crowd noise, bands, drum cadence and the PA announcer
+- 2020 Mode keeps quiet individual detail and lifts the existing outdoor ambience/reverb for a more open stadium sound, then restores the normal crowd and mix when switched off
+- Wide Player Camera Compensation has its own Broadcast switch, off by default — leave it off for normal cameras and use it only when you want the extra allowance for very wide player/RTG views
 
-### Tuning candidate 2.0.16 — awaiting live testing
+**UPDATE 3 — 4/7**
+**Fuller special games, separate kickoff crowds**
 
-- Run/scramble and short catch-and-run shake now builds from 11 to 15 total yards, retaining the 800 ms smoothing and twenty-yard default cheer. Long-catch and kick-return cutoffs stay unchanged.
-- Native stadium cannon impact defaults to 18%, independent of crowd size and the live-play strength setting. Former stock 15% updates once; custom and zero strengths are kept.
+- Peak attendance and kickoff attendance are separate: ordinary games usually seat 50–60% of their expected crowd initially, with context bonuses and gradual arrivals afterward
+- Smaller home stadiums get up to 8 extra kickoff points for easier access; the late-arriving group remains UCLA, Miami, Georgia Tech and Maryland, with Utah now included
+- Ordinary marquee openings usually cap at 70% of expected fans, exceptional regular-season openings can reach 80%, bowls/CFP start at 70–80% and championships at 80–90%
+- Eight major rivalry events now get a full expected peak regardless of ordinary program demand, with protected kickoff bands
+- Florida–Georgia, UCLA–USC, Florida State–Miami, Notre Dame–USC and Alabama–Auburn start 70–80% full
+- Oklahoma–Texas starts 80–90% full, Army–Navy 90–95%, and Michigan–Ohio State 85–95%
+- Those special rules follow the native rivalry event rather than team-ID pairs, so TeamBuilder replacements retain them when they retain that event
+- Big-game rules now agree across the mod: two Top 25 teams, or rivals with either team Top 25 or both Top 50
+- Night detection uses the verified stadium-local kickoff time, rather than assuming a late Eastern listing makes every West Coast game a night game
+- These attendance plans are set during a supported fresh Dynasty launch, not week advance; postseason keeps its existing peak-attendance path
 
-### Tuning candidate 2.0.15 — awaiting live testing
+**UPDATE 3 — 5/7**
+**More natural filling, thinning and late-game crowds**
 
-- Ordinary playcall motion is 2.5–5%, special lineup cheers 4–6%, defensive critical buildup 7.5–10%, and home-offense critical buildup 5.625–7.5%, before occupied-seat and view factors. Punt buildup remains half the ordinary range. Reaction and touchdown peaks stay unchanged.
-- Runs and short catch-and-runs still start building at 13 yards and cheer at 20. An 800 ms strength rise smooths late samples, and a tackle fades from the level actually reached. Long air-yard catch impacts and return/showboat timing stay unchanged.
-- Qualified dense crowds gain fuller roar/swell layers around 80%/20,000 occupied positions, with an additional tier around 85%/45,000. Smooth transitions preserve the sparse mix; 2.0.17 adds a separate dense-background ceiling. Major moments can use stronger tested cheer variants without adding requests.
-- Stock playcall settings migrate once; custom values, zero opt-outs and camera compensation choices are preserved. Attendance formulas and qualification rules are unchanged.
+- Refined seating desirability keeps valuable midfield sideline areas fuller, with smaller group gaps and less uniform thinning across sections
+- Arrivals and seat changes wait for suitable breaks rather than visibly popping fans in or out during live action
+- Halftime breaks have more varied timing and two return waves, while close big games keep more fans seated until the half
+- Temporary seat breaks and permanent departures stay separate, so people who have actually gone home do not return with the halftime crowd
+- Close games, credible upsets and comebacks get more patience; decided games get stronger traffic pressure based on the score, clock, possession and remaining timeouts
+- Home night blowouts of 21+ points begin building extra departure pressure in late Q3, then increase through Q4 instead of protecting the winning crowd so strongly
+- Lower-scoring second halves create more departure pressure than shootouts, with a gentler effect when the game is close
+- Rain/snow can accelerate late exits, while postseason, neutral-site and comeback protections retain their own rules
+- A 15% actual-capacity floor stops further permanent departures when a valid crowd baseline is known — it does not force sparse kickoff crowds upward or refill empty seats
+- Better Midgame Save history selection preserves Q1 arrivals and the crowd you actually had, while recorded replays show their historical crowd without changing live attendance
 
-### Settings addition in 2.0.14
+**UPDATE 3 — 6/7**
+**More responsive plays and rebalanced shake**
 
-**Wide Player Camera Compensation** is now available under Settings → Gameday Atmosphere → Broadcast, directly below Added Camera Shake. It defaults Off and saves to the existing INI option. Broadcast now has 14 controls; the other sections are unchanged. No shake-strength or gameplay behavior is retuned in this build.
+- Successful trucks get the big-hit “ooh”; hurdles, stiff arms, jukes and spins get stronger cheers, with jukes/spins and ordinary broken tackles remaining sound-only
+- Verified home showboating builds atmosphere, while visitor showboating gets boos when layered atmosphere qualifies
+- Runs, scrambles and catch-and-runs build from 11 to 15 yards, with a swell into the peak cheer/roar; kickoff returns build from 25 to 35 yards and punt returns from 30 to 40
+- Interceptions and defensive fumble recoveries get prompt takeaway cheers and sustained return reactions; picking up your own fumble does not earn a takeaway effect
+- Confirmed losses of 5+ yards can shake without waiting for a sack label; fourth-down conversions, breakup/knockout stops and turnover-on-downs handling are more reliable
+- Dedicated goal-line stand shake needs fourth down, and the special high-leverage stop is limited to Q4
+- Once the crowd qualifies, shake scales linearly from 0.80x at 6,060 occupied positions to 1.25x at 61,888, so the same stadium strengthens as fans arrive; neutral-site crowd shake uses 75% strength for either team
+- Distinct effects can gently add together, capped at 15% above the strongest, without extending its timer or double-counting the same event
+- Zoomed views retain more shake: an old 50% correction now gives about 64%, while ordinary wide views stay capped at 1x; native HFA camera motion yields during DGA shake without changing gameplay HFA
+- Shake blends into touchdowns and finishes through timeout/penalty presentation on its original clock; native cannons have their own adjustable 18% impact
 
+**UPDATE 3 — 7/7**
+**Overtime, replays, fixes and compatibility**
 
-### Camera correction in 2.0.13
+- Overtime gets steadier atmosphere, a small shake lift and better coverage for stops, made/missed field goals and two-point tries
+- Earned final-play reactions can finish into postgame instead of cutting off, with eruptions keeping their longer winning celebration
+- Major-play replay handling separates the full-screen sequence from the later play-selection inset; Slow Sim gets no added inset because it has no play-call screen
+- Better fallback handling when full-screen selection does not start, while injuries, skipped scenes and missing native recordings can still affect what EA shows
+- Improved catch/run-to-score handoffs, defensive fumble ownership, stale sack flags, delayed results and dropped cheer requests
+- Less repeated replay/crowd work, cached unchanged data and added timing counters to address post-play hitches
+- Readable status/log files now sit alongside detailed technical logs, keeping troubleshooting information without making the everyday log a wall of internals
+- Offline Dynasty and Road to Glory have been tested, including the wider RTG player camera; the revised peak-attendance formula remains Dynasty-only
+- Updated for the Windows title update checked October 30, with 138 native test programs, 936 full-game policy simulations and an isolated MMC host check passing locally
+- Close the game and MMC before replacing the DLL; old settings reset once with an automatic backup, so you do not need to delete your INI
+- Only the DLL belongs directly in Plugins — settings, logs, backups and extracted tools stay together in Plugins/DynamicGamedayAtmosphere
 
-- Standard views cap shake compensation at 1×. The reported 7.2% critical-down envelope no longer becomes 22.2% just because that camera is wide. Close-ups retain their gentler movement.
-- The former RTG/player-camera allowance is a separate opt-in: the **Wide Player Camera Compensation** Broadcast toggle, also available as `WidePlayerCameraCompensation=1` in the INI. It defaults off because a wide field of view does not identify a game mode.
-- Native HFA camera shake yields while a fresh DGA crowd-shake output is actually rendered, then restores its latest native tier. Gameplay HFA, composure and the meter stay unchanged. The advanced native-filter zero opt-out remains respected.
-- Corrected the stale technical-status reference to a two-voice cheer limit; native cheer overlap remains allowed.
-- Occupied-seat scaling, reaction strengths, attendance and audio tuning are unchanged.
+**Download:** https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/tag/v2.0.21
 
-## Attendance
+## Scope and verification
 
-**New peak-attendance formula**
-
-- Fresh regular-season Dynasty games now calculate turnout from the programs and matchup instead of simply using EA's default. The overall spread is calibrated against real FBS attendance-to-capacity data: struggling programs can draw sparse crowds, while strong programs regularly approach capacity.
-- School support uses Stadium Atmosphere (35%), Team Prestige (25%), Program Tradition (20%), Brand Exposure (10%), Conference Prestige (5%) and AP rank (5%). Season records, opponent appeal and rivalry demand adjust the result. Strong seasons can give smaller programs a real attendance jump.
-- Home openers get a variable 10–25% demand boost; night games 5–15%; senior day 10%; in-state opponents 5–10%; service-academy matchups 5–15%. These are relative boosts, capped together at +40%, not automatic sellouts. Weather can reduce turnout. Postseason keeps EA's peak.
-
-**Kickoff crowd is separate from peak**
-
-- Ordinary games begin around 50–60% of their expected crowd, with bonuses for smaller venues and special matchups. Exceptional regular-season games can reach an 80% kickoff share. Bowls/CFP start at 70–80%; championships 80–90%.
-- UCLA, Miami, Georgia Tech, Maryland and now Utah keep later arrivals. Ranked rivalries qualify as big games when either team is Top 25 or both are Top 50.
-- Stadium-local time identifies night games, so a late Eastern listing does not automatically make a West Coast game a night game.
-
-**More natural crowds throughout the game**
-
-- Desirable sideline seats stay fuller, with smaller group gaps and less uniform thinning.
-- Varied halftime breaks/returns, better close-game patience, stronger late-blowout exits and night/scoring-pace adjustments. Permanent departures respect a 15% capacity floor without refilling empty seats.
-
-
-## Crowd audio
-
-**A new native-mixer system**
-
-- Crowd volume now follows both how full the stadium is and how many mapped seats are occupied. A small full crowd and a large full crowd no longer get the same treatment.
-- Sparse crowds lose the wall of continuous roar while keeping more collective reactions and individual fan detail. As people arrive, the sound grows smoothly; as they leave, it thins again.
-- The vanilla-volume crossover varies with venue size: roughly 70% fullness in the smallest venue and 30% in the largest. Above that point, the crowd grows beyond vanilla. The smallest packed venue reaches +15% audio signal. Dense crowds reach +3.5 dB background, with the largest packed venue reaching +4 dB; collective reactions remain capped at +30% signal.
-- At 25% fullness in the smallest venue, background sound is 50% of vanilla. Nonempty crowds have minimums of 40% background, 55% collective reactions and 95% individual detail. Zero attendance mutes the crowd. These are signal levels, not literal perceived-loudness percentages.
-- Chants follow the background mix. The old separate chant cut and excitement limiter are gone: a sparse crowd can still deliver a strong native big-play reaction. Commentary and field sound keep their normal direct volume.
-
-**Much more reaction variety**
-
-- 80 listening-tested sounds across 27 usable families now feed existing triggers: catches, gains, hits, takeaways, sacks, touchdowns, kicks, cheers, boos, disappointment, surprise and anticipation.
-- Stronger variants are chosen for bigger moments and larger occupied crowds instead of using the loudest sound every time.
-- More visitor equivalents get sound-only disappointment at home venues; neutral crowds can support either side. DGA cheers can overlap vanilla cheers, while repeated callbacks cannot replay the same event.
-- Both offenses get pass-flight anticipation. Spins/jukes and ordinary broken tackles remain sound-only; qualified big plays can add fuller layers and shake.
-
-
-## Shake, broadcast and fixes
-
-**Rebalanced shake**
-
-- Strength follows occupied seats after the crowd qualifies. Smaller venues get more noticeable effects, and the same stadium builds strength as it fills. Neutral-site crowd shake uses 75% strength for either team.
-- Runs, scrambles and catch-and-runs build from 13 to 20 yards; kick/punt returns build from 30 to 40. Shake fades at the snap and blends into touchdowns instead of restarting abruptly.
-- Confirmed five-yard losses no longer need a sack label to react. Improved fourth-down conversions, defensive fumble returns and turnover-on-downs reactions; own fumble pickups do not get takeaway shake.
-- Overtime adds confirmed stop, field-goal and two-point coverage, steadier tension and a small shake boost. Earned final-play effects can finish into postgame.
-
-**Broadcast and usability**
-
-- Manual major-play replay handling waits for full-screen playback before requesting a separate inset. Slow Sim uses full-screen presentation without an inset request. Injuries, penalties and native recordings can still affect playback.
-- Better saved-crowd restoration, Q1 arrival continuity and recorded attendance in replays.
-- New Gameday Atmosphere tab: 38 plain-English options across Attendance, Soundscape and Broadcast. Fullness appears beside Resume.
-- Optional 2020 Mode: empty stands, collective crowd/bands/drums/PA muted, quiet individual detail and a more open stadium sound.
-- Dynasty and RTG have been tested, including adjustments for RTG's wider player camera. The revised peak formula is Dynasty-only.
-- Post-whistle hitch fix, fewer repeated reads, carried-over sack fixes, cleaner reaction handoffs and readable logs alongside full technical logs. Updated for the October 30 Windows patch.
-
-**Close the game and MMC before updating. Old settings reset once with a backup; no INI deletion needed.**
-Download: to be added after the final build is approved for release.
-
-## Remaining limits
-
-The revised peak-attendance formula applies to fresh regular-season Dynasty launches; RTG retains the native peak. Mode testing does not establish every rare event or presentation route in every mode. No replay is guaranteed after every qualifying play, and the base game's repeated final-kneel postgame montage is not fixed. The final 2020 Mode individual-detail balance still needs a live check on this build. Custom stadium songs and new crowd animations are not included.
+- The counts and defaults above were checked against the Update 2 source tag and current production policies, rather than reconstructed from development notes
+- Arrivals, departures, layered atmosphere, Upset Watch, eruptions, extra replays, saved crowds and Super Sim support already existed in Update 2; this release changes their balance, coverage and reliability
+- The reaction count is 80 native selector choices, not 80 unique recordings, and audio gain percentages do not describe perceived loudness
+- Fresh revised turnout requires a supported regular-season Dynasty launch; RTG and postseason retain the native peak path
+- The new steady-roar balance and final zoom increment still benefit from the next live check; offline tests do not prove heard audio, camera feel, FPS or a rendered replay sequence
+- EA's repeated final-kneel montage remains outside this fix, and no new crowd animations or custom stadium songs are included

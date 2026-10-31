@@ -25,6 +25,15 @@
       "asset": "DynamicGamedayAtmosphere-Update2.zip",
       "sha256": "919ff8002db4f918130a2975d1c1af31d7c2253468a0f96ae60205d98578b0cb",
       "notes": "docs/releases/Update2.md",
+      "latest": false
+    },
+    {
+      "name": "Update 3",
+      "workingVersion": "2.0.21",
+      "tag": "v2.0.21",
+      "asset": "DynamicGamedayAtmosphere-Update3.zip",
+      "sha256": "7fc730bb20530922df8c55130dba3b0c486b26e47acd314b34e2f038326f99d7",
+      "notes": "docs/releases/Update3.md",
       "latest": true
     }
   ]
