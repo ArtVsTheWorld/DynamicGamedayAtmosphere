@@ -5,10 +5,11 @@
 #include <cstdint>
 
 namespace attendance::motion::projection {
-// Screen targets use the preferred Standard view at 35 vertical degrees,
-// 16:9. Preference sliders are applied after this shared reference strength.
+// The 35-degree/16:9 lens is a geometry reference, not a preset identifier.
+// Standard and Zoom were live-accepted at 75% of the 2.0.31 reference.
+// Fold that calibration into the common gain so factory sliders stay at100.
 inline constexpr float ReferenceY=3.1715948f,ReferenceX=ReferenceY*9.f/16.f;
-inline constexpr float ReferenceStrength=1.10f;
+inline constexpr float ReferenceStrength=1.10f*.75f;
 inline constexpr uint64_t FallbackMs=250;
 struct Scale {
     float pitch=1,yaw=1,fx=ReferenceX,fy=ReferenceY;

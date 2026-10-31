@@ -32,6 +32,18 @@ int main(){
             assert(validMatrix(view));++checked;
         }
     }
+    // Factory100 in the new build must reproduce the accepted live test:
+    // 2.0.31 reference1.10 with a personal75% multiplier, for every effect.
+    assert(std::fabs(ReferenceStrength-.825f)<.000001f);
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon}){
+        Cue tested{99,1,2000,1000,17000,kind,20,false,30};
+        for(float fov:{35.f,54.449f,37.896f,88.5f}){
+            auto p=lens(fov,16.f/9);auto optical=scale(p);auto accepted=identity,current=identity;
+            assert(apply(accepted,tested,2000,optical.pitch,optical.yaw,1.10f*.75f));
+            assert(apply(current,tested,2000,optical.pitch,optical.yaw,ReferenceStrength));
+            for(size_t i=0;i<current.size();++i)assert(std::fabs(current[i]-accepted[i])<.000001f);
+        }
+    }
     auto extreme=lens(170,16.f/9);assert(!scale(extreme).valid);extreme=lens(150,16.f/9);
     assert(scale(extreme).clipped&&scale(extreme).pitch==4&&scale(extreme,true).pitch==6);
     auto invalid=lens(35,16.f/9);invalid[0]=std::numeric_limits<float>::quiet_NaN();assert(!scale(invalid).valid);
