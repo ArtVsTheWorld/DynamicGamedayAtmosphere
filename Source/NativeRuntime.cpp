@@ -690,7 +690,7 @@ void log(const char* event,const std::string& message) {
        kind!="matchup"&&kind!="roar"&&kind!="late-score"&&kind!="protection"&&kind!="checkpoint-skipped"&&kind!="new-game"&&kind!="requested"&&
        kind!="diagnostics"&&kind!="reaction-audio"&&kind!="play-summary"&&kind!="late-turnover"&&kind!="opening-kickoff"&&kind!="defensive-reactions-unavailable"&&kind!="configuration"&&
        kind!="binding-mismatch"&&kind!="audio-state"&&kind!="live-play"&&kind!="resumed-game"&&kind!="replay"&&kind!="history"&&kind!="replay-unavailable"&&kind!="seating"&&kind!="seating-density"&&
-       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="starting-attendance"&&kind!="cannon"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
+       kind!="pass-flight"&&kind!="upset-watch"&&kind!="pause-menu"&&kind!="settings-menu"&&kind!="starting-attendance"&&kind!="cannon"&&kind!="away-motion"&&kind.find("inactive")==std::string::npos&&!(kind=="audio"&&message.find("fault")!=std::string::npos))return;
     if(!debugLog&&kind=="arrivals"&&message.find("starting at")==std::string::npos&&message.find("complete")==std::string::npos)return;
     static attendance::DuplicateLogFilter repeated;
     if(!repeated.accept(kind+"\n"+message,GetTickCount64()))return;
@@ -1797,7 +1797,8 @@ void readSettings(){
     core->cameraShake=number(L"Atmosphere",L"CameraShake",1,0,1)!=0;
     nativeShakeMinimum=number(L"Dynamic Gameday Broadcast",L"NativeShakeMinimumFullnessPercent",50,0,100);
     auto motion=std::make_shared<attendance::motion::Settings>();
-    motion->awayReactions=number(L"Dynamic Gameday Broadcast",L"AwayTeamReactionShake",0,0,1)!=0;
+    motion->awayPercent=static_cast<float>(number(L"Dynamic Gameday Broadcast",L"AwayTeamReactionShake",0,0,100));
+    motion->neutralPercent=static_cast<float>(number(L"Dynamic Gameday Broadcast",L"NeutralSiteShakePercent",75,0,100));
     motion->widePlayerCompensation=number(L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",0,0,1)!=0;
     motion->cameraPercent[0]=static_cast<float>(number(L"Dynamic Gameday Broadcast",L"ZoomCameraShakePercent",100,0,200));
     motion->cameraPercent[1]=static_cast<float>(number(L"Dynamic Gameday Broadcast",L"StandardCameraShakePercent",100,0,200));
@@ -2199,7 +2200,7 @@ void atmosphereTick(){
     shownUpsetStage=upsetSound.stage;shownUpsetSound=upsetSound.qualified;shownUpsetMinimum=upsetSound.minimum;
     bool hostile=lineupAtmosphere.hostileOpening;
     shownHostileOpening=hostile;
-    if(hostile&&lineupAtmosphere.hostileCheer&&lineupAtmosphere.hostileCheer!=previousHostileCheer)log("opening",p.game.neutral?"Neutral-site first offensive play for this team: shared crowd cheers, roar and swell; crowd shake at 75% of normal venue strength; existing volume limits apply.":"Visitors have the opening offensive play: hostile defensive roar and swell (no added lineup cheer); stadium-size camera strength and existing volume limits apply.");
+    if(hostile&&lineupAtmosphere.hostileCheer&&lineupAtmosphere.hostileCheer!=previousHostileCheer)log("opening",p.game.neutral?"Neutral-site first offensive play for this team: shared crowd cheers, roar and swell; crowd shake at "+std::to_string(static_cast<int>(std::atomic_load(&cameraSettings)->neutralPercent))+"% of normal venue strength; existing volume limits apply.":"Visitors have the opening offensive play: hostile defensive roar and swell (no added lineup cheer); stadium-size camera strength and existing volume limits apply.");
     shownBigAtmosphere=attendance::lineup::bigGame(p.game);shownPackedHouse=lineupAtmosphere.packedHouse;shownDrive=lineupAtmosphere.drive.heat;
     shownOpeningDrive=lineupAtmosphere.openingDriveQualified;
     float reactionMinimum=(std::min)(hadMinimum,lineupAtmosphere.playContextActive()?lineupAtmosphere.qualifiedMinimum:1.01f);
@@ -2492,7 +2493,7 @@ void atmosphereTick(){
         audio->cameraShake&&audioAudible&&swellAvailable&&(sustainedAudio.healthy()||supportingSwell.healthy()),
         wanted,*nextCamera,std::atomic_load(&cameraSettings)->reactionFadeMs);
     wanted=carried.sound;nextCamera=std::make_shared<attendance::motion::Cue>(carried.camera);
-    // Visitor success is a separate 35% envelope with negative-audio proof.
+    // Visitor success uses its configured percentage with negative-audio proof.
     // It never borrows the positive roar companion or rewrites home admission.
     if(awayHeardSequence!=playTracker.serial){awayHeardSequence=playTracker.serial;awayHeardId=awayHeardAt=awayExtraHeardId=0;}
     if(liveReactionId!=awayHeardId&&liveSourceSequence==playTracker.serial&&attendance::population::negative(liveReactionType)&&positiveCheer.liveDelivered(liveReactionId)){awayHeardId=liveReactionId;awayHeardAt=now;}
@@ -2502,8 +2503,8 @@ void atmosphereTick(){
     auto visitorCelebration=awaySoundReactions.celebration(*audio,p,now,remaining,reactionEligible,reactionMinimum);
     awayMotion.eruption=visitorCelebration;awayMotion.eruptionAlive=visitorCelebration!=0;
     auto awayConfig=std::atomic_load(&cameraSettings);
-    awayMotion.allowed=awayConfig->awayReactions&&liveAllowed&&liveSettings->enabled&&!p.game.neutral&&active&&reactionEligible&&!clockPlay&&enabled&&audioSetting&&audioContext.active&&audio->cameraShake&&nativeUnpaused()&&audioAudible&&!p.simulated&&situationalReactionsEnabled;
-    awayMotion.venueScale*=attendance::motion::AwayReactionScale;awayMotion.cancelLive=p.game.phase==3&&p.offense==0&&awayLastCue.kind==attendance::motion::Kind::LivePlay&&!awayLastCue.impactOnly;
+    awayMotion.allowed=attendance::motion::awayScale(*awayConfig)>0&&liveAllowed&&liveSettings->enabled&&!p.game.neutral&&active&&reactionEligible&&!clockPlay&&enabled&&audioSetting&&audioContext.active&&audio->cameraShake&&nativeUnpaused()&&audioAudible&&!p.simulated&&situationalReactionsEnabled;
+    awayMotion.venueScale*=attendance::motion::awayScale(*awayConfig);awayMotion.cancelLive=p.game.phase==3&&p.offense==0&&awayLastCue.kind==attendance::motion::Kind::LivePlay&&!awayLastCue.impactOnly;
     auto visitorEvent=awaySoundReactions.motion();auto visitorBuildup=awaySoundReactions.buildup();auto visitorResult=awaySoundReactions.result();
     awayMotion.duringPlay=visitorEvent.id;awayMotion.duringImpact=visitorEvent.id&&(p.game.phase!=3||attendance::live::accent(visitorEvent.event));
     awayMotion.supplementalImpact=attendance::live::accent(visitorEvent.event);awayMotion.duringCatch=visitorEvent.event==attendance::live::Event::LongCatch||visitorEvent.event==attendance::live::Event::CompletedPass;
@@ -2519,7 +2520,7 @@ void atmosphereTick(){
     if(visitorCue.kind!=attendance::motion::Kind::None&&
        (visitorCue.kind!=awayLastCue.kind||visitorCue.began!=awayLastCue.began||visitorCue.profile!=awayLastCue.profile||(!awayLastCue.soundAt&&visitorCue.soundAt))){
         std::ostringstream detail;detail<<"Play #"<<playTracker.serial<<": "<<attendance::motion::name(visitorCue.kind)
-            <<"; "<<100*attendance::motion::AwayReactionScale<<"% visitor counterpart; envelope "<<visitorCue.percent<<"%, opening impact "<<visitorCue.impact
+            <<"; "<<awayConfig->awayPercent<<"% visitor counterpart; envelope "<<visitorCue.percent<<"%, opening impact "<<visitorCue.impact
             <<"% before view/camera scaling; negative sound dispatched this play "<<(visitorCue.soundAt?"yes":"not yet")
             <<"; actual applied output is counted in technical status.";log("away-motion",detail.str());
     }
@@ -3010,7 +3011,7 @@ void saveAttendanceHistory(){
 }
 void writeStatus(std::ostream& state,unsigned long long now){
 
-    auto audio=std::atomic_load(&coreSettings);auto config=std::atomic_load(&settings);
+    auto audio=std::atomic_load(&coreSettings);auto config=std::atomic_load(&settings);auto motion=std::atomic_load(&cameraSettings);
     auto population=std::atomic_load(&stadiumOccupancy);auto density=std::atomic_load(&renderedOccupancy);
     auto liveAudio=audioWanted();bool known=population->owns(liveAudio.match,liveAudio.epoch),mapped=density->owns(liveAudio.match,liveAudio.epoch);
     auto atmosphere=wantedSwell();
@@ -3125,7 +3126,7 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Cannon sound observer")<<(cannonAvailable?"ready":"unavailable")<<"; confirmed native blasts "<<cannonStarts.load()<<"\n";
     report.field("Added camera motion")<<(!audio->cameraShake||!audio->enabled?"disabled":!cameraAvailable?"unavailable":!presentationCamera.healthy()?"stopped after a fault":presentationCamera.playing(now)?attendance::motion::name(presentationCamera.kind()):"inactive")<<"\n";
     report.field("Away reaction camera output")<<presentationCamera.visitorChanged()<<" camera outputs changed; last "<<presentationCamera.visitorPercent()<<"%, peak "<<presentationCamera.visitorPeak()<<"% after view/camera scaling (runtime totals; requests alone are not applied output)\n";
-    {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds 0.75x; native cannon impact is separate\n";}
+    {auto venue=std::atomic_load(&renderedOccupancy);report.field("Crowd camera venue factor")<<attendance::motion::occupiedScale(venue->owns(audioMatch.load(),audioEpoch.load())?venue->seats:0,venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f)<<"x from occupied seats; neutral crowd adds "<<attendance::motion::neutralScale(*motion)<<"x; native cannon impact is separate\n";}
     {auto venue=std::atomic_load(&renderedOccupancy);float full=venue->owns(audioMatch.load(),audioEpoch.load())?venue->peak()*(100-(std::max)(activeLoss.load(),arrivalMissing.load()))*.01f:0;
         report.field("Occupied reaction crowd")<<static_cast<uint64_t>(std::llround(attendance::population::occupied(venue->seats,full)))<<" mapped seats; added audio tier "<<attendance::population::size(venue->seats,full)<<" of 3; native reaction peaks preserved\n";
         auto dense=attendance::dense::layers(venue->seats,full);
@@ -3197,7 +3198,6 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Last verified reaction distance")<<shownReactionDistance<<" yards; no distance-based fade extension\n";
     report.field("Opening / OT / eruptions")<<(audio->opening?"on":"off")<<" / "<<(audio->overtime?"on":"off")<<" / "<<(audio->eruptions?"on":"off")<<"\n";
     report.section("DYNAMIC GAMEDAY BROADCAST - CAMERA");
-    auto motion=std::atomic_load(&cameraSettings);
     A nativeCameraSettings=at<A>(image+attendance::bindings::CameraSettings);
     bool cameraOptionsReady=cameraBindings&&at<A>(nativeCameraSettings)==image+attendance::bindings::CameraSettingsVtable;
     report.field("Game Dynamic Camera Effects")<<(!cameraOptionsReady?"unavailable":at<unsigned short>(nativeCameraSettings+0x3e6)&&at<unsigned short>(nativeCameraSettings+0x41a)?"on":"off; all added camera motion blocked")<<"\n";
@@ -3208,15 +3208,15 @@ void writeStatus(std::ostream& state,unsigned long long now){
     report.field("Airborne-pass supporting swell")<<(supportingSwell.playing()&&supportingSwell.reason()==attendance::sustained::Reason::PassFlight?"playing; 0.5-second attack":"inactive")<<"\n";
     report.field("Native shake requires")<<"DGA crowd/context admission plus "<<nativeShakeMinimum<<"% minimum fullness (0 disables the native filter)\n";
     report.field("Camera shake enabled")<<(audio->cameraShake?"yes":"no")<<"\n";
-    report.field("Away team reaction shake")<<(motion->awayReactions?"enabled; 35% of matching home effect":"disabled; negative sounds remain enabled")<<"; home venues only, normal crowd gates apply\n";
+    report.field("Away team reaction shake")<<motion->awayPercent<<"% of matching home effect; 0 disables visitor motion, negative sounds remain; home venues only, normal crowd gates apply\n";
     report.field("Ordinary buildup strength")<<motion->ordinary*.5f<<"-"<<motion->ordinary<<"% chosen once per lineup\n";
     report.field("Critical-down strength")<<motion->critical*.75f<<"-"<<motion->critical<<"% before home-offense 0.75x scaling (third-and-10 or shorter; offensive fourth downs)\n";
     report.field("Punt buildup motion")<<"0.5x ordinary strength; return reactions use their own strength\n";
     report.field("Special lineup cheer strength")<<motion->lineupCheer*2.f/3.f<<"-"<<motion->lineupCheer<<"%; immediate cheer opportunities only\n";
-    report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive")<<(shownNeutral?"; each team's first offensive play, 75%-strength crowd motion":"; away must have the first offensive snap")<<"\n";
+    report.field("Opening-possession surge")<<(shownHostileOpening?"active":"inactive");if(shownNeutral)state<<"; each team's first offensive play, "<<motion->neutralPercent<<"%-strength crowd motion\n";else state<<"; away must have the first offensive snap\n";
     report.field("Hostile opening shake ceiling")<<motion->hostileOpeningMaximum<<"%; stable 80-100% opening range, then occupied-seat scaling\n";
     report.field("Cannon shake strength")<<motion->cannon<<"%; 0.9-second impact; all nine native cannon variants; no fullness requirement\n";
-    report.field("Neutral-site crowd shake")<<"75% of configured strength for either team; native cannon strength independent\n";
+    report.field("Neutral-site crowd shake")<<motion->neutralPercent<<"% of configured strength for either team; native cannon strength independent\n";
     report.field("Live-play shake strength")<<motion->live<<"%; "<<motion->reactionFadeMs*.001f<<"-second post-play fade\n";
     report.field("Added reaction shape")<<"quick hit, short hold, smooth fade; existing strength/volume limits\n";
     report.field("Immediate long-catch impact")<<motion->catchImpact<<"%; separate from runs/returns and defensive impacts\n";

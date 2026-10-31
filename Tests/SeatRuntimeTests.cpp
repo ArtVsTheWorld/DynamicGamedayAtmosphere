@@ -618,11 +618,11 @@ int main(){
     assert(!liveConfig->enabled&&liveConfig->minimumCatchYards==21&&motionConfig->live==12&&motionConfig->critical==8);
     // Default (non-debug) reports must retain a useful incompatible-code reason.
     debugLog=false;assert(!requiredBytes(0x3c,{0xab,0xcd}));
-    log("reaction-audio","Test audit: native cheer dispatched.");log("play-summary","Test audit: play result observed.");log("late-turnover","Test audit: turnover exits queued.");
+    log("reaction-audio","Test audit: native cheer dispatched.");log("play-summary","Test audit: play result observed.");log("late-turnover","Test audit: turnover exits queued.");log("away-motion","Test audit: visitor camera request.");
     while(queuedLogs.size())drainLogs();
     {std::ifstream f(logsFolder/"DynamicGamedayAtmosphere.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Required game-code check failed at RVA 0x3c")!=std::string::npos&&logText.find("not an EXE hash check")!=std::string::npos);}
-    {std::ifstream f(logsFolder/"technical.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Test audit: native cheer dispatched.")!=std::string::npos&&logText.find("Test audit: play result observed.")!=std::string::npos&&logText.find("Test audit: turnover exits queued.")!=std::string::npos);}
-    {std::ifstream f(logsFolder/"DynamicGamedayAtmosphere.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Test audit: play result observed.")!=std::string::npos&&logText.find("Test audit: turnover exits queued.")!=std::string::npos);}
+    {std::ifstream f(logsFolder/"technical.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Test audit: native cheer dispatched.")!=std::string::npos&&logText.find("Test audit: play result observed.")!=std::string::npos&&logText.find("Test audit: turnover exits queued.")!=std::string::npos&&logText.find("Test audit: visitor camera request.")!=std::string::npos);}
+    {std::ifstream f(logsFolder/"DynamicGamedayAtmosphere.log");std::string logText((std::istreambuf_iterator<char>(f)),{});assert(logText.find("Test audit: play result observed.")!=std::string::npos&&logText.find("Test audit: turnover exits queued.")!=std::string::npos&&logText.find("Test audit: visitor camera request.")==std::string::npos);}
     void* unused=reinterpret_cast<void*>(1);auto patchCount=patches.size();
     assert(!makePatch(0x64b3930,reinterpret_cast<void*>(testUpdate),&unused,14)); // Incomplete guarded prologue is rejected before allocation.
     assert(!makePatch(0x64b3930,reinterpret_cast<void*>(testUpdate),&unused,13));

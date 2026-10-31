@@ -1,4 +1,5 @@
 #include "../Source/DefensiveAccents.h"
+#include "../Source/CannonImpact.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance::motion;
@@ -10,14 +11,24 @@ int main(){
     for(int i=0;i<6;++i)assert(std::fabs(occupiedScale(static_cast<uint64_t>(counts[i]),1)-factors[i])<.001f);
     assert(occupiedScale(6060,.5f)<occupiedScale(6060,.99f)&&occupiedScale(6060,.99f)<occupiedScale(51424,.85f));
     assert(occupiedScale(6060,0)==0&&occupiedScale(0,1)==0&&occupiedScale(6060,NAN)==0);
-    // The optional visitor counterpart scales the existing envelope once.
-    // Neutral-site strength continues to use its shared 75% policy instead.
-    for(bool neutral:{false,true})for(float population:{.8f,1.1f,1.25f})for(auto profile:{Profile::Gain,Profile::Truck,Profile::Catch,Profile::Takeaway,Profile::Loss}){
+    // Independent visitor and neutral sliders scale the same home baseline
+    // once, including the endpoints, without changing each other's venue.
+    assert(s.awayPercent==0&&s.neutralPercent==75);
+    for(float percent:{0.f,1.f,25.f,50.f,75.f,100.f})for(float neutralPercent:{0.f,50.f,75.f,100.f})for(bool neutral:{false,true})for(float population:{.8f,1.1f,1.25f})for(auto profile:{Profile::Gain,Profile::Truck,Profile::Catch,Profile::Takeaway,Profile::Loss}){
         Model home,away;Input x;x.match=1;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
-        x.profile=profile;x.venueScale=population;x.neutral=neutral;x.duringCatch=profile==Profile::Catch;
-        auto normal=home.observe(s,x);if(!neutral)x.venueScale*=AwayReactionScale;auto visitor=away.observe(s,x);
-        assert(std::fabs(visitor.percent-normal.percent*(neutral?1.f:.35f))<.0001f);
+        x.profile=profile;x.venueScale=population;x.duringCatch=profile==Profile::Catch;
+        auto normal=home.observe(s,x);auto selected=s;selected.awayPercent=percent;selected.neutralPercent=neutralPercent;x.neutral=neutral;
+        if(!neutral){x.venueScale*=awayScale(selected);x.allowed=awayScale(selected)>0;}
+        auto visitor=away.observe(selected,x);
+        float expected=neutral?neutralPercent:percent;assert(std::fabs(visitor.percent-normal.percent*expected*.01f)<.0001f);
+        if(expected==0)assert(visitor.kind==Kind::None);
     }
+    // Turning neutral movement down to zero cancels an already-running score;
+    // the independently controlled physical cannon remains available.
+    {Model model;Input x;x.match=1;x.epoch=1;x.now=1000;x.phase=4;x.allowed=x.neutral=true;x.touchdown=1;
+     auto config=s;auto cue=model.observe(config,x);assert(cue.kind==Kind::Touchdown);
+     x.now=1200;config.neutralPercent=0;cue=model.observe(config,x);assert(cue.kind==Kind::None);
+     attendance::cannon::Blast blast{1,1,1100,10};assert(attendance::cannon::merge(cue,blast,1200,18,true).kind==Kind::Cannon);}
     for(auto p:{Profile::Truck,Profile::Gain,Profile::Skill,Profile::Catch,Profile::Stop,Profile::Loss,Profile::Conversion,Profile::Downs,Profile::Takeaway,Profile::Force,Profile::GoalStop,Profile::HighStop}){
         for(bool neutral:{false,true})for(float leverage:{0.f,.5f,1.f})for(float population:{.8f,1.1f}){
             Model m;Input x;x.match=1;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;

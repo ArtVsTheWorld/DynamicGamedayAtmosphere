@@ -33,7 +33,7 @@ inline std::string event(const std::string& original){
  bool warning=kind.find("fault")!=std::string::npos||kind.find("inactive")!=std::string::npos||kind.find("unavailable")!=std::string::npos||kind=="binding-mismatch"||
   message.find("no native cheer voice registered")!=std::string::npos||message.find("queue dropped")!=std::string::npos;
  if(!warning){
-  if(kind=="replay-select"||kind=="defensive-proof"||kind=="pass-flight"||kind=="reaction-audio")return {};
+  if(kind=="replay-select"||kind=="defensive-proof"||kind=="pass-flight"||kind=="reaction-audio"||kind=="away-motion")return {};
   if(kind=="play-summary"){
    if(message.find("ended; official result still pending")!=std::string::npos)return {};
    auto cut=message.find("; snap down");if(cut!=std::string::npos)message.resize(cut);

@@ -924,13 +924,21 @@ namespace DynamicGamedayAtmosphere {
                 lines.Add(section=="Dynamic Gameday Soundscape"&&Key(raw)=="CrowdMixStrengthPercent"&&RealNumber(text,section,"CrowdMixStrengthPercent",100)>100?"CrowdMixStrengthPercent=100":raw);
             }return String.Join(Environment.NewLine,lines);
         }
+        private static string RetuneShakeSliders2030(string text,string defaults,string original) {
+            if(Number(original,"General","AudioBalanceVersion",0)>=58||Number(defaults,"General","AudioBalanceVersion",0)<58)return text;
+            var lines=new List<string>();string section="";
+            foreach(string raw in text.Replace("\r","").Split('\n')){string h=Section(raw);if(h!=null)section=h;
+                // Old On meant35%, not1%. Convert once; later1% slider choices stay1%.
+                lines.Add(section=="Dynamic Gameday Broadcast"&&Key(raw)=="AwayTeamReactionShake"&&RealNumber(original,section,"AwayTeamReactionShake",0)==1?"AwayTeamReactionShake=35":raw);
+            }return String.Join(Environment.NewLine,lines);
+        }
         public static void Ensure(string destination,string legacy,string defaults){
             SettingsIo.Run("validate settings migration paths",legacy,destination,null,()=>{});
             string existing=File.Exists(destination)?SettingsIo.ReadText(destination):File.Exists(legacy)?SettingsIo.ReadText(legacy):defaults;
             if(Number(existing,"General","ConfigVersion",1)>Number(defaults,"General","ConfigVersion",1))return;
             bool categorized=Number(defaults,"General","ConfigVersion",1)>=2;
             if(categorized){existing=Organize(existing,false);defaults=Organize(defaults,false);}
-            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<57&&Number(defaults,"General","AudioBalanceVersion",0)>=57)||
+            bool refreshHelp=((Number(existing,"General","AudioBalanceVersion",0)<58&&Number(defaults,"General","AudioBalanceVersion",0)>=58)||
                 (Number(existing,"General","AttendanceBalanceVersion",0)<9&&Number(defaults,"General","AttendanceBalanceVersion",0)>=9))&&
                 Number(existing,"General","ConfigVersion",1)<=Number(defaults,"General","ConfigVersion",1);
             string upgraded=RetuneOldDefaults(existing,defaults);
@@ -1009,6 +1017,8 @@ namespace DynamicGamedayAtmosphere {
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,56);
             upgraded=RetuneHotfix2028(upgraded,defaults,existing);
             upgraded=AdvanceHelpVersion(upgraded,defaults,existing,57);
+            upgraded=RetuneShakeSliders2030(upgraded,defaults,existing);
+            upgraded=AdvanceHelpVersion(upgraded,defaults,existing,58);
             upgraded=upgraded.Replace("; Ordinary matchups keep their usual packed-house requirement.",
                 "; Ordinary opening drives use critical-down fullness: 90% in small venues to 55% in the largest."+Environment.NewLine+
                 "; Ends with the opening possession. Later ordinary drives use their normal requirements.");

@@ -2,7 +2,8 @@
 struct NumericOption {const wchar_t* section;const wchar_t* key;double factory,low,high,scale;double (*get)();};
 inline NumericOption options[]={
 {L"Dynamic Gameday Attendance",L"AttendanceProfile",1.0,0.0,1.0,1,[]()->double{return static_cast<double>(attendanceProfile);}},
-{L"Dynamic Gameday Broadcast",L"AwayTeamReactionShake",0.0,0.0,1.0,1,[]()->double{return std::atomic_load(&cameraSettings)->awayReactions;}},
+{L"Dynamic Gameday Broadcast",L"AwayTeamReactionShake",0.0,0.0,100.0,1,[]()->double{return std::atomic_load(&cameraSettings)->awayPercent;}},
+{L"Dynamic Gameday Broadcast",L"NeutralSiteShakePercent",75.0,0.0,100.0,1,[]()->double{return std::atomic_load(&cameraSettings)->neutralPercent;}},
 {L"Dynamic Gameday Broadcast",L"WidePlayerCameraCompensation",0.0,0.0,1.0,1,[]()->double{return static_cast<double>(std::atomic_load(&cameraSettings)->widePlayerCompensation);}},
 {L"Dynamic Gameday Broadcast",L"ZoomCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[0];}},
 {L"Dynamic Gameday Broadcast",L"StandardCameraShakePercent",100.0,0.0,200.0,1,[]()->double{return std::atomic_load(&cameraSettings)->cameraPercent[1];}},

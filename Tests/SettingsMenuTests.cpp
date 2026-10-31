@@ -107,6 +107,13 @@ int main(){
     Reader zoomKey(FirstKey+static_cast<int>(zoomIndex));menu.setSlider(p,0,category.address(),zoomKey.address(),125,0);menu.finish(p,0);
     menu.initialize(p,category.address());assert(Fixture::current(menu,zoomIndex)==125);
     assert(GetPrivateProfileIntW(L"Dynamic Gameday Broadcast",L"StandardCameraShakePercent",-1,path.c_str())==0);
+    for(const wchar_t* name:{L"AwayTeamReactionShake",L"NeutralSiteShakePercent"}){
+        size_t index=0;while(index<Count&&std::wcscmp(Options[index].key,name))++index;
+        assert(index<Count&&Options[index].kind==Kind::Slider&&Options[index].low==0&&Options[index].high==100);
+        assert(Options[index].factory==(std::wcscmp(name,L"AwayTeamReactionShake")==0?0:75));
+        Reader selected(FirstKey+static_cast<int>(index));menu.setSlider(p,0,category.address(),selected.address(),50,0);menu.finish(p,0);
+        menu.initialize(p,category.address());assert(Fixture::current(menu,index)==50);
+    }
     WritePrivateProfileStringW(L"General",L"ConfigVersion",L"3",path.c_str());
     size_t sliderIndex=0;while(Options[sliderIndex].kind!=Kind::Slider)++sliderIndex;Reader key(FirstKey+static_cast<int>(sliderIndex));
     menu.setSlider(p,0,category.address(),key.address(),static_cast<int>(Options[sliderIndex].high),0);assert(Fixture::current(menu,sliderIndex)==Options[sliderIndex].low);

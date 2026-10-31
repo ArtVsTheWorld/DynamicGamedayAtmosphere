@@ -10,8 +10,10 @@
 namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
 inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cannon impact";case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
-struct Settings {float ordinary=5,critical=10,touchdown=16,eruption=22.5f,live=11,catchImpact=12;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=6;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=18;bool awayReactions=false;bool widePlayerCompensation=false;std::array<float,5> cameraPercent{{100,100,100,100,100}};};
-inline constexpr float AwayReactionScale=.35f;
+struct Settings {float ordinary=5,critical=10,touchdown=16,eruption=22.5f,live=11,catchImpact=12;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=6;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=18;float awayPercent=0,neutralPercent=75;bool widePlayerCompensation=false;std::array<float,5> cameraPercent{{100,100,100,100,100}};};
+inline float percentageScale(float value){return std::isfinite(value)?(std::clamp)(value,0.f,100.f)*.01f:0;}
+inline float awayScale(const Settings& s){return percentageScale(s.awayPercent);}
+inline float neutralScale(const Settings& s){return percentageScale(s.neutralPercent);}
 inline float hostileOpeningStrength(uint64_t positions,float maximum=10){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
     return (std::clamp)(maximum,0.f,30.f)*venueScale(positions);
@@ -111,9 +113,9 @@ public:
     Cue suspend(uint64_t now){lineup_=ramp_=0;lineupCue_=pulse_=liveCue_=impactOverlay_=skillCue_={};output_={};output_.updated=now;return output_;}
     Cue observe(const Settings& configuredSettings,const Input& x){
         // Scale each crowd target once by occupied seats, and by
-        // three quarters for either side of a neutral crowd, before envelopes.
+        // the configured shared neutral-crowd percentage, before envelopes.
         Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.25f):0;
-        float crowdScale=(x.neutral?.75f:1.f)*size*(x.overtime?1.10f:1.f);
+        float crowdScale=(x.neutral?neutralScale(settings):1.f)*size*(x.overtime?1.10f:1.f);
         settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
         settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
         settings.live=limit(settings.live)*crowdScale;settings.catchImpact=limit(settings.catchImpact)*crowdScale;
@@ -126,7 +128,7 @@ public:
         bool clincher=x.clincher&&x.clincher!=seenClincher_;if(x.clincher)seenClincher_=x.clincher;
         bool live=x.duringPlay&&x.duringPlay!=seenLive_;if(x.duringPlay)seenLive_=x.duringPlay;
         if(x.touchdown)seenTd_=x.touchdown;if(x.eruption)seenEruption_=x.eruption;if(x.safety)seenSafety_=x.safety;
-        if(!x.allowed||!x.match||x.now<last_){last_=x.now;return suspend(x.now);}last_=x.now;
+        if(!x.allowed||!x.match||x.now<last_||(x.neutral&&neutralScale(settings)<=0)){last_=x.now;return suspend(x.now);}last_=x.now;
         bool newSnap=x.phase==3&&phase_!=3;phase_=x.phase;
         Cue previous=output_;previous.additiveScale=1;float previousLevel=strength(previous,x.now);
         auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;
