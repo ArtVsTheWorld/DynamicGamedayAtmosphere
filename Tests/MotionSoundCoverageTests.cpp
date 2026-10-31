@@ -16,7 +16,13 @@ int main(){
             paired=pairing::merge(out,cue,1400,fullness,1,true);assert(paired.intensity>0&&paired.celebration==8&&paired.reason==sustained::Reason::Eruption);
             pairing::SoundLease sound{123,1,1400,true};assert(pairing::soundReady(sound,cue,1400));
             sound.audible=false;assert(!pairing::soundReady(sound,cue,1400));sound.audible=true;
-            assert(!pairing::soundReady(sound,cue,1551));assert(!pairing::soundReady(sound,cue,1399));
+            bool earned=kind!=motion::Kind::Ordinary&&kind!=motion::Kind::Critical;
+            assert(pairing::soundReady(sound,cue,1551)==earned);assert(!pairing::soundReady(sound,cue,1399));
+            assert(!pairing::soundReady(sound,cue,1700));
+            sound.audible=false;sound.audibleAt=1400;
+            assert(pairing::soundReady(sound,cue,1551)==earned);
+            if(earned){float prior=1;for(uint64_t now=1550;now<=1700;now+=10){float next=pairing::soundWeight(sound,cue,now);assert(next<=prior);prior=next;}}
+            sound.audible=true;sound.audibleAt=0;
             ++sound.epoch;assert(!pairing::soundReady(sound,cue,1400));--sound.epoch;++sound.match;assert(!pairing::soundReady(sound,cue,1400));
         }
     }

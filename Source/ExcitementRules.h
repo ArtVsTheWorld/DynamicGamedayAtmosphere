@@ -113,6 +113,9 @@ inline float gainedYards(const Play& before,const Play& after){
 inline bool earnedFirstDown(const Play& before,const Play& after,bool sawFlag){
     if(!normalDown(before)||!normalDown(after)||before.offense!=after.offense||after.down!=1)return false;
     float gain=gainedYards(before,after);
+    // Native first-down flags can survive a prior play or penalty scene.
+    // They cannot turn a measured loss into a successful first down.
+    if(gain>=-100&&gain<-.01f)return false;
     return sawFlag||(before.toFirst>0&&gain+0.01f>=before.toFirst);
 }
 inline bool overtimeTry(const Play& p){return overtime(p.game)&&p.down==-1&&(p.offense==0||p.offense==1);}

@@ -5,6 +5,27 @@ using namespace attendance::majorreplay;
 Input manual(uintptr_t match,unsigned epoch,uint64_t now,int phase,bool allowed,bool paused,bool replaying,bool dispatch=true){return {match,epoch,now,phase,allowed,paused,replaying,dispatch,Mode::PlayCall,true};}
 int main(){
  for(auto kind:{Kind::Touchdown,Kind::Takeaway}){
+  Model fallback;fallback.arm(123,1,1000,1,kind,Mode::PlayCall);
+  assert(fallback.suppressInset(123,1));auto f=manual(123,1,2000,5,true,false,false);
+  assert(!fallback.tick(f));f.now=2749;assert(!fallback.tick(f));
+  f.now=2750;assert(fallback.tick(f)&&fallback.takeNotice()==Notice::FallbackInset);
+  f.now=3000;assert(!fallback.tick(f)&&fallback.suppressInset(123,1));
+  f.replaying=true;assert(!fallback.tick(f)&&fallback.stage()==Stage::Inset);
+ }
+ // No destination or no intercepted native request means no early fallback.
+ for(bool queued:{false,true})for(bool ui:{false,true}){
+  if(queued&&ui)continue;
+  Model fallback;fallback.arm(123,1,1000,1,Kind::Touchdown,Mode::PlayCall);
+  if(queued)fallback.suppressInset(123,1);
+  auto f=manual(123,1,2000,5,true,false,false);f.playcallOpen=ui;assert(!fallback.tick(f));
+  f.now=5000;assert(!fallback.tick(f));
+ }
+ // A one-clip takeaway package may finish at the verified play-call destination.
+ {Model one;one.arm(123,1,1000,1,Kind::Takeaway,Mode::PlayCall);one.suppressInset(123,1);
+  one.node(123,1,100,false);auto f=manual(123,1,1200,4,true,false,true);one.tick(f);
+  one.node(123,1,100,true);f=manual(123,1,2200,5,true,false,false);assert(!one.tick(f));
+  f.now=2450;assert(one.tick(f));}
+ for(auto kind:{Kind::Touchdown,Kind::Takeaway}){
   Model m;m.arm(123,1,1000,7,kind,Mode::PlayCall);assert(m.routing(123,1));
   assert(m.suppressInset(123,1));Input x=manual(123,1,1100,4,true,false,false);assert(!m.tick(x));
   m.node(123,1,456,false);x.now=1200;x.replaying=true;assert(!m.tick(x));assert(m.stage()==Stage::Full);

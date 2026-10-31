@@ -52,15 +52,21 @@ public:
         if(live&&flight_&&kind==2&&!sent_&&!p.game.neutral&&snap.offense==0&&p.offense==1)return emit(95,Event::HomeInterception);
         if(!post||sent_||!result.accepted||!result.completed||result.sequence!=sequence||result.homePoints||result.awayPoints)return {};
         bool success=result.firstDown||result.takeaway;
+        // A missed live catch sample is not proof of an incomplete pass. The
+        // official result must also be a zero-yard, non-conversion result.
+        // This rejects both missed catch transitions and delayed gain results.
+        bool incomplete=flight_&&!caught_&&air_>=15&&!success&&!result.safety&&
+            !p.interception&&!p.fumble&&result.yards>=-.01f&&result.yards<=.01f&&
+            energy::gainedYards(snap,p)>=-.01f&&energy::gainedYards(snap,p)<=.01f;
         if(!p.game.neutral&&snap.offense==0){
             if(result.takeaway)return emit(95,p.interception?Event::HomeInterception:Event::HomeTurnover);
             if(snap.down>=3&&!success&&(p.offense!=snap.offense||p.down>snap.down))return emit(95,Event::FailedConversion);
-            if(flight_&&!caught_&&air_>=15&&!p.interception&&!p.fumble)return emit(95,Event::DeepIncomplete);
+            if(incomplete)return emit(95,Event::DeepIncomplete);
         }else{
             // At neutral sites, use the positive defensive family for either
             // defense. Do not paint the whole split crowd as disappointed by
             // the other half's interception or successful deep completion.
-            if(flight_&&!caught_&&air_>=15&&!result.takeaway&&!p.interception&&!p.fumble)return emit(59,Event::DeepDefensiveIncomplete);
+            if(incomplete)return emit(59,Event::DeepDefensiveIncomplete);
             float gain=energy::gainedYards(snap,p);
             if(p.offense==snap.offense&&gain<=-.5f&&gain>=-100)return emit(59,Event::HomeTackleForLoss);
         }

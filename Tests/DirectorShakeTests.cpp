@@ -4,6 +4,12 @@
 #include <limits>
 using namespace attendance::motion;
 int main(){
+    // Steady post-TD envelope must not repeatedly lose both main rotation
+    // axes together. Check every millisecond across multiple former beat periods.
+    {Cue steady{123,1,1000,1000,10000,Kind::LivePlay,10};
+        std::array<float,16> identity{};identity[0]=identity[5]=identity[10]=identity[15]=1;
+        for(uint64_t now=2000;now<5000;++now){steady.updated=now;auto rotated=identity;assert(apply(rotated,steady,now));
+            float pitch=rotated[6],yaw=rotated[2];assert(std::hypot(pitch,yaw)>.0007f);}}
     // Neutral attenuation is applied exactly once before transitions: fixed
     // floors, random lineup choices, live distance ramps and score handoffs
     // all retain the same shape/timing at 75% of the normal amplitude.

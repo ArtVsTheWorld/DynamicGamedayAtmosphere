@@ -12,6 +12,7 @@ std::vector<attendance::cheer::Delivery> reports;
 void report(attendance::cheer::Source,uint64_t,attendance::cheer::Delivery delivery){reports.push_back(delivery);}
 Address entries[1]{};unsigned arenas=0,arenaEnds=0,events=0,eventEnds=0,sends=0;
 bool immediateVoice=false;
+int voiceOnType=-1;
 bool badParameter=false,fault=false,reenter=false;attendance::cheer::Runtime* recursive=nullptr;Intent wanted;
 template<size_t N>Address addr(unsigned char (&p)[N]){return reinterpret_cast<Address>(p);}
 template<class T>void put(Address p,T v){memcpy(reinterpret_cast<void*>(p),&v,sizeof(v));}
@@ -27,7 +28,7 @@ void __fastcall eventEnd(Address){++eventEnds;}
 void __fastcall set(Address v,int n){assert(attendance::population::reactionFamily(n));put(v,n);}
 Address __fastcall receive(Address target,Address){
     assert(target==addr(entity)+0x40);int type=at<int>(addr(reactionValue));assert(attendance::population::reactionFamily(type));received.push_back(type);++sends;
-    if(immediateVoice){put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),type);put<int>(addr(instances)+4,7777);put<unsigned char>(addr(instances)+12,0);}
+    if(immediateVoice||type==voiceOnType){put(addr(entity)+0x120,addr(instances));put(addr(entity)+0x128,addr(instances)+16);put<int>(addr(instances),type);put<int>(addr(instances)+4,7777);put<unsigned char>(addr(instances)+12,0);}
     if(reenter&&recursive)recursive->tick(addr(entity),wanted,wanted.updated);
     if(fault){fault=false;RaiseException(EXCEPTION_ACCESS_VIOLATION,0,0,nullptr);}return 0;
 }
@@ -94,6 +95,19 @@ int main(){
     immediateVoice=true;check(1,[&]{rushing.tick(addr(entity),wanted,1000);});immediateVoice=false;wanted.updated=1030;check(0,[&]{rushing.tick(addr(entity),wanted,1030);});assert(reports.back()==attendance::cheer::Delivery::Registered);voices(0);
     // Every listening-approved selector reaches the same native construction
     // path; excluded and untested selectors are rejected before allocation.
+    // Reproduce native rejection of an event selector while a generic
+    // same-size equivalent is available. Keep the original request immediate,
+    // then allow exactly one fallback and verify ITS new handle.
+    for(int type:{11,59,67,83,95}){
+        voices(0);attendance::cheer::Runtime fallback;fallback.configure(image,&api,receive,report);
+        wanted=intent();wanted.playSequence=50;wanted.liveCheer=1;wanted.liveCheerUntil=1500;wanted.liveType=type;
+        int generic=(attendance::population::negative(type)?92:88)+(type%4);
+        if(generic==type)--generic;
+        voiceOnType=generic;check(1,[&]{fallback.tick(addr(entity),wanted,1000);});assert(received.back()==type);
+        for(uint64_t time:{1030u,1060u,1100u}){wanted.updated=time;fallback.tick(addr(entity),wanted,time);}
+        assert(received.back()==generic);wanted.updated=1130;check(0,[&]{fallback.tick(addr(entity),wanted,1130);});
+        assert(reports.back()==attendance::cheer::Delivery::Registered);voiceOnType=-1;
+    }
     unsigned valid=0;
     for(int id=0;id<112;++id){bool heard=id%4!=0&&id!=13&&id!=14&&id!=15&&id!=23;
         if(heard){check(1,[&]{assert(attendance::cheer::emit(api,receive,image,addr(entity),id));});assert(received.back()==id);++valid;}

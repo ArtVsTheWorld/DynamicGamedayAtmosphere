@@ -291,9 +291,12 @@ inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;
     constexpr float pi=3.14159265358979323846f;
     float t=static_cast<float>((now-(c.oscillationBegan?c.oscillationBegan:c.began))%1000000)*.001f;auto result=output;
-    rotate(result,1,2,.65f*(pi/180)*std::sin(2*pi*7*t)*amount);
-    rotate(result,0,2,.45f*(pi/180)*std::sin(2*pi*9*t+1)*amount);
-    rotate(result,0,1,.12f*(pi/180)*std::sin(2*pi*5*t)*amount);
+    // Quadrature keeps the two main axes moving continuously. Independent
+    // 7/9 Hz oscillators periodically nearly cancelled, making a steady
+    // touchdown envelope feel like repeated short bursts on close-up views.
+    rotate(result,1,2,.65f*(pi/180)*std::sin(2*pi*8*t)*amount);
+    rotate(result,0,2,.45f*(pi/180)*std::cos(2*pi*8*t)*amount);
+    rotate(result,0,1,.12f*(pi/180)*std::sin(2*pi*11.3f*t)*amount);
     if(!validMatrix(result))return false;output=result;return true;
 }
 }

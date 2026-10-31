@@ -9,6 +9,14 @@ struct Case {
     void finish(float gain,bool first=false){result.accepted=result.completed=true;result.sequence=sequence;result.yards=gain;result.firstDown=first;p.fieldSpot=snap.fieldSpot+gain;p.down=first?1:4;}
 };
 int main(){
+    // Native live catch transition can be shorter than an observer tick.
+    // Reproduce the 33-yard completion and delayed 5-yard conversion without
+    // supplying that transition: neither may invent an incompletion sound.
+    for(int side:{0,1})for(bool neutral:{false,true})for(int phase:{1,4,5})for(float gain:{5.f,33.f,-2.f}){
+        Case c(side,neutral);c.tick(3,3,1,32,false);c.finish(gain,true);
+        auto out=c.tick(phase,3,1,32,false);
+        assert(out.event!=situational::Event::DeepIncomplete&&out.event!=situational::Event::DeepDefensiveIncomplete);
+    }
     {Case c;c.tick(3,3,1,20,false);c.finish(0);auto o=c.tick(4,3,1,20,false);assert(o.type==95&&o.event==situational::Event::FailedConversion);assert(!c.tick(4,3,1,20,false).id);}
     {Case c;c.snap.down=c.p.down=1;c.tick(3,3,1,15,false);c.finish(0);assert(c.tick(4,3,1,15,false).event==situational::Event::DeepIncomplete);}
     {Case c(1);c.tick(3,3,1,15,false);c.finish(0);auto o=c.tick(4,3,1,15,false);assert(o.type==59&&o.event==situational::Event::DeepDefensiveIncomplete);}

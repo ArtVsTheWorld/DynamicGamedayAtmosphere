@@ -1,8 +1,17 @@
 # Update 3 — working release notes
 
-Working build **2.0.18**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
+Working build **2.0.19**, not publicly released. Update 2 remains the latest public release. These notes are being prepared for the final Update 3 release. [Current feature list](../../FEATURES.md).
 
 Changes since Update 2 (1.54.0).
+
+### Test-fix candidate 2.0.19
+
+- Prevent contradictory incompletion reactions on completed gains, and reject a stale first-down flag on measured losses.
+- Expire late routine reaction starts after presentation delays; keep legitimate delayed scores.
+- Recover dropped event-specific cheer requests with one same-size generic equivalent, preserving native overlap.
+- Smooth brief earned-shake audio handoffs and keep the main shake axes moving continuously.
+- Return a held native inset request when full-screen selection never starts; accept completed one-clip takeaway routes at a verified play-call destination.
+- Cache crowd renderer lookups within each forced visibility pass, retaining the lock, buffer checks and renderer-change invalidation.
 
 ### Final review candidate 2.0.18
 

@@ -6,13 +6,13 @@
 namespace attendance::majorreplay {
 enum class Kind {None,Touchdown,Takeaway};
 enum class Stage {Idle,WaitingFull,Full,WaitingInset,InsetRequested,Inset,Done,Unavailable};
-enum class Notice {None,Armed,FullStarted,FullFinished,InsetRequested,InsetStarted,Finished,Unavailable,NativeOnly};
+enum class Notice {None,Armed,FullStarted,FullFinished,InsetRequested,InsetStarted,Finished,Unavailable,NativeOnly,FallbackInset};
 using Mode=replaymode::Mode;
 struct Input {uintptr_t match=0;unsigned epoch=0;uint64_t now=0;int phase=0;bool allowed=false,paused=false,replaying=false,dispatch=true;Mode mode=Mode::Unknown;bool playcallOpen=false;};
 // Native node addresses are identity keys only. They are read solely inside
 // their borrowed native update callbacks, never retained for later access.
 class Model {
-    uintptr_t match_=0;unsigned epoch_=0;uint64_t sequence_=0,began_=0,last_=0,pausedAt_=0,finishedAt_=0;
+    uintptr_t match_=0;unsigned epoch_=0;uint64_t sequence_=0,began_=0,last_=0,pausedAt_=0,finishedAt_=0,destinationAt_=0;
     Kind kind_=Kind::None;Stage stage_=Stage::Idle;std::array<uintptr_t,16> active_{};
     unsigned completed_=0;bool queued_=false,sent_=false,fullNotice_=false;Notice notice_=Notice::None;
     bool insets_=false;
@@ -47,21 +47,31 @@ public:
         // Losing the destination cancels this play's inset work. Do not revive
         // an old request when a user exits Slow Sim later in the same play.
         if(insets_&&x.mode!=Mode::PlayCall){insets_=queued_=sent_=false;notice_=Notice::NativeOnly;}
-        if(x.paused){if(!pausedAt_)pausedAt_=x.now;return false;}
+        if(x.paused){destinationAt_=0;if(!pausedAt_)pausedAt_=x.now;return false;}
         if(pausedAt_){auto gap=x.now-pausedAt_;began_+=gap;if(finishedAt_)finishedAt_+=gap;pausedAt_=0;}
         if(stage_==Stage::Idle||stage_==Stage::Done||stage_==Stage::Unavailable)return false;
         if(x.replaying&&x.phase==4){stage_=Stage::Full;if(!fullNotice_){notice_=Notice::FullStarted;fullNotice_=true;}finishedAt_=0;}
         if(insets_&&x.replaying&&x.phase==5&&x.playcallOpen){sent_=true;if(stage_!=Stage::Inset)notice_=Notice::InsetStarted;stage_=Stage::Inset;}
         else if(!x.replaying&&stage_==Stage::Inset){stage_=Stage::Done;notice_=Notice::Finished;}
         bool active=std::any_of(active_.begin(),active_.end(),[](uintptr_t v){return v!=0;});
+        bool destination=insets_&&x.mode==Mode::PlayCall&&x.playcallOpen&&x.phase==5&&!x.replaying&&!active;
+        if(!destination)destinationAt_=0;else if(!destinationAt_)destinationAt_=x.now;
         // Native interception/fumble packages contain two serial full-screen
         // clips. Waiting for their completion prevents a gap between angles
         // from being mistaken for the end of the full-screen sequence.
         unsigned required=kind_==Kind::Takeaway?2u:1u;
-        if(fullNotice_&&!x.replaying&&!active&&completed_>=required&&!sent_&&(x.phase==4||x.phase==5)){
+        if(fullNotice_&&!x.replaying&&!active&&(completed_>=required||(destination&&completed_>0))&&!sent_&&(x.phase==4||x.phase==5)){
             if(!insets_){stage_=Stage::Done;return false;}
             if(!finishedAt_){finishedAt_=x.now;stage_=Stage::WaitingInset;notice_=Notice::FullFinished;}
             if(x.dispatch&&x.now-finishedAt_>=250){sent_=true;stage_=Stage::InsetRequested;notice_=Notice::InsetRequested;return true;}
+        }
+        // EA may decline the full-screen package entirely. Holding its authored
+        // inset for sixty seconds then loses both replays when the user snaps
+        // the PAT. Return that EXISTING request once play calling is stably
+        // open; never invent a recording, interrupt a node, or apply in Slow Sim.
+        if(!fullNotice_&&!sent_&&queued_&&destination&&x.dispatch&&
+           x.now-began_>=1500&&x.now-destinationAt_>=750){
+            sent_=true;stage_=Stage::InsetRequested;notice_=Notice::FallbackInset;return true;
         }
         // Never invent a recording or force playback of unavailable assets.
         // Give an intercepted native PIP request back if its full route failed.

@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.18 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.19 — not publicly released** · College Football 27 for Windows · MMC
 
 This list describes the active features at the default settings. Most effects have their own switch. A crowd sound request does not guarantee EA will play it, and a replay request does not guarantee a clip exists.
 
@@ -218,6 +218,10 @@ Positive shake favors home successes and defensive stops at home venues; either 
 
 ### Reaction variety and overlapping cheers
 
+Positive gains cannot also trigger a deep-incompletion response. A measured loss cannot become a first down because an old flag remained set. Routine results that settle more than 2.5 seconds after the whistle do not start new late reactions; scoring updates remain eligible.
+
+If the native event-specific cheer queue drops a request, DGA makes one short, same-size generic cheer or disappointment attempt. Existing game voices keep playing. Registration is logged separately from audible playback.
+
 The palette contains **80 listening-tested native selectors across 27 usable families**: positive and negative ballcarrier actions, catches, field goals, fumbles, incompletions, interceptions, sacks, receiving touchdowns, rushing touchdowns and yardage gains; positive big hits; generic cheers, disappointment, surprise, boos, applause-style cheers and anticipation. Negative big-hit IDs 13–15 and negative catch ID 23 are excluded after failed listening checks.
 
 Higher IDs within a family are generally stronger. Selection considers the play's importance, occupied seats and fullness; it does not choose the loudest variant for every play. The remaining native variants in the auditioned families are used as variety for existing triggers, not as new play detectors.
@@ -298,7 +302,7 @@ The mod asks the game's own recording and presentation system for more opportuni
 - Big gains can get full-screen replays; the default yardage cutoff is 15.
 - Routine runs and completions can get a small replay during play selection.
 - Sacks and tackles for loss can get defensive highlights. Takeaways and touchdowns use major-play routing.
-- In manual play, confirmed major routes wait for full-screen playback to finish before requesting a separate inset repeat. The normal skip controls remain available.
+- In manual play, confirmed major routes wait for full-screen playback to finish before requesting a separate inset repeat. If the game passes straight to play calling without starting that full-screen sequence, DGA returns a native inset request it held instead of waiting until the next snap loses it. It cannot create a missing recording. The normal skip controls remain available.
 - Slow Sim keeps native full-screen presentation and does not ask for an inset, because it has no play-call screen. Mode switches cancel pending inset work.
 - Kneels and spikes do not receive routine replay promotion. A running native replay is not interrupted by an inset timeout fallback.
 

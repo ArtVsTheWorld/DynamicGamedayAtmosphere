@@ -51,7 +51,7 @@ int main(){
         auto snap=p;energy::Outcome result;m.observe(p,snap,result,123,1,0,1000,true,0,9,-10,-10,true,3);
         p.game.phase=3;m.observe(p,snap,result,123,1,1,1100,true,0,2,-10,-10,true,3);
         m.observe(p,snap,result,123,1,1,1200,true,1,1,20,20,false,3);
-        p.game.phase=4;result.accepted=result.completed=true;result.sequence=1;
+        p.game.phase=4;result.accepted=result.completed=true;result.sequence=1;result.yards=0; // Official zero-yard incompletion proof.
         auto response=m.observe(p,snap,result,123,1,1,1300,true,3,1,20,20,false,3);assert(response.id&&response.type==(side==0&&!neutral?95:59));
     }
     // An offensive return cannot keep cheering after losing possession.

@@ -80,6 +80,15 @@ class Runtime {
         // fresh play/owner, once, before any delayed cheer would be intrusive.
         if(!queued&&age>=100&&r.observations>=3){
             if(r.retried){auto done=r;receipt_={};report(done.source,done.id,Delivery::Unregistered);return;}
+            // The native queue has already exhausted the event-specific
+            // selector. Retrying that same unavailable/full selector repeats
+            // its failure. Use one listening-verified generic equivalent at
+            // the SAME crowd size and valence; leave native voices untouched.
+            int fallback=(population::negative(r.type)?92:88)+(std::clamp)(r.type%4,1,3);
+            if(fallback==r.type)fallback=(population::negative(r.type)?92:88)+(std::max)(1,r.type%4-1);
+            r.type=fallback;r.priorCount=0;
+            for(Address p=begin;p<end&&r.priorCount<r.priorHandles.size();p+=16)
+                if(!at<unsigned char>(p+12)&&at<int>(p)==r.type)r.priorHandles[r.priorCount++]=at<int>(p+4);
             r.retried=true;r.began=now;r.observations=0;
             if(emit(api_,receiver_,image_,entity,r.type)){++sent_;report(r.source,r.id,Delivery::Recovery);}
             else{auto done=r;receipt_={};healthy_=false;report(done.source,done.id,Delivery::Failed);}

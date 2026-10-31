@@ -1,10 +1,27 @@
 #include "../Source/PlayReactionTiming.h"
 #include "../Source/ReturnAtmosphere.h"
 #include "../Source/DirectorShake.h"
+#include "../Source/ResultFreshness.h"
 #include <cassert>
 #include <cstdio>
 using namespace attendance;
 int main(){
+    // A prior first-down flag cannot turn the reported -7-yard play into a
+    // first down; genuinely short positive conversions still work.
+    energy::Play before,after;before.offense=after.offense=0;before.down=after.down=1;
+    before.fieldSpot=10;before.attackDirection=1;before.toFirst=10;after.fieldSpot=3;
+    assert(!energy::earnedFirstDown(before,after,true));after.fieldSpot=15;
+    assert(energy::earnedFirstDown(before,after,true));
+    for(int phase:{1,4,5}){
+        resultfreshness::Window window;energy::Outcome result;
+        window.observe(123,1,1,3,1000,result);window.observe(123,1,1,4,1500,result);
+        result.accepted=result.completed=true;result.sequence=1;result.yards=5;
+        assert(window.observe(123,1,1,phase,3000,result));
+        assert(!window.observe(123,1,1,phase,39500,result)); // 38-second delay
+        result.homePoints=6;assert(window.observe(123,1,1,phase,39600,result));
+        result.homePoints=0;result.sequence=2;assert(window.observe(123,1,2,phase,39700,result));
+        assert(window.observe(456,2,2,phase,39800,result)); // world ownership reset
+    }
     for(float yards:{0.f,15.f,20.f,30.f,60.f,99.f,110.f,NAN})for(unsigned oldCap:{0u,4000u,8000u})assert(timing::extraMs(yards,15,oldCap)==0);
     for(auto event:{live::Event::LongRun,live::Event::RunAfterCatch,live::Event::Interception,live::Event::FumbleRecovery,live::Event::KickReturn})for(float yards:{15.f,40.f,99.f}){
         energy::Play p;p.game={2,14,14,3,300,720};p.down=1;p.offense=0;

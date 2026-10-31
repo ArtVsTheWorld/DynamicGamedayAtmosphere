@@ -3,9 +3,20 @@
 #include "SustainedCrowd.h"
 
 namespace attendance::pairing {
-struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;};
+struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;uint64_t audibleAt=0;};
+inline float soundWeight(const SoundLease& sound,const motion::Cue& cue,uint64_t now){
+    if(!sound.match||sound.match!=cue.match||sound.epoch!=cue.epoch||now<sound.updated)return 0;
+    bool earned=cue.kind!=motion::Kind::None&&cue.kind!=motion::Kind::Ordinary&&cue.kind!=motion::Kind::Critical;
+    uint64_t heard=sound.audible?sound.updated:sound.audibleAt;
+    if(!heard||now<heard)return 0;
+    auto age=now-heard;
+    if(age<=150)return 1;
+    // Brief native voice/camera handoffs fade rather than hard-gating an
+    // already earned impact on/off. No new sound lease is manufactured.
+    return earned&&age<300?1-shape::smooth(static_cast<float>(age-150)/150.f):0;
+}
 inline bool soundReady(const SoundLease& sound,const motion::Cue& cue,uint64_t now){
-    return sound.audible&&sound.match&&sound.match==cue.match&&sound.epoch==cue.epoch&&now>=sound.updated&&now-sound.updated<=150;
+    return soundWeight(sound,cue,now)>0;
 }
 // Sound follows the selected camera envelope, never the rendered zoom strength.
 // No new cheer, gain bonus, play event or timer is created by this bridge.

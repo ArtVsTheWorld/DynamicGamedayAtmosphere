@@ -89,6 +89,7 @@
 #include "StartingAttendanceLaunchHook.h"
 #include "RenderedOccupancy.h"
 #include "ReactionAudioRuntime.h"
+#include "ResultFreshness.h"
 #include "ResumeBridge.h"
 #include "AttendanceTimeline.h"
 #include "ReplayUpdateHook.h"
@@ -110,6 +111,7 @@ std::atomic<bool> shownComeback{false},shownUpset{false},contextReady{false};
 std::atomic<int> busMixStrength{100};std::atomic<float> busMaximumBoost{30};
 std::mutex atmosphereMutex;
 attendance::energy::Tracker playTracker;
+attendance::resultfreshness::Window resultFreshness;
 attendance::core::Model coreAtmosphere;
 attendance::finalcarry::Model finalReactionCarry;
 attendance::lineup::Model lineupAtmosphere;
@@ -202,6 +204,13 @@ struct StartingCrowd {
 };
 std::mutex crowdMutex;
 std::unordered_map<A,StartingCrowd> startingCrowds;
+// References in an unordered_map survive rehash, but not erasure/replacement.
+// This revision is read and changed only under crowdMutex. The per-pass cache
+// never outlives its forced native traversal and never bypasses that lock.
+uint64_t crowdRevision=0;
+thread_local A passRenderer=0;
+thread_local StartingCrowd* passBaseline=nullptr;
+thread_local uint64_t passRevision=0;
 attendance::seats::Baselines originalSeatLayouts;
 std::atomic<bool> seatPatternPending{false};
 std::atomic<unsigned> shownSeatPatterns{0},shownSeatFallbacks{0};
@@ -517,11 +526,13 @@ void __fastcall cameraView(A view,float* output){
     try{
         auto now=GetTickCount64();
         bool diagnostic=preview->fresh(audioMatch.load(),audioEpoch.load(),now)&&(preview->active||preview->cooling);
-        if(!diagnostic&&!cannonSound&&!attendance::pairing::soundReady(*std::atomic_load(&motionSound),cue,now)){
+        float soundWeight=diagnostic||cannonSound?1.f:attendance::pairing::soundWeight(*std::atomic_load(&motionSound),cue,now);
+        if(soundWeight<=0){
             // Register a valid camera request while its matching sound starts.
             // Ready outputs validate once inside tick(), immediately before use.
             presentationCamera.prepare(view,cue,audioMatch.load(),audioEpoch.load(),now);return;
         }
+        cue.percent*=soundWeight;cue.impact*=soundWeight;cue.transitionFrom*=soundWeight;
         presentationCamera.tick(view,output,cue,audioMatch.load(),audioEpoch.load(),now,std::atomic_load(&cameraSettings)->widePlayerCompensation);
     }
     catch(...){presentationCamera.fail();}
@@ -553,7 +564,10 @@ A __fastcall audioUpdate(A owner,A a,A b,A c){
         sustainedAudio.tick(owner,primary,GetTickCount64());
         if(diagnostic)wanted.supporting=preview->supporting;
         supportingSwell.tick(owner,attendance::sustained::supportingIntent(wanted),GetTickCount64());
-        auto soundAt=GetTickCount64();std::shared_ptr<const attendance::pairing::SoundLease> sound=std::make_shared<attendance::pairing::SoundLease>(attendance::pairing::SoundLease{wanted.match,wanted.epoch,soundAt,wanted.active&&audible&&(sustainedAudio.audible(wanted,soundAt)||supportingSwell.audible(wanted,soundAt))});std::atomic_store(&motionSound,sound);
+        auto soundAt=GetTickCount64();auto priorSound=std::atomic_load(&motionSound);
+        bool heard=wanted.active&&audible&&(sustainedAudio.audible(wanted,soundAt)||supportingSwell.audible(wanted,soundAt));
+        uint64_t heardAt=heard?soundAt:wanted.active&&audible&&priorSound->match==wanted.match&&priorSound->epoch==wanted.epoch?priorSound->audibleAt:0;
+        std::shared_ptr<const attendance::pairing::SoundLease> sound=std::make_shared<attendance::pairing::SoundLease>(attendance::pairing::SoundLease{wanted.match,wanted.epoch,soundAt,heard,heardAt});std::atomic_store(&motionSound,sound);
     }catch(...){sustainedAudio.fail();supportingSwell.fail();audioNote("swell-fault: new starts stopped; cleanup will retry on the next audio update");}
     if(chantAvailable)try {
         auto mix=audioBusMix();attendanceMixer.tick(owner,mix.valid,mix);
@@ -970,7 +984,7 @@ void settingsMenuNote(const char* message){log("settings-menu",message);}
 void reactionNote(attendance::cheer::Source source,uint64_t id,attendance::cheer::Delivery delivery){
     using namespace attendance::cheer;
     const char* family=source==Source::Followup?"Staggered second cheer":source==Source::Live?"Live reaction":source==Source::Lineup?"Lineup cheer":source==Source::Result?"Play-result cheer":"Eruption cheer";
-    const char* outcome=delivery==Delivery::Registered?"native cheer voice registered (audibility still depends on the native mix)":delivery==Delivery::Recovery?"native queue dropped the cheer; one same-play recovery event sent":delivery==Delivery::Unregistered?"no native cheer voice registered within the short recovery window":delivery==Delivery::Sent?"native cheer event queued; playback not yet confirmed":
+    const char* outcome=delivery==Delivery::Registered?"native cheer voice registered (audibility still depends on the native mix)":delivery==Delivery::Recovery?"native queue dropped the event selector; one same-size generic cheer/disappointment fallback sent":delivery==Delivery::Unregistered?"no native cheer voice registered within the short recovery window":delivery==Delivery::Sent?"native cheer event queued; playback not yet confirmed":
         delivery==Delivery::Expired?"scene/callback arrived after the cheer window; stale cheer skipped":"native cheer dispatch failed; sound control stopped";
     log("reaction-audio",std::string(family)+" #"+std::to_string(id)+": "+outcome+".");
 }
@@ -1157,7 +1171,7 @@ void prepareSeatPatterns(){
         auto& base=item.second;
         if(at<A>(base.scene)!=image+attendance::bindings::SceneCrowdVtable||at<A>(base.scene+0x9f0)!=item.first||
            at<A>(item.first)!=image+attendance::bindings::CrowdRendererVtable||at<A>(item.first+0x188)!=base.masks||
-           at<A>(item.first+0x190)!=base.masks+base.hidden.size()*2){cursor=startingCrowds.erase(cursor);continue;}
+           at<A>(item.first+0x190)!=base.masks+base.hidden.size()*2){++crowdRevision;cursor=startingCrowds.erase(cursor);continue;}
         ++cursor;
         if(base.selection.policy==attendance::seats::Policy::Pending){
             // Some native parts belong only to certain fan models. Requiring
@@ -1196,9 +1210,11 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
         unsigned bit=16;
         if(passParts.resolve(reinterpret_cast<attendance::visibility::PartResolver>(image+attendance::bindings::CrowdPartResolve),parts,part,bit)){
             std::lock_guard<std::mutex> guard(crowdMutex);
-            auto found=startingCrowds.find(renderer);
+            StartingCrowd* base=nullptr;
+            if(applying&&passBaseline&&passRevision==crowdRevision&&passRenderer==renderer)base=passBaseline;
+            else {auto found=startingCrowds.find(renderer);if(found!=startingCrowds.end())base=&found->second;}
             const bool collecting=(collectingStartingCrowd.load()&&!applying)||capturingBaseline;
-            bool replacement=found==startingCrowds.end()||found->second.scene!=crowd||found->second.masks!=begin||found->second.hidden.size()!=count;
+            bool replacement=!base||base->scene!=crowd||base->masks!=begin||base->hidden.size()!=count;
             // A full live crowd may have no active visibility override. Still
             // invalidate replay's no-op cache when native callbacks reveal a
             // new seated renderer/buffer; tiny sideline draws stay optional.
@@ -1210,34 +1226,35 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
                 std::vector<attendance::seats::Position> coordinates;
                 if(attendance::seats::positions(read,image,crowd,renderer,begin,count,coordinates))
                     originalSeatLayouts.restore(coordinates,baseline.hidden,baseline.nativeSeen,baseline.parts);
-                found=startingCrowds.insert_or_assign(renderer,std::move(baseline)).first;
+                base=&startingCrowds.insert_or_assign(renderer,std::move(baseline)).first->second;++crowdRevision;
                 seatPatternPending=true;
                 if(!applying)visibilityRetry=true;
                 log("starting-crowd","renderer="+hex(renderer)+" fans="+std::to_string(count)+" preserved existing empty seats");
             }
-            if(found!=startingCrowds.end()&&found->second.masks==begin&&agent<found->second.hidden.size()){
-                if(capturingBaseline)found->second.captureToken=activeCaptureToken;
-                found->second.parts|=static_cast<unsigned short>(1u<<bit);
+            if(applying){passRenderer=renderer;passBaseline=base;passRevision=crowdRevision;}
+            if(base&&base->masks==begin&&agent<base->hidden.size()){
+                if(capturingBaseline)base->captureToken=activeCaptureToken;
+                base->parts|=static_cast<unsigned short>(1u<<bit);
                 unsigned short flag=static_cast<unsigned short>(1u<<bit);
-                auto& latest=found->second.nativeHidden[agent];
+                auto& latest=base->nativeHidden[agent];
                 latest=static_cast<unsigned short>((latest&~flag)|(hidden?flag:0));
                 // The first native input for each part is authoritative even
                 // if a newly loaded buffer initially contained empty defaults.
-                bool firstNativeInput=!(found->second.nativeSeen[agent]&flag);
+                bool firstNativeInput=!(base->nativeSeen[agent]&flag);
                 if(firstNativeInput){
-                    auto& original=found->second.hidden[agent];
+                    auto& original=base->hidden[agent];
                     original=static_cast<unsigned short>((original&~(1u<<bit))|(hidden?(1u<<bit):0u));
-                    found->second.nativeSeen[agent]|=flag;
+                    base->nativeSeen[agent]|=flag;
                 }
                 const bool restore=mode==2||(applying&&!thinning);
-                const auto& selection=found->second.selection;
+                const auto& selection=base->selection;
                 if(!capturingBaseline&&selection.policy!=attendance::seats::Policy::Pending&&(!collecting||activeLoss>0||arrivalMissing>0||replayLoss>=0)&&(applying||!restore)){
                     unsigned short current=0;if(!currentMask(begin,agent,current)){if(applying)return;}
-                    bool baseHidden=(found->second.hidden[agent]&(1u<<bit))!=0;
+                    bool baseHidden=(base->hidden[agent]&(1u<<bit))!=0;
                     bool wasHidden=(current&(1u<<bit))!=0;
                     bool permanent=selection.departed(agent,activeLoss.load());
                     bool withheld=selection.departed(agent,arrivalMissing.load());
-                    auto& owned=found->second.temporary[agent];bool wasTemporary=(owned&(1u<<bit))!=0;
+                    auto& owned=base->temporary[agent];bool wasTemporary=(owned&(1u<<bit))!=0;
                     bool result=attendance::hidePart(hidden,baseHidden,wasHidden,permanent||withheld,restore,reconcilingArrivals,wasTemporary,firstNativeInput);
                     int historical=replayLoss.load();
                     if(!restore&&(historical>=0||exactVisibility))result=attendance::historicalSelection(hidden,baseHidden,selection.departed(agent,historical>=0?historical:(std::max)(activeLoss.load(),arrivalMissing.load())));
@@ -1248,7 +1265,7 @@ void __fastcall visibility(A crowd,unsigned int part,unsigned int agent,bool hid
                 }
                 // Preserve known original empty positions even before a newly
                 // streamed renderer has its departure order prepared.
-                if(found->second.hidden[agent]==0xffff)hidden=true;
+                if(base->hidden[agent]==0xffff)hidden=true;
                 if(applying)++verifiedCalls;
             }
         }else if(applying)return;
@@ -1273,7 +1290,7 @@ void resetMatch(){
     shownVisibilityCalls=shownVisibilityControllers=0;shownOriginalFans=shownVisibleFans=shownExpectedFans=shownNativeExtra=shownOtherExtra=shownExtraVisible=0;visibilityMeasured=false;
     shownComeback=shownUpset=false;contextReady=false;
     shownRank0=shownRank1=shownPrecipitation=0;shownRivalry=shownPlayoff=shownFcs=false;
-    {std::lock_guard<std::mutex> guard(crowdMutex);startingCrowds.clear();originalSeatLayouts.reset();}
+    {std::lock_guard<std::mutex> guard(crowdMutex);++crowdRevision;startingCrowds.clear();originalSeatLayouts.reset();}
     seatPatternPending=false;shownSeatPatterns=shownSeatFallbacks=0;
     collectingStartingCrowd=true;activeLoss=0;currentLoss=highestTarget=0;lastApplied=0;lastMatch=0;lastQuarter=0;lastClock=0;
     shownCurrent=shownTarget=0;observed.clear();restoreAt=0;refreshEntities=true;
@@ -1294,7 +1311,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         if(entityValid(entity))return true;refreshEntities=true;return false;
     },[&](A entity,bool baseline){
         if(!baseline&&!prepared){prepareSeatPatterns();prepared=true;}
-        calls=changed=verifiedCalls=0;applying=true;capturingBaseline=baseline;
+        calls=changed=verifiedCalls=0;passBaseline=nullptr;passRenderer=0;applying=true;capturingBaseline=baseline;
         activeCaptureToken=baseline?++captureSequence:0;
         thinning=!baseline&&thin;reconcilingArrivals=!baseline&&arrivals;
         // The engine resolves controller -> scene crowds. Renderer readiness
@@ -1303,7 +1320,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
         if(baseline){std::lock_guard<std::mutex> guard(crowdMutex);for(auto& item:startingCrowds)
             if(item.second.captureToken==activeCaptureToken)item.second.baselineComplete=true;
         }
-        activeCaptureToken=0;
+        activeCaptureToken=0;passBaseline=nullptr;passRenderer=0;
         applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;
         return attendance::visibility::Pass{calls,verifiedCalls,changed};
     });
@@ -1343,7 +1360,7 @@ void apply(bool thin,bool arrivals=false,bool captureOnly=false) {
 }
 bool guardedApply(bool thin,bool arrivals=false,bool captureOnly=false) {
     __try {apply(thin,arrivals,captureOnly);return true;}
-    __except(EXCEPTION_EXECUTE_HANDLER){passParts.end();applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
+    __except(EXCEPTION_EXECUTE_HANDLER){passBaseline=nullptr;passRenderer=0;passParts.end();applying=false;thinning=false;reconcilingArrivals=capturingBaseline=false;return false;}
 }
 void serviceEmptyMode(){
     static EmptyWorld previous;static bool hadWorld=false;
@@ -1354,7 +1371,7 @@ void serviceEmptyMode(){
     bool owned=contextReady&&world.match==lastMatch&&world.home==shownTeam0&&world.away==shownTeam1;
     if(owned){std::lock_guard<std::mutex> guard(historyMutex);owned=!matchLifecycle.needsReset(world.match,world.phase==6);}
     if(worldChanged&&!owned){
-        std::lock_guard<std::mutex> guard(crowdMutex);startingCrowds.clear();originalSeatLayouts.reset();seatPatternPending=false;visibilityRetry=true;
+        std::lock_guard<std::mutex> guard(crowdMutex);++crowdRevision;startingCrowds.clear();originalSeatLayouts.reset();seatPatternPending=false;visibilityRetry=true;
         appliedVisibilityTarget=appliedVisibilityMode=-1;
     }
     emptyCrowdActive=wanted;
@@ -2012,6 +2029,7 @@ void observeMajorReplay(bool dispatch){
       case N::Finished:message="native inset stage ended";break;
       case N::NativeOnly:message="full-screen native route retained; no added inset expected or requested without a verified play-call destination (Slow Sim, unavailable UI or inset option off)";break;
       case N::Unavailable:message="major sequence could not be completed with available native recording/presentation; original flow retained";break;
+      case N::FallbackInset:message="native full-screen playback was not observed; returning the held native inset request at verified play selection (rendered playback still requires confirmation)";break;
       default:break;}
     if(message)log("major-replay","Play #"+std::to_string(sequence)+": "+message+".");
     if(send){
@@ -2120,6 +2138,10 @@ void atmosphereTick(){
     // pause, interactive replay and world ownership were checked above.
     if(p.game.phase==6)playTracker.primeOpeningIntro(p);
     auto result=p.game.phase==6?attendance::energy::Outcome{}:playTracker.observe(*c,p);
+    if(!resultFreshness.observe(match,audioEpoch.load(),playTracker.serial,p.game.phase,now,result)){
+        log("play-summary","Play #"+std::to_string(result.sequence)+": late official result ("+attendance::energy::name(result.event)+", "+std::to_string(result.yards)+" yards, phase "+std::to_string(p.game.phase)+"); new added reactions expired after the presentation delay. Existing live reactions keep their original timing.");
+        result={};
+    }
     awaySoundReactions.track(*c,p,playTracker.serial);
     // Keep the verified call frozen through the whistle: the native selected
     // play can already describe the NEXT lineup while this result settles.

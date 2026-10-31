@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 working build — 2.0.18** · College Football 27 for Windows · MMC plugin
+By Ace · **Update 3 working build — 2.0.19** · College Football 27 for Windows · MMC plugin
 
 Make the stadium feel like the game being played. Fans arrive after kickoff, leave for halftime and head home when the result looks settled. Crowd sound follows the fans in the seats. Big plays bring cheers, camera shake and more replay opportunities.
 
