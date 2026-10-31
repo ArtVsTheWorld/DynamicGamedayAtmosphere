@@ -155,6 +155,15 @@ int main(){
     }
     auto unchangedCount=scaled.changed();output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,0);assert(output==source&&scaled.changed()==unchangedCount);
     output=source;scaled.tick(addr(view[0]),output.data(),fixed,cue.match,2,2000,false,3);assert(output==source&&scaled.changed()==unchangedCount);
+    // Distinguish a prepared visitor request from an actual matrix change.
+    Runtime visitor;visitor.configure(image);auto away=fixed;away.visitor=true;away.percent=3;away.playSequence=19;
+    assert(visitor.prepare(addr(view[0]),away,cue.match,2,2000)&&visitor.visitorChanged()==0);
+    output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000,false,1.1f);
+    assert(output!=source&&visitor.visitorChanged()==1&&std::fabs(visitor.visitorPercent()-3.3f)<.001f&&visitor.visitorPeak()==visitor.visitorPercent());
+    away.percent=2;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
+    assert(visitor.visitorChanged()==2&&visitor.visitorPercent()==2&&std::fabs(visitor.visitorPeak()-3.3f)<.001f);
+    paused=1;output=source;visitor.tick(addr(view[0]),output.data(),away,cue.match,2,2000);
+    assert(output==source&&visitor.visitorChanged()==2);paused=0;
     r.fail();skipped(addr(view[0]),cue.match,2,2000);assert(!r.healthy());
     // Vtable-pointer ownership: restore only the pointer we installed.
     auto page=VirtualAlloc(nullptr,4096,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);assert(page);auto slot=reinterpret_cast<A*>(page);*slot=123;

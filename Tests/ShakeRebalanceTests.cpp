@@ -10,6 +10,14 @@ int main(){
     for(int i=0;i<6;++i)assert(std::fabs(occupiedScale(static_cast<uint64_t>(counts[i]),1)-factors[i])<.001f);
     assert(occupiedScale(6060,.5f)<occupiedScale(6060,.99f)&&occupiedScale(6060,.99f)<occupiedScale(51424,.85f));
     assert(occupiedScale(6060,0)==0&&occupiedScale(0,1)==0&&occupiedScale(6060,NAN)==0);
+    // The optional visitor counterpart scales the existing envelope once.
+    // Neutral-site strength continues to use its shared 75% policy instead.
+    for(bool neutral:{false,true})for(float population:{.8f,1.1f,1.25f})for(auto profile:{Profile::Gain,Profile::Truck,Profile::Catch,Profile::Takeaway,Profile::Loss}){
+        Model home,away;Input x;x.match=1;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
+        x.profile=profile;x.venueScale=population;x.neutral=neutral;x.duringCatch=profile==Profile::Catch;
+        auto normal=home.observe(s,x);if(!neutral)x.venueScale*=AwayReactionScale;auto visitor=away.observe(s,x);
+        assert(std::fabs(visitor.percent-normal.percent*(neutral?1.f:.35f))<.0001f);
+    }
     for(auto p:{Profile::Truck,Profile::Gain,Profile::Skill,Profile::Catch,Profile::Stop,Profile::Loss,Profile::Conversion,Profile::Downs,Profile::Takeaway,Profile::Force,Profile::GoalStop,Profile::HighStop}){
         for(bool neutral:{false,true})for(float leverage:{0.f,.5f,1.f})for(float population:{.8f,1.1f}){
             Model m;Input x;x.match=1;x.epoch=1;x.allowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;

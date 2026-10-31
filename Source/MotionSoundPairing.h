@@ -3,7 +3,7 @@
 #include "SustainedCrowd.h"
 
 namespace attendance::pairing {
-struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;uint64_t audibleAt=0;};
+struct SoundLease {uintptr_t match=0;unsigned epoch=0;uint64_t updated=0;bool audible=false;uint64_t audibleAt=0,playSequence=0;};
 inline float soundWeight(const SoundLease& sound,const motion::Cue& cue,uint64_t now,bool presentationCarry=false){
     if(!sound.match||sound.match!=cue.match||sound.epoch!=cue.epoch||now<sound.updated)return 0;
     bool scoring=cue.kind==motion::Kind::Touchdown||cue.kind==motion::Kind::Eruption;
@@ -15,6 +15,15 @@ inline float soundWeight(const SoundLease& sound,const motion::Cue& cue,uint64_t
     bool earned=cue.kind!=motion::Kind::None&&cue.kind!=motion::Kind::Ordinary&&cue.kind!=motion::Kind::Critical;
     uint64_t heard=sound.audible?sound.updated:sound.audibleAt;
     if(!heard||now<heard)return 0;
+    // A visitor's one-shot can precede its camera proof, and a run's fade
+    // rebases began at the whistle. Bind dispatch proof to the verified play,
+    // rather than demanding that the sound start again after either handoff.
+    // The original envelope, live audio context, mute and world guards remain.
+    if(cue.visitor){
+        return earned&&cue.playSequence&&sound.playSequence==cue.playSequence&&
+            now>=cue.updated&&now-cue.updated<=750&&now-sound.updated<=750&&
+            now>=cue.began&&cue.until>cue.began&&now<cue.until?1.f:0.f;
+    }
     auto age=now-heard;
     // A timeout/penalty may stop the native voice while an earned camera
     // envelope is still finishing. Preserve only a previously heard cue in a

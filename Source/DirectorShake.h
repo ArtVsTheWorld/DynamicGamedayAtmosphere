@@ -11,6 +11,7 @@ namespace attendance::motion {
 enum class Kind { None,Ordinary,Critical,Touchdown,Eruption,LivePlay,Safety,BlockedKick,Clincher,Cannon };
 inline const char* name(Kind k){switch(k){case Kind::Cannon:return "stadium cannon impact";case Kind::Clincher:return "game-sealing first down";case Kind::BlockedKick:return "blocked-field-goal impact";case Kind::Ordinary:return "ordinary buildup";case Kind::Critical:return "critical buildup";case Kind::Touchdown:return "touchdown";case Kind::Eruption:return "eruption";case Kind::LivePlay:return "live-play reaction";case Kind::Safety:return "safety";default:return "inactive";}}
 struct Settings {float ordinary=5,critical=10,touchdown=16,eruption=22.5f,live=11,catchImpact=12;float touchdownImpact=20,eruptionImpact=30;unsigned touchdownMs=11000,eruptionMs=16000;float lineupCheer=6;unsigned reactionFadeMs=5000,impactExtraMs=1000;float hostileOpeningMaximum=10,cannon=18;bool awayReactions=false;bool widePlayerCompensation=false;std::array<float,5> cameraPercent{{100,100,100,100,100}};};
+inline constexpr float AwayReactionScale=.35f;
 inline float hostileOpeningStrength(uint64_t positions,float maximum=10){
     if(positions<512||positions>12800000||!std::isfinite(maximum))return 0;
     return (std::clamp)(maximum,0.f,30.f)*venueScale(positions);
@@ -39,7 +40,7 @@ struct Cue {
     bool scoreBuildup=false;
     Profile profile=Profile::Default;float leverage=0;float holdRatio=1,peakRatio=1;
     bool smoothRunBuildup=false;float buildupStrength=0;uint64_t buildupUpdated=0;
-    float additiveScale=1;bool visitor=false;uint64_t soundAt=0;
+    float additiveScale=1;bool visitor=false;uint64_t soundAt=0,playSequence=0;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){

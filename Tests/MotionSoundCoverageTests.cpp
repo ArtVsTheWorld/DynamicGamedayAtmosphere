@@ -48,5 +48,23 @@ int main(){
         cue.updated=13500;++sound.epoch;assert(pairing::soundWeight(sound,cue,13500)==0);
         --sound.epoch;++sound.match;assert(pairing::soundWeight(sound,cue,13500)==0);
     }
-    std::puts("PASS: every crowd motion category has a bounded sound companion, silent-intent repair, no fabricated cheers and continuous TD/eruption sound handoffs, unchanged expiry and audible lease fail-closed/stale/world/pause isolation.");
+    // A visitor sound may precede the impact proof, or its original run may
+    // enter a fade several seconds after the cheer. Keep only current-play
+    // dispatch proof, not a requirement to issue a second negative reaction.
+    for(auto kind:{motion::Kind::LivePlay,motion::Kind::Touchdown,motion::Kind::Eruption,motion::Kind::Safety,motion::Kind::BlockedKick}){
+        motion::Cue cue{123,2,3000,2500,6000,kind,3,false,4};cue.visitor=true;cue.playSequence=19;
+        pairing::SoundLease sound{123,2,3000,false,1000,19};
+        assert(pairing::soundWeight(sound,cue,3000,true)==1);
+        cue.tail=true;cue.began=2900;assert(pairing::soundWeight(sound,cue,3000,true)==1);
+        ++sound.playSequence;assert(pairing::soundWeight(sound,cue,3000,true)==0);--sound.playSequence;
+        sound.playSequence=0;assert(pairing::soundWeight(sound,cue,3000,true)==0);sound.playSequence=19;
+        sound.audibleAt=0;assert(pairing::soundWeight(sound,cue,3000,true)==0);sound.audibleAt=1000;
+        sound.updated=2249;assert(pairing::soundWeight(sound,cue,3000,true)==0);sound.updated=3000;
+        cue.updated=2249;assert(pairing::soundWeight(sound,cue,3000,true)==0);cue.updated=3000;
+        assert(pairing::soundWeight(sound,cue,6000,true)==0);
+        cue.updated=sound.updated=6000;assert(pairing::soundWeight(sound,cue,6000,true)==0);
+        ++sound.epoch;assert(pairing::soundWeight(sound,cue,3000,true)==0);--sound.epoch;
+        ++sound.match;assert(pairing::soundWeight(sound,cue,3000,true)==0);
+    }
+    std::puts("PASS: bounded sound companions, TD/eruption continuity and play-owned visitor handoffs; mute, stale, expiry, new-play and world isolation preserved.");
 }

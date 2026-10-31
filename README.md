@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere
 
-By Ace · **Update 3 Hotfix — 2.0.28** · College Football 27 for Windows · MMC
+By Ace · **Update 3 Hotfix — 2.0.29 test build** · College Football 27 for Windows · MMC
 
 Crowds arrive, take halftime breaks and leave early. Crowd sound follows the fans in the seats, while big plays bring extra reactions, camera shake and replay opportunities.
 

@@ -23,6 +23,7 @@ class Runtime {
     std::atomic<bool> healthy_{true};std::atomic<uint64_t> changed_{0},last_{0};std::atomic<float> percent_{0};std::atomic<Kind> kind_{Kind::None};
     std::atomic<uint64_t> appliedBegan_{0};std::atomic<float> zoomScale_{1},unscaled_{0},presetScale_{1};
     std::atomic<uint64_t> requestedBegan_{0},requestedAt_{0};std::atomic<Kind> requestedKind_{Kind::None};
+    std::atomic<uint64_t> visitorChanged_{0};std::atomic<float> visitorPercent_{0},visitorPeak_{0};
     static bool read(uintptr_t p,void* out,size_t size){SIZE_T n=0;return p>=0x10000&&ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(p),out,size,&n)&&n==size;}
     template<class T>static T at(uintptr_t p){T value{};read(p,&value,sizeof(value));return value;}
     bool world(const Cue& c,uintptr_t view)const{
@@ -68,6 +69,10 @@ public:
         if(!read(address,output.data(),sizeof(output))||!apply(output,adjusted,now))return;
         SIZE_T n=0;if(!WriteProcessMemory(GetCurrentProcess(),destination,output.data(),sizeof(output),&n)||n!=sizeof(output))return;
         ++changed_;appliedBegan_=cue.began;unscaled_=strength(cue,now);zoomScale_=viewScale;presetScale_=presetScale;percent_=strength(adjusted,now);kind_=cue.kind;last_=now;
+        if(cue.visitor){
+            ++visitorChanged_;float level=strength(adjusted,now);visitorPercent_=level;
+            float peak=visitorPeak_.load();while(peak<level&&!visitorPeak_.compare_exchange_weak(peak,level)){}
+        }
     }
     bool healthy()const{return healthy_;}void fail(){healthy_=false;}
     bool playing(uint64_t now)const{auto last=last_.load();return healthy_&&last&&now>=last&&now-last<150;}
@@ -76,5 +81,6 @@ public:
     float zoomScale()const{return zoomScale_;}float unscaled()const{return unscaled_;}
     float presetScale()const{return presetScale_;}
     Kind kind()const{return kind_;}float percent()const{return percent_;}uint64_t changed()const{return changed_;}
+    uint64_t visitorChanged()const{return visitorChanged_;}float visitorPercent()const{return visitorPercent_;}float visitorPeak()const{return visitorPeak_;}
 };
 }

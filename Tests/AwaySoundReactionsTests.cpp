@@ -43,5 +43,10 @@ int main(){
   assert((f.model.motion().event==live::Event::FumbleRecovery)==!own);
   if(!own)assert(recovery.type&&recovery.type/4==9);
  }
+ // A home-offense loss routes to the visiting defense even though the
+ // primary home-only result classifier does not call it a defensive event.
+ {Fixture f(0);f.p.resultStamp=10;f.begin();f.p.down=2;f.p.resultStamp=11;f.p.fieldSpot=-15;f.p.toFirst=15;f.p.toGoal=65;f.p.game.seconds-=3;
+  f.tick(4,0,2,-15);auto event=f.model.motion();assert(event.event==live::Event::TackleForLoss&&event.side==1);
+  assert(!f.tick(4,0,2,-15).scoring&&!f.model.motion().id);}
  std::puts("PASS: away-only existing-trigger counterparts, live-to-score upgrade once, split-crowd/home ownership, disabled/sim/kneel/gap exclusion and main-play sequence alignment.");
 }

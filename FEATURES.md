@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 Hotfix — 2.0.28** · College Football 27 for Windows · MMC
+By Ace · **Update 3 Hotfix — 2.0.29 test build** · College Football 27 for Windows · MMC
 
 This list describes the active features at the default settings. Most effects have their own switch. A crowd sound request does not guarantee EA will play it, and a replay request does not guarantee a clip exists.
 
@@ -239,7 +239,7 @@ Distinct live-skill, result and eruption cheers can overlap vanilla voices and e
 - **Live showboating:** a fresh verified home-carrier running celebration builds slowly; visitor showboating gets boos. Both need layered atmosphere. Cached tags and post-whistle celebrations do not trigger it.
 - **Kicks and tries:** close made field goals, opponent misses and blocked field goals get appropriate reactions. A game-saving block can use a touchdown-style profile. Overtime includes made/failed two-point tries and field goals; failed home results use disappointment. Safeties use a shorter touchdown-style response.
 
-Positive shake favors home successes and defensive stops at home venues; either team can qualify at neutral sites. Visitor successes use negative counterparts. Away Team Reaction Shake is off by default; turning it on adds 20% of the matching admitted home effect. Neutral sites retain their existing shared-crowd balance. Mirrored returns, skill moves, fumbles and defensive stops reuse the same verified proof and own-fumble exclusions. They do not create positive home roars. Away takeaways promptly clear old positive home movement and its short skill-move swell. A skill accent cannot restart an existing run sound or shorten its fade. Neutral crowds avoid treating one team's success as a stadium-wide home disappointment. Clock plays, stale data, pauses and recorded replays do not start new live reactions.
+Positive shake favors home successes and defensive stops at home venues; either team can qualify at neutral sites. Visitor successes use negative counterparts. Away Team Reaction Shake is off by default; turning it on adds 35% of the matching admitted home effect. A negative sound can start before its shake or continue into the post-play fade without cutting that shake short; the proof stays tied to the same play. Neutral sites retain their existing shared-crowd balance. Mirrored returns, skill moves, fumbles and defensive stops reuse the same verified proof and own-fumble exclusions. They do not create positive home roars. Away takeaways promptly clear old positive home movement and its short skill-move swell. A skill accent cannot restart an existing run sound or shorten its fade. Neutral crowds avoid treating one team's success as a stadium-wide home disappointment. Clock plays, stale data, pauses and recorded replays do not start new live reactions.
 
 ### Reaction variety and overlapping cheers
 
@@ -442,7 +442,7 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | --- | --- |
 | Show Fullness in Pause Menu | Show the percentage of seats filled beside Resume in the pause menu. It updates when you open the menu. A dash means the crowd measurement is not ready yet. |
 | Added Camera Shake | Allow camera shake added by this mod. Turn off to stop all of the mod's added shake. The game's Dynamic Camera Effects setting must also be on. |
-| Away Team Reaction Shake | Add a little shake when the visiting team makes a big play or defensive stop. It uses one fifth of the matching home-team shake. Off by default; disappointment sounds still play. Games at neutral stadiums keep their usual shake. |
+| Away Team Reaction Shake | Add a gentle shake when the visiting team makes a big play or defensive stop. It uses about a third (35%) of the matching home-team shake. Off by default; disappointment sounds still play. Games at neutral stadiums keep their usual shake. |
 | Wide Player Camera Compensation | Make shake more noticeable on very wide RTG or player-lock cameras. Leave Off for normal gameplay cameras: On can make shake several times stronger. Turn it off again when returning to a normal camera. Added Camera Shake must be on. |
 | Additional Replays | Ask the game for more replays after plays. Turn off to stop these extra requests. The game can still show its own replays. |
 | Full-Screen Big Play Replays | Ask for full-screen replays after big plays. The game still chooses what it can show, and you can still skip replays normally. Additional Replays must be on. |
