@@ -1,6 +1,6 @@
 # Dynamic Gameday Atmosphere — full feature list
 
-By Ace · **Update 3 working build 2.0.19 — not publicly released** · College Football 27 for Windows · MMC
+By Ace · **Update 3 working build 2.0.20 — not publicly released** · College Football 27 for Windows · MMC
 
 This list describes the active features at the default settings. Most effects have their own switch. A crowd sound request does not guarantee EA will play it, and a replay request does not guarantee a clip exists.
 
@@ -64,6 +64,25 @@ Boosts and variation are fixed for the matchup, stadium, week and season; reload
 
 Night detection uses verified stadium-local kickoff time, rather than assuming every late Eastern broadcast is a night game. Regular neutral games average the two programs' support and form, apply shared matchup demand and omit the home-opener benefit. Swapping designated home and away sides gives the same turnout.
 
+### Showcase rivalries
+
+These eight native rivalry events always receive a **100% expected peak** on a supported fresh regular-season Dynasty launch, regardless of school grades, records, rankings, ordinary weather deductions or Attendance Profile:
+
+| Matchup | Stadium fullness at kickoff |
+| --- | --- |
+| Florida–Georgia | 70–80% |
+| UCLA–USC | 70–80% |
+| Florida State–Miami | 70–80% |
+| Notre Dame–USC | 70–80% |
+| Oklahoma–Texas | 80–90% |
+| Army–Navy | 90–95% |
+| Alabama–Auburn | 70–80% |
+| Michigan–Ohio State | 85–95% |
+
+The exact starting percentage is fixed by the rivalry event, week and season. Reloading does not reroll it. Remaining fans arrive by 30% of the way through Q1, at normal hidden breaks. These rules replace the ordinary arrival-group and weather opening deductions for these events. Arrivals off starts with the full expected crowd. Normal halftime breaks and departures still apply afterward; the rule does not keep refilling empty seats.
+
+Recognition uses **the game's rivalry-event identifier**, rather than a hard-coded pair of team IDs. A TeamBuilder replacement that retains that native rivalry event retains the attendance rule. A custom matchup with no matching event is not guessed from team slots, names or stadium. Already loaded games and Midgame Saves keep their recorded attendance; 2020 Mode still shows empty stands. Other modes and postseason keep their existing attendance paths.
+
 ### Kickoff and first-quarter arrivals
 
 Peak turnout and kickoff crowd are separate. If a stadium expects to fill 50% of its seats and 55% of those fans start seated, kickoff fullness is about 27.5%.
@@ -78,7 +97,7 @@ Peak turnout and kickoff crowd are separate. If a stadium expects to fill 50% of
 
 Late-arriving homes are **UCLA, Miami (FL), Georgia Tech, Maryland and Utah**. Neutral games use normal arrival timing. Smaller home venues receive up to 8 extra kickoff percentage points for easier access, tapering to zero in the largest venues. Same-state opponents add 2 points, night adds 5, a home opener adds 1, a qualifying big game adds up to 3, and two Top 10 teams add 1. These additions share the normal 70% ceiling.
 
-Exceptional regular-season games can open at 75–80% of expected peak. This requires at least 95% expected capacity, top-fifth school support, a night kickoff or home opener, and either two Top 10 teams or rivals both in the Top 25. Late-arriving home schools do not use this exception. **80% is the hard regular-season kickoff cap.**
+Exceptional regular-season games can open at 75–80% of expected peak. This requires at least 95% expected capacity, top-fifth school support, a night kickoff or home opener, and either two Top 10 teams or rivals both in the Top 25. Late-arriving home schools do not use this exception. **80% is the usual regular-season kickoff cap.** The named showcase rivalries below have their own protected bands.
 
 Only weather can take the kickoff share below 40%, with a hard 35% minimum. Outdoor light/medium/heavy precipitation takes 3/5/8 kickoff points. Postseason openings stay within their protected bands.
 
@@ -111,6 +130,8 @@ Score, time, rankings, matchup, weather and the way the game developed determine
 Margins between these bands blend gradually. These are targets, not guaranteed cuts. Home wins, weather, protection, floors and available update windows can change the result. Home deficits above 16 can begin thinning before halftime. Moderate deficits stay gentler in Q3; substantial Q4 blowouts can catch up when too many fans remain for the score.
 
 An underdog competing with a Top 25 opponent gets more patience, especially when leading a Top 10 team late. Recovering at least 14 points after trailing by 21 can pause new departures while the comeback is credible. A fading rally or too little time can end that protection. Possession, field position and remaining timeouts help when known. Neither an upset nor a comeback refills departed seats.
+
+In a regular-season home night game, a home lead of 21+ points adds earlier traffic pressure from the second half of Q3. It builds with both the lead and elapsed time through Q4. A 33-point night home win can aim toward roughly a third of the crowd remaining, rather than protecting the winning crowd as strongly. This is a gradual target, not an immediate cut or an extra deduction every time someone scores. The existing crowd floors, quarter caps, comeback protection and safe seating windows remain in charge. Neutral and postseason games do not get this extra home-night rule.
 
 After halftime, regular-season night games add up to 20% departure pressure. Low scoring pace can add up to 15%; a projected 72+ combined points can reduce pressure by up to 10%. These changes build through Q3, reach full strength in Q4 and are reduced to a quarter of that effect in one-score games. Postseason keeps its own rules. These are pressure adjustments, not repeated percentages removed from the remaining crowd.
 
@@ -200,17 +221,17 @@ In the final three minutes of Q4, a home offense tied or down by at most eight c
 
 ### Live plays, skills and defensive results
 
-- **Runs, scrambles and short catch-and-runs:** buildup starts at 11 total yards, targets its peak at 15, and requests one cheer at 20. Strength rises toward the distance target over up to about 0.8 seconds, so a late first sample does not jump straight to the peak. A tackle fades from the movement actually reached. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
+- **Runs, scrambles and short catch-and-runs:** buildup starts at 11 total yards, targets its peak at 15, and requests a strong cheer with the roar at 15 by default. A fast native swell accompanies the buildup. The advanced gain threshold remains adjustable. Strength rises toward the distance target over up to about 0.8 seconds, so a late first sample does not jump straight to the peak. A tackle fades from the movement actually reached. A short catch needs actual running afterward. Backward cuts do not restart the reaction.
 - **Long catches:** 20 yards at the catch can earn an immediate response. An immediate tackle gets a short impact; a running receiver keeps the live-play reaction. A short official-result confirmation window covers delayed completion data.
 - **Pass anticipation:** either offense's qualifying airborne pass can get a fast swell. No pre-catch cheer, shake or separate volume bonus is added.
-- **Kick and punt returns:** buildup starts at 30 return yards, peaks and cheers at 40.
-- **Interceptions:** fresh native proof can react before the possession label catches up. Verified defensive fumble returns use the same continuous return treatment.
+- **Kick returns:** swell and shake build from 25 return yards, reaching the full cheer and roar at 35. Punt returns keep their 30-to-40-yard buildup. Return distance starts where the ball is caught, rather than at the kicking line of scrimmage.
+- **Interceptions:** fresh native proof can request an immediate strong takeaway cheer and sustained roar before the possession label catches up. Verified defensive fumble recoveries use the same return treatment. Own-team pickups do not qualify.
 - **Forced fumbles:** fresh force proof can react on any down. A delayed-proof fallback requires opposing contact, carrier possession loss and new native fumble confirmation. Defensive recovery can supply one missed impact. Own-team pickups never get a takeaway shake or revive an old gain.
 - **Defensive losses:** a confirmed loss of at least five yards, including a sack, can shake without waiting for a sack label. Shorter sacks retain sound and replay classification. Carried flags from prior plays, released passes, kneels and spikes cannot invent sacks.
 - **Third/fourth-down stops:** verified knockout, breakup or hit-stick evidence can earn one confirmed stop impact. Contact and official-result callbacks cannot stack the same impact. A routine third-down incompletion alone does not earn shake in regulation. Overtime can use a generic confirmed stop.
 - **Goal-line stands:** the dedicated stronger impact needs fourth down inside the five. The special high-leverage stop applies in Q4. Turnover on downs has its own paired cheer/impact.
 - **Fourth-down conversions:** can react when the live ball reaches the first-down line, with one official-result fallback if missed. Later long gains or scores can still upgrade the reaction without repeating the same conversion impact.
-- **Skills:** successful jukes/spins cheer without shake; ordinary broken tackles use sound/swell only. Confirmed trucks add a quick impact; stiff arms and hurdles add gentler accents. These use the stronger effect alongside an existing run buildup, without adding shake strengths or restarting the run. Hit sticks get immediate sound, but need a confirmed third/fourth-down stop for shake. Attempts alone do not count. Accents have a short spacing limit and a maximum of three per play.
+- **Skills:** successful jukes/spins cheer without shake; ordinary broken tackles use sound/swell only. Confirmed trucks add a quick impact; stiff arms and hurdles add gentler accents. Trucks request the strongest tested big-hit “ooh” selector; successful hurdles, stiff arms, jukes and spins request stronger ballcarrier cheers. Fullness and occupied seats can still reduce their size. Independent shake-worthy moves can gently reinforce a running gain without restarting its timer. Hit sticks get immediate sound, but need a confirmed third/fourth-down stop for shake. Attempts alone do not count. Accents have a short spacing limit and a maximum of three per play.
 - **Live showboating:** a fresh verified home-carrier running celebration builds slowly; visitor showboating gets boos. Both need layered atmosphere. Cached tags and post-whistle celebrations do not trigger it.
 - **Kicks and tries:** close made field goals, opponent misses and blocked field goals get appropriate reactions. A game-saving block can use a touchdown-style profile. Overtime includes made/failed two-point tries and field goals; failed home results use disappointment. Safeties use a shorter touchdown-style response.
 
@@ -224,7 +245,7 @@ If the native event-specific cheer queue drops a request, DGA makes one short, s
 
 The palette contains **80 listening-tested native selectors across 27 usable families**: positive and negative ballcarrier actions, catches, field goals, fumbles, incompletions, interceptions, sacks, receiving touchdowns, rushing touchdowns and yardage gains; positive big hits; generic cheers, disappointment, surprise, boos, applause-style cheers and anticipation. Negative big-hit IDs 13–15 and negative catch ID 23 are excluded after failed listening checks.
 
-Higher IDs within a family are generally stronger. Selection considers the play's importance, occupied seats and fullness; it does not choose the loudest variant for every play. The remaining native variants in the auditioned families are used as variety for existing triggers, not as new play detectors.
+Higher IDs within a family are generally stronger. Selection considers the play's importance, occupied seats and fullness; ordinary contexts favor medium and larger variants, while important skills, takeaways and peak gains request the strongest usable family member. Sparse crowds still cap the final size, so a small crowd does not receive every large-stadium recording. The remaining native variants in the auditioned families are used as variety for existing triggers, not as new play detectors.
 
 DGA cheers may overlap native cheers. Matching native sounds and an already busy crowd do not deliberately suppress an intended DGA cheer. Same-event and ownership checks still prevent repeated callback dispatch. A discarded request can get one brief same-play recovery; a major play can have one delayed second accent. A new snap, pause or replay cancels stale work. EA still decides voice allocation; a sent request is not proof that a sound was heard.
 
@@ -252,6 +273,12 @@ Outdoor ambience is lifted by 6 dB and the existing reverb return by 3 dB during
 
 The normal attendance plan and history continue underneath. Switching off restores the current normal target and retires the owned audio changes. It does not rewrite the game's scheduled attendance or save. Fullness displays zero while active, and crowd-driven shake is suppressed. The mode works independently of the normal Attendance/Soundscape switches in supported stadium contexts. Its quiet individual-detail balance still needs a final live check on this release build.
 
+### Steady background roar
+
+A separate low-priority sustained roar can fill the gaps between play reactions once the stadium is more than 60% full with over 10,000 occupied mapped positions. It blends up with both numbers, uses a larger native size around the dense-crowd tiers below, and works between snaps and during live play. It does not fire repeated cheer samples or create shake.
+
+This reuses the verified native sustained-crowd channel. A play reaction takes over that same voice, then the steady background can return afterward. That limits extra voices and avoids layering multiple copies of the same roar. Pauses, interactive replay, simulation, disabled extra crowd energy and 2020 Mode stop it. The mix stays under the existing crowd-bus gain limits. This new steady-roar balance still needs a live listening check.
+
 ### Fuller dense-crowd layers
 
 Already-qualified atmosphere gets stronger roar support around 80% fullness and 20,000 occupied mapped positions. A second tier around 85% and 45,000 strengthens very large crowds further. Both blend in gradually. The first tier adds up to 20% to DGA layer intensity; the second adds another 12 percentage points, within the native intensity limit. These are layer-intensity changes. The background mixer uses the separate +3.5 to +4 dB dense-crowd ceiling described above; reaction buses retain their +30% ceiling. Dense crowds can sustain a supporting swell at lower excitement levels, while ordinary plays keep restrained cheer sizes. Major moments can use the strongest tested variants once at least 24,000 positions are occupied at 80% fullness. No new play triggers or extra cheer requests are added.
@@ -260,7 +287,7 @@ Already-qualified atmosphere gets stronger roar support around 80% fullness and 
 
 ### Strength follows the fans in the seats
 
-Fullness and situation decide whether shake qualifies. Once admitted, occupied mapped positions determine strength on a smooth curve: about 0.80× at 6,060 occupied positions, 0.90× at 15,000, 0.99× at 30,000, 1.07× at 50,000 and 1.10× at 61,888. The curve continues below 6,060 and caps at 1.10×. Unknown layouts and zero occupancy add no crowd motion.
+Fullness and situation decide whether shake qualifies. Once admitted, occupied mapped positions determine strength on a smooth curve: about 0.80× at 6,060 occupied positions, 0.87× at 15,000, 0.99× at 30,000, 1.15× at 50,000 and 1.25× at 61,888. This is a straight-line increase. It continues smoothly below 6,060 and caps at 1.25×. Unknown layouts and zero occupancy add no crowd motion.
 
 The same stadium strengthens as fans arrive and softens as they leave. Neutral-site crowd shake is **75% of normal for either team**. Qualifying overtime adds one 10% lift within the existing limits. Cannons keep their independent physical-blast setting.
 
@@ -285,9 +312,9 @@ The same stadium strengthens as fans arrive and softens as they leave. Neutral-s
 
 Pre-snap shake stays on gameplay views. Third down needs ten or fewer yards to go; fourth down needs an offensive go-for-it call. Field goals can get ordinary buildup; routine PATs and kickoffs do not. A qualifying fresh big-game opening kickoff has its own motion.
 
-Shake eases in and softens on close-ups. By default, wide cameras never amplify the configured shake: view compensation is capped at 1×. The captured wide RTG/player-camera allowance remains available through the **Wide Player Camera Compensation** toggle in **Broadcast** (or `WidePlayerCameraCompensation=1` in the INI), which allows up to 4×. It defaults to 0. Field of view cannot reliably distinguish RTG from a wide normal camera, so this is an explicit opt-in, not automatic mode detection. Turn it off when returning to ordinary broadcast views. The game keeps its own camera angle and zoom. At the snap, lineup shake fades over 0.9 seconds while following the new live camera. Run/catch effects build into touchdown/eruption impact over about 300 ms without restarting the motion. The stronger effect wins rather than stacking amplitudes.
+Shake eases in and softens on close-ups. The close-up reduction is gentler than before: a view that previously received half strength now receives about 59%. By default, wide cameras never amplify the configured shake: view compensation is capped at 1×. The captured wide RTG/player-camera allowance remains available through the **Wide Player Camera Compensation** toggle in **Broadcast** (or `WidePlayerCameraCompensation=1` in the INI), which allows up to 4×. It defaults to 0. Field of view cannot reliably distinguish RTG from a wide normal camera, so this is an explicit opt-in, not automatic mode detection. Turn it off when returning to ordinary broadcast views. The game keeps its own camera angle and zoom. At the snap, lineup shake fades over 0.9 seconds while following the new live camera. Run/catch effects build into touchdown/eruption impact over about 300 ms without restarting the motion. The strongest active crowd effect leads, with 15% of the other independent effects added, capped at 15% above the strongest. A truck during a long run can therefore be felt without doubling the shake. Reports of the same event are not extra effects, and overlap does not extend the stronger timer. Scoring celebrations replace the earlier live effects.
 
-Runs, catch-and-runs and qualifying returns use a shared five-second whistle fade by default, adjustable from one to eight seconds. Play distance adds no extra time. Short impacts have their own roughly 2–3-second envelopes; a confirmed force has a sharper 35 ms onset. Camera cuts and timeout scenes keep the original timer. Recorded replays stay steady. Pause, interactive replay, new games and the game's Dynamic Camera Effects switch stop added shake.
+Runs, catch-and-runs and qualifying returns use a shared five-second whistle fade by default, adjustable from one to eight seconds. Play distance adds no extra time. Short impacts have their own roughly 2–3-second envelopes; a confirmed force has a sharper 35 ms onset. Camera cuts, timeouts and penalty presentation let earned shake finish on its original timer. Once its matching sound has been confirmed, a brief native presentation sound stop does not cut that earned shake off. This does not start an unearned effect or replay its cheer. Recorded replays stay steady. Pause, interactive replay, new games and the game's Dynamic Camera Effects switch stop added shake.
 
 Native Stadium Pulse camera motion follows DGA's crowd/context admission, with an additional advanced minimum-fullness safeguard. While a fresh DGA crowd-shake output is actually being rendered, native HFA camera motion yields instead of adding another effect. Its latest requested tier is remembered and restored when DGA stops. Mere eligibility or a prepared request does not take ownership. This changes only its camera channel: composure, the HFA meter, play art and gameplay advantages stay native. Setting the advanced filter minimum to zero preserves its opt-out. A cannon blast does not depend on the crowd gate.
 
@@ -372,7 +399,7 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | 2020 Mode | Play with empty stands. Mute the crowd, bands, drums and PA announcer, but keep quiet individual voices and a more open stadium sound. Turn off to bring back normal attendance and sound. |
 | Fans Arriving After Kickoff | Start with some fans still outside, then fill their seats during the first quarter. Turn off to start with the full expected crowd. This does not guarantee a sellout. |
 | Beat the Traffic | Let fans leave sooner when the home team is far behind late in the game. With 12-minute quarters, this starts at 4:00 in Q4 when down 17+, or gently at 6:00 when down 28+. |
-| Attendance Profile | Default keeps the normal mod balance. Fuller Crowds raises the expected peak by 8 percentage points in fresh regular-season Dynasty games and seats 7 more of every 100 expected fans at kickoff in those games. Existing caps and weather rules still apply. Choose before loading a fresh game. Postseason crowds keep their own rules. |
+| Attendance Profile | Default keeps the normal mod balance. Fuller Crowds raises the expected peak by 8 percentage points in fresh regular-season Dynasty games and seats 7 more of every 100 expected fans at kickoff in those games. Existing caps and weather rules still apply; named showcase rivalries have their own starting ranges. Choose before loading a fresh game. Postseason crowds keep their own rules. |
 | Fan Patience | Automatic follows the matchup and weather. Normal uses standard departures. Patient Fans makes people stay longer. Bad Weather makes people leave sooner. This does not change the starting crowd. |
 | Ordinary Kickoff Crowd (%) | How much of the expected crowd starts in its seats. At 55, about 55 of every 100 expected fans are seated at kickoff. Smaller stadiums and special games can start fuller. Higher means more fans at kickoff. Applies to fresh games. |
 | Late-Arriving Schools: Kickoff (%) | Kickoff crowd for UCLA, Miami (FL), Georgia Tech, Maryland and Utah. At 45, about 45 of every 100 expected fans start seated. Higher means more fans at kickoff. Night games and weather can change it. Applies to fresh games. |
@@ -412,7 +439,7 @@ For a report, send the whole Logs folder and note the teams, quarter/clock, play
 | Full-Screen Replay: Minimum Yards | How many yards a gain needs for an extra full-screen replay chance. Higher saves it for longer plays; lower includes shorter plays. The game still decides whether a replay appears. This does not set the touchdown or takeaway rules. |
 | Normal Play Selection Shake (%) | Maximum shake during ordinary play selection. Higher is stronger; lower is gentler. At 0, this type is off. Buildup before a punt uses half this strength. A qualifying crowd is still needed. |
 | Important Down Shake (%) | Maximum pre-snap shake on qualifying third and fourth downs in close games. Higher is stronger; 0 turns this type off. Home-offense buildup is 25% gentler than when the home crowd is defending. A qualifying crowd is still needed. |
-| Live Play Shake (%) | Strength of shake for gains, takeaways and important stops. Higher is stronger; 0 turns it off. Big events get more shake than routine ones. Kick and punt returns build from 30 to 40 yards. Picking up your own fumble adds no shake. |
+| Live Play Shake (%) | Strength of shake for gains, takeaways and important stops. Higher is stronger; 0 turns it off. Big events get more shake than routine ones. Kickoff returns build from25 to35 yards; punt returns from30 to40. Distinct crowd effects can add a small extra shake without doubling it. Picking up your own fumble adds no shake. |
 | Touchdown Shake (%) | Shake level held after the first touchdown impact. Higher is stronger; lower is gentler. At 0, touchdown shake is off. An active run or catch reaction builds smoothly into the celebration. |
 | Major Celebration Shake (%) | Shake level held after the first impact of a major celebration, such as a winning play. Higher is stronger; 0 turns this type off. An active play reaction builds smoothly into it. |
 | Stadium Cannon Shake (%) | Shake when a stadium cannon fires. Higher is stronger; 0 turns off its shake but keeps the cannon sound. Works even in sparse crowds. Added Camera Shake and the game's Dynamic Camera Effects must be on. |

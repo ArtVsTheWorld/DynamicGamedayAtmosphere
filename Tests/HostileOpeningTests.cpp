@@ -7,10 +7,10 @@ using namespace attendance;
 energy::Play opening(int side,float length){energy::Play p;p.game={1,0,0,6,length,length};p.offense=side;p.down=0;p.toGoal=75;p.toFirst=10;return p;}
 int main(){
     core::Settings config;motion::Settings settings;
-    assert(std::abs(motion::hostileOpeningStrength(6060)-8.f)<.001f&&std::abs(motion::hostileOpeningStrength(61888)-11.f)<.001f);
-    assert(std::abs(motion::hostileOpeningStrength(512)-10*motion::venueScale(512))<.001f&&std::abs(motion::hostileOpeningStrength(200000)-11.f)<.001f);
+    assert(std::abs(motion::hostileOpeningStrength(6060)-8.f)<.001f&&std::abs(motion::hostileOpeningStrength(61888)-12.5f)<.001f);
+    assert(std::abs(motion::hostileOpeningStrength(512)-10*motion::venueScale(512))<.001f&&std::abs(motion::hostileOpeningStrength(200000)-12.5f)<.001f);
     assert(motion::hostileOpeningStrength(0)==0&&motion::hostileOpeningStrength(6060,0)==0);
-    float previous=0;for(uint64_t seats=512;seats<=100000;seats+=127){float value=motion::hostileOpeningStrength(seats);assert(value>=previous&&value>6.79f&&value<=11.001f);previous=value;}
+    float previous=0;for(uint64_t seats=512;seats<=100000;seats+=127){float value=motion::hostileOpeningStrength(seats);assert(value>=previous&&value>6.79f&&value<=12.501f);previous=value;}
     for(int side:{0,1})for(float length:{60.f,300.f,720.f,1200.f})for(uint64_t seats:{6060ull,26101ull,61888ull}){
         auto p=opening(side,length);lineup::Model layers;motion::Model camera;float gate=packed::standardMinimum(seats);
         auto tick=[&](uint64_t now){layers.observe(config,p,123,1,now,true,gate,true,nullptr,seats);};

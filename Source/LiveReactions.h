@@ -38,7 +38,7 @@ inline Outcome completedImpact(const energy::Outcome& result,const State& state,
     Event selected=fourth?Event::FourthConversion:result.blockedFieldGoal?Event::BlockedFieldGoal:result.goalLineStop?Event::GoalLineStop:result.thirdGoalStop?Event::ThirdGoalStop:result.forcedFumble?Event::ForcedFumble:recovery?Event::FumbleRecovery:result.sack?Event::Sack:loss?Event::TackleForLoss:result.turnoverOnDowns?Event::DownsStop:Event::CriticalStop;
     return {selected,result.sequence,result.side,loss?result.yards:0};
 }
-struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=20;bool passFlight=true;};
+struct Settings {bool enabled=true;float minimumCatchYards=20,minimumGainYards=15;bool passFlight=true;};
 inline constexpr float RunShakeStartYards=11.f,RunShakePeakYards=15.f;
 struct RunBuildup {uint64_t id=0;float progress=0,yards=0;};
 // Verified native traces: kind 3 / ball 1 / no holder is the pass in flight.
@@ -139,8 +139,9 @@ public:
                 bool coherent=returnAt_&&now>=returnAt_&&std::fabs(worldZ-lastReturnSpot_)<=3.5f+30.f*static_cast<float>(now-returnAt_)*.001f;
                 if(coherent){if(yards>=0&&yards<=110)best_=(std::max)(best_,yards);lastReturnSpot_=worldZ;returnAt_=now;}
                 if(coherent&&(p.offense==0||p.game.neutral)&&yards>=0&&yards<=110){
-                    if(best_>=30)buildup_={began_,(std::clamp)((best_-30)/10.f,.0001f,1.f),best_};
-                    if(!used_&&best_>=40){used_=true;out={type_==22?Event::PuntReturn:Event::KickReturn,++serial_,p.offense,best_};}
+                    float start=type_==22?30.f:25.f,peak=start+10;
+                    if(best_>=start)buildup_={began_,(std::clamp)((best_-start)/10.f,.0001f,1.f),best_};
+                    if(!used_&&best_>=peak){used_=true;out={type_==22?Event::PuntReturn:Event::KickReturn,++serial_,p.offense,best_};}
                 }
             }
             if(p.fumble||(!held&&caught_&&now-returnAt_>250)||(caught_&&p.offense!=1-kicker_)){buildup_={};if(p.fumble)live_=false;}
@@ -237,7 +238,7 @@ public:
                     std::fabs(runnerSpot-runnerLast_)<=3.5f+30.f*static_cast<float>(now-runnerAt_)*.001f;
                 if(coherent){runnerLast_=runnerSpot;runnerAt_=now;if(gain>=0&&gain<=110)measuredGain_=(std::max)(measuredGain_,gain);}
                 if(coherent&&caught_&&gain-catchGain_>.5f)afterCatchRun_=true;
-                float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):20;
+                float minimum=std::isfinite(c.minimumGainYards)?(std::clamp)(c.minimumGainYards,10.0f,60.0f):15;
                 // Camera/companion buildup is independent of the configurable cheer cutoff.
                 constexpr float rampStart=RunShakeStartYards,rampWidth=RunShakePeakYards-RunShakeStartYards;
                 bool runningGain=!caught_||afterCatchRun_;

@@ -26,7 +26,10 @@ struct State {
     bool exceptionalOpening=false;
     float mappedPeak=-1; // Refreshed only from the owned whole-layout baseline.
 };
-inline bool arrivalPlan(const State& s){return s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=80&&s.plannedFill>=10&&s.plannedFill<=100;}
+inline bool arrivalPlan(const State& s){
+    int cap=s.exceptionalOpening&&s.plannedPeak==s.plannedCapacity&&s.plannedCapacity>=1000?95:80;
+    return s.startingAttendance&&s.plannedKickoff>=35&&s.plannedKickoff<=cap&&s.plannedFill>=10&&s.plannedFill<=100;
+}
 inline bool crowdPlan(const State& s){return arrivalPlan(s)&&s.plannedCapacity>=1000&&s.plannedCapacity<=200000&&s.plannedPeak>=1&&s.plannedPeak<=s.plannedCapacity&&s.plannedStadium>=0&&s.plannedStadium<1023&&s.plannedWeek>=0&&s.plannedWeek<=31&&s.plannedYear>=0&&s.plannedYear<=4095;}
 inline void copyCrowdPlan(const State& from,State& to){
     if(!crowdPlan(from))return;
@@ -38,7 +41,7 @@ inline void inheritCrowdPlan(const State& from,State& to){
        (to.plannedStadium>=0&&from.plannedStadium>=0&&to.plannedStadium!=from.plannedStadium))return;
     copyCrowdPlan(from,to);
 }
-inline float expectedPeak(const State& s){return crowdPlan(s)?static_cast<float>(s.plannedPeak)/s.plannedCapacity:-1.f;}
+inline float expectedPeak(const State& s){return crowdPlan(s)?static_cast<float>(s.plannedPeak)/(std::max)(1,s.plannedCapacity):-1.f;}
 inline bool marqueeMatchup(const State& s){return matchup::big(s.rank0,s.rank1,s.rivalry,s.playoff,s.conferenceChampionship);}
 // Atmosphere admission can ease at night; actual packed-house classification,
 // occupied-seat strength and the absolute visual-density safeguard do not.

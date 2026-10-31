@@ -86,6 +86,9 @@ int main(){
     put(image+OptionType+0x30,address(members));put<unsigned short>(image+OptionType+0x38,10);
     put<unsigned short>(address(options)+0x30,1153);put<unsigned short>(address(options)+0x20,1193);put<unsigned short>(address(options)+0x46,553);put<int>(address(options)+0x14,45000);put<unsigned short>(address(options)+0x3c,1140);put<unsigned char>(address(options)+0x49,0);put<unsigned short>(address(options)+0x32,1023);put<unsigned char>(address(options)+0x22,127);
     Launch launchInput;assert(launch(image,launchInput,seed)&&launchInput.home==1153&&launchInput.capacity==60000&&launchInput.minutes==1140&&!launchInput.rivalry);
+    put<unsigned short>(address(options)+0x32,119);
+    assert(launch(image,launchInput,seed)&&launchInput.rivalry&&launchInput.rivalryEvent==119);
+    put<unsigned short>(address(options)+0x32,1023);
     // Reported dry dynamic game had severity2 with a20% rain chance.
     // Severity is not a guaranteed current-weather observation in that mode.
     put<unsigned char>(address(options)+0x49,2);put<unsigned char>(address(options)+0x51,1);

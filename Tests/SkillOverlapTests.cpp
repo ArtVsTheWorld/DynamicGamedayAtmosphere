@@ -11,7 +11,7 @@ int main(){
         x.runBuildup=7;x.runProgress=.02f;x.smoothRunBuildup=true;x.now=1000;m.observe(s,x);
         x.now=1100;auto run=m.observe(s,x);float before=motion::strength(run,1200);
         x.now=1200;x.duringPlay=1;x.supplementalImpact=x.duringImpact=true;x.profile=defense::shakeProfile(event);x.softAccent=live::softSkill(event);
-        auto cue=m.observe(s,x);assert(std::fabs(motion::strength(cue,x.now)-before)<.01f);
+        auto cue=m.observe(s,x);assert(motion::strength(cue,x.now)>=before&&motion::strength(cue,x.now)<=before*1.15f+.01f);
         const auto profile=x.profile;const auto peak=motion::profileStrength(profile,0)*(neutral?.75f:1.f);
         const auto reached=event==live::Event::Truck?1300ull:1650ull;
         // One-shot proof disappears on the next update. The accent must keep
@@ -19,8 +19,8 @@ int main(){
         x.duringPlay=0;x.profile=motion::Profile::Default;x.softAccent=x.duringImpact=x.supplementalImpact=false;
         for(x.now=1250;x.now<=reached;x.now+=50)cue=m.observe(s,x);
         assert(cue.profile==profile&&cue.impactOnly&&cue.began==1200&&cue.until==3200);
-        assert(std::fabs(motion::strength(cue,reached)-peak)<.01f);
-        for(x.now=reached+50;x.now<=3250;x.now+=50){cue=m.observe(s,x);assert(motion::strength(cue,x.now)<=peak+.01f);}
+        assert(motion::strength(cue,reached)>=peak&&motion::strength(cue,reached)<=peak*1.15f+.01f);
+        for(x.now=reached+50;x.now<=3250;x.now+=50){cue=m.observe(s,x);assert(motion::strength(cue,x.now)<=peak*1.15f+.01f);}
         assert(cue.runBuildup&&cue.began==1000&&!cue.confirmedRun);
         x.runProgress=1;
         for(x.now=3300;x.now<=4300;x.now+=50)cue=m.observe(s,x);
@@ -42,7 +42,7 @@ int main(){
         x.duringImpact=true;x.profile=motion::Profile::Force;x.forcedImpact=true;m.observe(s,x);
         x.now=1200;auto first=m.observe(s,x);x.now=1300;x.duringPlay=2;x.profile=motion::Profile::Truck;x.forcedImpact=false;x.supplementalImpact=true;
         auto next=m.observe(s,x);assert(next.profile==first.profile&&next.began==first.began&&next.until==first.until);
-        x.duringPlay=0;for(x.now=1400;x.now<=2000;x.now+=50){next=m.observe(s,x);assert(next.profile==motion::Profile::Force&&motion::strength(next,x.now)<=13);}
+        x.duringPlay=0;for(x.now=1400;x.now<=2000;x.now+=50){next=m.observe(s,x);assert(next.profile==motion::Profile::Force&&motion::strength(next,x.now)<=13*1.15f);}
     }
     // A hurdle swell must not replace a playing return's ID, hold/release,
     // cheer, priority or voice type. It can only lift its existing intensity.

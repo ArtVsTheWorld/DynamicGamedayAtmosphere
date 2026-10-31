@@ -105,9 +105,9 @@ int main(){
     k.now=85000;assert(kick.observe(liveSettings,k).kind==Kind::None);
     std::array<float,16> projection{};projection[0]=2;projection[5]=3.1715948f;projection[11]=1;
     assert(projectionScale(projection,Kind::Eruption)==1);projection[5]=12;
-    assert(projectionScale(projection,Kind::Eruption)<.27f&&projectionScale(projection,Kind::Touchdown)<.27f);
-    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})assert(projectionScale(projection,kind)<.27f);
-    projection[5]=500;assert(projectionScale(projection,Kind::Eruption)<.007f);
+    assert(projectionScale(projection,Kind::Eruption)<.37f&&projectionScale(projection,Kind::Touchdown)<.37f);
+    for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick})assert(projectionScale(projection,kind)<.37f);
+    projection[5]=500;assert(projectionScale(projection,Kind::Eruption)<.023f);
     // Read-only default RTG capture: 88.5-degree vertical FOV. Its screen
     // displacement per small angular movement should match the reference view.
     projection[0]=.5773501992f;projection[5]=1.0264003277f;

@@ -2,10 +2,10 @@
 #include "ExcitementRules.h"
 
 namespace attendance::sustained {
-enum class Reason { None, Opening, Upset, LateDrive, DefensiveDown, Overtime, Eruption, Lineup, Result, PassFlight, Postgame, Diagnostics };
+enum class Reason { None, Opening, Upset, LateDrive, DefensiveDown, Overtime, Eruption, Lineup, Result, PassFlight, Postgame, Diagnostics, Background };
 inline bool lineupReason(Reason reason){return reason==Reason::Lineup||reason==Reason::Upset;}
 inline const char* name(Reason r){
-    switch(r){case Reason::Diagnostics:return "diagnostic preview";case Reason::Postgame:return "postgame stadium atmosphere";case Reason::Opening:return "big-game opening";case Reason::Upset:return "developing upset";
+    switch(r){case Reason::Background:return "occupied-crowd background roar";case Reason::Diagnostics:return "diagnostic preview";case Reason::Postgame:return "postgame stadium atmosphere";case Reason::Opening:return "big-game opening";case Reason::Upset:return "developing upset";
     case Reason::LateDrive:return "late scoring opportunity";case Reason::DefensiveDown:return "critical defensive down";
     case Reason::Eruption:return "winning celebration";case Reason::Overtime:return "overtime roar";case Reason::Lineup:return "play-call atmosphere";case Reason::Result:return "successful-play reaction";case Reason::PassFlight:return "pass-in-flight anticipation";default:return "quiet";}
 }
@@ -39,7 +39,7 @@ inline Intent supportingIntent(Intent wanted){
     else if(passAnticipation(wanted)){
         wanted.reason=Reason::PassFlight;wanted.priority=2;wanted.continuous=true;
         wanted.attackMs=500;wanted.releaseMs=1200;wanted.lineup=0;
-    }else if(wanted.reason!=Reason::Eruption&&!wanted.diagnosticToken&&!wanted.hostileOpening&&!wanted.motionCompanion)wanted.attackMs=4000;
+    }else if(wanted.reason!=Reason::Eruption&&!wanted.diagnosticToken&&!wanted.hostileOpening&&!wanted.motionCompanion&&!wanted.earnedReaction&&wanted.reason!=Reason::Result)wanted.attackMs=4000;
     return wanted;
 }
 inline Intent select(const energy::Settings& c,const energy::Play& p,const energy::Model& model,

@@ -140,7 +140,11 @@ public:
             episode_.reason==Reason::Result&&episode_.priority>=4&&playingSize_>=wanted.size&&
             ((wanted.reason==Reason::Result&&wanted.priority>=4)||wanted.reason==Reason::Eruption)&&nativeStops_.load()==handledStop_;
         if(scoreJoin){lastCelebration_=wanted.celebration;lastResult_=wanted.resultCheer;}
-        if(episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&(wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
+        bool backgroundJoin=episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&
+            (episode_.reason==Reason::Background||wanted.reason==Reason::Background)&&episode_.reason!=wanted.reason;
+        bool backgroundResize=episode_.playing&&wanted.active&&wanted.reason==Reason::Background&&episode_.reason==Reason::Background&&playingSize_!=wanted.size;
+        bool earnedResize=episode_.playing&&wanted.active&&wanted.reason==Reason::Result&&wanted.earnedReaction&&wanted.continuous&&wanted.size>playingSize_;
+        if(episode_.playing&&wanted.active&&wanted.reason!=Reason::None&&(backgroundJoin||wanted.priority>episode_.priority||(episode_.continuous&&wanted.continuous))){
             episode_.reason=wanted.reason;episode_.priority=wanted.priority;releaseMs_=(std::clamp)(wanted.releaseMs,500,30000);reason_=static_cast<int>(wanted.reason);
             episode_.continuous=wanted.continuous;
             if(wanted.reason==Reason::Result&&wanted.reactionId)episode_.reactionId=wanted.reactionId;
@@ -152,7 +156,8 @@ public:
         bool eruptionHit=wanted.active&&wanted.reason==Reason::Eruption&&wanted.celebration&&wanted.celebration!=lastCelebration_;
         bool resultHit=wanted.active&&wanted.reason==Reason::Result&&wanted.resultCheer&&now<wanted.resultCheerUntil&&wanted.resultCheer!=lastResult_;
         if(quickMatch_!=wanted.match||quickEpoch_!=wanted.epoch||quickReason_!=wanted.reason){quickMatch_=wanted.match;quickEpoch_=wanted.epoch;quickReason_=wanted.reason;quickToken_=0;}
-        uint64_t token=wanted.passFlight?wanted.passFlight:lineupReason(wanted.reason)?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
+        uint64_t token=wanted.reason==Reason::Background?static_cast<uint64_t>(nativeStops_.load())+1:
+            wanted.passFlight?wanted.passFlight:lineupReason(wanted.reason)?wanted.lineup:wanted.reason==Reason::Result?(wanted.reactionId?wanted.reactionId:wanted.liveCheer):wanted.reason==Reason::Eruption?wanted.celebration:0;
         bool nativeInterrupted=(episode_.continuous||lineupReason(episode_.reason))&&nativeStops_.load()!=handledStop_;
         // A native snap/timeout/penalty stop can affect the same crowd channel.
         // Recover once promptly per earned reaction, even after its one-shot
@@ -161,7 +166,7 @@ public:
         bool diagnosticHit=wanted.active&&wanted.diagnosticToken&&wanted.diagnosticToken!=lastDiagnostic_;
         bool passHit=gameplay_&&wanted.active&&wanted.passFlight&&wanted.passFlight!=lastPassFlight_;
         bool skillHit=gameplay_&&wanted.active&&wanted.skillAccent&&(wanted.skillAccent!=lastSkillAccent_||wanted.match!=skillMatch_||wanted.epoch!=skillEpoch_);
-        bool refresh=episode_.playing&&(diagnosticHit||eruptionHit||resultHit||passHit||skillHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
+        bool refresh=episode_.playing&&(backgroundJoin||backgroundResize||earnedResize||diagnosticHit||eruptionHit||resultHit||passHit||skillHit||(nativeInterrupted&&now>=lastRefresh_&&(quickRecovery||now-lastRefresh_>=2000)));
         if(!stop&&!refresh&&!episode_.canStart(wanted,now))return;
         if(now<retryUntil_||now-lastResolve_<100)return;lastResolve_=now;
         Endpoint endpoint(api_);
@@ -183,7 +188,7 @@ public:
             // Stock stop messages still run normally. Reassert the same native
             // looping channel during opening hype, before its release completes.
             bool attempted=false;
-            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,diagnosticHit||skillHit?wanted.attackMs:500,4000,gameplay_)){
+            if(!emit(api_,image_,endpoint.manager,true,wanted.size,&attempted,nullptr,diagnosticHit||skillHit||backgroundJoin||backgroundResize?wanted.attackMs:500,4000,gameplay_)){
                 healthy_=false;retryUntil_=now+1000;return;
             }
             if(quickRecovery)quickToken_=token;

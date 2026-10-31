@@ -5,13 +5,13 @@
 using namespace attendance;
 int main(){
     assert(std::abs(motion::occupiedScale(6060,1)-.80f)<.00001f);
-    assert(std::abs(motion::occupiedScale(61888,1)-1.1f)<.00001f);
+    assert(std::abs(motion::occupiedScale(61888,1)-1.25f)<.00001f);
     assert(motion::occupiedScale(60600,.1f)==motion::occupiedScale(6060,1));
     assert(motion::occupiedScale(61888,.85f)>motion::occupiedScale(6060,.99f));
     for(uint64_t seats:{6060ull,30000ull,61888ull}){float lastMotion=0,lastAudio=0;
         for(int i=0;i<=100;++i){float fullness=i*.01f;
             float motion=motion::occupiedScale(seats,fullness),audio=population::presence(seats,fullness);
-            assert(motion>=lastMotion&&audio>=lastAudio&&motion<=1.1f&&audio<=1);lastMotion=motion;lastAudio=audio;
+            assert(motion>=lastMotion&&audio>=lastAudio&&motion<=1.25f&&audio<=1);lastMotion=motion;lastAudio=audio;
         }
     }
     assert(motion::occupiedScale(0,1)==0&&motion::occupiedScale(61888,NAN)==0&&motion::occupiedScale(61888,-1)==0);

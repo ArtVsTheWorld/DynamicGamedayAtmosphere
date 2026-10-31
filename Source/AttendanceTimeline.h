@@ -169,8 +169,8 @@ inline bool read(std::istream& f,Archive& target){
         if(magic=="DGA-HISTORY-4"||magic=="DGA-HISTORY-5"){
             int plan=0,night=0,exceptional=0;if(!(f>>plan>>night)||plan<0||plan>1||night<0||night>1)return false;g.context.night=night!=0;
             if(plan){auto& s=g.context;s.startingAttendance=true;
-                if(!(f>>s.plannedKickoff>>s.plannedFill>>s.plannedPeak>>s.plannedCapacity>>s.plannedStadium>>s.plannedWeek>>s.plannedYear>>exceptional)||exceptional<0||exceptional>1||!crowdPlan(s))return false;
-                s.exceptionalOpening=exceptional!=0;
+                if(!(f>>s.plannedKickoff>>s.plannedFill>>s.plannedPeak>>s.plannedCapacity>>s.plannedStadium>>s.plannedWeek>>s.plannedYear>>exceptional)||exceptional<0||exceptional>1)return false;
+                s.exceptionalOpening=exceptional!=0;if(!crowdPlan(s))return false;
             }
         }
         if(magic=="DGA-HISTORY-5"){int ready=0;if(!(f>>ready)||ready<0||ready>1)return false;g.resumeReady=ready!=0;}

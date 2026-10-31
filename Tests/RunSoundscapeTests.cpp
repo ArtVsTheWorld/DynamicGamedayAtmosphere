@@ -6,7 +6,7 @@
 using namespace attendance;
 int main(){
     for(int kind:{0,3})for(int direction:{-1,1}){
-        live::Model runner;live::Settings settings;assert(settings.minimumGainYards==20&&settings.minimumCatchYards==20);
+        live::Model runner;live::Settings settings;assert(settings.minimumGainYards==15&&settings.minimumCatchYards==20);
         live::ReturnAtmosphere sound;energy::Play p;p.game={2,7,7,1,300,720};p.offense=0;p.down=1;p.fieldSpot=-30.f*direction;p.attackDirection=direction;
         uint64_t now=1000;auto tick=[&](int phase,float yards,int ball=9,bool held=true){
             p.game.phase=phase;now+=100;auto event=runner.observe(settings,p,123,1,now,true,456,kind,ball,0,p.fieldSpot+yards*direction,held);
@@ -16,8 +16,8 @@ int main(){
         assert(!tick(3,11).id&&runner.runBuildup().id);
         sustained::Intent base;base.active=true;base.match=123;base.epoch=1;
         auto buildup=sound.merge(base,now,.9f);assert(buildup.continuous&&buildup.supporting&&buildup.reason==sustained::Reason::Result);
-        for(float gain=12;gain<20;++gain)assert(!tick(3,gain).id);
-        auto hit=tick(3,20);assert(hit.event==live::Event::LongRun&&runner.runBuildup().progress==1);
+        for(float gain=12;gain<15;++gain)assert(!tick(3,gain).id);
+        auto hit=tick(3,15);assert(hit.event==live::Event::LongRun&&runner.runBuildup().progress==1);
         auto peak=sound.merge(base,now,.9f);assert(peak.supporting&&peak.continuous&&peak.size==3&&peak.intensity>900);
         assert(!tick(3,20,1).id&&runner.runBuildup().progress==1); // Tucked QB changes state while moving sideways, not a thrown pass.
         assert(!tick(3,14,9,false).id&&runner.runBuildup().id); // Brief carrier-pointer dropout.
@@ -30,11 +30,11 @@ int main(){
         step(1,0,2,0,0,false);step(3,0,2,0,0,false);step(3,3,1,0,0,false);
         assert(!step(3,1,4,15,15,true).id&&!m.runBuildup().id); // A 15-air-yard immediate tackle is not a 20-yard long catch or a catch-and-run.
         step(4,1,4,15,15,false);step(1,0,2,0,0,false);step(3,0,2,0,0,false);step(3,3,1,0,0,false);step(3,1,4,2,2,true);
-        for(float gain=3;gain<20;++gain)assert(!step(3,1,4,2,gain,true).id);
-        assert(step(3,1,4,2,20,true).event==live::Event::RunAfterCatch);
+        for(float gain=3;gain<15;++gain)assert(!step(3,1,4,2,gain,true).id);
+        assert(step(3,1,4,2,15,true).event==live::Event::RunAfterCatch);
         step(1,0,2,0,0,false);step(3,0,2,0,0,false);step(3,3,1,0,0,false);assert(step(4,1,4,20,20,false).event==live::Event::LongCatch);
     }
     {motion::Model camera;motion::Settings s;motion::Input x;x.match=123;x.epoch=1;x.allowed=x.duringAllowed=true;x.phase=4;x.now=1000;x.duringPlay=1;x.duringImpact=true;
         auto cue=camera.observe(s,x);assert(cue.until==7400);x.now=7400;assert(camera.observe(s,x).kind==motion::Kind::None);}
-    std::puts("PASS: fixed 11-to-15-yard runs/YAC with twenty-yard cheer, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 6.4-second impacts.");
+    std::puts("PASS: fixed 11-to-15-yard runs/YAC with fifteen-yard cheer, supporting roar/gameplay swell, one cheer trigger, lateral/QB-state/carrier-gap continuity, independent 20-air-yard catches, whistle/eruption priority and 6.4-second impacts.");
 }

@@ -39,6 +39,7 @@ struct Cue {
     bool scoreBuildup=false;
     Profile profile=Profile::Default;float leverage=0;float holdRatio=1,peakRatio=1;
     bool smoothRunBuildup=false;float buildupStrength=0;uint64_t buildupUpdated=0;
+    float additiveScale=1;
 };
 inline float smooth(float x){x=(std::clamp)(x,0.0f,1.0f);return x*x*(3-2*x);}
 inline float envelopeStrength(const Cue& c,uint64_t now){
@@ -65,9 +66,9 @@ inline float strength(const Cue& c,uint64_t now){
         // A new attack must not pull an already moving camera toward zero
         // before rising. Lower targets still ease down normally.
         if((std::max)(c.percent,c.impact)>=c.transitionFrom)level=(std::max)(level,c.transitionFrom);
-        return c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition);
+        return (c.transitionFrom+(level-c.transitionFrom)*smooth(static_cast<float>(now-c.transitionAt)/transition))*c.additiveScale;
     }
-    return level;
+    return level*c.additiveScale;
 }
 struct Input {
     uintptr_t match=0;unsigned epoch=0;uint64_t now=0;int phase=0;
@@ -110,7 +111,7 @@ public:
     Cue observe(const Settings& configuredSettings,const Input& x){
         // Scale each crowd target once by occupied seats, and by
         // three quarters for either side of a neutral crowd, before envelopes.
-        Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.1f):0;
+        Settings settings=configuredSettings;float size=std::isfinite(x.venueScale)?(std::clamp)(x.venueScale,0.f,1.25f):0;
         float crowdScale=(x.neutral?.75f:1.f)*size*(x.overtime?1.10f:1.f);
         settings.ordinary=limit(settings.ordinary)*crowdScale;settings.critical=limit(settings.critical)*crowdScale;
         settings.touchdown=limit(settings.touchdown)*crowdScale;settings.eruption=limit(settings.eruption)*crowdScale;
@@ -126,7 +127,7 @@ public:
         if(x.touchdown)seenTd_=x.touchdown;if(x.eruption)seenEruption_=x.eruption;if(x.safety)seenSafety_=x.safety;
         if(!x.allowed||!x.match||x.now<last_){last_=x.now;return suspend(x.now);}last_=x.now;
         bool newSnap=x.phase==3&&phase_!=3;phase_=x.phase;
-        Cue previous=output_;float previousLevel=strength(previous,x.now);
+        Cue previous=output_;previous.additiveScale=1;float previousLevel=strength(previous,x.now);
         auto join=[&](Cue& cue){if(previousLevel>0){cue.oscillationBegan=previous.oscillationBegan?previous.oscillationBegan:previous.began;cue.transitionFrom=previousLevel;cue.transitionAt=x.now;
             bool scoring=cue.kind==Kind::Touchdown||cue.kind==Kind::Eruption;
             bool earned=previous.kind==Kind::LivePlay||previous.kind==Kind::Touchdown||previous.kind==Kind::Eruption||previous.kind==Kind::Safety;
@@ -155,7 +156,7 @@ public:
         // Consume lower-priority event IDs without queuing a hidden shake
         // that could reappear after a short celebration has finished.
         if(pulseOwns){liveCue_=impactOverlay_=skillCue_={};ramp_=0;}
-        if(x.cancelLive||!x.duringAllowed)skillCue_={};
+        if(x.cancelLive||(!x.duringAllowed&&x.phase!=2))skillCue_={};
         if(x.cancelLive)impactOverlay_={};
         if(x.cancelLive&&liveCue_.kind!=Kind::None&&!liveCue_.cancelled){
             float value=strength(liveCue_,x.now);liveCue_.began=x.now;liveCue_.until=x.now+500;liveCue_.percent=value;
@@ -182,7 +183,7 @@ public:
         float candidate=liveStrength(settings,x.profile,x.leverage,x.duringCatch&&(x.phase!=3||x.duringImpact))*(std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1);
         // Skill success has its own short envelope. It must not be discarded
         // by a weak distance ramp, or replace/restart that ramp. The stronger
-        // envelope wins below; neither amplitude nor duration is added.
+        // envelope leads below, with a bounded independent overlap accent.
         if(live&&x.supplementalImpact&&!pulseOwns&&!x.cancelLive&&x.duringAllowed&&(x.phase==3||x.phase==4||x.phase==5||x.phase==1)&&
            (skillCue_.kind==Kind::None||x.now>=skillCue_.until||candidate>skillCue_.percent)){
             skillCue_={x.match,x.epoch,x.now,x.now,x.now+impactDuration(settings,x.profile,x.impactMilliseconds),Kind::LivePlay,candidate,false,0,x.now,true};
@@ -198,7 +199,7 @@ public:
             unsigned duration=impactDuration(settings,x.profile,x.impactMilliseconds);
             // A force can still be hitting when its defensive return begins.
             // Retain that original impact above the continuous return, then
-            // select the greater envelope as it settles. Never sum them.
+            // select the leading envelope as it settles; clocks stay separate.
             if(underImpact&&strength(liveCue_,x.now)>strength(impactOverlay_,x.now))impactOverlay_=liveCue_;
             liveCue_={x.match,x.epoch,x.now,x.now,x.now+(impact?duration:45000),Kind::LivePlay,impact&&x.duringCatch?limit(settings.catchImpact):configured(settings,Kind::LivePlay),false,0,x.now,impact};
             liveCue_.reactionScale=std::isfinite(x.reactionScale)?(std::clamp)(x.reactionScale,0.f,1.5f):1;
@@ -260,6 +261,26 @@ public:
                 if(output_.kind==Kind::None||strength(skillCue_,x.now)>strength(output_,x.now))output_=skillCue_;
             }
         }
+        // Independent live skill/gain/impact and opening-kickoff envelopes may
+        // reinforce each other gently. Stored cues remain unscaled: repeated
+        // ticks and live/result reports cannot compound the bonus or its clock.
+        if(pulse_.kind==Kind::None){
+            const Cue* cues[]={&lineupCue_,&liveCue_,&impactOverlay_,&skillCue_};
+            // Keep the admitted reaction's identity on an equal-strength
+            // handoff; a fading lineup must not take its place on that frame.
+            const Cue* strongest=nullptr;float first=0;
+            for(auto cue:cues){float value=strength(*cue,x.now);
+                bool selected=cue->kind==output_.kind&&cue->began==output_.began&&cue->profile==output_.profile;
+                if(value>first||(value==first&&selected)){first=value;strongest=cue;}}
+            if(strongest&&first>0){
+                float secondary=0;
+                for(auto cue:cues)if(cue!=strongest)secondary+=(std::min)(strength(*cue,x.now),envelopeStrength(*cue,x.now));
+                // A new cue borrows the old amplitude to join smoothly. That
+                // borrowed level is not independent energy to count twice.
+                float attack=(std::clamp)(envelopeStrength(*strongest,x.now)/first,0.f,1.f);
+                output_=*strongest;output_.additiveScale=1+.15f*(std::min)(secondary/first,1.f)*attack;
+            }
+        }
         return output_;
     }
 };
@@ -285,7 +306,8 @@ inline float projectionScale(const std::array<float,16>& p,Kind kind,bool widePl
     // Ordinary views never amplify the configured envelope. The previously
     // captured RTG compensation is a separate explicit opt-in; close-ups
     // keep the same attenuation in either policy.
-    return (std::clamp)(reference/p[5],0.0f,widePlayerCompensation?4.0f:1.0f);
+    float ratio=reference/p[5];
+    return ratio<1?std::pow(ratio,.75f):(std::min)(ratio,widePlayerCompensation?4.0f:1.0f);
 }
 inline bool apply(std::array<float,16>& output,const Cue& c,uint64_t now){
     float amount=strength(c,now)*.01f;if(amount<=0||!validMatrix(output))return false;

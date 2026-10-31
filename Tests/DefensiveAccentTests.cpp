@@ -94,7 +94,7 @@ int main(){
         assert(forced.percent==13&&normal.percent==settings.live&&forced.began==normal.began);
         input.now=2145;forced=fast.observe(settings,input);input.forcedImpact=false;normal=ordinary.observe(settings,input);
         assert(motion::strength(forced,input.now)>motion::strength(normal,input.now));
-        input.forcedImpact=true;input.now=2160;forced=fast.observe(settings,input);assert(std::fabs(motion::strength(forced,input.now)-13)<.001f);
+        input.forcedImpact=true;input.now=2160;forced=fast.observe(settings,input);assert(motion::strength(forced,input.now)>=13&&motion::strength(forced,input.now)<=13*1.15f);
         assert(forced.until==5110&&forced.began==2110); // Same ID cannot restart it.
         input.allowed=false;input.now=2170;assert(fast.observe(settings,input).kind==motion::Kind::None);
     }

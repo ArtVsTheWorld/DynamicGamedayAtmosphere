@@ -263,6 +263,36 @@ int main(){
         request.updated=900300;continuity.tick(address(owner)+0x40,request,900300);assert(starts==oldStarts+(nativeStop?1u:0u));
         request.active=false;request.updated=900400;continuity.tick(address(owner)+0x40,request,900400);balanced();
     }
+    // The distance-ramp voice upgrades once at a confirmed peak even when
+    // there is no official-result cheer ID yet. Both native channels agree.
+    for(bool gameplay:{false,true}){Runtime ramp;ramp.configure(image,nullptr,&api,gameplay);
+        Intent gain;gain.match=1000;gain.epoch=1;gain.active=gain.continuous=true;gain.reason=Reason::Result;gain.priority=4;gain.reactionId=1;gain.size=2;gain.attackMs=500;gain.updated=950000;
+        ramp.tick(address(owner)+0x40,gain,950000);oldStarts=starts;oldStops=stops;
+        gain.earnedReaction=true;gain.size=3;gain.updated=950200;ramp.tick(address(owner)+0x40,gain,950200);
+        assert(starts==oldStarts+1&&stops==oldStops&&messages.back().size==3&&messages.back().attack==500);
+        gain.updated=950300;ramp.tick(address(owner)+0x40,gain,950300);assert(starts==oldStarts+1);
+        gain.active=false;gain.updated=950400;ramp.tick(address(owner)+0x40,gain,950400);balanced();
+    }
+    // Baseline shares one voice with play reactions. No periodic cheer or
+    // per-tick start; size/ownership changes refresh once without a stop gap.
+    {Runtime background;background.configure(image,nullptr,&api);
+        Intent bed;bed.match=1001;bed.epoch=1;bed.active=bed.continuous=true;bed.reason=Reason::Background;bed.size=1;bed.attackMs=4000;
+        auto update=[&](uint64_t now){bed.updated=now;background.tick(address(owner)+0x40,bed,now);balanced();};
+        update(1000000);oldStarts=starts;oldStops=stops;
+        for(uint64_t now=1000050;now<=1001000;now+=50)update(now);
+        assert(starts==oldStarts&&stops==oldStops&&background.playing());
+        bed.size=2;update(1001100);assert(starts==oldStarts+1&&messages.back().attack==4000);
+        update(1001200);assert(starts==oldStarts+1);
+        bed.reason=Reason::Result;bed.priority=4;bed.reactionId=1;bed.earnedReaction=true;bed.size=3;bed.attackMs=500;
+        update(1001300);assert(starts==oldStarts+2&&stops==oldStops&&messages.back().attack==500);
+        update(1001400);assert(starts==oldStarts+2);
+        bed.reason=Reason::Background;bed.priority=0;bed.reactionId=0;bed.earnedReaction=false;bed.size=1;bed.attackMs=4000;
+        update(1001500);assert(starts==oldStarts+3&&stops==oldStops&&messages.back().attack==4000);
+        put(address(stockStop)+0xa0,address(descriptions[1]));background.observeNativeStop(manager,address(stockStop),1001600);
+        update(1001650);assert(starts==oldStarts+4&&messages.back().attack==500);
+        update(1001750);assert(starts==oldStarts+4);
+        bed.active=false;update(1001850);assert(stops==oldStops+1&&!background.playing());
+    }
     assert(!ownedSwellDispatch);
     assert(VirtualFree(allocation,0,MEM_RELEASE));
     std::puts("PASS: native query/weak/event/arena cleanup, tested parameters, bounded playback, reentrancy, stale lease, disable, context replacement, unavailable assets and dispatch faults.");

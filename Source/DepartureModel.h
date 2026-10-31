@@ -79,6 +79,15 @@ inline double catchupTarget(const Settings& c,const State& s,const History& h,fl
         rankMultiplier(s)*stayFactor(s,h)*activation*context::lateOpportunity(s)*(s.neutral?0.75f:1.0f)*(1+0.05f*context::variation(s))*
         (std::clamp)(c.formulaStrength,0,200)*0.01;
 }
+inline double nightHomeWinTarget(const Settings& c,const State& s,const History& h,float elapsed){
+    // Late-Q3 traffic in a decided night home win, not another loss after
+    // each score. Both observed endpoints, existing floors and caps still apply.
+    if(!c.enabled||!regularSeason(s)||s.neutral||!s.night||s.phase==7||s.quarter>4||s.homeScore-s.awayScore<21)return 0;
+    float severity=.35f+.65f*context::smooth((s.homeScore-s.awayScore-21)/14.f);
+    float progress=context::smooth((elapsed-2.5f*s.quarterSeconds)/(1.5f*s.quarterSeconds));
+    float loss=(.68f+(badWeather(s)?.04f:0.f))*severity*progress;
+    return -std::log(1-loss)*stayFactor(s,h)*strengthFor(c);
+}
 inline double trafficTarget(const Settings& c,const State& raw,const History& h,float elapsed,float scoredAt){
     if(!c.enabled||!c.formulaStrength||!c.lateTraffic||raw.neutral||raw.quarter!=4||raw.phase==7||raw.homeScore>=raw.awayScore||elapsed<3*raw.quarterSeconds||elapsed>4*raw.quarterSeconds)return 0;
     State s=raw;s.seconds=4*s.quarterSeconds-elapsed;
@@ -226,6 +235,7 @@ struct Model {
                 hazard+=ordinary*0.5;
                 double target=(std::min)((std::max)(catchupTarget(c,previous,priorHistory,mid),homeLossTarget(c,previous,priorHistory,mid)),
                     (std::max)(catchupTarget(c,s,h,mid),homeLossTarget(c,s,h,mid)));
+                target=(std::max)(target,(std::min)(nightHomeWinTarget(c,previous,priorHistory,mid),nightHomeWinTarget(c,s,h,mid)));
                 double traffic=(std::min)(trafficTarget(c,previous,priorHistory,mid,previousScoreAt),trafficTarget(c,s,h,mid,lastHomeScoreAt));
                 bool faster=traffic>target;target=(std::max)(target,traffic);
                 // Ordinary catch-up takes about 90 game seconds at 12-minute

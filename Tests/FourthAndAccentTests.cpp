@@ -12,7 +12,7 @@ int main(){
         auto fourth=tick(1300,3,1,3,-27,-27,true);assert(fourth.event==live::Event::FourthConversion&&fourth.yards==3);
         assert(!tick(1400,3,1,3,-27,-26,true).id);
         live::Outcome yac;for(int i=1;i<=20;++i){auto out=tick(1400+i*100,3,1,3,-27,-26.f+i,true);if(out.id)yac=out;}
-        assert(yac.event==live::Event::RunAfterCatch&&yac.yards>=20&&yac.id!=fourth.id);
+        assert(yac.event==live::Event::RunAfterCatch&&yac.yards>=15&&yac.id!=fourth.id);
         assert(!tick(3500,3,1,3,-27,-5,true).id);
     }
     // A fourth-down run conversion is also separate from its long-gain milestone.

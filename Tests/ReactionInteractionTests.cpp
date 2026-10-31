@@ -16,7 +16,7 @@ motion::Input request(Event e,uint64_t now,uint64_t id,bool post=false){
 int main(){
     constexpr Event events[]{Event::Lineup,Event::Critical,Event::Run,Event::Catch,Event::Skill,Event::Hit,Event::Touchdown,Event::Eruption,Event::Safety,Event::Block,Event::Clincher};
     // Every ordered pair: no amplitude or oscillator jump at the handoff,
-    // no summed strengths, and higher scoring profiles cannot be downgraded.
+    // bounded independent overlap, and higher scoring profiles cannot be downgraded.
     for(auto first:events)for(auto second:events){motion::Model model;motion::Settings settings;settings.live=10;settings.catchImpact=8;motion::Cue old;
         for(uint64_t now=1000;now<=1900;now+=100)old=model.observe(settings,request(first,now,1));
         float before=motion::strength(old,2000);auto out=model.observe(settings,request(second,2000,2,pulse(first)));
@@ -39,7 +39,7 @@ int main(){
         x.now=1200;cue=model.observe(settings,x);auto anchor=cue.oscillationBegan?cue.oscillationBegan:cue.began;
         x=request(Event::Run,1300,0);x.runBuildup=77;x.runProgress=.1f;cue=model.observe(settings,x);assert(motion::strength(cue,x.now)==10);
         x.now=1500;x.runProgress=1;x.duringPlay=2;cue=model.observe(settings,x);assert(motion::strength(cue,x.now)==10);
-        x=request(Event::Skill,1600,3);cue=model.observe(settings,x);assert(!cue.softAccent&&motion::strength(cue,x.now)==10);
+        x=request(Event::Skill,1600,3);cue=model.observe(settings,x);assert(!cue.softAccent&&motion::strength(cue,x.now)>=10&&motion::strength(cue,x.now)<=11.5f);
         x=request(Event::Hit,1700,4);cue=model.observe(settings,x);auto forcedEnd=cue.until;
         x.duringPlay=0;x.now=1900;cue=model.observe(settings,x);assert(cue.until==forcedEnd);
         x=request(Event::Touchdown,2000,1);cue=model.observe(settings,x);assert(cue.kind==motion::Kind::Touchdown&&motion::strength(cue,x.now)==10);

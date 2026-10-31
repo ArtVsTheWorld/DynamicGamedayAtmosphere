@@ -71,8 +71,8 @@ int main(){
         uint64_t time=1000;auto tick=[&](int phase,float z,bool held,int side){play.game.phase=phase;play.offense=side;time+=100;return returns.observe(play,123,1,time,true,type,z,held);};
         assert(!tick(1,0,true,1).id);assert(!tick(3,0,true,1).id);assert(!tick(3,40.f*flight,false,1).id);
         assert(!tick(3,40.f*flight,true,0).id);
-        for(int gain=1;gain<40;++gain)assert(!tick(3,(40.f-gain)*flight,true,0).id);
-        auto longReturn=tick(3,0,true,0);assert(longReturn.yards==40&&longReturn.event==(type==22?live::Event::PuntReturn:live::Event::KickReturn));
+        int peak=type==22?40:35;for(int gain=1;gain<peak;++gain)assert(!tick(3,(40.f-gain)*flight,true,0).id);
+        auto longReturn=tick(3,(40.f-peak)*flight,true,0);assert(longReturn.yards==peak&&longReturn.event==(type==22?live::Event::PuntReturn:live::Event::KickReturn));
         assert(!tick(3,-1.f*flight,true,0).id);
     }
     {live::Returns returns;auto play=fixture();play.down=0;play.offense=1;

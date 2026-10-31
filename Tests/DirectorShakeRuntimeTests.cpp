@@ -97,10 +97,10 @@ int main(){
     Runtime zoom;zoom.configure(image);output=source;auto unchanged=view;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()==30&&view==unchanged);
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));unchanged=view;
     for(auto kind:{Kind::Ordinary,Kind::Critical}){Cue buildup=cue;buildup.kind=kind;
-        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&r.percent()>1&&r.percent()<1.4f&&view==unchanged);}
-    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()>7&&zoom.percent()<8&&view==unchanged);
+        output=source;auto changed=r.changed();r.tick(addr(view[0]),output.data(),buildup,cue.match,2,2000);assert(r.changed()==changed+1&&r.percent()>1.8f&&r.percent()<1.9f&&view==unchanged);}
+    output=source;zoom.tick(addr(view[0]),output.data(),celebration,cue.match,2,2000);assert(zoom.percent()>11&&zoom.percent()<11.1f&&view==unchanged);
     Cue defensive=cue;defensive.kind=Kind::LivePlay;defensive.impactOnly=true;defensive.percent=10;defensive.began=1000;defensive.until=3400;
-    output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<3&&view==unchanged);
+    output=source;zoom.tick(addr(view[0]),output.data(),defensive,cue.match,2,2000);assert(zoom.percent()>0&&zoom.percent()<3.7f&&view==unchanged);
     // A camera cut swaps the owned render-view pointer; no borrowed camera
     // reference survives it. The same cue clock follows the new live view.
     views[0]=addr(foreign[0]);projection[5]=3.1715948f;
@@ -110,7 +110,7 @@ int main(){
     // Live gain reactions also compensate for a suddenly zoomed-in camera.
     projection[5]=12;std::memcpy(reinterpret_cast<void*>(addr(foreign[0])+0x2b4),projection.data(),sizeof(projection));nextOriginal=foreign;
     Cue running=cue;running.kind=Kind::LivePlay;running.percent=10;
-    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>2&&zoom.percent()<3&&foreign==nextOriginal);
+    output=source;zoom.tick(addr(foreign[0]),output.data(),running,cue.match,2,2000);assert(zoom.percent()>3.6f&&zoom.percent()<3.7f&&foreign==nextOriginal);
     // Exercise the real renderer for every category, not just its pure scale
     // helper. Close/wide compensation leaves source data and cue timing intact.
     for(bool widePlayer:{false,true})for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float focal:{12.f,1.5857974f,1.0264003277f,.11f}){
@@ -119,10 +119,10 @@ int main(){
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
         output=source;zoom.tick(addr(view[0]),output.data(),tested,cue.match,2,2000,widePlayer);
         assert(output!=source&&view==saved&&zoom.playing(tested,2000));
-        const float expected=(std::min)(3.1715948f/focal,widePlayer?4.f:1.f);
+        const float ratio=3.1715948f/focal,expected=ratio<1?std::pow(ratio,.75f):(std::min)(ratio,widePlayer?4.f:1.f);
         assert(std::fabs(zoom.unscaled()-5)<.001f&&std::fabs(zoom.zoomScale()-expected)<.001f);
         assert(std::fabs(zoom.percent()-5*zoom.zoomScale())<.001f);
-        if(focal>=1&&(widePlayer||expected<1))assert(std::fabs(zoom.percent()*focal-5*3.1715948f)<.001f);
+        if(focal>=1&&focal<=3.1715948f&&widePlayer)assert(std::fabs(zoom.percent()*focal-5*3.1715948f)<.001f);
         auto other=tested;++other.began;assert(!zoom.playing(other,2000));
         assert(tested.began==1000&&tested.until==17000&&tested.percent==5);
     }

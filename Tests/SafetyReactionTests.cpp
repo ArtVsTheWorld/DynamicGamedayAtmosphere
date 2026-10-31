@@ -42,7 +42,7 @@ int main(){
     x={};x.match=123;x.epoch=1;x.allowed=x.eruptionAlive=true;x.phase=4;x.now=10000;x.safety=x.eruption=1;
     camera.reset();assert(camera.observe(settings,x).kind==motion::Kind::Eruption);
     std::array<float,16> projection{};projection[0]=2;projection[5]=12;projection[11]=1;
-    assert(motion::projectionScale(projection,motion::Kind::Safety)<.27f);
+    assert(motion::projectionScale(projection,motion::Kind::Safety)<.37f);
     settings.touchdown=7;settings.touchdownMs=6000;assert(motion::configured(settings,motion::Kind::Safety)==7&&motion::safetyDuration(settings)==4200);
     // A scoreboard correction or attach without an observed snap is not a safety event.
     energy::Tracker attached;p.game={2,16,14,4,300,720};assert(!attached.observe(events,p).safety);

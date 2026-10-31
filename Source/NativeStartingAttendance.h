@@ -182,7 +182,7 @@ inline bool launch(A image,Launch& l,const Seed& seed,const char** failure=nullp
     // Keep the native forecast untouched; actual live weather still drives exits.
     unsigned dynamic=0;l.weatherKnown=option(r,service,0x9f793700,"gameWeatherDynamicEnabled",1,dynamic)&&dynamic<=1;
     l.dynamicWeather=l.weatherKnown&&dynamic!=0;l.configuredPrecipitation=static_cast<int>(precip);
-    l.minutes=static_cast<int>(time);l.precipitation=l.weatherKnown&&!l.dynamicWeather?static_cast<int>(precip):0;l.rivalry=rivalry!=1023;
+    l.minutes=static_cast<int>(time);l.precipitation=l.weatherKnown&&!l.dynamicWeather?static_cast<int>(precip):0;l.rivalry=rivalry!=1023;l.rivalryEvent=static_cast<int>(rivalry);
     if(stadium>=1023)return fail("gameStadiumId range");
     unsigned senior=0;
     l.seniorKnown=option(r,service,0x9e6ce400,"gameFlagIsSeniorDay",1,senior)&&senior<=1;

@@ -10,12 +10,13 @@ inline int tier(const energy::Play& snap,const State& s,bool major=false){
 }
 inline int generic(uint64_t key,int level=3){return catalog::choose(std::array<int,2>{22,26},key,level);}
 inline int liveType(const live::Outcome& o,const energy::Play& snap,const State& s,uint64_t sequence,unsigned epoch,bool negative=false){
- using E=live::Event;uint64_t key=catalog::hash(sequence,static_cast<uint64_t>(o.event)+1,epoch);int level=tier(snap,s,o.yards>=40);
+ using E=live::Event;uint64_t key=catalog::hash(sequence,static_cast<uint64_t>(o.event)+1,epoch);int level=key%4?tier(snap,s,true):tier(snap,s,o.yards>=40);
  switch(o.event){
- case E::Truck:case E::HitStick:case E::HitStickStop:return catalog::type(negative?23:2,level);
- case E::StiffArm:case E::Hurdle:case E::Juke:case E::Spin:case E::BrokenTackle:return catalog::type(negative?1:0,level);
+ case E::Truck:case E::HitStick:case E::HitStickStop:return catalog::type(negative?23:2,3);
+ case E::StiffArm:case E::Hurdle:case E::Juke:case E::Spin:return catalog::type(negative?1:0,3);
+ case E::BrokenTackle:return catalog::type(negative?1:0,level);
  case E::LongCatch:case E::CompletedPass:return catalog::type(negative?5:4,tier(snap,s,o.yards>=20));
- case E::LongRun:case E::RunAfterCatch:case E::KickReturn:case E::PuntReturn:return catalog::type(negative?21:20,tier(snap,s,o.yards>=20));
+ case E::LongRun:case E::RunAfterCatch:case E::KickReturn:case E::PuntReturn:return catalog::type(negative?21:20,tier(snap,s,o.yards>=15));
  case E::Interception:return negative?catalog::type(13):catalog::choose(std::array<int,2>{12,8},key);
  case E::FumbleRecovery:case E::ForcedFumble:return catalog::type(negative?9:8);
  case E::Sack:return catalog::type(negative?15:14);

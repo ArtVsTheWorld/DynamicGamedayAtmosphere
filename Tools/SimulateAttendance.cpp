@@ -26,6 +26,7 @@ void scoreboard(State& s,int tick,int path){
     if(path==3){for(int t:{250,600,950,1500})if(tick>=t)s.awayScore+=7;for(int t:{1300,1700,2000,2300})if(tick>=t)s.homeScore+=7;}
     if(path==4){for(int t:{300,900,1500,2300})if(tick>=t)s.homeScore+=7;for(int t:{600,1300,1900})if(tick>=t)s.awayScore+=7;}
     if(path==5){s.homeScore=tick>=600?14:tick>=300?7:0;s.awayScore=tick>=900?14:tick>=400?7:0;for(int t:{2200,2400,2600})if(tick>=t)s.awayScore+=7;}
+    if(path==10){for(int t:{300,730,1000,1350,1700,2100})if(tick>=t)s.homeScore+=7;for(int t:{900,1500,2300})if(tick>=t)s.awayScore+=3;}
     if(path>=6&&path<=9){bool home=path>=8,early=path%2==0;int winner=0;
         for(int t:{300,600,750,900,1050,1200})if(tick>=(early?t:2400+(t-300)/3))winner+=7;
         s.homeScore=home?winner:(tick>=600?7:0);s.awayScore=home?(tick>=600?7:0):winner;}
@@ -92,7 +93,10 @@ int main(int argc,char** argv){
         {"Championship blowout",.95f,8,4,0,1,false,false,false,true,2},
         {"Bowl close native peak",.75f,35,45,0,0,false,false,false,true,3},
         {"Early 35-point home loss",.5f,60,55,0,6},{"Late 35-point home loss",.5f,60,55,0,7},
-        {"Early rainy 35-point home win",.5f,60,65,1,8},{"Late rainy 35-point home win",.5f,60,65,1,9}};
+        {"Early rainy 35-point home win",.5f,60,65,1,8},{"Late rainy 35-point home win",.5f,60,65,1,9},
+        {"Night home win42-9",.95f,35,60,0,10,true},
+        {"Day home win42-9",.95f,35,60,0,10,false},
+        {"Neutral night win42-9",.95f,35,60,0,10,true,false,false,true}};
     std::ofstream points(dir/"game-curves.csv"),summary(dir/"scenario-summary.csv"),checks(dir/"checks.txt"),sensitivity(dir/"sensitivity.csv"),inputs(dir/"fixture-inputs.csv");
     inputs<<"scenario,support_percentile,home_rank,away_rank,precipitation,score_path,night,rivalry,severe_late,neutral,postseason_kind,nominal_capacity\n";
     sensitivity<<"scenario,seats,quarter_length,hidden_window_reference_seconds,final_departures_pct_of_peak,final_capacity_pct\n";
