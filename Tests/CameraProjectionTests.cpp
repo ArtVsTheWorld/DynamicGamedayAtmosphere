@@ -43,16 +43,16 @@ int main(){
             referenceView=identity;assert(apply(referenceView,cue,tick,1,1,ReferenceStrength*setting));target=project(referenceView,reference);
         }
     }
-    // Feedback was from 2.0.31, not the uninstalled 2.0.32 candidate. The
-    // requested -15% broad / +5% tight rebalance must not stack its 25% cut.
+    // Broad framing must match 2.0.32 exactly; tight framing keeps the
+    // accepted 2.0.33 strength. Both use the 2.0.31 common reference.
     assert(std::fabs(ReferenceStrength-1.10f)<.000001f);
-    assert(std::fabs(framingGain(1.9437481f)-.85f)<.000001f);
+    assert(std::fabs(framingGain(1.9437481f)-.75f)<.000001f);
     assert(std::fabs(framingGain(2.9128082f)-1.05f)<.000001f);
-    assert(std::fabs(framingGain((1.9437481f+2.9128082f)*.5f)-.95f)<.000001f);
+    assert(std::fabs(framingGain((1.9437481f+2.9128082f)*.5f)-.90f)<.000001f);
     unsigned curveChecks=0;float previous=1.05f;
     for(unsigned step=500;step<=16000;++step){
         const float fov=step*.01f;auto p=lens(fov,16.f/9);auto s=scale(p);if(!s.valid)continue;
-        assert(s.framing>=.85f&&s.framing<=1.050001f&&s.framing<=previous+.000001f);
+        assert(s.framing>=.75f&&s.framing<=1.050001f&&s.framing<=previous+.000001f);
         assert(previous-s.framing<.001f);previous=s.framing;
         for(float aspect:{4.f/3,21.f/9}){auto other=scale(lens(fov,aspect));if(other.valid)assert(other.framing==s.framing);}
         ++curveChecks;
@@ -63,9 +63,11 @@ int main(){
         Cue tested{99,1,2000,1000,17000,kind,20,false,30};
         for(float fov:{35.f,54.449f,37.896f,88.5f}){
             auto p=lens(fov,16.f/9);auto optical=scale(p);auto accepted=identity,current=identity;
-            const float requested=fov==35.f||fov==37.896f?1.05f:.85f;
+            const bool tight=fov==35.f||fov==37.896f;
+            const float requested=tight?1.05f:.75f;
             assert(std::fabs(optical.framing-requested)<.000001f);
-            assert(apply(accepted,tested,2000,optical.pitch,optical.yaw,1.10f*requested));
+            // Independent historical gains: 2.0.33 tight / 2.0.32 broad.
+            assert(apply(accepted,tested,2000,optical.pitch,optical.yaw,tight?1.155f:.825f));
             assert(apply(current,tested,2000,optical.pitch,optical.yaw,ReferenceStrength*optical.framing));
             for(size_t i=0;i<current.size();++i)assert(std::fabs(current[i]-accepted[i])<.000001f);
         }

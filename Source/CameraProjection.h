@@ -6,20 +6,20 @@
 
 namespace attendance::motion::projection {
 // The 35-degree/16:9 lens is a geometry reference, not a preset identifier.
-// Later feedback was on 2.0.31 at factory settings. Use that reference with
-// the framing curve below rather than stacking the uninstalled 2.0.32 cut.
+// The common gain is from 2.0.31. Broad framing matches 2.0.32 while
+// tight framing retains the accepted 2.0.33 strength.
 inline constexpr float ReferenceY=3.1715948f,ReferenceX=ReferenceY*9.f/16.f;
 inline constexpr float ReferenceStrength=1.10f;
 inline constexpr uint64_t FallbackMs=250;
 // A bounded framing preference, separate from optical compensation. These
 // focal lengths come from the accepted wide/tight live views, not preset IDs.
-// Smoothstep gives broad views 15% less motion and tight views a modest 5%
+// Smoothstep gives broad views 25% less motion and tight views a modest 5%
 // lift, including custom cameras. Evaluate in focal space to avoid an atan
 // in the camera callback; the slope reaches zero at both endpoints.
 inline constexpr float BroadFocalY=1.9437481f,TightFocalY=2.9128082f;
 inline float framingGain(float focalY){
     const float t=std::clamp((focalY-BroadFocalY)/(TightFocalY-BroadFocalY),0.f,1.f);
-    return .85f+.20f*t*t*(3.f-2.f*t);
+    return .75f+.30f*t*t*(3.f-2.f*t);
 }
 struct Scale {
     float pitch=1,yaw=1,fx=ReferenceX,fy=ReferenceY,framing=1;

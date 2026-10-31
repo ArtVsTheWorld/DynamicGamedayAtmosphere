@@ -161,7 +161,7 @@ int main(){
     // intermediate lens without a preset lookup. All axes get the bias once,
     // across effect categories and independent user preferences.
     Runtime framed;framed.configure(image);
-    for(auto sample:{std::array<float,2>{1.9437481f,.85f},std::array<float,2>{2.9128082f,1.05f},std::array<float,2>{2.42827815f,.95f}}){
+    for(auto sample:{std::array<float,2>{1.9437481f,.75f},std::array<float,2>{2.9128082f,1.05f},std::array<float,2>{2.42827815f,.90f}}){
         projection[5]=sample[0];projection[0]=sample[0]*9.f/16;
         std::memcpy(reinterpret_cast<void*>(addr(view[0])+0x2b4),projection.data(),sizeof(projection));auto saved=view;
         for(auto kind:{Kind::Ordinary,Kind::Critical,Kind::LivePlay,Kind::Touchdown,Kind::Eruption,Kind::Safety,Kind::BlockedKick,Kind::Clincher,Kind::Cannon})for(float preference:{.5f,1.f,1.25f,2.f}){
