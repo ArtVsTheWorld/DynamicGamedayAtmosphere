@@ -1,28 +1,38 @@
 # Update 3 Hotfix
 
-Version 2.0.28
+Version 2.0.35 · All changes since 2.0.21
 
 **Install:** close the game and MMC, unzip, and copy both `DynamicGamedayAtmosphere.dll` and the `DynamicGamedayAtmosphere` folder beside it into MMC's `Plugins` folder. Merge folders and replace matching files. The Markdown files are just reading material
 
-**Settings & installation**
-- Gameday Atmosphere is available under **Pause > Options > Settings**, at the far right after Auto-Subs, using the same saved settings as the Dynasty/RTG tab
-- All 44 settings have simple explanations. Separate Standard, Zoom, All-22, Wide and Broadcast shake sliders default to 100%, with the new camera balance underneath
-- The ZIP opens directly to the DLL, its matching runtime folder and documentation. The loader is separate from the DLL and its hash is verified before use
-- Fixed deeply nested settings paths and improved launcher error details. Existing Update 3 settings stay in place; Update 2 settings receive the intended one-time reset automatically
-- Crowd Volume Adjustment is capped at 100% again, with 100% as the default
+**Settings & Installation**
+- Gameday Atmosphere is now available under Pause > Options > Settings, at the far right after Auto-Subs, sharing the same saved settings as the Dynasty/RTG tab
+- 44 plainly explained settings, including separate Standard, Zoom, All-22, Wide and Broadcast shake sliders from 0–200%
+- The ZIP opens directly to the DLL, its matching runtime folder and documentation, with the loader packaged separately from the DLL
+- Fixed deeply nested settings paths and improved launcher errors, including the failing file and operation
+- Existing Update 3 settings are preserved, while Update 2 settings still receive the intended one-time refresh automatically
 
-**Reactions & sound**
-- Eruptions use the largest cheer and roar variants; pass-flight buildup uses the strongest native swell
-- Negative visitor counterparts cover gains, catches, skills, returns, takeaways and defensive stops. Optional **Away Team Reaction Shake** adds one fifth of the matching home effect, off by default. Neutral sites retain their existing balance
-- Independent live-skill, result and eruption sounds can overlap each other and vanilla reactions. A coinciding skill has its own sound slot, and a newer reaction no longer cancels an already-scheduled follow-up cheer
-- Close one-score games build atmosphere for either offense throughout the final two minutes of Q4, with the usual crowd requirements
-- The visitors' opening offensive play gets a faster, fuller hostile roar and swell. Opening-kickoff shake is gentler at 6–8% before scaling
+**Camera Shake**
+- Shake balances itself using the actual lens and FOV, including modded cameras, with tighter Zoom-like views stronger than Standard/wider views
+- The latest Standard/wider tuning includes the tested extra 10% reduction, while the accepted Zoom strength is retained
+- All camera sliders default to 100 for the new balance, so return any temporary 90% test settings to 100 after updating
+- Away Team Reaction Shake is now a 0–100% slider, defaulting to 0, with 100 matching the home-team reaction
+- Neutral-Site Crowd Shake is a separate 0–100% slider for both teams, defaulting to the existing 75% balance
+- Trucks are 50% stronger, confirmed big hits use the same strength on defensive stops or losses, and immediately tackled big catches get a stronger impact
+- Improved touchdown and eruption shake through brief sound handoffs and celebration-camera changes to reduce the stop-start feel
+- Opening-kickoff shake is gentler at 6–8% before crowd and camera scaling
 
-**Camera fixes**
-- Trucks are 50% stronger; confirmed big hits use the same strength on defensive stops or losses. Immediately tackled big catches get a stronger impact
-- At 100%, camera sliders use Standard 1.10×, Zoom 1.30×, All-22 0.75×, Wide 1.00× and Broadcast 0.75×
-- Touchdown/eruption shake keeps its original envelope through brief crowd-sound handoffs. Pause, replay, mute, new-game and new-play stops still apply
+**Sound & Reactions**
+- The visitors' first offensive play gets a faster, fuller hostile roar and swell
+- Eruptions use the biggest cheer and roar variants, while pass-flight buildup uses the strongest native swell
+- Negative visitor reactions cover gains, catches, skills, returns, takeaways and defensive stops, with optional shake following the away slider
+- Independent skill, result and celebration sounds can overlap each other and vanilla reactions, with a separate slot for coinciding skill reactions
+- New reactions no longer cancel already-scheduled follow-up cheers, and away shake follows its verified play through sound and whistle handoffs
+- Close one-score games build atmosphere for either offense throughout the last two minutes of Q4, with the usual crowd requirements
 
 **Attendance**
-- UCLA gets a 14% soft demand discount and USC 10% at regular home games, applied before the capacity cap. Sellouts remain possible; protected rivalry events keep their special turnout
-- USC and Virginia (UVA) join UCLA, Miami, Georgia Tech, Maryland and Utah in the late-arrival group
+- UCLA gets a 14% soft demand discount and USC 10% at regular home games, with sellouts still possible and protected rivalry turnout preserved
+- USC and Virginia join the late-arrival group
+
+**Fixes & Performance**
+- Cut repeated camera-settings checks, protected against incomplete memory reads and kept projection fallbacks tied to the correct camera and game
+- Clearer technical camera output and more reliable diagnostic logging, while preserving the details needed to troubleshoot

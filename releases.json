@@ -34,6 +34,15 @@
       "asset": "DynamicGamedayAtmosphere-Update3.zip",
       "sha256": "7fc730bb20530922df8c55130dba3b0c486b26e47acd314b34e2f038326f99d7",
       "notes": "docs/releases/Update3.md",
+      "latest": false
+    },
+    {
+      "name": "Update 3 Hotfix",
+      "workingVersion": "2.0.35",
+      "tag": "v2.0.35",
+      "asset": "DynamicGamedayAtmosphere-Update3Hotfix.zip",
+      "sha256": "c57c3eea0b25158d7100aa9644341b635d59ca67855b75452a7f10381a0272ac",
+      "notes": "docs/releases/Update3Hotfix.md",
       "latest": true
     }
   ]
