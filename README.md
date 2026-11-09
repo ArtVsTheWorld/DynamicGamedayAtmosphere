@@ -1,54 +1,23 @@
-# Dynamic Gameday Atmosphere
+# Gameday Atmosphere
 
-By Ace · **Update 3 Hotfix — 2.0.35** · College Football 27 for Windows · MMC
+**By Ace.** Crowd arrivals and exits, traveling supporters, reactive sound and camera shake.
 
-Crowds arrive, take halftime breaks and leave early. Crowd sound follows the fans in the seats, while big plays bring extra reactions, camera shake and replay opportunities.
+**[Download 2.1.9 ZIP](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.1.9/GamedayAtmosphere-2.1.9.zip)** · [Full feature list](FEATURES.md) · [What's new](RELEASES.md)
 
-[Download](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/latest) · [Full feature list](FEATURES.md)
+Update 4. Ace reported the standalone packaging working; other setups still need their own checks.
 
 ## Install or update
 
-1. Close the game and MMC.
-2. Unzip the download and open the extracted folder.
-3. Copy **both** of these into your MMC **Plugins** folder:
+1. Close the game and MMC Mod Manager.
+2. Put **GamedayAtmosphere.dll** directly in the versioned Mod Manager's **Plugins** folder. The ZIP contains that DLL, README.txt and FEATURES.md. Matching support files are embedded and prepared automatically.
+3. Move older duplicate plugin DLLs outside Plugins, keeping settings/history folders. Restart MMC and launch normally. Use a writable MMC folder outside Program Files.
 
-   - `DynamicGamedayAtmosphere.dll`
-   - The `DynamicGamedayAtmosphere` folder beside it
+Read README.txt in the ZIP for this module's menu, old filenames, logs and removal steps. Use one provider of each feature. If keeping COT for other modules, disable this feature in COT before using the standalone. You can install any combination of matching current standalone modules.
 
-4. If Windows asks, merge the folders and replace matching files. Then open MMC and launch the game normally.
+**Want one feature? Download its standalone ZIP. Want the collection? [Download Dynasty COT](https://github.com/ArtVsTheWorld/DynastyCOT/releases).** See the [compatibility and saved-data guide](https://github.com/ArtVsTheWorld/DynastyCOT/blob/0c387c580473a84b7e5e5e8ff5ee44f8117fb5cf/docs/standalones.md).
 
-Your MMC folder should look like this:
+## Source and verification
 
-```text
-MMC/
-  Plugins/
-    DynamicGamedayAtmosphere.dll
-    DynamicGamedayAtmosphere/
-```
+This repository is the standalone download/help front door. Current releases are built from the [single maintained COT workspace](https://github.com/ArtVsTheWorld/DynastyCOT/tree/0c387c580473a84b7e5e5e8ff5ee44f8117fb5cf), including [this module's source](https://github.com/ArtVsTheWorld/DynastyCOT/tree/0c387c580473a84b7e5e5e8ff5ee44f8117fb5cf/Modules/GamedayAtmosphere) and shared build/packaging code. `source-release.json` pins the exact source revision, baseline and artifact hashes.
 
-The matching folder contains files the plugin needs to run. **Copy it along with the DLL every time you update.** Keep your existing folder and merge the new files into it so your settings and crowd history stay in place.
-
-You do not need to copy the `.md` files into MMC. They are just instructions and the feature list.
-
-## Settings
-
-Open **Gameday Atmosphere** from either:
-
-- **Dynasty/RTG Central → User Settings**
-- **Pause → Options → Settings**, at the far right after Auto-Subs
-
-Most people can keep the defaults. Turn on the game's **Dynamic Camera Effects** if you want added shake. Broadcast includes separate shake sliders for Standard, Zoom, All-22, Wide and Broadcast cameras. The actual lens balances shake automatically, including modded cameras: tight views feel a little stronger than wide views. 100 uses the recommended balance, 50 halves it and 0 turns it off for that camera. Existing slider choices are kept.
-
-Use **100 on the camera sliders** for the new balance. If you lowered them to 90 while testing the previous build, return them to 100 after updating; that reduction is now built into Standard/wider framing.
-
-**Away Team Reaction Shake (%)** starts at 0 (off); 50 is half the matching home reaction and 100 is the same strength. **Neutral-Site Crowd Shake (%)** controls both teams at neutral stadiums and starts at the usual 75. Existing On settings become 35% when updated; existing Off settings stay at 0%.
-
-**Existing Update 3 settings are kept.** Updating from Update 2 resets the old settings once and saves a backup automatically. You do not need to delete any INIs.
-
-## If something is wrong
-
-Send the whole **`Plugins/DynamicGamedayAtmosphere/Logs`** folder and briefly describe what happened. For a problem during a game, include the teams and quarter/clock.
-
-If MMC reports a missing runtime loader, copy the matching `DynamicGamedayAtmosphere` folder from the ZIP again.
-
-Offline Dynasty and Road to Glory have been tested on the game update checked October 30, 2026. The revised peak-attendance formula applies to fresh regular-season Dynasty games. See the full feature list for mode differences and replay limitations.
+The older source tree retained in this repository is historical; it is **not** the build input for this standalone release. Fixes are maintained in COT rather than separately editing four forks. Release assets include integrity metadata; successful offline checks do not certify every game/overhaul combination.

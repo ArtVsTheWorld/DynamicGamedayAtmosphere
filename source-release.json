@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "title": "Gameday Atmosphere",
+  "version": "2.1.9",
+  "repository": "https://github.com/ArtVsTheWorld/DynastyCOT",
+  "revision": "0c387c580473a84b7e5e5e8ff5ee44f8117fb5cf",
+  "modulePath": "Modules/GamedayAtmosphere",
+  "baselineTag": "v2.0.35",
+  "baselineCommit": "193662a9af440ef9cdc6903171e1a30b8acb0164",
+  "firstPublishedStandalone": false,
+  "archive": "GamedayAtmosphere-2.1.9.zip",
+  "archiveSha256": "3bc58395d561992503cd7fed5e04680f2224332a1d81987435b893d49fc447e2",
+  "dllSha256": "61eb018fa4b4c9fef0fde87ede19b3fae0cd2eebc55ae16735ff611922b5a6d5",
+  "threeFileZip": true,
+  "preview": false,
+  "sourceTreeHere": "historical; use pinned integration workspace"
+}
