@@ -17,6 +17,9 @@ Validation: 90 packaging/storage/guard checks including four existing regression
 Source comparison: old tag `v2.0.35`, commit `193662a9af440ef9cdc6903171e1a30b8acb0164`; current maintained source is pinned in `source-release.json`. User-facing changes were checked against `AwayCrowd.h`, `VisitorPlans.h`, `SettingsMenuOptions.inc`, `NativeRuntime.cpp`, `ReactionAudioRuntime.h` and `MajorReplay.h`, not inferred from version numbers. Existing arrival, turnout, Fuller Crowds, halftime, 2020 Mode and general replay features are retained rather than presented as new.
 
 
+All four standalone releases were confirmed verified working by Ace on November 9, 2026. The tested ZIP/DLL bytes are unchanged; other game/overhaul combinations are not automatically certified.
+
+
 ---
 
 ## Earlier release notes

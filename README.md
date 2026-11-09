@@ -4,7 +4,7 @@
 
 **[Download 2.1.9 ZIP](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.1.9/GamedayAtmosphere-2.1.9.zip)** · [Full feature list](FEATURES.md) · [What's new](RELEASES.md)
 
-Update 4. Ace reported the standalone packaging working; other setups still need their own checks.
+Update 4. Ace reported the standalone packaging working; all four releases were confirmed on November 9, 2026. Other setups still need their own checks.
 
 ## Install or update
 
@@ -14,7 +14,7 @@ Update 4. Ace reported the standalone packaging working; other setups still need
 
 Read README.txt in the ZIP for this module's menu, old filenames, logs and removal steps. Use one provider of each feature. If keeping COT for other modules, disable this feature in COT before using the standalone. You can install any combination of matching current standalone modules.
 
-**Want one feature? Download its standalone ZIP. Want the collection? [Download Dynasty COT](https://github.com/ArtVsTheWorld/DynastyCOT/releases).** See the [compatibility and saved-data guide](https://github.com/ArtVsTheWorld/DynastyCOT/blob/e9322de06b3309b113d1e98b169a76a68ad22b25/docs/standalones.md).
+**Want one feature? Download its standalone ZIP. Want the collection? [Download Dynasty COT](https://github.com/ArtVsTheWorld/DynastyCOT/releases).** See the [compatibility and saved-data guide](https://github.com/ArtVsTheWorld/DynastyCOT/blob/55f977425d09f5777161a9d815b8df209fa0f8d3/docs/standalones.md).
 
 ## Source and verification
 

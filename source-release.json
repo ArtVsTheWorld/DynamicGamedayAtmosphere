@@ -13,5 +13,12 @@
   "dllSha256": "61eb018fa4b4c9fef0fde87ede19b3fae0cd2eebc55ae16735ff611922b5a6d5",
   "threeFileZip": true,
   "preview": false,
-  "sourceTreeHere": "historical; use pinned integration workspace"
+  "sourceTreeHere": "historical; use pinned integration workspace",
+  "releaseStatusRevision": "55f977425d09f5777161a9d815b8df209fa0f8d3",
+  "acceptance": {
+    "kind": "user-reported",
+    "date": "2026-11-09",
+    "scope": "All four standalone releases confirmed verified working in this chat",
+    "testedArchiveUnchanged": true
+  }
 }
