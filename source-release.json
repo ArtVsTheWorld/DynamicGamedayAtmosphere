@@ -1,24 +1,17 @@
 {
   "format": 1,
   "title": "Gameday Atmosphere",
-  "version": "2.1.9",
+  "version": "2.1.11",
   "repository": "https://github.com/ArtVsTheWorld/DynastyCOT",
-  "revision": "e9322de06b3309b113d1e98b169a76a68ad22b25",
+  "revision": "d9f479dd307195da9aa9eed4d5658edd26b515d2",
   "modulePath": "Modules/GamedayAtmosphere",
-  "baselineTag": "v2.0.35",
-  "baselineCommit": "193662a9af440ef9cdc6903171e1a30b8acb0164",
+  "baselineTag": "v2.1.9",
+  "baselineCommit": "90d6f3c81e846444bb8a36f9af7702ac4ecfce7b",
   "firstPublishedStandalone": false,
-  "archive": "GamedayAtmosphere-2.1.9.zip",
-  "archiveSha256": "3bc58395d561992503cd7fed5e04680f2224332a1d81987435b893d49fc447e2",
-  "dllSha256": "61eb018fa4b4c9fef0fde87ede19b3fae0cd2eebc55ae16735ff611922b5a6d5",
+  "archive": "GamedayAtmosphere-2.1.11.zip",
+  "archiveSha256": "3463fec476cd4dfe08f96dc9a9050e4486658a744c330e334d20e2e8c3625417",
+  "dllSha256": "6657871da9629498c31d60e97140111801cb9e0da8fd3cb015a0575fcd89af9f",
   "threeFileZip": true,
   "preview": false,
-  "sourceTreeHere": "historical; use pinned integration workspace",
-  "releaseStatusRevision": "55f977425d09f5777161a9d815b8df209fa0f8d3",
-  "acceptance": {
-    "kind": "user-reported",
-    "date": "2026-11-09",
-    "scope": "All four standalone releases confirmed verified working in this chat",
-    "testedArchiveUnchanged": true
-  }
+  "sourceTreeHere": "historical; use pinned integration workspace"
 }
