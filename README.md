@@ -1,23 +1,15 @@
-# Gameday Atmosphere
+# Ace’s Gameday Atmosphere
 
-**By Ace.** Crowd arrivals and exits, traveling supporters, reactive sound and camera shake.
+**[Download 2.1.38 ZIP](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.1.38/GamedayAtmosphere-2.1.38.zip)** · [Illustrated player guide](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.1.38/GamedayAtmosphere-Player-Guide.pdf) · [All features](FEATURES.md) · [What changed](RELEASES.md)
 
-**[Download 2.1.11 ZIP](https://github.com/ArtVsTheWorld/DynamicGamedayAtmosphere/releases/download/v2.1.11/GamedayAtmosphere-2.1.11.zip)** · [Full feature list](FEATURES.md) · [What's new](RELEASES.md)
+Close MMC/game. Copy **GamedayAtmosphere.dll** from the ZIP into the **Plugins** folder beside the MMCModManager.exe you actually use, replacing the prior copy. Keep the included README, feature list and illustrated guide. The ZIP has exactly those four files; required notices are in the README appendix where needed. Matching support prepares automatically outside Plugins.
 
-Play Now replay eligibility hotfix; crowd policies retained. Production package passed offline checks; touchdown presentation remains native and is not guaranteed.
+Your settings, reports, accounts and published history stay under `%LOCALAPPDATA%\Ace\DynastyCOT`. Use Win+R to open that folder. The guide names the exact module logs and settings menus. To roll back, restore the prior DLL with MMC/game closed, or use the collection installer's Backups. Keep user data.
 
-## Install or update
+**Want one feature? Download its standalone ZIP. Want several? [Use the Dynasty COT installer](https://github.com/ArtVsTheWorld/DynastyCOT/releases/tag/v1.1.5).** The installer handles recognized older copies transactionally. Keep one provider of each feature.
 
-1. Close the game and MMC Mod Manager.
-2. Put **GamedayAtmosphere.dll** directly in the versioned Mod Manager's **Plugins** folder. The ZIP contains that DLL, README.txt and FEATURES.md. Matching support files are embedded and prepared automatically.
-3. Move older duplicate plugin DLLs outside Plugins, keeping settings/history folders. Restart MMC and launch normally. Use a writable MMC folder outside Program Files.
-
-Read README.txt in the ZIP for this module's menu, old filenames, logs and removal steps. Use one provider of each feature. If keeping COT for other modules, disable this feature in COT before using the standalone. You can install any combination of matching current standalone modules.
-
-**Want one feature? Download its standalone ZIP. Want the collection? [Download Dynasty COT](https://github.com/ArtVsTheWorld/DynastyCOT/releases).** See the [compatibility and saved-data guide](https://github.com/ArtVsTheWorld/DynastyCOT/blob/d9f479dd307195da9aa9eed4d5658edd26b515d2/docs/standalones.md).
+Read the release notes for supported contexts and remaining live acceptance. Offline checks are separate from actual menu, crowd visual, performance and audible results. Optional trusted-build Defender help is in the guide; security exclusions are not required for everyone and are never added automatically.
 
 ## Source and verification
 
-This repository is the standalone download/help front door. Current releases are built from the [single maintained COT workspace](https://github.com/ArtVsTheWorld/DynastyCOT/tree/d9f479dd307195da9aa9eed4d5658edd26b515d2), including [this module's source](https://github.com/ArtVsTheWorld/DynastyCOT/tree/d9f479dd307195da9aa9eed4d5658edd26b515d2/Modules/GamedayAtmosphere) and shared build/packaging code. `source-release.json` pins the exact source revision, baseline and artifact hashes.
-
-The older source tree retained in this repository is historical; it is **not** the build input for this standalone release. Fixes are maintained in COT rather than separately editing four forks. Release assets include integrity metadata; successful offline checks do not certify every game/overhaul combination.
+Development stays in the [shared COT workspace](https://github.com/ArtVsTheWorld/DynastyCOT/tree/a79a45e63b661d2da378dc2c079f5e99374d3d8c); [current module source](https://github.com/ArtVsTheWorld/DynastyCOT/tree/a79a45e63b661d2da378dc2c079f5e99374d3d8c/Modules/GamedayAtmosphere). The older tree in this download/support repository is historical and is not the current build input. `source-release.json` pins the source revision and artifact hashes. Verification JSON and SHA-256 files are separate release assets; the editable guide is also available.
