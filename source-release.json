@@ -1,13 +1,13 @@
 {
   "format": 2,
-  "version": "2.1.40",
+  "version": "2.1.41",
   "repository": "ArtVsTheWorld/DynastyCOT",
-  "revision": "5ef7eb5f05af9678cad922386157de88216d5c7d",
+  "revision": "ae9910561de6e6c327fb6051926e8a3087f7b242",
   "modulePath": "Modules/GamedayAtmosphere",
-  "archive": "GamedayAtmosphere-2.1.40.zip",
-  "archiveSha256": "fa4f2d18d081dbf1e8ee94a2f75982c87249f3bdd326c2a82a684768f4ee8c36",
-  "dllSha256": "5118e699c90409f12601e5524d30f707b9e1e27b68829ebb1fc878024c75a76a",
+  "archive": "GamedayAtmosphere-2.1.41.zip",
+  "archiveSha256": "799810ee4e7f451873f616858669fa14b70b168a8cd0170538cfa3eee440795e",
+  "dllSha256": "b77771860c6199ba945b7c4267658227ca050c313f753d09f9fda070ea0c3710",
   "playerGuideSha256": "03dbdad49c31ee6c1faf991bb87688e7fd417555c38a8e9647a32a910974b9b2",
   "fourFileZip": true,
-  "publicBaseline": "2.1.39"
+  "publicBaseline": "2.1.40"
 }
